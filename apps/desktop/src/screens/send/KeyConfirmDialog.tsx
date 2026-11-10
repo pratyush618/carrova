@@ -53,11 +53,14 @@ export function KeyConfirmDialog({
       <p>{t(`sensitive.${secret.why}`)}</p>
       <p>{t('send.keys.travel')}</p>
       <List label={t('send.keys.files')}>
-        {secret.keys.length > 0
-          ? secret.keys.map((file) => <KeyRow key={file.path} file={file} />)
-          : secret.paths.map((path) => (
-              <Row key={path} lead={<Icon name="key" size="sm" />} title={<Path>{path}</Path>} />
-            ))}
+        {secret.keys.map((file) => (
+          <KeyRow key={file.path} file={file} />
+        ))}
+        {secret.paths
+          .filter((path) => !secret.keys.some((file) => file.path === path))
+          .map((path) => (
+            <Row key={path} lead={<Icon name="key" size="sm" />} title={<Path>{path}</Path>} />
+          ))}
       </List>
       <Note>{t('send.keys.asksAgain')}</Note>
     </Dialog>

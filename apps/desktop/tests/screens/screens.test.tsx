@@ -207,6 +207,21 @@ describe('Key confirm', () => {
     expect(within(dialog).queryByText(/marked sensitive/)).not.toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Leave behind' })).toHaveFocus();
   });
+
+  it('lists declared paths beside the key files, each path once', () => {
+    const [secret] = SECRETS;
+    if (secret === undefined) throw new Error('fixture');
+    const paths = [...secret.paths, '~/.ssh/id_ed25519'];
+    renderScreen(
+      <KeyConfirmDialog
+        secret={{ ...secret, paths }}
+        on={{ onBring: vi.fn(), onLeave: vi.fn() }}
+      />,
+    );
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText('~/.ssh')).toBeInTheDocument();
+    expect(within(dialog).getAllByText('~/.ssh/id_ed25519')).toHaveLength(1);
+  });
 });
 
 describe('Pairing code', () => {
