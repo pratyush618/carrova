@@ -89,6 +89,7 @@ fn walks_nested_dirs_with_excludes() {
     assert_eq!(r.total_size, 10 + 4 + 5 + 20);
     assert!(r.missing.is_empty());
     assert!(r.skipped.is_empty(), "{:?}", r.skipped);
+    #[cfg(unix)] // Windows files have no mode bits
     assert!(r.entries.iter().all(|e| e.mode.is_some()));
 }
 
