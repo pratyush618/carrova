@@ -32,7 +32,7 @@ use crate::session::progress::PROGRESS_STEP;
 use crate::session::{EventSink, Phase, ProgressMeter};
 
 pub use layout::{STAGED_MODE, StageLayout};
-pub(crate) use plugins::run_plugins;
+pub(crate) use plugins::{read_capped, run_plugins};
 pub use staging::{CheckpointPolicy, StagingStore};
 
 /// Verified staged data.

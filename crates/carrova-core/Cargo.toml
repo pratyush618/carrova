@@ -39,6 +39,7 @@ carrova-core = { path = ".", features = ["test-support"] }
 carrova-platform = { workspace = true, features = ["fake"] }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
+wat = { workspace = true }
 
 [lints]
 workspace = true

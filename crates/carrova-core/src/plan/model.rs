@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use carrova_manifest::ManifestItem;
 use carrova_platform::SemanticRoot;
+use carrova_plugin::PluginManifest;
 pub use carrova_recipe::Handler;
 use carrova_recipe::PluginId;
 use serde::{Deserialize, Serialize};
@@ -134,8 +135,10 @@ pub struct PlannedHandler {
     pub import_trust: bool,
 }
 
-/// A plugin the plan runs over the files of `items`, with what the user
-/// is asked to allow ([`PlanOptions::confirmed_plugins`]).
+/// A plugin run over the files of `items`, with what the user is asked to
+/// allow: on the receiver the plan's ([`PlanOptions::confirmed_plugins`]),
+/// on the sender a selection's export
+/// ([`crate::Selection::confirmed_plugins`]).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct PlannedPlugin {
@@ -147,6 +150,23 @@ pub struct PlannedPlugin {
     pub permissions: Vec<String>,
     /// Selected items whose files it changes, manifest order.
     pub items: Vec<ItemKey>,
+}
+
+impl PlannedPlugin {
+    /// Add `item` to `plugin`'s entry in `list`, appending the entry on
+    /// the plugin's first use.
+    pub(crate) fn add(list: &mut Vec<Self>, plugin: &PluginManifest, item: ItemKey) {
+        match list.iter_mut().find(|p| p.plugin == plugin.id) {
+            Some(planned) => planned.items.push(item),
+            None => list.push(Self {
+                plugin: plugin.id.clone(),
+                version: plugin.version.clone(),
+                description: plugin.description.clone(),
+                permissions: plugin.permissions(),
+                items: vec![item],
+            }),
+        }
+    }
 }
 
 /// One slot of a cross-OS item restored at this computer's path for it:

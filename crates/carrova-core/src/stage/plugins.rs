@@ -6,9 +6,11 @@
 //! manifest's. The verified original stays, so a resumed LAN staging still
 //! matches its checkpoints.
 //!
-//! shortcut: the plan's free-space check counts the original sizes; output
-//! (≤ `MAX_IO_BYTES` per file) may be larger — count it once a plugin that
-//! grows files ships.
+//! The plan reserved room for each output at its original size
+//! ([`crate::space`]); since a plugin may grow a file, each output is
+//! checked against the free space (with the usual margin) before it is
+//! written unless the caller lifted that guard, and a shortfall (or a
+//! write hitting a full disk) is a [`CoreError::DiskFull`].
 
 use std::ffi::OsString;
 use std::io::{Read, Write};
@@ -16,22 +18,26 @@ use std::path::{Path, PathBuf};
 
 use carrova_manifest::{Blake3Hash, Manifest};
 use carrova_platform::{Platform, PlatformError, SemanticRoot};
-use carrova_plugin::{MAX_IO_BYTES, MAX_RUN_FUEL, Plugin, TransformContext};
+use carrova_plugin::{MAX_IO_BYTES, Plugin, RunBudget, TransformContext};
 
 use super::{STAGED_MODE, Staged};
 use crate::error::{CoreError, Result};
 use crate::key::RootedPath;
 use crate::plan::Plan;
+use crate::space::{disk_full_or, required_space};
 
 /// Run every planned plugin over its items' staged files (see the module
-/// docs). Any failure is a [`CoreError::Plugin`]; nothing outside staging
-/// has been written by then.
+/// docs); `check_room` keeps the free-space guard before each output.
+/// A plugin failure is a [`CoreError::Plugin`], a full disk
+/// [`CoreError::DiskFull`]; nothing outside staging has been written by
+/// then. Rerunning on the `staged` it was given redoes the same outputs.
 pub(crate) fn run_plugins(
     platform: &dyn Platform,
     plan: &Plan,
     manifest: &Manifest,
     plugins: &[Plugin],
     staged: &mut Staged,
+    check_room: bool,
 ) -> Result<()> {
     if plan.plugins.is_empty() {
         return Ok(());
@@ -59,7 +65,7 @@ pub(crate) fn run_plugins(
             .iter()
             .find(|p| p.manifest().id == planned.plugin)
             .ok_or_else(|| failed("-".into(), "not available on this computer".into()))?;
-        let mut budget = MAX_RUN_FUEL;
+        let mut budget = RunBudget::new();
         for a in plan
             .actions
             .iter()
@@ -71,9 +77,18 @@ pub(crate) fn run_plugins(
             };
             let label = RootedPath::new(a.root, &a.rel).to_string();
             let output = plugin
-                .transform(&a.rel, &read_capped(platform, src)?, &context, &mut budget)
+                .transform(
+                    platform,
+                    &a.rel,
+                    &read_capped(platform, src)?,
+                    &context,
+                    &mut budget,
+                )
                 .map_err(|e| failed(label, e.to_string()))?;
             let out = output_path(src);
+            if check_room {
+                ensure_room(platform, &out, output.len() as u64)?;
+            }
             write_staged(platform, &out, &output)?;
             staged.files.insert(key.clone(), out);
             staged
@@ -84,15 +99,27 @@ pub(crate) fn run_plugins(
     Ok(())
 }
 
-/// A staged file's bytes, at most one byte over what a plugin accepts (so
-/// the plugin reports the size, not this reader).
-fn read_capped(platform: &dyn Platform, path: &Path) -> Result<Vec<u8>> {
+/// A file's bytes, at most one byte over what a plugin accepts (so the
+/// plugin reports the size, not this reader).
+pub(crate) fn read_capped(platform: &dyn Platform, path: &Path) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     platform
         .open_read_nofollow(path)?
         .take(MAX_IO_BYTES + 1)
         .read_to_end(&mut bytes)?;
     Ok(bytes)
+}
+
+/// [`CoreError::DiskFull`] unless the filesystem of `path` has room for
+/// `bytes` plus the usual margin ([`required_space`]).
+fn ensure_room(platform: &dyn Platform, path: &Path, bytes: u64) -> Result<()> {
+    let dir = path.parent().unwrap_or(path);
+    let needed = required_space(bytes);
+    let available = platform.free_space(dir)?;
+    if available < needed {
+        return Err(CoreError::DiskFull { needed, available });
+    }
+    Ok(())
 }
 
 /// `<staged file>.plugin`.
@@ -110,7 +137,10 @@ fn write_staged(platform: &dyn Platform, path: &Path, bytes: &[u8]) -> Result<()
         other => other?,
     }
     let mut file = platform.create_new_file(path, Some(STAGED_MODE))?;
-    file.write_all(bytes)?;
-    file.sync_all()?;
-    Ok(())
+    file.write_all(bytes)
+        .and_then(|()| file.sync_all())
+        .map_err(|e| {
+            let dir = path.parent().unwrap_or(path);
+            disk_full_or(platform, dir, e, required_space(bytes.len() as u64))
+        })
 }

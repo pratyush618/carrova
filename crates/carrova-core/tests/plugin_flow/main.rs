@@ -8,19 +8,23 @@
 #[expect(dead_code, reason = "shared test helpers; this test uses a subset")]
 #[path = "../support/mod.rs"]
 mod common;
+#[expect(dead_code, reason = "shared test helpers; this test uses a subset")]
+#[path = "../support/lan.rs"]
+mod lan_support;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 use carrova_core::plan::{Blocker, Plan};
 use carrova_core::{
-    Engine, Exporter, Importer, KdfParams, Passphrase, PlanOptions, Preset, ScanOptions, VecSink,
-    WriteOptions, sessions,
+    CoreError, Engine, Event, Exporter, Importer, KdfParams, Passphrase, PauseReason, Phase,
+    PlanOptions, Preset, ScanOptions, State, WriteOptions, sessions,
 };
-use carrova_platform::fake::FakePlatform;
-use carrova_platform::{OsKind, SemanticRoot};
+use carrova_platform::OsKind;
+use carrova_platform::fake::{FakePlatform, Hooks};
 use carrova_plugin::{Plugin, PluginManifest, PluginPackage};
 use carrova_recipe::PluginId;
+use lan_support::HookSink;
 use tempfile::TempDir;
 
 const RECIPE: &str = include_str!("../../../../recipes/notes/obsidian/recipe.yaml");
@@ -63,46 +67,56 @@ struct Side {
     tmp: TempDir,
     home: PathBuf,
     engine: Engine,
+    /// Shares hook state with the engine's platform (free-space override).
+    platform: FakePlatform,
+    sink: Arc<HookSink>,
 }
 
-/// A machine on `os`; macOS keeps `user_config` in `Library/Application
-/// Support` like the real adapter.
+/// A machine on `os`, roots laid out like the real adapter's.
 fn side(os: OsKind, plugins: Vec<Plugin>) -> Side {
     let tmp = TempDir::new().unwrap();
     let home = tmp.path().join("home");
-    let mut platform = FakePlatform::with_home(&home)
+    let platform = FakePlatform::with_os_layout(&home, os)
         .with_state_dir(tmp.path().join("state/carrova"))
-        .with_os(os)
-        .binary("obsidian", "/usr/bin/obsidian");
-    if os == OsKind::MacOs {
-        platform = platform.root(
-            SemanticRoot::UserConfig,
-            home.join("Library/Application Support"),
-        );
-    }
+        .binary("obsidian", "/usr/bin/obsidian")
+        .with_hooks(Hooks::default());
+    let sink = Arc::new(HookSink::default());
     let engine = Engine::new(
-        Arc::new(platform),
+        Arc::new(platform.clone()),
         common::recipes(RECIPE),
-        Arc::new(VecSink::default()),
+        sink.clone(),
     )
     .with_plugins(plugins);
-    Side { tmp, home, engine }
+    Side {
+        tmp,
+        home,
+        engine,
+        platform,
+        sink,
+    }
+}
+
+/// A Linux machine holding an Obsidian vault list, everything suggested
+/// selected.
+fn linux_sender() -> (Side, Exporter) {
+    let s = side(OsKind::Linux, vec![path_rewrite()]);
+    let config = s.home.join(".config/obsidian");
+    std::fs::create_dir_all(&config).unwrap();
+    std::fs::write(config.join("obsidian.json"), vault_list(&s.home)).unwrap();
+    let opts = ScanOptions {
+        include_undetected: false,
+        unrecognised: false,
+    };
+    let mut exp = Exporter::start(s.engine.clone(), opts).unwrap();
+    exp.select(exp.suggest(Preset::Suggested)).unwrap();
+    (s, exp)
 }
 
 /// The Linux sender's archive (built once per test binary) and its home.
 fn archive() -> &'static (PathBuf, PathBuf) {
     static ARCHIVE: OnceLock<(Side, (PathBuf, PathBuf))> = OnceLock::new();
     let (_, out) = ARCHIVE.get_or_init(|| {
-        let s = side(OsKind::Linux, vec![path_rewrite()]);
-        let config = s.home.join(".config/obsidian");
-        std::fs::create_dir_all(&config).unwrap();
-        std::fs::write(config.join("obsidian.json"), vault_list(&s.home)).unwrap();
-        let opts = ScanOptions {
-            include_undetected: false,
-            unrecognised: false,
-        };
-        let mut exp = Exporter::start(s.engine.clone(), opts).unwrap();
-        exp.select(exp.suggest(Preset::Suggested)).unwrap();
+        let (s, mut exp) = linux_sender();
         let path = s.tmp.path().join("out.carrova");
         let floor = WriteOptions {
             kdf: KdfParams::FLOOR,
@@ -201,14 +215,95 @@ fn linux_vault_paths_are_rewritten_for_macos_and_rolled_back() {
     assert!(!target.exists(), "rollback must remove the rewritten file");
 }
 
+#[test]
+fn plugin_items_need_room_for_their_output_on_the_state_dir_filesystem() {
+    let (r, mut imp) = receiver(vec![path_rewrite()]);
+    let plan = imp.plan(&confirmed()).unwrap().clone();
+    let vaults = vault_list(&archive().1).len() as u64;
+    let needs =
+        carrova_core::plan::space_needs(&**r.engine.platform(), &plan, imp.manifest().unwrap())
+            .unwrap();
+    let state = needs.iter().find(|n| n.state_dir).unwrap();
+    assert_eq!(state.bytes, plan.bytes_to_write + vaults, "{needs:?}");
+}
+
+#[test]
+fn plugin_output_without_room_is_a_full_disk_not_a_partial_write() {
+    let (r, mut imp) = receiver(vec![path_rewrite()]);
+    imp.plan(&confirmed()).unwrap();
+    imp.approve().unwrap();
+    r.platform.override_free_space(Some(1));
+    let err = imp.apply().unwrap_err();
+    assert!(matches!(err, CoreError::DiskFull { .. }), "{err:?}");
+    let target = r
+        .home
+        .join("Library/Application Support/obsidian/obsidian.json");
+    assert!(!target.exists());
+}
+
+#[test]
+fn plugin_output_without_room_pauses_a_lan_transfer_until_space_frees() {
+    let (_s, mut exp) = linux_sender();
+    let running = lan_support::run(exp.prepare_send().unwrap());
+    let r = side(OsKind::MacOs, vec![path_rewrite()]);
+    let mut imp = Importer::connect(r.engine.clone(), running.first.as_ref().unwrap()).unwrap();
+    imp.plan(&confirmed()).unwrap();
+    imp.approve().unwrap();
+    // The disk fills up once every chunk is staged, before the plugin runs.
+    let platform = r.platform.clone();
+    r.sink.set_hook(move |e| {
+        if let Event::Progress {
+            phase: Phase::Transfer,
+            done,
+            total,
+        } = e
+            && done == total
+        {
+            platform.override_free_space(Some(1));
+        }
+    });
+    let paused = |e: &Event| {
+        matches!(
+            e,
+            Event::TransferPaused {
+                reason: PauseReason::LowDiskSpace { .. }
+            }
+        )
+    };
+    let applying = std::thread::spawn(move || imp.apply().map(|_| imp));
+    r.sink.wait_for("low-disk pause", paused);
+    r.sink.clear_hook();
+    r.platform.override_free_space(None);
+    let imp = applying.join().unwrap().unwrap();
+
+    assert_eq!(imp.state(), State::Done);
+    let events = r.sink.events();
+    let at = events.iter().position(paused).unwrap();
+    assert!(
+        events[at..]
+            .iter()
+            .any(|e| matches!(e, Event::TransferResumed))
+    );
+    let target = r
+        .home
+        .join("Library/Application Support/obsidian/obsidian.json");
+    assert_eq!(
+        std::fs::read_to_string(target).unwrap(),
+        vault_list(&r.home)
+    );
+    running.thread.join().unwrap().unwrap();
+}
+
 /// `recipe_yaml`'s detected items captured on a Linux sender holding
-/// `files` (home-relative) and `plugins`.
-fn capture_with(
+/// `files` (home-relative) and `plugins`, with sender-side export allowed
+/// for `allowed`.
+fn capture_full(
     recipe_yaml: &str,
     plugins: &[Plugin],
+    allowed: &[PluginId],
     files: &[&str],
-) -> carrova_manifest::Manifest {
-    use carrova_core::capture::capture_with_plugins;
+) -> (Side, carrova_core::capture::Capture) {
+    use carrova_core::capture::capture_with_consent;
     use carrova_core::{Cancel, NullSink, Selection, scan};
     let s = side(OsKind::Linux, Vec::new());
     for rel in files {
@@ -221,10 +316,99 @@ fn capture_with(
     let report = scan(&recipes, &**platform, ScanOptions::default()).unwrap();
     let sel = Selection::from_scan(&report, Preset::Suggested);
     let cancel = Cancel::default();
-    let cap =
-        capture_with_plugins(&**platform, &recipes, plugins, &sel, &NullSink, &cancel).unwrap();
+    let cap = capture_with_consent(
+        &**platform,
+        &recipes,
+        plugins,
+        allowed,
+        &sel,
+        &NullSink,
+        &cancel,
+    )
+    .unwrap();
+    (s, cap)
+}
+
+/// [`capture_full`] with no export allowed; its manifest.
+fn capture_with(
+    recipe_yaml: &str,
+    plugins: &[Plugin],
+    files: &[&str],
+) -> carrova_manifest::Manifest {
+    let (_, cap) = capture_full(recipe_yaml, plugins, &[], files);
     assert!(!cap.manifest.items.is_empty());
     cap.manifest
+}
+
+/// A `path-rewrite` stand-in whose `export_transform` replaces each file
+/// with its own path (`transform` is the identity).
+fn exporting_plugin() -> Plugin {
+    let wat = r#"(module
+  (memory (export "memory") 1)
+  (global $next (mut i32) (i32.const 1024))
+  (func (export "alloc") (param $len i32) (result i32)
+    (local $p i32)
+    (local.set $p (global.get $next))
+    (global.set $next (i32.add (local.get $p) (local.get $len)))
+    (local.get $p))
+  (func $packed (param i32 i32) (result i64)
+    (i64.or (i64.shl (i64.extend_i32_u (local.get 0)) (i64.const 32))
+            (i64.extend_i32_u (local.get 1))))
+  (func (export "transform") (param i32 i32 i32 i32 i32 i32) (result i64)
+    (call $packed (local.get 4) (local.get 5)))
+  (func (export "export_transform") (param i32 i32 i32 i32 i32 i32) (result i64)
+    (call $packed (local.get 2) (local.get 3))))"#;
+    let mut manifest = PluginManifest::parse(PLUGIN_YAML).unwrap();
+    manifest.export = true;
+    manifest.context.clear();
+    Plugin::load(PluginPackage {
+        manifest,
+        wasm: wat::parse_str(wat).unwrap(),
+    })
+    .unwrap()
+}
+
+#[test]
+fn an_allowed_export_plugin_changes_files_before_they_are_sent() {
+    use carrova_manifest::{Blake3Hash, ChunkSource, EntryKind};
+    let files = &[".config/obsidian/obsidian.json"];
+    let (s, cap) = capture_full(RECIPE, &[exporting_plugin()], &[plugin_id()], files);
+    let item = cap
+        .manifest
+        .items
+        .iter()
+        .find(|i| carrova_core::ItemKey::of(i) == VAULTS)
+        .unwrap();
+    let entry = item
+        .entries
+        .iter()
+        .find(|e| e.rel.as_str() == "obsidian/obsidian.json")
+        .unwrap();
+    let want = b"obsidian/obsidian.json";
+    let EntryKind::File { size, hash, chunks } = &entry.kind else {
+        panic!("not a file: {entry:?}");
+    };
+    assert_eq!((*size, *hash), (want.len() as u64, Blake3Hash::of(want)));
+    let mut source = cap.chunk_source(&**s.engine.platform());
+    let sent: Vec<u8> = chunks
+        .iter()
+        .flat_map(|c| source.read_chunk(c).unwrap())
+        .collect();
+    assert_eq!(sent, want);
+}
+
+#[test]
+fn an_export_plugin_the_sender_did_not_allow_leaves_its_item_out() {
+    let files = &[".config/obsidian/obsidian.json"];
+    let (_, cap) = capture_full(RECIPE, &[exporting_plugin()], &[], files);
+    assert!(
+        !cap.manifest
+            .items
+            .iter()
+            .any(|i| carrova_core::ItemKey::of(i) == VAULTS)
+    );
+    let failed = cap.failed.iter().find(|f| f.what == VAULTS).unwrap();
+    assert!(failed.reason.contains("path-rewrite"), "{failed:?}");
 }
 
 #[test]
@@ -274,4 +458,75 @@ fn a_plugin_needing_the_sender_home_is_skipped_without_it() {
         "{:?}",
         plan.warnings
     );
+}
+
+/// A Linux sender holding Obsidian's vault list, with an exporting
+/// plugin loaded, and its export session.
+fn exporting_sender() -> (Side, Exporter) {
+    let s = side(OsKind::Linux, vec![exporting_plugin()]);
+    let config = s.home.join(".config/obsidian");
+    std::fs::create_dir_all(&config).unwrap();
+    std::fs::write(config.join("obsidian.json"), vault_list(&s.home)).unwrap();
+    let opts = ScanOptions {
+        include_undetected: false,
+        unrecognised: false,
+    };
+    let exp = Exporter::start(s.engine.clone(), opts).unwrap();
+    (s, exp)
+}
+
+fn floor() -> WriteOptions {
+    WriteOptions {
+        kdf: KdfParams::FLOOR,
+    }
+}
+
+#[test]
+fn an_export_plugin_the_sender_has_not_allowed_blocks_the_export() {
+    let (s, mut exp) = exporting_sender();
+    let sel = exp.suggest(Preset::Suggested);
+    let [planned] = sel.export_plugins.as_slice() else {
+        panic!("one exporting plugin expected: {:?}", sel.export_plugins);
+    };
+    assert_eq!(planned.plugin, plugin_id());
+    assert_eq!(planned.items, vec![carrova_core::ItemKey::from(VAULTS)]);
+    assert!(!planned.permissions.is_empty());
+    let issues = sel.issues();
+    let [issue] = issues.as_slice() else {
+        panic!("one issue expected: {issues:?}");
+    };
+    assert_eq!(
+        (issue.item.as_str(), &issue.plugin),
+        (VAULTS, &Some(plugin_id()))
+    );
+
+    let err = exp.select(sel).unwrap_err();
+    assert!(matches!(err, CoreError::Selection(_)), "{err:?}");
+    let path = s.tmp.path().join("out.carrova");
+    assert!(exp.export(&path, &pass(), floor()).is_err());
+    assert!(!path.exists(), "nothing may be written without consent");
+}
+
+#[test]
+fn an_export_plugin_the_sender_allowed_changes_what_the_receiver_gets() {
+    let (s, mut exp) = exporting_sender();
+    let mut sel = exp.suggest(Preset::Suggested);
+    sel.apply(carrova_core::SelectionEdit::AllowPlugin {
+        plugin: plugin_id(),
+        allow: true,
+    })
+    .unwrap();
+    assert!(sel.issues().is_empty(), "{:?}", sel.issues());
+    exp.select(sel).unwrap();
+    let path = s.tmp.path().join("out.carrova");
+    let (_, checklist) = exp.export(&path, &pass(), floor()).unwrap();
+    assert!(checklist.skipped.is_empty(), "{:?}", checklist.skipped);
+
+    let r = side(OsKind::Linux, vec![exporting_plugin()]);
+    let mut imp = Importer::open(r.engine.clone(), &path, &pass()).unwrap();
+    imp.plan(&confirmed()).unwrap();
+    imp.approve().unwrap();
+    imp.apply().unwrap();
+    let got = std::fs::read_to_string(r.home.join(".config/obsidian/obsidian.json")).unwrap();
+    assert_eq!(got, "obsidian/obsidian.json");
 }
