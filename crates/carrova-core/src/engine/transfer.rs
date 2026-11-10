@@ -210,44 +210,46 @@ impl<'a> Disk<'a> {
         }
     }
 
-    /// Run `op` until it does not fail with [`CoreError::DiskFull`].
+    /// Run `op` until it does not fail with [`CoreError::DiskFull`] (on
+    /// this filesystem) or [`CoreError::NotEnoughSpace`] (on the one it
+    /// names).
     pub(super) fn wait<T>(&self, mut op: impl FnMut() -> Result<T>) -> Result<T> {
         let mut paused = false;
         loop {
-            match op() {
-                Err(CoreError::DiskFull { needed, available }) => {
-                    if !paused {
-                        paused = true;
-                        tracing::info!(needed, available, "transfer paused: low disk space");
-                        self.sink.emit(Event::TransferPaused {
-                            reason: PauseReason::LowDiskSpace {
-                                fs: self.label.clone(),
-                                available,
-                                needed,
-                                disk: self.mount_point(),
-                            },
-                        });
-                    }
-                    self.idle()?;
+            let result = op();
+            let Some(reason) = result.as_ref().err().and_then(|e| self.low_space(e)) else {
+                if paused {
+                    tracing::info!("transfer resumed");
+                    self.sink.emit(Event::TransferResumed);
                 }
-                other => {
-                    if paused {
-                        tracing::info!("transfer resumed");
-                        self.sink.emit(Event::TransferResumed);
-                    }
-                    return other;
-                }
+                return result;
+            };
+            if !paused {
+                paused = true;
+                tracing::info!("transfer paused: low disk space");
+                self.sink.emit(Event::TransferPaused { reason });
             }
+            self.idle()?;
         }
     }
 
-    /// Mount point of the waited-on filesystem, if the platform knows it.
-    /// Asks about the nearest existing ancestor: staging may not exist yet
-    /// (first transfer) or was wiped after a failed preallocation.
-    fn mount_point(&self) -> Option<String> {
-        let existing = crate::space::nearest_existing(self.platform, self.dir)?;
-        let disk = self.platform.disk(&existing).ok()?;
-        Some(disk.mount_point.display().to_string())
+    /// The pause reason of a full-disk error `e`, if it is one.
+    fn low_space(&self, e: &CoreError) -> Option<PauseReason> {
+        match e {
+            CoreError::DiskFull { needed, available } => Some(PauseReason::LowDiskSpace {
+                fs: self.label.clone(),
+                available: *available,
+                needed: *needed,
+                disk: crate::space::mount_point(self.platform, self.dir),
+            }),
+            CoreError::NotEnoughSpace { shortfall, disk } => Some(PauseReason::LowDiskSpace {
+                fs: shortfall.location.to_string(),
+                available: shortfall.available,
+                needed: shortfall.needed,
+                disk: disk.clone(),
+            }),
+            _ => None,
+        }
     }
 
     /// Wait [`SPACE_POLL_INTERVAL`] before the next retry, ending early

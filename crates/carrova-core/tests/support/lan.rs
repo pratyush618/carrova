@@ -4,7 +4,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::{self, JoinHandle};
@@ -140,17 +140,27 @@ impl Side {
 
     /// A machine its OS calls `name` (`None`: unnamed).
     pub fn named(name: Option<&str>) -> Self {
+        Self::built(|platform, _| match name {
+            Some(name) => platform.with_device_name(name),
+            None => platform,
+        })
+    }
+
+    /// A machine whose home is a disk of its own (fake filesystem 1,
+    /// mounted at the home dir), apart from its state dir.
+    pub fn home_on_own_disk() -> Self {
+        Self::built(|platform, home| platform.filesystem(home, 1, u64::MAX))
+    }
+
+    fn built(configure: impl FnOnce(FakePlatform, &Path) -> FakePlatform) -> Self {
         let tmp = TempDir::new().unwrap();
         let home = tmp.path().join("home");
         std::fs::create_dir_all(home.join(".config")).unwrap();
         std::fs::create_dir_all(home.join(".local/share")).unwrap();
-        let mut platform = FakePlatform::with_home(&home)
+        let platform = FakePlatform::with_home(&home)
             .with_state_dir(tmp.path().join("state/carrova"))
             .binary("app", "/usr/bin/app");
-        if let Some(name) = name {
-            platform = platform.with_device_name(name);
-        }
-        let platform = Arc::new(platform);
+        let platform = Arc::new(configure(platform, &home));
         let sink = Arc::new(HookSink::default());
         let engine = Engine::new(platform.clone(), common::recipes(RECIPE), sink.clone());
         Self {

@@ -76,6 +76,36 @@ pub(crate) fn needs(platform: &dyn Platform, plan: &Plan, layout: &StageLayout) 
     acc.finish()
 }
 
+/// The first filesystem in `needs` known to be short of space, as a
+/// [`CoreError::NotEnoughSpace`] naming its mount point.
+pub(crate) fn ensure_room(platform: &dyn Platform, needs: &[SpaceNeed]) -> Result<()> {
+    let Some((need, shortfall)) = needs
+        .iter()
+        .find_map(|n| n.shortfall().map(|short| (n, short)))
+    else {
+        return Ok(());
+    };
+    let dir = if need.state_dir {
+        platform.state_dir().ok()
+    } else {
+        need.roots
+            .first()
+            .and_then(|&root| platform.resolve_root(root).ok())
+    };
+    Err(CoreError::NotEnoughSpace {
+        shortfall,
+        disk: dir.and_then(|d| mount_point(platform, &d)),
+    })
+}
+
+/// Mount point of the filesystem `path` is on (asking about its nearest
+/// existing ancestor: it may not exist yet), if the platform knows it.
+pub(crate) fn mount_point(platform: &dyn Platform, path: &Path) -> Option<String> {
+    let existing = nearest_existing(platform, path)?;
+    let disk = platform.disk(&existing).ok()?;
+    Some(disk.mount_point.display().to_string())
+}
+
 /// `StorageFull` → [`CoreError::DiskFull`] (`needed` bytes, free space of
 /// `dir`); anything else unchanged.
 pub(crate) fn disk_full_or(

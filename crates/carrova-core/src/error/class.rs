@@ -123,7 +123,7 @@ impl CoreError {
             }
             Self::Selection(_) => C::new(K::InvalidSelection),
             Self::PlanBlocked(_) => C::new(K::Blocked).hint(Hint::ResolveBlockers),
-            Self::DiskFull { .. } => C::new(K::NoSpace),
+            Self::DiskFull { .. } | Self::NotEnoughSpace { .. } => C::new(K::NoSpace),
             Self::PairingAttemptsExhausted { .. } | Self::PairingStopped { .. } => {
                 C::new(K::PairingFailed)
             }

@@ -12,6 +12,7 @@ use carrova_platform::PlatformError;
 
 use crate::key::ItemKey;
 use crate::session::{Role, SessionId, State};
+use crate::space::SpaceShortfall;
 use crate::store::RESUME_KEY_FILE;
 
 mod class;
@@ -68,6 +69,21 @@ pub enum CoreError {
     /// pauses and polls until space frees up.
     #[error("disk full: {needed} bytes needed, {available} available")]
     DiskFull { needed: u64, available: u64 },
+    /// A filesystem the approved plan writes to ran short of space after
+    /// approval; nothing was written to it. An archive import stays
+    /// `Planned` and approved when this stops `apply` before staging, so
+    /// it can be applied again once space is freed; a LAN import pauses
+    /// instead.
+    #[error(
+        "not enough space{}: {shortfall}",
+        disk.as_ref().map(|d| format!(" on {d}")).unwrap_or_default()
+    )]
+    NotEnoughSpace {
+        /// The short filesystem and by how much.
+        shortfall: SpaceShortfall,
+        /// Its mount point, if the platform knows it.
+        disk: Option<String>,
+    },
     /// A built-in handler (e.g. `gpg-keyring`) failed.
     #[error("handler {handler} failed: {reason}")]
     Handler { handler: String, reason: String },

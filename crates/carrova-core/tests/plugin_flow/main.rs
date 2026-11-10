@@ -232,7 +232,20 @@ fn plugin_output_without_room_is_a_full_disk_not_a_partial_write() {
     let (r, mut imp) = receiver(vec![path_rewrite()]);
     imp.plan(&confirmed()).unwrap();
     imp.approve().unwrap();
-    r.platform.override_free_space(Some(1));
+    // The disk fills up once the archive is staged, before the plugin runs.
+    let platform = r.platform.clone();
+    r.sink.set_hook(move |e| {
+        if let Event::Progress {
+            phase: Phase::Stage,
+            done,
+            total,
+        } = e
+            && *done > 0
+            && done == total
+        {
+            platform.override_free_space(Some(1));
+        }
+    });
     let err = imp.apply().unwrap_err();
     assert!(matches!(err, CoreError::DiskFull { .. }), "{err:?}");
     let target = r

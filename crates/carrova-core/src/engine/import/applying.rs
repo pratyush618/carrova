@@ -11,7 +11,8 @@ use crate::lan::{LanMsg, ReceiverFailure};
 use crate::plan::{Plan, Retention};
 use crate::rollback;
 use crate::session::{Event, State};
-use crate::stage::{self, Staged};
+use crate::space;
+use crate::stage::{self, StageLayout, Staged};
 use crate::time;
 
 /// What a failed staging run leaves behind.
@@ -39,6 +40,12 @@ impl Importer {
     /// (state back to `Planned`, approval kept); once `Applying`, it is
     /// ignored until apply ends. The LAN sender cancelling is
     /// [`CoreError::PeerCancelled`], with the same outcome.
+    ///
+    /// Free space is re-checked by the planner's policy before anything is
+    /// written and again before placement, unless the plan overrides it:
+    /// a LAN import pauses until space frees up; an archive import fails
+    /// with [`CoreError::NotEnoughSpace`] (before staging: still `Planned`
+    /// and approved, nothing written).
     pub fn apply(&mut self) -> Result<Checklist> {
         let plan = self.approved_plan()?;
         // The approved plan's override lifts every runtime free-space guard
@@ -47,6 +54,16 @@ impl Importer {
             self.control.ignore_free_space();
         }
         self.cancel.check()?;
+        // Nothing written yet: a disk that filled up since approval stops
+        // (archive) or pauses (LAN) here. Chunks already staged by an
+        // earlier LAN run occupy the state dir, which the transfer's own
+        // per-batch check guards.
+        let restaging = matches!(self.from, ImportFrom::Lan(_))
+            && self.s.platform().metadata(&self.s.staging()).is_ok();
+        if let Err(e) = self.wait_for_space(|| self.check_space(&plan, restaging)) {
+            self.close_link_after(&e);
+            return Err(e);
+        }
         self.s.transition(State::Transferring)?;
         let staged = match self.stage(&plan) {
             Ok(staged) => staged,
@@ -120,6 +137,9 @@ impl Importer {
             ImportFrom::Lan(_) => self.stage_lan(plan)?,
         };
         let staged = self.run_plugins(plan, &staged)?;
+        // Placement still needs room on targets apart from the state dir
+        // (on its filesystem, staged files are renamed into place).
+        self.wait_for_space(|| self.check_space(plan, true))?;
         // Last chance to stop: from `Applying` on, apply runs to the end.
         self.cancel.check()?;
         self.s.transition(State::Staged)?;
@@ -145,8 +165,14 @@ impl Importer {
             )?;
             Ok(out)
         };
+        self.wait_for_space(run)
+    }
+
+    /// `op`, on a LAN import retried while it reports a full disk (paused
+    /// like the chunk transfer); an archive import fails at once.
+    fn wait_for_space<T>(&self, mut op: impl FnMut() -> Result<T>) -> Result<T> {
         match self.from {
-            ImportFrom::Archive(_) => run(),
+            ImportFrom::Archive(_) => op(),
             ImportFrom::Lan(_) => {
                 let staging = self.s.staging();
                 let disk = Disk::new(
@@ -157,9 +183,24 @@ impl Importer {
                     &self.cancel,
                     &self.control,
                 );
-                disk.wait(run)
+                disk.wait(op)
             }
         }
+    }
+
+    /// The planner's free-space policy ([`space::needs`]) re-run for
+    /// `plan` now, skipping the state-dir filesystem if `skip_state_dir`:
+    /// [`CoreError::NotEnoughSpace`] for the first short filesystem,
+    /// unless the user lifted the guard.
+    fn check_space(&self, plan: &Plan, skip_state_dir: bool) -> Result<()> {
+        if self.control.ignores_free_space() {
+            return Ok(());
+        }
+        let manifest = self.open_manifest(State::Transferring)?;
+        let layout = StageLayout::new(plan, manifest)?;
+        let mut needs = space::needs(self.s.platform(), plan, &layout);
+        needs.retain(|n| !(skip_state_dir && n.state_dir));
+        space::ensure_room(self.s.platform(), &needs)
     }
 
     /// Staging failed with `e`; see [`Self::stage_failure`] for what is
