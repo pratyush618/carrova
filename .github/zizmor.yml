@@ -1,0 +1,6 @@
+# zizmor (workflow security linter) config.
+rules:
+  # zizmor suggests the `$/` self-repository syntax for local actions, but
+  # actionlint (our primary linter) rejects it. Revisit when actionlint supports it.
+  self-repository:
+    disable: true

@@ -1,0 +1,41 @@
+# Recipes: schema validation, fixture tests, and an unsigned bundle build.
+name: recipes
+
+on:
+  push:
+    branches: [main]
+    paths: &recipe-paths
+      - recipes/**
+      - crates/carrova-recipe/**
+      - crates/carrova-bundle/**
+      - xtask/**
+      - justfile
+      - .github/actions/setup/**
+      - .github/workflows/recipes.yml
+  pull_request:
+    paths: *recipe-paths
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  recipes:
+    name: validate + fixtures + bundle dry run
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          rust: "true"
+          cache-key: recipes # recipe/bundle/CLI crates only; no WebKit libs needed
+      - run: just recipes-validate fixtures
+      # Unsigned dry run: proves the tree (incl. TIERS.yaml) bundles. The version
+      # only has to be valid here; real versions come from `recipes-vN` tags.
+      - run: just bundle "$GITHUB_RUN_NUMBER"

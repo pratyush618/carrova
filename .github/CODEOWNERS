@@ -1,0 +1,51 @@
+# Code owners = required reviewers (enable "Require review from Code Owners"
+# in branch protection). Last matching pattern wins, so broad rules come first.
+#
+# PLACEHOLDER HANDLES: every @carrova/* team below must be replaced with real
+# GitHub users/teams before the repo is published.
+#
+# Trust tiers
+#   @carrova/core               maintainers; security-sensitive code + release plumbing
+#   @carrova/ui                 desktop front-end
+#   @carrova/recipes-verified   reviewers of recipes in the `verified` tier
+#   @carrova/recipe-reviewers   reviewers of community recipes
+
+# Default: anything not matched below.
+*                                   @carrova/core
+
+# --- Desktop front-end ---
+/apps/desktop/                      @carrova/ui
+# The Rust bridge holds no business logic, but it is the IPC trust boundary.
+/apps/desktop/src-tauri/            @carrova/core @carrova/ui
+
+# --- Recipes: community tier (default for every recipe) ---
+/recipes/                           @carrova/recipe-reviewers
+
+# --- Recipes: verified tier (keep in sync with recipes/TIERS.yaml) ---
+/recipes/dev-tools/cargo/           @carrova/recipes-verified
+/recipes/dev-tools/docker/          @carrova/recipes-verified
+/recipes/dev-tools/gh/              @carrova/recipes-verified
+/recipes/dev-tools/git/             @carrova/recipes-verified
+/recipes/dev-tools/npm/             @carrova/recipes-verified
+/recipes/dev-tools/tmux/            @carrova/recipes-verified
+/recipes/editors/neovim/            @carrova/recipes-verified
+/recipes/editors/vim/               @carrova/recipes-verified
+/recipes/editors/vscode/            @carrova/recipes-verified
+/recipes/security/gnupg/            @carrova/recipes-verified
+/recipes/security/ssh/              @carrova/recipes-verified
+/recipes/shells/bash/               @carrova/recipes-verified
+/recipes/shells/fish/               @carrova/recipes-verified
+/recipes/shells/starship/           @carrova/recipes-verified
+/recipes/shells/zsh/                @carrova/recipes-verified
+
+# Promoting a recipe to `verified`, or changing the schema, is a maintainer call.
+/recipes/TIERS.yaml                 @carrova/core @carrova/recipes-verified
+/recipes/schema/                    @carrova/core
+
+# --- Security-sensitive: maintainers only (last, so nothing above overrides) ---
+/crates/carrova-crypto/              @carrova/core
+/crates/carrova-transport/           @carrova/core
+/crates/carrova-bundle/              @carrova/core
+/keys/                              @carrova/core
+/.github/                           @carrova/core
+/SECURITY.md                        @carrova/core

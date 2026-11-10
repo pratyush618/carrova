@@ -1,0 +1,61 @@
+# Rust engine, CLI and desktop shell: lint, build, test, then container e2e.
+name: engine
+
+on:
+  push:
+    branches: [main]
+    paths: &engine-paths
+      - crates/**
+      - apps/cli/**
+      - apps/desktop/src-tauri/** # workspace member: linted and built here too
+      - xtask/**
+      - tests/e2e/**
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - .cargo/**
+      - clippy.toml
+      - rustfmt.toml
+      - justfile
+      - .github/actions/setup/**
+      - .github/workflows/engine.yml
+  pull_request:
+    paths: *engine-paths
+
+permissions:
+  contents: read
+
+# One run per branch/PR; a new push cancels the stale run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: lint + build + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          rust: "true"
+          tauri-deps: "true" # `--workspace` includes carrova-desktop
+      - run: just lint build test
+
+  e2e:
+    name: container e2e (archive + LAN)
+    runs-on: ubuntu-latest # ships with docker
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          rust: "true"
+          cache-key: e2e # only carrova-cli is built here; no WebKit libs needed
+      - run: just e2e
+      - run: just e2e --lan

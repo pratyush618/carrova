@@ -1,0 +1,67 @@
+# Shared job setup: `just` always, plus the Rust and/or Node toolchains a job
+# needs. Every workflow step after this calls a `just` recipe (the justfile is
+# the single entry point), so this file only installs tools.
+name: Setup
+description: Install just, and optionally Rust, Tauri system libs and Node/pnpm.
+
+inputs:
+  rust:
+    description: Install the Rust toolchain pinned in rust-toolchain.toml and restore the cargo cache.
+    default: "false"
+  tauri-deps:
+    description: Install the WebKitGTK system libraries the carrova-desktop crate links against.
+    default: "false"
+  node:
+    description: Install pnpm + Node 24 and the locked front-end dependencies.
+    default: "false"
+  cache:
+    description: Restore cargo/pnpm caches. Release jobs pass "false" so a poisoned cache can't reach signed artifacts.
+    default: "true"
+  cache-key:
+    description: Cargo cache key, so jobs that build different crate sets don't evict each other.
+    default: workspace
+
+runs:
+  using: composite
+  steps:
+    - name: Install just
+      uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+      with:
+        tool: just@1.58.0
+
+    - name: Install Tauri system libraries
+      if: inputs.tauri-deps == 'true'
+      shell: bash
+      run: just setup-ubuntu
+
+    - name: Install Rust toolchain
+      if: inputs.rust == 'true'
+      shell: bash
+      # No argument: rustup installs the channel + components from rust-toolchain.toml.
+      run: rustup toolchain install && rustup show active-toolchain
+
+    - name: Cache cargo registry and target/
+      if: inputs.rust == 'true' && inputs.cache == 'true'
+      uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      with:
+        shared-key: ${{ inputs.cache-key }}
+        # Only main writes the cache; PRs restore it (keeps cache churn and size down).
+        save-if: ${{ github.ref == 'refs/heads/main' }}
+
+    - name: Install pnpm
+      if: inputs.node == 'true'
+      # Version comes from `packageManager` in the root package.json.
+      uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+    - name: Install Node
+      if: inputs.node == 'true'
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: 24
+        cache: ${{ inputs.cache == 'true' && 'pnpm' || '' }}
+        package-manager-cache: ${{ inputs.cache == 'true' }}
+
+    - name: Install front-end dependencies
+      if: inputs.node == 'true'
+      shell: bash
+      run: just ui-install

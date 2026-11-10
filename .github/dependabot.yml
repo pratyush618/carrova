@@ -1,0 +1,34 @@
+# Weekly dependency PRs, one grouped PR per ecosystem to keep review load low.
+# Security updates are not grouped and arrive as soon as an advisory lands.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7 # let fresh releases age a week (yanked/compromised versions surface first)
+    groups:
+      cargo:
+        patterns: ["*"]
+
+  - package-ecosystem: npm # pnpm lockfile is supported by the npm ecosystem
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7 # let fresh releases age a week (yanked/compromised versions surface first)
+    groups:
+      npm:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    # "/" also covers the local composite action in .github/actions/.
+    directories: ["/", "/.github/actions/*"]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7 # let fresh releases age a week (yanked/compromised versions surface first)
+    groups:
+      github-actions:
+        patterns: ["*"]

@@ -1,0 +1,216 @@
+# Two release trains from one repo, separated by tag:
+#   v*          desktop app: AppImage + .deb + updater latest.json
+#   recipes-v*  recipe bundle: immutable `recipes-vN` release + the
+#               `recipes-latest` pointer (latest.json = {"version": N})
+#
+# Job graph (both trains):
+#   verify ─► sign-bundle ─┬─► app      (v*)
+#                          └─► recipes  (recipes-v*)
+#
+# REPO SETTINGS REQUIRED (not expressible in YAML): the `release` environment
+# must have required reviewers and deployment tag rules `v*` + `recipes-v*`,
+# and BUNDLE_SIGNER_* / TAURI_SIGNING_* must be environment secrets (not repo
+# secrets). Add tag protection (rulesets) for both patterns as well.
+#
+# Secret isolation: only `sign-bundle` sees BUNDLE_SIGNER_*; it installs Rust
+# and nothing else (no Node/pnpm, no Tauri libs, no caches). The app job sees
+# only the updater key; the recipes job sees no environment secrets at all.
+name: release
+
+on:
+  push:
+    tags: ["v*", "recipes-v*"]
+
+permissions:
+  contents: read
+
+# Never cancel a release halfway; queue per tag instead.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: tag on main + no placeholders
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # full history + origin/* branches for the ancestry check
+      # A tag pushed on a side branch must not release unreviewed code.
+      - name: Tagged commit is on main
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) is not an ancestor of origin/main"
+            exit 1
+          }
+      - name: Release preflight
+        run: bash .github/scripts/release-preflight.sh
+
+  # Build + sign + verify the recipe bundle; the only job holding the signer.
+  sign-bundle:
+    name: sign recipe bundle
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: release
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          rust: "true" # xtask signs; nothing else is installed
+          cache: "false"
+      # recipes-vN → N. The app embeds version 1: shipped bundles never enter
+      # the update store, so their version only labels `recipes status`.
+      - name: Bundle version from tag
+        id: version
+        run: |
+          case "$GITHUB_REF_NAME" in
+            recipes-v*) version="${GITHUB_REF_NAME#recipes-v}" ;;
+            *) version=1 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/bundle
+        with:
+          version: ${{ steps.version.outputs.version }}
+          signer-key: ${{ secrets.BUNDLE_SIGNER_KEY }}
+          signer-cert: ${{ secrets.BUNDLE_SIGNER_CERT }}
+      # Pointer for `recipes-latest`; kept outside dist/recipes so it is
+      # neither embedded in the app nor part of the immutable bundle.
+      - name: Pointer file
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p dist/pointer
+          jq -n --argjson version "$VERSION" '{version: $version}' > dist/pointer/latest.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: recipe-bundle
+          path: |
+            dist/recipes
+            dist/pointer
+          if-no-files-found: error
+          retention-days: 7
+
+  app:
+    name: desktop app
+    needs: sign-bundle
+    if: startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: release
+    permissions:
+      contents: write # create the release and upload assets
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          rust: "true"
+          tauri-deps: "true"
+          node: "true"
+          cache: "false"
+      # The app ships the signed bundle so it works offline on first run;
+      # tauri.release.conf.json maps dist/recipes into the app's resources.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipe-bundle
+          path: dist
+      # Pin the shipped index hash into the binary (carrova-bundle reads it via
+      # option_env!), so the app only trusts exactly this bundle.
+      - name: Pin shipped recipe bundle
+        run: echo "CARROVA_SHIPPED_INDEX_HASH=$(cargo xtask bundle pin --dir dist/recipes)" >> "$GITHUB_ENV"
+      # tauri-action runs `<tauriScript> build` (same build as `just package`)
+      # and also writes the updater's latest.json + .sig files into the release.
+      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Updater (minisign) key, separate from the recipe bundle keys.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: just tauri
+          args: --config src-tauri/tauri.release.conf.json
+          tagName: ${{ github.ref_name }}
+          releaseName: Carrova ${{ github.ref_name }}
+          # Draft: a maintainer smoke-tests the AppImage/.deb, then publishes.
+          # Clients only see it (releases/latest/download/latest.json) once published.
+          releaseDraft: true
+          uploadUpdaterJson: true
+
+  recipes:
+    name: publish recipe bundle
+    needs: sign-bundle
+    if: startsWith(github.ref_name, 'recipes-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # create releases and update the recipes-latest pointer
+    # One recipe publication at a time across all tags, so the monotonicity
+    # check and the pointer update can't interleave. GitHub keeps at most one
+    # pending run per group (a newer pending run replaces an older one); the
+    # check below still refuses any version that is not newer.
+    concurrency:
+      group: recipes-release
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSION: ${{ needs.sign-bundle.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: recipe-bundle
+          path: dist
+
+      - name: Version is newer than the published one
+        id: published
+        run: |
+          releases=$(gh release list --limit 1000 --json tagName --jq '.[].tagName')
+          current=0 exists=false
+          if grep -qx recipes-latest <<< "$releases"; then
+            exists=true
+            gh release download recipes-latest --pattern latest.json --dir "$RUNNER_TEMP/published"
+            current=$(jq -er '.version' "$RUNNER_TEMP/published/latest.json")
+            [[ "$current" =~ ^[0-9]+$ ]] || { echo "::error::bad published pointer: $current"; exit 1; }
+          fi
+          if (( VERSION <= current )); then
+            echo "::error::recipes v$VERSION is not newer than published v$current"
+            exit 1
+          fi
+          echo "exists=$exists" >> "$GITHUB_OUTPUT"
+
+      # Assets are flat files (index.json, index.sig.json, <hash>.<ext>).
+      # --latest=false everywhere: "Latest release" must stay the app release,
+      # because the app updater reads releases/latest/download/latest.json.
+      - name: Publish recipes-vN release
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/recipes/* \
+            --verify-tag --latest=false --title "Recipes $VERSION"
+
+      # Clients read releases/download/recipes-latest/latest.json, then fetch
+      # the immutable recipes-vN assets. The pointer is replaced in place (no
+      # release delete); a missing pointer reads as "no update yet".
+      - name: Point recipes-latest at vN
+        env:
+          EXISTS: ${{ steps.published.outputs.exists }}
+        run: |
+          if [[ "$EXISTS" == true ]]; then
+            gh release upload recipes-latest dist/pointer/latest.json --clobber
+          else
+            gh release create recipes-latest dist/pointer/latest.json \
+              --target "$GITHUB_SHA" --latest=false \
+              --title "Recipes (latest)" --notes "Pointer to the newest recipes-vN release."
+          fi

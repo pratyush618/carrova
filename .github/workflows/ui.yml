@@ -1,0 +1,56 @@
+# Desktop front-end: lint, unit tests, Playwright flows against the production build.
+name: ui
+
+on:
+  push:
+    branches: [main]
+    paths: &ui-paths
+      - apps/desktop/**
+      - "!apps/desktop/src-tauri/**" # Rust side is covered by engine.yml
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - justfile
+      - .github/actions/setup/**
+      - .github/workflows/ui.yml
+  pull_request:
+    paths: *ui-paths
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ui:
+    name: lint + unit + e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          node: "true"
+      - run: just ui-lint ui-test
+
+      # Browser binaries are keyed on the lockfile (it pins the Playwright version).
+      - name: Cache Playwright browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      # Downloads browsers on a cache miss; always installs their apt deps.
+      - run: just ui-browsers
+      - run: just e2e-ui
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-test-results
+          path: apps/desktop/test-results/ # traces + screenshots of failed tests
+          retention-days: 7

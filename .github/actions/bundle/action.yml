@@ -1,0 +1,39 @@
+# Build, sign and verify the recipe bundle into dist/recipes.
+# Used only by release.yml's `sign-bundle` job, which hands dist/recipes to
+# both trains as an artifact (the recipes release publishes it, the app
+# release embeds it), so no other job ever sees the signer key.
+name: recipe bundle
+description: Build + sign + verify dist/recipes with the CI signer key
+inputs:
+  version:
+    description: Bundle version (monotonic integer)
+    required: true
+  signer-key:
+    description: BUNDLE_SIGNER_KEY secret
+    required: true
+  signer-cert:
+    description: BUNDLE_SIGNER_CERT secret
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Build bundle
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        [[ "$VERSION" =~ ^[0-9]+$ ]] || { echo "::error::bundle version must be an integer"; exit 1; }
+        just bundle "$VERSION"
+    # Key material only ever exists as 0600 temp files, removed even on failure.
+    - name: Sign + verify (against the committed trust roots, as clients do)
+      shell: bash
+      env:
+        BUNDLE_SIGNER_KEY: ${{ inputs.signer-key }}
+        BUNDLE_SIGNER_CERT: ${{ inputs.signer-cert }}
+      run: |
+        umask 077
+        key="$RUNNER_TEMP/bundle-signer.key" cert="$RUNNER_TEMP/bundle-signer.cert.json"
+        trap 'rm -f "$key" "$cert"' EXIT
+        printf '%s\n' "$BUNDLE_SIGNER_KEY" > "$key"
+        printf '%s\n' "$BUNDLE_SIGNER_CERT" > "$cert"
+        just bundle-sign "$key" "$cert" bundle-verify
