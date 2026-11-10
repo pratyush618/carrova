@@ -9,7 +9,7 @@ use std::fs;
 use std::path::Path;
 
 use carrova_platform::fake::FakePlatform;
-use carrova_platform::{FileKind, OsKind};
+use carrova_platform::{FileKind, OsKind, PermissionModel, Platform};
 use carrova_recipe::{
     Flags, Item, OsOverrides, OsPaths, PathRef, RelPath, ResolvedItem, SemanticRoot, SkipReason,
     Skipped, resolve_item,
@@ -68,7 +68,8 @@ fn walks_nested_dirs_with_excludes() {
         // item-relative, root-relative, and single-segment `*`
         &["**/credentials", "git/cache", "*.log"],
     );
-    let r = resolve_item(&it, &FakePlatform::with_home(home));
+    let platform = FakePlatform::with_home(home);
+    let r = resolve_item(&it, &platform);
     assert_eq!(
         rels(&r),
         vec![
@@ -89,8 +90,9 @@ fn walks_nested_dirs_with_excludes() {
     assert_eq!(r.total_size, 10 + 4 + 5 + 20);
     assert!(r.missing.is_empty());
     assert!(r.skipped.is_empty(), "{:?}", r.skipped);
-    #[cfg(unix)] // Windows files have no mode bits
-    assert!(r.entries.iter().all(|e| e.mode.is_some()));
+    // Modes are recorded exactly where they are authoritative.
+    let modes = platform.permission_model() == PermissionModel::Unix;
+    assert!(r.entries.iter().all(|e| e.mode.is_some() == modes));
 }
 
 #[test]
