@@ -1,0 +1,1 @@
+return { "dummy/lazy-bootstrap" }

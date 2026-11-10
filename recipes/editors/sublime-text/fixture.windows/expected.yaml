@@ -1,0 +1,19 @@
+binaries: []
+detected: true
+items:
+  settings:
+    files:
+      - "user_config:Sublime Text/Packages/User/Default (Linux).sublime-keymap"
+      - user_config:Sublime Text/Packages/User/Package Control.sublime-settings
+      - user_config:Sublime Text/Packages/User/Preferences.sublime-settings
+  license:
+    files:
+      - user_config:Sublime Text/Local/License.sublime_license
+  packages:
+    files: []
+not_captured:
+  - AppData/Roaming/Sublime Text/Packages/User/Package Control.last-run
+  - AppData/Roaming/Sublime Text/Packages/User/Package Control.cache/00000000
+  - AppData/Roaming/Sublime Text/Packages/User/Package Control.merged-ca-bundle
+  - AppData/Roaming/Sublime Text/Local/Session.sublime_session
+  - AppData/Roaming/Sublime Text/Installed Packages/Package Control.sublime-package

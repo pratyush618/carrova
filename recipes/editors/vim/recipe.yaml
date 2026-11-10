@@ -1,4 +1,4 @@
-schema: 1
+schema: 3
 id: vim
 name: Vim
 category: editors
@@ -9,6 +9,12 @@ detect:
     - path: { root: home, rel: .vimrc }
     - path: { root: home, rel: .vim }
     - path: { root: user_config, rel: vim }
+  macos:
+    - binary: vim
+    - path: { root: home, rel: .vimrc }
+    - path: { root: home, rel: .vim }
+    - path: { root: home, rel: .config/vim }
+# Vim's XDG location is ~/.config/vim on macOS too (not Application Support).
 items:
   - id: config
     label: Vim startup files and runtime directory
@@ -17,6 +23,13 @@ items:
       - { root: home, rel: .gvimrc }
       - { root: home, rel: .vim }
       - { root: user_config, rel: vim }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .vimrc }
+          - { root: home, rel: .gvimrc }
+          - { root: home, rel: .vim }
+          - { root: home, rel: .config/vim }
     exclude:
       - plugged
       - bundle
@@ -29,7 +42,7 @@ items:
       - "**/*.sw?"
       - "**/*.un~"
     flags:
-      portability: same_os
+      portability: cross_os
       sensitive: false
       requires_closed: false
       default: true
@@ -41,6 +54,14 @@ items:
       - { root: home, rel: .vim/pack }
       - { root: user_config, rel: vim/plugged }
       - { root: user_config, rel: vim/pack }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .vim/plugged }
+          - { root: home, rel: .vim/bundle }
+          - { root: home, rel: .vim/pack }
+          - { root: home, rel: .config/vim/plugged }
+          - { root: home, rel: .config/vim/pack }
     flags:
       portability: same_os
       sensitive: false
@@ -52,6 +73,12 @@ items:
       - { root: home, rel: .viminfo }
       - { root: home, rel: .vim/viminfo }
       - { root: user_config, rel: vim/viminfo }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .viminfo }
+          - { root: home, rel: .vim/viminfo }
+          - { root: home, rel: .config/vim/viminfo }
     flags:
       portability: same_os
       sensitive: true

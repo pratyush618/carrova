@@ -7,6 +7,12 @@ detect:
   linux:
     - binary: npm
     - path: { root: home, rel: .npmrc }
+  macos:
+    - binary: npm
+    - path: { root: home, rel: .npmrc }
+  windows:
+    - binary: npm
+    - path: { root: home, rel: .npmrc }
 items:
   - id: npmrc
     label: npm user config (.npmrc; may contain registry auth tokens)

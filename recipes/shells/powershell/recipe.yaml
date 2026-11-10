@@ -1,0 +1,57 @@
+schema: 3
+id: powershell
+name: PowerShell
+category: shells
+description: PowerShell 7 (pwsh) profile scripts for the current user. Modules are reinstalled from the PowerShell Gallery, not copied. Command history (PSReadLine) is a separate, sensitive item. Windows PowerShell 5.1 profiles are not included.
+detect:
+  linux:
+    - binary: pwsh
+    - path: { root: user_config, rel: powershell }
+  macos:
+    - binary: pwsh
+    - path: { root: home, rel: .config/powershell }
+  windows:
+    - binary: pwsh
+    - path: { root: documents, rel: PowerShell }
+items:
+  - id: profiles
+    label: PowerShell profile scripts (current user, all hosts, VS Code host)
+    paths:
+      - { root: user_config, rel: powershell/Microsoft.PowerShell_profile.ps1 }
+      - { root: user_config, rel: powershell/profile.ps1 }
+      - { root: user_config, rel: powershell/Microsoft.VSCode_profile.ps1 }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .config/powershell/Microsoft.PowerShell_profile.ps1 }
+          - { root: home, rel: .config/powershell/profile.ps1 }
+          - { root: home, rel: .config/powershell/Microsoft.VSCode_profile.ps1 }
+      windows:
+        paths:
+          - { root: documents, rel: PowerShell/Microsoft.PowerShell_profile.ps1 }
+          - { root: documents, rel: PowerShell/profile.ps1 }
+          - { root: documents, rel: PowerShell/Microsoft.VSCode_profile.ps1 }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: history
+    label: PowerShell command history (PSReadLine)
+    paths:
+      - { root: user_data, rel: powershell/PSReadLine/ConsoleHost_history.txt }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .local/share/powershell/PSReadLine/ConsoleHost_history.txt }
+      windows:
+        paths:
+          - { root: user_config, rel: Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history.txt }
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false
+  - id: modules
+    label: Modules installed for the current user
+    unmovable: Modules are reinstalled with Install-Module (or Install-PSResource), never copied (some contain platform-specific binaries).

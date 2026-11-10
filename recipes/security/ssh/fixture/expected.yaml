@@ -17,4 +17,4 @@ items:
       - home:.ssh/id_rsa_work.pub
 not_captured:
   - .ssh/known_hosts.old
-  - ".ssh/cm-test@example.invalid:22"
+  - ".ssh/cm-test@example.invalid-22"

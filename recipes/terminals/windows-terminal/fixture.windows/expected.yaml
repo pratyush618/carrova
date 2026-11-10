@@ -1,0 +1,9 @@
+binaries: [wt]
+detected: true
+items:
+  settings:
+    files:
+      - user_data:Microsoft/Windows Terminal/settings.json
+      - user_data:Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json
+not_captured:
+  - AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/state.json

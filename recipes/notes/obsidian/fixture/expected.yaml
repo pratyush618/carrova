@@ -1,0 +1,11 @@
+binaries: [obsidian]
+detected: true
+items:
+  vaults:
+    handler: plugin:path-rewrite
+    files:
+      - user_config:obsidian/obsidian.json
+  vault-contents:
+    files: []
+not_captured:
+  - .config/obsidian/Cache/data_0

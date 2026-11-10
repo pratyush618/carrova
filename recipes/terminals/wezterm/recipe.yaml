@@ -1,0 +1,39 @@
+schema: 3
+id: wezterm
+name: WezTerm
+category: terminals
+description: WezTerm Lua configuration (~/.wezterm.lua or the wezterm config folder with its modules). The same config works on Linux, macOS and Windows.
+detect:
+  linux:
+    - binary: wezterm
+    - path: { root: home, rel: .wezterm.lua }
+    - path: { root: user_config, rel: wezterm }
+  macos:
+    - binary: wezterm
+    - path: { root: home, rel: .wezterm.lua }
+    - path: { root: home, rel: .config/wezterm }
+  windows:
+    - binary: wezterm
+    - path: { root: home, rel: .wezterm.lua }
+    - path: { root: home, rel: .config/wezterm }
+items:
+  - id: config
+    label: WezTerm config (wezterm.lua and Lua modules)
+    paths:
+      - { root: home, rel: .wezterm.lua }
+      - { root: user_config, rel: wezterm }
+    # WezTerm reads ~/.config/wezterm (not the OS config folder) off Linux.
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .wezterm.lua }
+          - { root: home, rel: .config/wezterm }
+      windows:
+        paths:
+          - { root: home, rel: .wezterm.lua }
+          - { root: home, rel: .config/wezterm }
+    flags:
+      portability: cross_os
+      sensitive: false
+      requires_closed: false
+      default: true

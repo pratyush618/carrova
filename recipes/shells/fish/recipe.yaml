@@ -1,4 +1,4 @@
-schema: 1
+schema: 3
 id: fish
 name: fish
 category: shells
@@ -7,11 +7,18 @@ detect:
   linux:
     - binary: fish
     - path: { root: user_config, rel: fish }
+  macos:
+    - binary: fish
+    - path: { root: home, rel: .config/fish }
 items:
   - id: config
     label: fish config, functions, conf.d and completions
     paths:
       - { root: user_config, rel: fish }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .config/fish }
     exclude:
       - fish_variables
       - "fishd.*"
@@ -24,6 +31,10 @@ items:
     label: Universal variables (abbreviations, colours, fish_user_paths and anything set with set -U, which can include exported tokens or API keys)
     paths:
       - { root: user_config, rel: fish/fish_variables }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .config/fish/fish_variables }
     flags:
       portability: same_os
       sensitive: true
@@ -33,6 +44,10 @@ items:
     label: fish command history
     paths:
       - { root: user_data, rel: fish/fish_history }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .local/share/fish/fish_history }
     flags:
       portability: same_os
       sensitive: true

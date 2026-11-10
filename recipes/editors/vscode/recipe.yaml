@@ -1,4 +1,4 @@
-schema: 1
+schema: 2
 id: vscode
 name: Visual Studio Code
 category: editors
@@ -7,6 +7,14 @@ detect:
   linux:
     - binary: code
     - path: { root: user_config, rel: Code/User }
+  macos:
+    - binary: code
+    - path: { root: user_config, rel: Code/User }
+  windows:
+    - binary: code
+    - path: { root: user_config, rel: Code/User }
+# Main process on Windows and macOS (exe file stem); `code` is only the CLI.
+processes: [Code]
 items:
   - id: settings
     label: Settings, keybindings, snippets, tasks and profiles
@@ -19,7 +27,7 @@ items:
       - sync
       - "**/*.log"
     flags:
-      portability: same_os
+      portability: cross_os
       sensitive: false
       requires_closed: false
       default: true

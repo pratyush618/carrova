@@ -1,0 +1,6 @@
+# Dummy gh config for Carrova fixture tests.
+version: "1"
+git_protocol: ssh
+editor: nvim
+aliases:
+    co: pr checkout

@@ -1,4 +1,4 @@
-schema: 1
+schema: 3
 id: starship
 name: Starship
 category: shells
@@ -7,13 +7,26 @@ detect:
   linux:
     - binary: starship
     - path: { root: user_config, rel: starship.toml }
+  macos:
+    - binary: starship
+    - path: { root: home, rel: .config/starship.toml }
+  windows:
+    - binary: starship
+    - path: { root: home, rel: .config/starship.toml }
 items:
   - id: config
     label: Starship prompt config (starship.toml)
     paths:
       - { root: user_config, rel: starship.toml }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .config/starship.toml }
+      windows:
+        paths:
+          - { root: home, rel: .config/starship.toml }
     flags:
-      portability: same_os
+      portability: cross_os
       sensitive: false
       requires_closed: false
       default: true

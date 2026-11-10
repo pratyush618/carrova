@@ -1,0 +1,9 @@
+binaries: [wezterm]
+detected: true
+items:
+  config:
+    files:
+      - home:.wezterm.lua
+      - user_config:wezterm/keys.lua
+      - user_config:wezterm/wezterm.lua
+not_captured: []

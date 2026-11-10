@@ -1,0 +1,36 @@
+schema: 3
+id: zed
+name: Zed
+category: editors
+description: Zed settings, key bindings, tasks, snippets and themes. Extensions are reinstalled, not copied. Databases and caches are never captured.
+detect:
+  linux:
+    - binary: zed
+    - binary: zeditor
+    - path: { root: user_config, rel: zed }
+  macos:
+    - binary: zed
+    - path: { root: home, rel: .config/zed }
+  windows:
+    - path: { root: user_config, rel: Zed }
+items:
+  - id: config
+    label: Settings, key bindings, tasks, snippets and themes
+    paths:
+      - { root: user_config, rel: zed }
+    # Zed uses ~/.config/zed on macOS and %APPDATA%\Zed on Windows.
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .config/zed }
+      windows:
+        paths:
+          - { root: user_config, rel: Zed }
+    flags:
+      portability: cross_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: extensions
+    label: Installed extensions
+    unmovable: Extensions are downloaded per OS; reinstall them from the Extensions page (or list them under auto_install_extensions in settings).

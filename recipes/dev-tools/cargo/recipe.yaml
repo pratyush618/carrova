@@ -7,6 +7,12 @@ detect:
   linux:
     - binary: cargo
     - path: { root: home, rel: .cargo }
+  macos:
+    - binary: cargo
+    - path: { root: home, rel: .cargo }
+  windows:
+    - binary: cargo
+    - path: { root: home, rel: .cargo }
 items:
   - id: config
     label: Cargo global config (config.toml)

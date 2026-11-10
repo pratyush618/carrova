@@ -1,0 +1,30 @@
+schema: 3
+id: obsidian
+name: Obsidian
+category: notes
+description: Obsidian's list of vaults, with home folder paths rewritten for this computer by the path-rewrite plugin. Vaults are ordinary folders and move separately; caches are never captured.
+detect:
+  linux:
+    - binary: obsidian
+    - path: { root: user_config, rel: obsidian }
+  macos:
+    - path: { root: user_config, rel: obsidian }
+  windows:
+    - path: { root: user_config, rel: obsidian }
+# Main process on macOS and Windows (exe file stem); `obsidian` on Linux.
+processes: [Obsidian]
+items:
+  - id: vaults
+    label: Vault list
+    paths:
+      - { root: user_config, rel: obsidian/obsidian.json }
+    # obsidian.json stores absolute vault paths under the old home folder.
+    handler: { plugin: path-rewrite }
+    flags:
+      portability: cross_os
+      sensitive: false
+      requires_closed: true
+      default: true
+  - id: vault-contents
+    label: Vault folders
+    unmovable: Vaults are ordinary folders (often synced); move them yourself to the same place under your home folder and the rewritten vault list finds them.

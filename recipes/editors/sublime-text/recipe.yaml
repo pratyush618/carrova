@@ -1,0 +1,54 @@
+schema: 3
+id: sublime-text
+name: Sublime Text
+category: editors
+description: Sublime Text 4 user settings, key bindings, snippets and your Package Control package list (Packages/User). Packages are reinstalled by Package Control from that list. The licence key is a separate, sensitive item; session and cache files are never captured.
+detect:
+  linux:
+    - binary: subl
+    - path: { root: user_config, rel: sublime-text }
+  macos:
+    - binary: subl
+    - path: { root: user_config, rel: Sublime Text }
+  windows:
+    - path: { root: user_config, rel: Sublime Text }
+items:
+  - id: settings
+    label: Settings, key bindings, snippets and package list (Packages/User)
+    paths:
+      - { root: user_config, rel: sublime-text/Packages/User }
+    os:
+      macos:
+        paths:
+          - { root: user_config, rel: Sublime Text/Packages/User }
+      windows:
+        paths:
+          - { root: user_config, rel: Sublime Text/Packages/User }
+    exclude:
+      - Package Control.cache
+      - Package Control.last-run
+      - "Package Control.*-ca-bundle"
+    flags:
+      portability: cross_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: license
+    label: Licence key
+    paths:
+      - { root: user_config, rel: sublime-text/Local/License.sublime_license }
+    os:
+      macos:
+        paths:
+          - { root: user_config, rel: Sublime Text/Local/License.sublime_license }
+      windows:
+        paths:
+          - { root: user_config, rel: Sublime Text/Local/License.sublime_license }
+    flags:
+      portability: cross_os
+      sensitive: true
+      requires_closed: false
+      default: false
+  - id: packages
+    label: Installed packages
+    unmovable: Package Control reinstalls every package listed in your settings on first start; packages are never copied.

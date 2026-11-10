@@ -1,0 +1,24 @@
+schema: 3
+id: windows-terminal
+name: Windows Terminal
+category: terminals
+description: Windows Terminal settings (profiles, colour schemes, actions and key bindings in settings.json) for the Store, Preview and unpackaged installs. Window layout state is never captured.
+detect:
+  windows:
+    - binary: wt
+    - path: { root: user_data, rel: Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState }
+    - path: { root: user_data, rel: Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState }
+    - path: { root: user_data, rel: Microsoft/Windows Terminal }
+items:
+  - id: settings
+    label: Profiles, colour schemes, actions and key bindings (settings.json)
+    # Stable (Store), Preview (Store), unpackaged (Scoop, Chocolatey, zip).
+    paths:
+      - { root: user_data, rel: Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json }
+      - { root: user_data, rel: Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState/settings.json }
+      - { root: user_data, rel: Microsoft/Windows Terminal/settings.json }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true

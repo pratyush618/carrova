@@ -1,0 +1,20 @@
+binaries: [subl]
+detected: true
+items:
+  settings:
+    files:
+      - "user_config:sublime-text/Packages/User/Default (Linux).sublime-keymap"
+      - user_config:sublime-text/Packages/User/Package Control.sublime-settings
+      - user_config:sublime-text/Packages/User/Preferences.sublime-settings
+  license:
+    files:
+      - user_config:sublime-text/Local/License.sublime_license
+  packages:
+    files: []
+not_captured:
+  - .config/sublime-text/Packages/User/Package Control.last-run
+  - .config/sublime-text/Packages/User/Package Control.cache/00000000
+  - .config/sublime-text/Packages/User/Package Control.merged-ca-bundle
+  - .config/sublime-text/Local/Session.sublime_session
+  - .config/sublime-text/Installed Packages/Package Control.sublime-package
+  - .cache/sublime-text/Cache/Python/syntax.cache
