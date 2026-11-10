@@ -1,14 +1,14 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page } from '@playwright/test';
 
-/** Opens the production build over the fake port acting out `scenario`, past Welcome. */
+/** Home's heading once the fake's recorded moves have loaded (it has some, so: returning). */
+export const HOME_TITLE = 'Good to see you again.';
+
+/** Opens the production build over the fake port acting out `scenario`, on Home. */
 export async function openApp(page: Page, scenario = 'happy'): Promise<void> {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(`/?fake=${scenario}`);
-  await page.getByRole('button', { name: 'Get started' }).click();
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'What are we doing on this computer?' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: HOME_TITLE })).toBeVisible();
 }
 
 /** No serious or critical WCAG 2.2 AA violations on what is on screen now. */

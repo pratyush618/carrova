@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { flowLength, flowStart, stepIndex } from '@/app/nav/flows';
-import { firstRun, navigate, returning, type Nav, type NavEvent } from '@/app/nav/navMachine';
+import { FLOWS, flowStart, stepIndex } from '@/app/nav/flows';
+import { atHome, navigate, type Nav, type NavEvent } from '@/app/nav/navMachine';
 
 const run = (from: Nav, ...events: NavEvent[]): Nav => events.reduce(navigate, from);
 
@@ -11,36 +11,34 @@ describe('flows', () => {
   });
 
   it('counts steps from the one flow table', () => {
-    expect(flowLength('send')).toBe(4);
-    expect(flowLength('save')).toBe(3);
+    expect(FLOWS.send).toHaveLength(4);
+    expect(FLOWS.save).toHaveLength(3);
     expect(stepIndex({ flow: 'receive', step: 'progress' })).toBe(2);
   });
 });
 
 describe('navigate', () => {
-  it('leaves the welcome screen for Home exactly once', () => {
-    const home = run(firstRun, { type: 'finishWelcome' });
-    expect(home.view).toEqual({ kind: 'hub', page: 'home' });
-    expect(navigate(home, { type: 'finishWelcome' })).toBe(home);
+  it('opens on Home', () => {
+    expect(atHome).toEqual({ view: { kind: 'hub', page: 'home' }, overlays: [] });
   });
 
   it('walks the send flow forward and lands Home after the last step', () => {
-    const steps = [returning];
+    const steps = [atHome];
     for (let i = 0; i < 4; i++) {
-      const prev = steps.at(-1) ?? returning;
+      const prev = steps.at(-1) ?? atHome;
       steps.push(navigate(prev, i === 0 ? { type: 'startFlow', flow: 'send' } : { type: 'next' }));
     }
     expect(
       steps.slice(1).map((n) => (n.view.kind === 'flow' ? n.view.at.step : n.view.kind)),
     ).toEqual(['found', 'code', 'live', 'done']);
-    expect(navigate(steps.at(-1) ?? returning, { type: 'next' }).view).toEqual({
+    expect(navigate(steps.at(-1) ?? atHome, { type: 'next' }).view).toEqual({
       kind: 'hub',
       page: 'home',
     });
   });
 
   it('goes back a step, and back from the first step goes Home', () => {
-    const atCode = run(returning, { type: 'startFlow', flow: 'receive' }, { type: 'next' });
+    const atCode = run(atHome, { type: 'startFlow', flow: 'receive' }, { type: 'next' });
     expect(atCode.view).toEqual({ kind: 'flow', at: { flow: 'receive', step: 'review' } });
     expect(run(atCode, { type: 'back' }, { type: 'back' }).view).toEqual({
       kind: 'hub',
@@ -49,18 +47,18 @@ describe('navigate', () => {
   });
 
   it('closes a flow from any step', () => {
-    const mid = run(returning, { type: 'startFlow', flow: 'save' }, { type: 'next' });
-    expect(navigate(mid, { type: 'closeFlow' })).toEqual(returning);
+    const mid = run(atHome, { type: 'startFlow', flow: 'save' }, { type: 'next' });
+    expect(navigate(mid, { type: 'closeFlow' })).toEqual(atHome);
   });
 
   it('ignores flow steps outside a flow', () => {
-    expect(navigate(returning, { type: 'next' })).toBe(returning);
-    expect(navigate(returning, { type: 'closeFlow' })).toBe(returning);
+    expect(navigate(atHome, { type: 'next' })).toBe(atHome);
+    expect(navigate(atHome, { type: 'closeFlow' })).toBe(atHome);
   });
 
   it('stacks overlays and closes the top one first', () => {
     const stacked = run(
-      returning,
+      atHome,
       { type: 'startFlow', flow: 'send' },
       { type: 'openOverlay', overlay: { kind: 'customize' } },
       { type: 'openOverlay', overlay: { kind: 'unrecognised' } },
@@ -70,7 +68,7 @@ describe('navigate', () => {
   });
 
   it('drops every overlay when the view changes', () => {
-    const withDialog = navigate(returning, {
+    const withDialog = navigate(atHome, {
       type: 'openOverlay',
       overlay: { kind: 'undo-confirm' },
     });

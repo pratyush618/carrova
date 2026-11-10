@@ -1,7 +1,24 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFormat } from '../../i18n/useFormat';
-import { Button, ChoiceTile, HubLayout, Icon, LinkButton } from '../../ui';
-import type { HomeIntents, HomeModel, LastMove } from './model';
+import {
+  AppGlyph,
+  Badge,
+  Button,
+  GroupHead,
+  Head,
+  HubLayout,
+  Icon,
+  Kbd,
+  LinkButton,
+  List,
+  Row,
+} from '../../ui';
+import type { HistoryEntry } from '../history/model';
+import { KIND_ICON, moveSub, moveTag, moveTitle } from '../history/moveWords';
+import type { HomeIntents, HomeModel } from './model';
+import { ReportsBanner } from './ReportsBanner';
+import { VerbTile } from './VerbTile';
 import './start.css';
 
 export interface HomeScreenProps {
@@ -9,61 +26,174 @@ export interface HomeScreenProps {
   readonly on: HomeIntents;
 }
 
-function LastMoveLine({
-  last,
+/** Where single-key shortcuts must not fire: typing, or anything over Home. */
+const NO_SHORTCUTS =
+  'input, textarea, select, [contenteditable], [role=dialog], [role=alertdialog]';
+
+/** S, R and O start the matching verb while nothing else has the keyboard. */
+function useShortcuts(on: HomeIntents): void {
+  useEffect(() => {
+    const keys: Partial<Record<string, () => void>> = {
+      s: on.onSend,
+      r: on.onReceive,
+      o: on.onUseFile,
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey)
+        return;
+      if (event.target instanceof Element && event.target.closest(NO_SHORTCUTS)) return;
+      const act = keys[event.key.toLowerCase()];
+      if (act === undefined) return;
+      event.preventDefault();
+      act();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [on]);
+}
+
+function RecentRow({
+  entry,
   now,
   onUndo,
 }: {
-  readonly last: LastMove;
+  readonly entry: HistoryEntry;
   readonly now: Date;
   readonly onUndo: () => void;
 }) {
   const { t } = useTranslation();
   const format = useFormat();
-  const values = {
-    peer: last.peer,
-    day: format.day(last.when, now),
-    apps: t('count.apps', { count: last.apps }),
-  };
+  const title = moveTitle(entry, t);
+  const tag = moveTag(entry, t);
   return (
-    <p className="s-home__last">
-      <Icon name="history" size="sm" />
-      {last.direction === 'received'
-        ? t('start.home.lastReceived', values)
-        : t('start.home.lastSent', values)}
-      {last.undoable && (
-        <Button kind="quiet" size="sm" onClick={onUndo}>
-          {t('start.home.undo')}
-        </Button>
-      )}
-    </p>
+    <Row
+      lead={
+        <AppGlyph
+          glyph={{ icon: KIND_ICON[entry.kind] }}
+          tone={tag?.tone === 'success' ? 'success' : 'neutral'}
+        />
+      }
+      title={title}
+      sub={moveSub(entry, now, t, format)}
+      trail={
+        <>
+          {tag && (
+            <Badge tone={tag.tone} {...(tag.icon && { icon: tag.icon })}>
+              {tag.label}
+            </Badge>
+          )}
+          {entry.undoable && (
+            <Button
+              kind="quiet"
+              size="sm"
+              icon="undo"
+              aria-label={t('start.home.undoMove', { move: title })}
+              onClick={onUndo}
+            >
+              {t('start.home.undo')}
+            </Button>
+          )}
+        </>
+      }
+    />
   );
 }
 
-/** Two verbs, nothing else competes. The last move is one line, with Undo. */
+/** The three steps of a move, named once for first-time users. */
+function HowItWorks() {
+  const { t } = useTranslation();
+  const steps = ['pick', 'pair', 'review'] as const;
+  return (
+    <ol className="s-home__how" aria-label={t('start.home.how.label')}>
+      {steps.map((step, i) => (
+        <li key={step}>
+          <b>
+            <i aria-hidden="true">{i + 1}</i>
+            {t(`start.home.how.${step}.title`)}
+          </b>
+          {t(`start.home.how.${step}.body`)}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/**
+ * Two verbs, nothing else competes. First run teaches by doing: a hint on the
+ * likely first step, the three steps and the promise. Returning users get
+ * their recent moves with Undo instead.
+ */
 export function HomeScreen({ model, on }: HomeScreenProps) {
   const { t } = useTranslation();
+  const [hint, setHint] = useState(true);
+  useShortcuts(on);
+  const first = model.recent.length === 0;
+  const mode = first ? 'first' : 'returning';
   return (
     <HubLayout variant="center">
-      <h1 className="p-title" tabIndex={-1} data-autofocus>
-        {t('start.home.title')}
-      </h1>
-      <div className="s-home__choices">
-        <ChoiceTile
-          icon="send"
-          title={t('start.home.send.title')}
-          sub={t('start.home.send.sub')}
+      <Head hero title={t(`start.home.${mode}.title`)} lede={t(`start.home.${mode}.lede`)} />
+      <div className="s-home__verbs">
+        <VerbTile
+          verb="send"
+          shortcut="S"
+          {...(first &&
+            hint && {
+              hint: {
+                label: t('start.home.hint'),
+                onDismiss: () => {
+                  setHint(false);
+                },
+              },
+            })}
           onClick={on.onSend}
         />
-        <ChoiceTile
-          icon="receive"
-          title={t('start.home.receive.title')}
-          sub={t('start.home.receive.sub')}
-          onClick={on.onReceive}
-        />
+        <VerbTile verb="receive" shortcut="R" onClick={on.onReceive} />
       </div>
-      <LinkButton onClick={on.onUseFile}>{t('start.home.useFile')}</LinkButton>
-      {model.last && <LastMoveLine last={model.last} now={model.now} onUndo={on.onUndoLast} />}
+      <p className="s-home__file">
+        <LinkButton aria-keyshortcuts="O" onClick={on.onUseFile}>
+          {t('start.home.useFile')}
+        </LinkButton>
+        <span>{t('start.home.useFileSub')}</span>
+        <span className="s-home__file-key" aria-hidden="true">
+          <Kbd>O</Kbd>
+        </span>
+      </p>
+      {first ? (
+        <HowItWorks />
+      ) : (
+        <section aria-labelledby="s-home-recent">
+          <GroupHead
+            title={<span id="s-home-recent">{t('start.home.recent')}</span>}
+            aside={<LinkButton onClick={on.onHistory}>{t('start.home.seeAll')}</LinkButton>}
+          />
+          <List>
+            {model.recent.map((entry) => (
+              <RecentRow
+                key={entry.id}
+                entry={entry}
+                now={model.now}
+                onUndo={() => {
+                  on.onUndo(entry.id);
+                }}
+              />
+            ))}
+          </List>
+        </section>
+      )}
+      {/* The question tucks under the promise: Home must fit 1100x720 whole. */}
+      {(first || model.askReports) && (
+        <div className="s-home__foot">
+          {first && (
+            <p className="s-home__promise">
+              <Icon name="shield" size="sm" />
+              {t('start.home.promise')}
+            </p>
+          )}
+          {model.askReports && <ReportsBanner onAnswer={on.onErrorReports} />}
+        </div>
+      )}
     </HubLayout>
   );
 }

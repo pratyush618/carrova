@@ -1,10 +1,10 @@
-/** History and move details. */
+/** History: every move, and the selected one step by step. */
 export const history = {
   title: 'History',
+  lede: 'Every move, and a way back from each one.',
   emptyTitle: 'No moves yet',
   emptyBody: 'When you send or receive, it shows up here with a way to undo it.',
   emptyAction: 'Receive from another computer',
-  moves: 'Past moves',
   kind: {
     received: 'Received from {{peer}}',
     sent: 'Sent to {{peer}}',
@@ -14,8 +14,17 @@ export const history = {
   },
   anotherComputer: 'another computer',
   when: '{{when}}. {{summary}}',
-  undoable: 'Can be undone',
   interrupted: 'Interrupted',
+  tag: {
+    arrived: 'Arrived',
+    sent: 'Sent',
+    saved: 'Saved',
+    undone: 'Undone',
+    failed: 'Failed',
+  },
+  detail: 'This move',
+  steps: 'This move, step by step',
+  detailSub: '{{title}}, {{day}}',
   timeline: {
     started: 'Started',
     state: {
@@ -30,14 +39,17 @@ export const history = {
       failed: 'Failed, nothing changed',
     },
   },
-  log: 'Log',
-  undoPoint: 'Undo point',
-  undoPointSub: 'Kept until you remove it.',
-  staged: 'What arrived so far',
-  stagedSub: 'Kept so the move can pick up where it stopped.',
+  undone: {
+    title: 'Back the way it was',
+    body: 'Undo removed what this move added and put your own files back.',
+  },
+  rewound: 'Rewound',
+  log: 'Show the log',
+  undoPoint: 'Undo point kept',
+  undoPointSub: 'Until you remove it',
   resume: 'Pick up where it stopped',
-  remove: 'Remove',
-  undo: 'Undo this move',
+  undo: 'Undo this move…',
+  forgetAction: 'Forget this move…',
   forget: {
     title: 'Forget this move?',
     body: 'Carrova deletes what it kept for this move. It can no longer pick up where it stopped.',

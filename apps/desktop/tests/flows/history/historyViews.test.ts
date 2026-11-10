@@ -6,6 +6,7 @@ import {
   sessionModel,
   undoResultModel,
 } from '@/flows/history/historyViews';
+import { rollbackPreview } from '@/ipc/fixtures/rollback-preview';
 
 const record = (patch: Partial<SessionRecord>): SessionRecord => ({
   id: '20261107-140000-abcdef',
@@ -49,21 +50,35 @@ describe('history views', () => {
   });
 
   it('shows the engine error and skipped items in the log', () => {
-    const model = sessionModel(record({ error: 'Peer lost' }));
+    const model = sessionModel(record({ error: 'Peer lost' }), null);
     expect(model.log).toEqual(['Peer lost', 'gpg/trust: locked']);
     expect(model.timeline.map((s) => s.kind)).toEqual(['started', 'state']);
+    expect(model.undoCounts).toBeNull();
   });
 
-  it('puts the newest finished move on Home', () => {
-    const now = new Date();
-    const failed = record({ state: 'failed', checklist: null });
-    expect(homeModel([failed, record({})], now, 'another computer').last).toMatchObject({
-      direction: 'received',
-      peer: 'another computer',
-      apps: 2,
-      undoable: true,
+  it("carries the engine's undo preview as counts for the rail", () => {
+    const counts = sessionModel(record({}), rollbackPreview).undoCounts;
+    expect(counts).toMatchObject({
+      removed: rollbackPreview.removed,
+      restored: rollbackPreview.restored,
     });
-    expect(homeModel([failed], now, 'x').last).toBeNull();
+  });
+
+  it('names a LAN peer by the device name it announced', () => {
+    const lan = record({
+      source: { kind: 'lan', manifest_fingerprint: 'f', peer_name: 'ezio-desktop' },
+    });
+    expect(historyEntry(lan).peer).toBe('ezio-desktop');
+  });
+
+  it('lists the three newest moves on Home and asks for consent only while unanswered', () => {
+    const now = new Date();
+    const records = ['a', 'b', 'c', 'd'].map((id) => record({ id }));
+    const home = homeModel(records, now, 'unset');
+    expect(home.recent.map((e) => e.id)).toEqual(['a', 'b', 'c']);
+    expect(home.askReports).toBe(true);
+    expect(homeModel([], now, 'denied')).toEqual({ now, recent: [], askReports: false });
+    expect(homeModel([], now, null).askReports).toBe(false);
   });
 
   it('summarises a rollback with the folder changed files went to', () => {

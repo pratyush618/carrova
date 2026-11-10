@@ -1,19 +1,234 @@
-.s-home__choices {
+.s-home__verbs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 15.5rem));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--sp-2);
+  margin-block-start: var(--sp-2);
 }
 
-.s-home__last {
+.s-verb {
+  position: relative;
+  display: grid;
+}
+
+.s-verb__tile {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  align-content: end;
+  min-block-size: 188px;
+  padding: 22px;
+  text-align: start;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  box-shadow: var(--e-2);
+  transition:
+    transform var(--dur-2) var(--ease),
+    border-color var(--dur-2);
+}
+
+.s-verb__tile:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.s-verb__tile--primary {
+  border-color: color-mix(in oklab, var(--accent) 40%, var(--border));
+}
+
+.s-verb__art {
+  position: absolute;
+  inset-block-start: 18px;
+  inset-inline-start: 22px;
+  fill: none;
+}
+
+.s-verb__screen {
+  stroke: var(--border-strong);
+  stroke-width: 2;
+}
+
+.s-verb__base {
+  fill: var(--border-strong);
+}
+
+.s-verb__arrow {
+  stroke: var(--accent);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.s-verb__kbd {
+  position: absolute;
+  inset-block-start: 18px;
+  inset-inline-end: 18px;
+}
+
+.s-verb__title {
+  font-size: var(--t-xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.s-verb__sub {
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+/* Inverse bubble: text-primary on surface-1 reads in both themes. */
+.s-verb__hint {
+  position: absolute;
+  z-index: 1;
+  inset-block-start: -16px;
+  inset-inline-start: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-radius: 10px;
+  background: var(--text-primary);
+  color: var(--surface-1);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--e-2);
+  animation: s-bob 3.2s var(--ease) infinite;
+}
+
+.s-verb__hint::after {
+  content: '';
+  position: absolute;
+  inset-block-end: -5px;
+  inset-inline-start: 22px;
+  inline-size: 10px;
+  block-size: 10px;
+  background: inherit;
+  transform: rotate(45deg);
+  border-radius: 2px;
+}
+
+.s-verb__hint button {
+  display: grid;
+  place-items: center;
+  inline-size: 24px;
+  block-size: 24px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: inherit;
+}
+
+.s-verb__hint button:focus-visible {
+  outline: 2px solid var(--surface-1);
+  outline-offset: 1px;
+}
+
+/* Reduced motion: the global rule stops the bob; the hint stays put. */
+@keyframes s-bob {
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.s-home__file,
+.s-home__promise {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  flex-wrap: wrap;
+  gap: 10px;
   font-size: var(--t-sm);
   color: var(--text-muted);
 }
 
+.s-home__file-key {
+  margin-inline-start: auto;
+}
+
+.s-home__how {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-block-start: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+}
+
+.s-home__how li {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  padding: 16px 18px;
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+.s-home__how li + li {
+  border-inline-start: 1px solid var(--border);
+}
+
+.s-home__how b {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-md);
+  color: var(--text-primary);
+}
+
+.s-home__how i {
+  display: grid;
+  place-items: center;
+  inline-size: 20px;
+  block-size: 20px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.s-home__foot {
+  display: grid;
+  gap: var(--sp-1);
+}
+
+/* One line: question, what's sent, the two answers; the details wrap below when open. */
+.s-home__ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  font-size: var(--t-sm);
+}
+
+.s-home__ask > .p-icon {
+  color: var(--accent);
+}
+
+.s-home__ask-q {
+  flex: 1;
+  font-size: var(--t-sm);
+  font-weight: 650;
+}
+
+.s-home__ask-body {
+  flex-basis: 100%;
+  padding-block-end: 6px;
+  color: var(--text-secondary);
+}
+
 @media (max-width: 760px) {
-  .s-home__choices {
+  .s-home__verbs,
+  .s-home__how {
     grid-template-columns: 1fr;
+  }
+
+  .s-home__how li + li {
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--border);
   }
 }

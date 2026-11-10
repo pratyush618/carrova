@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { EngineCatalogEntry, RecipesStatus } from '@/engine/types';
-import { catalogModel, recipeModel } from '@/flows/catalog/catalogViews';
+import { bundleStatus, catalogModel, recipeModel } from '@/flows/catalog/catalogViews';
+import { i18n } from '@/i18n/i18n';
 
 const entries: EngineCatalogEntry[] = [
   {
@@ -44,5 +45,20 @@ describe('catalogue views', () => {
       'unmovable',
     ]);
     expect(recipeModel(entries, 'nope')).toBeNull();
+  });
+
+  it('names the bundle in the sidebar foot, and says when recipes are not signed', () => {
+    const t = i18n.t.bind(i18n);
+    expect(bundleStatus(status('installed'), t)).toEqual({
+      title: 'Signed recipes',
+      tone: 'success',
+      detail: 'Recipe list 3 · 1 app',
+    });
+    expect(bundleStatus(status('dev_dir'), t)).toEqual({
+      title: 'Recipes not signed',
+      tone: 'warning',
+      detail: 'Development folder · 1 app',
+    });
+    expect(bundleStatus(null, t)).toBeNull();
   });
 });

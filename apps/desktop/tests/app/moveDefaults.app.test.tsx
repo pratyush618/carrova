@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderApp } from '../support/app';
 
 async function openSettings(user: UserEvent): Promise<void> {
-  await screen.findByRole('heading', { level: 1, name: 'What are we doing on this computer?' });
+  await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
   await user.click(screen.getByRole('button', { name: 'Settings' }));
 }
 
@@ -14,14 +14,10 @@ describe('suggested defaults for new moves', () => {
     const { port } = await renderApp({ returning: true });
     const plan = vi.spyOn(port, 'plan');
     await openSettings(user);
-    await user.selectOptions(
-      await screen.findByRole('combobox', { name: 'When a file already exists' }),
-      'keep-both',
-    );
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: 'Keep the undo point' }),
-      'discard_on_success',
-    );
+    const rule = await screen.findByRole('radiogroup', { name: 'When a file already exists' });
+    await user.click(within(rule).getByRole('radio', { name: 'Keep both' }));
+    const retention = screen.getByRole('radiogroup', { name: 'Keep the undo point' });
+    await user.click(within(retention).getByRole('radio', { name: 'Until the move succeeds' }));
     await user.click(screen.getByRole('button', { name: 'Home' }));
 
     await user.click(await screen.findByRole('button', { name: /Receive/ }));

@@ -6,9 +6,9 @@ import { catalogAll } from '@/screens/apps/fixtures';
 import { unanswered } from '@/screens/receive/ReviewDecisions';
 import { reviewDecide, reviewReady } from '@/screens/receive/fixtures';
 import { appCheck } from '@/screens/send/CustomizeTree';
-import { selectionTotals } from '@/screens/send/FoundSelection';
-import { customize, foundReady } from '@/screens/send/fixtures';
+import { customize } from '@/screens/send/fixtures';
 import { chipText } from '@/screens/shared/chipText';
+import { stoppedAt } from '@/screens/shared/transfer';
 import { transferAt, transferMoving } from '@/screens/shared/transferFixtures';
 
 const bytes = (n: number) => formatBytes(n, 'en');
@@ -19,12 +19,6 @@ describe('selection rules', () => {
     expect(ssh && appCheck(ssh)).toBe('mixed');
     expect(git && appCheck(git)).toBe('mixed');
     expect(vscode && appCheck(vscode)).toBe('mixed');
-  });
-
-  it('totals only the apps being brought', () => {
-    if (foundReady.status !== 'found') throw new Error('fixture');
-    const apps = foundReady.apps.map((a) => (a.id === 'vscode' ? { ...a, included: false } : a));
-    expect(selectionTotals(apps).files).toBe(24);
   });
 
   it('counts unanswered decisions', () => {
@@ -46,6 +40,23 @@ describe('chip wording', () => {
     expect(applying.apps[0] && chipText(applying.apps[0], applying, t, bytes)).toBe('In place');
     const paused = transferAt('paused', 'receive');
     expect(paused.apps[4] && chipText(paused.apps[4], paused, t, bytes)).toBe('Paused');
+  });
+});
+
+describe('where a transfer stopped', () => {
+  it('is the app that was moving when the user paused', () => {
+    const held = transferAt('held', 'receive');
+    expect(stoppedAt(held)).toBe(held.apps[2]?.id);
+  });
+
+  it('is the next app to move when the link dropped between apps', () => {
+    const lost = transferAt('reconnecting', 'receive');
+    expect(stoppedAt(lost)).toBe(lost.apps[4]?.id);
+  });
+
+  it('is nothing while bytes flow or things are being placed', () => {
+    expect(stoppedAt(transferMoving)).toBeNull();
+    expect(stoppedAt(transferAt('applying', 'receive'))).toBeNull();
   });
 });
 

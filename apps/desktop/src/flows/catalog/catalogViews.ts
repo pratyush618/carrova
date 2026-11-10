@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import type { EngineCatalogEntry, RecipesStatus } from '../../engine/types';
 import type {
   CatalogEntry,
@@ -6,6 +7,7 @@ import type {
   RecipeModel,
   TierFilter,
 } from '../../screens/apps/model';
+import type { HubStatus } from '../../ui';
 import { appRef } from '../shared/paths';
 
 /** UI-only state of the catalogue page. */
@@ -57,4 +59,19 @@ export function recipeModel(
     installed: e.detected,
     items: e.items.map((item) => ({ id: item.id, label: item.label, tag: itemTag(item) })),
   };
+}
+
+/** The sidebar foot: whether the recipes in use are signed, which list, how many apps. */
+export function bundleStatus(status: RecipesStatus | null, t: TFunction): HubStatus | null {
+  if (status === null) return null;
+  const apps = t('count.apps', {
+    count: status.verified + status.community + status.unverified,
+  });
+  return status.origin.kind === 'dev_dir'
+    ? { title: t('apps.bundle.unsigned'), tone: 'warning', detail: t('apps.bundle.dev', { apps }) }
+    : {
+        title: t('apps.bundle.signed'),
+        tone: 'success',
+        detail: t('apps.bundle.list', { version: status.origin.version, apps }),
+      };
 }

@@ -1,69 +1,49 @@
 import { useTranslation } from 'react-i18next';
 import { isNearDay } from '../../i18n/format';
 import { useFormat } from '../../i18n/useFormat';
-import {
-  Badge,
-  Button,
-  Empty,
-  HubLayout,
-  Icon,
-  LinkRow,
-  List,
-  PageHead,
-  type IconName,
-} from '../../ui';
-import type { HistoryEntry, HistoryIntents, HistoryModel, MoveKind } from './model';
-import { moveTitle } from './moveTitle';
+import { Badge, Button, Empty, Head, HubLayout, Icon, MoveCard } from '../../ui';
+import type { HistoryEntry, HistoryIntents, HistoryModel } from './model';
+import { MoveDetail } from './MoveDetail';
+import { groupMoves, KIND_ICON, moveSub, moveTag, moveTitle } from './moveWords';
+import './history.css';
 
-const KIND_ICON: Record<MoveKind, IconName> = {
-  received: 'receive',
-  sent: 'send',
-  saved: 'file',
-  opened: 'file',
-  undone: 'undo',
-};
-
-function EntryRow({
+function Card({
   entry,
-  now,
-  onOpen,
+  model,
+  onSelect,
 }: {
   readonly entry: HistoryEntry;
-  readonly now: Date;
-  readonly onOpen: () => void;
+  readonly model: HistoryModel;
+  readonly onSelect: () => void;
 }) {
   const { t } = useTranslation();
   const format = useFormat();
-  const when = isNearDay(entry.when, now)
-    ? t('summary.dayTime', {
-        day: format.day(entry.when, now, true),
-        time: format.time(entry.when),
-      })
-    : format.date(entry.when);
-  const moved = entry.moved;
-  const apps = moved === null ? '' : t('count.apps', { count: moved.apps });
-  const bytes = moved?.bytes ?? null;
-  const summary =
-    bytes === null ? apps : t('summary.appsSize', { apps, size: format.bytes(bytes) });
-  const sub = moved ? t('history.when', { when, summary }) : when;
+  const tag = moveTag(entry, t);
   return (
-    <LinkRow
-      lead={<Icon name={KIND_ICON[entry.kind]} />}
-      title={moveTitle(entry, t)}
-      sub={sub}
-      trail={
+    <MoveCard
+      route={
         <>
-          {entry.undoable && <Badge tone="accent">{t('history.undoable')}</Badge>}
-          {entry.resumable && <Badge tone="warning">{t('history.interrupted')}</Badge>}
-          <Icon name="chev" />
+          <Icon name={KIND_ICON[entry.kind]} size="sm" />
+          {moveTitle(entry, t)}
         </>
       }
-      onClick={onOpen}
+      when={isNearDay(entry.when, model.now) ? format.time(entry.when) : format.date(entry.when)}
+      sub={moveSub(entry, model.now, t, format)}
+      tag={
+        tag && (
+          <Badge tone={tag.tone} {...(tag.icon && { icon: tag.icon })}>
+            {tag.label}
+          </Badge>
+        )
+      }
+      current={model.selected?.entry.id === entry.id}
+      undone={entry.kind === 'undone'}
+      onSelect={onSelect}
     />
   );
 }
 
-/** Every past move, each with a way back to its details and Undo. */
+/** Every move as a card on a timeline; the selected one opens its record beside the list. */
 export function HistoryScreen({
   model,
   on,
@@ -71,8 +51,9 @@ export function HistoryScreen({
   readonly model: HistoryModel;
   readonly on: HistoryIntents;
 }) {
-  const { t } = useTranslation();
-  if (model.entries.length === 0) {
+  const { t, i18n } = useTranslation();
+  const format = useFormat();
+  if (model.entries.length === 0 || model.selected === null) {
     return (
       <HubLayout>
         <Empty
@@ -88,21 +69,35 @@ export function HistoryScreen({
       </HubLayout>
     );
   }
+  const month = new Intl.DateTimeFormat(i18n.language, { month: 'long', year: 'numeric' });
+  const groups = groupMoves(model.entries, (e) =>
+    isNearDay(e.when, model.now) ? format.day(e.when, model.now, true) : month.format(e.when),
+  );
   return (
-    <HubLayout>
-      <PageHead title={t('history.title')} />
-      <List label={t('history.moves')}>
-        {model.entries.map((entry) => (
-          <EntryRow
-            key={entry.id}
-            entry={entry}
-            now={model.now}
-            onOpen={() => {
-              on.onOpen(entry.id);
-            }}
-          />
-        ))}
-      </List>
+    <HubLayout variant="flush">
+      <div className="s-hist">
+        <div className="s-hist__list">
+          <Head title={t('history.title')} lede={t('history.lede')} />
+          {groups.map((group) => (
+            <section key={group.label} aria-label={group.label}>
+              <h2 className="s-hist__day">{group.label}</h2>
+              {group.items.map((entry) => (
+                <Card
+                  key={entry.id}
+                  entry={entry}
+                  model={model}
+                  onSelect={() => {
+                    on.onSelect(entry.id);
+                  }}
+                />
+              ))}
+            </section>
+          ))}
+        </div>
+        <aside className="s-hist__detail" aria-label={t('history.detail')}>
+          <MoveDetail model={model.selected} now={model.now} on={on} />
+        </aside>
+      </div>
     </HubLayout>
   );
 }

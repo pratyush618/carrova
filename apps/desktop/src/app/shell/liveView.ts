@@ -38,8 +38,4 @@ export function liveView(view: View, c: Controllers, sending: SessionProgress): 
 
 /** Stable key per screen: focus moves and the window resets when it changes. */
 export const viewKey = (view: View): string =>
-  view.kind === 'flow'
-    ? `${view.at.flow}/${view.at.step}`
-    : view.kind === 'hub'
-      ? view.page
-      : view.kind;
+  view.kind === 'flow' ? `${view.at.flow}/${view.at.step}` : view.page;

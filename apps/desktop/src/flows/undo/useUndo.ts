@@ -12,6 +12,8 @@ export interface UndoController {
   /** Ask about undoing `session` (applied at `pointAt`); the engine previews it. */
   readonly ask: (session: SessionId, pointAt: Date) => void;
   readonly confirm: () => void;
+  /** What undoing `session` would do now, without asking the user anything. */
+  readonly peek: (session: SessionId) => Promise<RollbackPreview>;
 }
 
 interface Asked {
@@ -54,8 +56,9 @@ export function useUndo(port: CarrovaPort, onDone: () => void): UndoController {
   const confirm = useCallback(() => {
     if (asked !== null) void run(asked.session).then(onDone);
   }, [run, asked, onDone]);
+  const peek = useCallback((session: SessionId) => port.rollbackPreview(session), [port]);
   return useMemo(
-    () => ({ target, rollback: rollback.state, ask, confirm }),
-    [target, rollback.state, ask, confirm],
+    () => ({ target, rollback: rollback.state, ask, confirm, peek }),
+    [target, rollback.state, ask, confirm, peek],
   );
 }

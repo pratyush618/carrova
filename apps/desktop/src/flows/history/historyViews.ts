@@ -1,8 +1,15 @@
-import type { RollbackReport, SessionRecord, SessionState } from '../../engine/types';
+import type {
+  ReportConsent,
+  RollbackPreview,
+  RollbackReport,
+  SessionRecord,
+  SessionState,
+} from '../../engine/types';
 import type { HistoryEntry, MoveKind, SessionModel } from '../../screens/history/model';
 import type { HomeModel } from '../../screens/start/model';
 import type { UndoResultModel } from '../../screens/undo/model';
 import { appOf } from '../shared/keys';
+import { undoCounts } from '../undo/undoViews';
 
 const fromUnix = (seconds: number): Date => new Date(seconds * 1000);
 
@@ -29,7 +36,8 @@ export function historyEntry(record: SessionRecord): HistoryEntry {
   return {
     id: record.id,
     kind: kindOf(record),
-    peer: source?.kind === 'archive' ? baseName(source.path) : null,
+    state: record.state,
+    peer: source?.kind === 'archive' ? baseName(source.path) : (source?.peer_name ?? null),
     when: fromUnix(record.updated_at),
     moved:
       moved.length === 0
@@ -43,8 +51,11 @@ export function historyEntry(record: SessionRecord): HistoryEntry {
   };
 }
 
-/** The move-details sheet: timeline, the engine's (redacted) words, and what's possible. */
-export function sessionModel(record: SessionRecord): SessionModel {
+/**
+ * The move-details rail: timeline, the engine's (redacted) words, what's
+ * possible, and what Undo would do (`preview`, when the engine gave one).
+ */
+export function sessionModel(record: SessionRecord, preview: RollbackPreview | null): SessionModel {
   const skipped = record.checklist?.skipped ?? [];
   return {
     entry: historyEntry(record),
@@ -56,27 +67,26 @@ export function sessionModel(record: SessionRecord): SessionModel {
       ...(record.error === null ? [] : [record.error]),
       ...skipped.map((s) => `${s.what}: ${s.reason}`),
     ],
+    undoCounts: undoCounts(preview),
   };
 }
 
-/** Home's "last move" line: the newest finished send or receive. */
+/** Moves Home lists before "See all". */
+const RECENT = 3;
+
+/**
+ * Home: the newest moves (none = first run) and, while error-report consent
+ * was never answered (`unset`; `null` = not loaded), the one-time question.
+ */
 export function homeModel(
   records: readonly SessionRecord[],
   now: Date,
-  unknownPeer: string,
+  consent: ReportConsent | null,
 ): HomeModel {
-  const last = records.find((r) => r.state === 'done' && r.checklist !== null);
-  if (last === undefined) return { now, last: null };
-  const entry = historyEntry(last);
   return {
     now,
-    last: {
-      direction: last.role === 'import' ? 'received' : 'sent',
-      peer: entry.peer ?? unknownPeer,
-      when: entry.when,
-      apps: entry.moved?.apps ?? 0,
-      undoable: entry.undoable,
-    },
+    recent: records.slice(0, RECENT).map(historyEntry),
+    askReports: consent === 'unset',
   };
 }
 

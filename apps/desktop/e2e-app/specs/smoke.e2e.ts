@@ -62,10 +62,12 @@ describe('Carrova desktop (real app)', () => {
     expect(inTauri).toBe(true);
   });
 
-  it('starts on Welcome and goes Home', async () => {
-    await expect($('h1')).toHaveText('Bring your setup to a new computer.');
-    await $('button=Get started').click();
-    await expect($('h1')).toHaveText('What are we doing on this computer?');
+  it('starts on Home and asks once about error reports', async () => {
+    await expect($('h1')).toHaveText('Bring your setup with you.');
+    const question = $('h2=Send error reports if Carrova crashes?');
+    await expect(question).toBeDisplayed();
+    await $('button=No thanks').click();
+    await expect(question).not.toBeDisplayed();
   });
 
   it('lists the recipes the engine loaded in the Apps catalogue', async () => {

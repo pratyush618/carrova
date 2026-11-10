@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderApp } from '../../support/app';
 
 async function chooseFile(user: UserEvent, which: 'Save to a file' | 'Open a file'): Promise<void> {
-  await screen.findByRole('heading', { level: 1, name: 'What are we doing on this computer?' });
+  await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
   await user.click(screen.getByRole('button', { name: 'Use an encrypted file instead' }));
   await user.click(screen.getByRole('button', { name: new RegExp(which) }));
 }

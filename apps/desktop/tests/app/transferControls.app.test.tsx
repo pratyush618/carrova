@@ -6,7 +6,7 @@ import { renderApp } from '../support/app';
 
 /** Receive over the LAN, bring every sensitive item, approve: the transfer runs. */
 async function startTransfer(user: UserEvent): Promise<void> {
-  await screen.findByRole('heading', { level: 1, name: 'What are we doing on this computer?' });
+  await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
   await user.click(screen.getByRole('button', { name: /Receive/ }));
   await user.type(await screen.findByRole('textbox', { name: 'Pairing code' }), '7-acid-lemon');
   await user.click(screen.getByRole('button', { name: 'Connect' }));

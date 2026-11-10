@@ -1,0 +1,24 @@
+.s-undo-calc {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--surface-0);
+  font-size: var(--t-sm);
+}
+
+.s-undo-calc div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.s-undo-calc dt {
+  color: var(--text-secondary);
+}
+
+.s-undo-calc dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

@@ -50,7 +50,7 @@ export function UpdateDialog({
     ) : null;
   return (
     <Dialog
-      icon="spark"
+      icon="receive"
       title={text.title}
       onDismiss={on.onLater}
       foot={

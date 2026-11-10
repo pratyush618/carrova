@@ -1,56 +1,83 @@
 import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { catalogModel, type CatalogUi } from '../../../flows/catalog/catalogViews';
-import { historyEntry, homeModel } from '../../../flows/history/historyViews';
+import { historyEntry, homeModel, sessionModel } from '../../../flows/history/historyViews';
+import { useUndoPreview } from '../../../flows/undo/useUndoPreview';
+import { current, type Remote } from '../../../flows/remote';
 import { AppsScreen } from '../../../screens/apps/AppsScreen';
 import { HistoryScreen } from '../../../screens/history/HistoryScreen';
 import { SettingsScreen } from '../../../screens/settings/SettingsScreen';
 import { HomeScreen } from '../../../screens/start/HomeScreen';
-import { WelcomeScreen } from '../../../screens/start/WelcomeScreen';
 import { HubLayout } from '../../../ui';
 import { useControllers } from '../../controllers/Controllers';
 import { useNav } from '../nav';
 import { useStartFlows } from './useStartFlows';
 
-/** Home: the two verbs, and the last move with its Undo. */
+/** A list the page can't render until it has answered once (a failure counts: render empty). */
+const answered = (remote: Remote<unknown>): boolean =>
+  remote.status === 'ready' || remote.status === 'failed' || current(remote) !== null;
+
+/** Home: the two verbs, recent moves with Undo, the one-time error-report question. */
 export function HomeRoute() {
-  const { t } = useTranslation();
-  const { history } = useControllers();
+  const { history, settings } = useControllers();
   const nav = useNav();
   const start = useStartFlows();
-  const { reload, records } = history;
+  const { reload, records, sessions } = history;
   useEffect(reload, [reload]);
-  const model = homeModel(records, new Date(), t('history.anotherComputer'));
-  const last = records.find((r) => r.state === 'done' && r.checklist !== null);
+  // Rendering before sessions load would flash the first-run Home at returning users.
+  if (!answered(sessions)) return <HubLayout variant="center">{null}</HubLayout>;
   return (
     <HomeScreen
-      model={model}
+      model={homeModel(records, new Date(), settings.consent)}
       on={{
         onSend: start.send,
         onReceive: start.receive,
         onUseFile: () => {
           nav.open({ kind: 'file-choose' });
         },
-        onUndoLast: () => {
-          if (last) start.askUndo(last);
+        onUndo: (id) => {
+          const record = records.find((r) => r.id === id);
+          if (record) start.askUndo(record);
         },
+        onHistory: () => {
+          nav.go({ type: 'openHub', page: 'history' });
+        },
+        onErrorReports: settings.setConsent,
       }}
     />
   );
 }
 
+/** History: every move, the selected one (newest by default) open beside the list. */
 export function HistoryRoute() {
-  const { history } = useControllers();
+  const { history, undo } = useControllers();
   const nav = useNav();
   const start = useStartFlows();
-  const { reload, records } = history;
+  const [picked, setPicked] = useState<string | null>(null);
+  const { reload, records, sessions } = history;
   useEffect(reload, [reload]);
+  const record = records.find((r) => r.id === picked) ?? records[0];
+  const preview = useUndoPreview(
+    undo.peek,
+    record !== undefined && historyEntry(record).undoable ? record.id : null,
+  );
+  if (!answered(sessions)) return <HubLayout>{null}</HubLayout>;
   return (
     <HistoryScreen
-      model={{ now: new Date(), entries: records.map(historyEntry) }}
+      model={{
+        now: new Date(),
+        entries: records.map(historyEntry),
+        selected: record === undefined ? null : sessionModel(record, preview),
+      }}
       on={{
-        onOpen: (id) => {
-          nav.open({ kind: 'session', id });
+        onSelect: setPicked,
+        onUndo: () => {
+          if (record) start.askUndo(record);
+        },
+        onResume: () => {
+          if (record) start.resume(record);
+        },
+        onForget: () => {
+          if (record) nav.open({ kind: 'forget', id: record.id });
         },
         onReceive: start.receive,
       }}
@@ -118,25 +145,6 @@ export function SettingsRoute() {
         onMoveDefaults: (patch) => {
           const current = settings.settings?.move_defaults;
           if (current !== undefined) settings.save({ move_defaults: { ...current, ...patch } });
-        },
-      }}
-    />
-  );
-}
-
-/** First run: the promises and the error-report question (off unless the user turns it on). */
-export function WelcomeRoute() {
-  const { settings } = useControllers();
-  const nav = useNav();
-  const [reports, setReports] = useState(false);
-  return (
-    <WelcomeScreen
-      model={{ errorReports: reports }}
-      on={{
-        onErrorReports: setReports,
-        onStart: () => {
-          settings.setConsent(reports);
-          nav.go({ type: 'finishWelcome' });
         },
       }}
     />

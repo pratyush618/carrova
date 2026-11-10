@@ -10,6 +10,12 @@ export const apps = {
   unsigned: "App list signature couldn't be checked. Carrova is using the list it shipped with.",
   communityTitle: 'Community apps are checked by tests, not reviewed by the Carrova team',
   communityBody: "They're still data only: they can't run code.",
+  bundle: {
+    signed: 'Signed recipes',
+    unsigned: 'Recipes not signed',
+    list: 'Recipe list {{version}} · {{apps}}',
+    dev: 'Development folder · {{apps}}',
+  },
   grid: 'Apps',
   installed: 'Set up on this computer',
   notInstalled: 'Not found here',
