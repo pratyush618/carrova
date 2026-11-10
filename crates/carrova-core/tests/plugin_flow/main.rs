@@ -45,10 +45,17 @@ fn plugin_id() -> PluginId {
 }
 
 /// `{"vaults":{…:{"path":"<home>/Notes",…}}}`.
+/// `home` as it appears inside a JSON string (backslashes escaped on Windows).
+fn json_spelled(home: &Path) -> String {
+    let quoted = serde_json::to_string(&home.display().to_string()).unwrap();
+    quoted[1..quoted.len() - 1].to_owned()
+}
+
+/// Obsidian's vault list, which stores absolute paths as JSON strings.
 fn vault_list(home: &Path) -> String {
     format!(
         r#"{{"vaults":{{"0123456789abcdef":{{"path":"{}/Notes","ts":1,"open":true}}}}}}"#,
-        home.display()
+        json_spelled(home)
     )
 }
 
@@ -187,7 +194,7 @@ fn linux_vault_paths_are_rewritten_for_macos_and_rolled_back() {
         .join("Library/Application Support/obsidian/obsidian.json");
     let text = std::fs::read_to_string(&target).unwrap();
     assert_eq!(text, vault_list(&r.home));
-    assert!(!text.contains(&archive().1.display().to_string()), "{text}");
+    assert!(!text.contains(&json_spelled(&archive().1)), "{text}");
 
     let report = sessions::rollback(&r.engine, Some(imp.id())).unwrap();
     assert!(report.failed.is_empty(), "{:?}", report.failed);
