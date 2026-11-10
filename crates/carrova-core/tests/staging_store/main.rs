@@ -567,6 +567,7 @@ fn space_counts_staged_and_final_copy_on_different_filesystems() {
     let e = env_with(|p, home| {
         std::fs::create_dir_all(home.join(".config")).unwrap();
         p.filesystem(home.join(".config"), 7, 1234)
+            .disk_total_bytes(9999)
     });
     let fx = two_files_sharing_a_chunk(&e.home);
     let needs = space_needs(&e.platform, &fx.plan, &fx.manifest).unwrap();
@@ -578,6 +579,7 @@ fn space_counts_staged_and_final_copy_on_different_filesystems() {
     assert_eq!(target.roots, [SemanticRoot::UserConfig]);
     assert_eq!(target.bytes, 5010);
     assert_eq!(target.available, Some(1234));
+    assert_eq!(target.total, Some(9999));
     assert!(target.is_short() && !state.is_short());
     assert_eq!(target.describe(), "user_config");
 }

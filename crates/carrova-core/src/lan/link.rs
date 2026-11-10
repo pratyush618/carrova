@@ -15,6 +15,7 @@ use super::{
 use crate::cancel::Cancel;
 use crate::error::{CoreError, Result};
 use crate::session::{Event, EventSink};
+use crate::transfer_control::{IDLE_SLICE, TransferControl};
 
 /// The receiver's end of a LAN session: the live connection (if any) and
 /// the session's resume secret to re-establish it. Every reconnect starts
@@ -26,6 +27,8 @@ pub(crate) struct Link {
     dialer: Box<dyn Dialer>,
     /// Stops reconnecting ([`CoreError::Cancelled`]).
     cancel: Cancel,
+    /// The user's "Try now" ends a reconnect back-off early.
+    control: TransferControl,
 }
 
 /// How a [`Link`] reaches the paired sender again.
@@ -75,24 +78,33 @@ impl Dialer for TransportDialer {
 
 impl Link {
     /// A link over a freshly paired connection; reconnects via `dialer`
-    /// until `cancel` fires.
-    pub(crate) fn paired(conn: Connection, dialer: Box<dyn Dialer>, cancel: Cancel) -> Self {
+    /// until `cancel` fires, at once when `control` asks to retry now.
+    pub(crate) fn paired(
+        conn: Connection,
+        dialer: Box<dyn Dialer>,
+        cancel: Cancel,
+        control: TransferControl,
+    ) -> Self {
         let secret = conn.resume_secret().clone();
         Self {
             conn: Some(conn),
-            secret,
-            dialer,
-            cancel,
+            ..Self::detached(secret, dialer, cancel, control)
         }
     }
 
     /// A link with no connection yet (resume after a restart).
-    pub(crate) fn detached(secret: ResumeSecret, dialer: Box<dyn Dialer>, cancel: Cancel) -> Self {
+    pub(crate) fn detached(
+        secret: ResumeSecret,
+        dialer: Box<dyn Dialer>,
+        cancel: Cancel,
+        control: TransferControl,
+    ) -> Self {
         Self {
             conn: None,
             secret,
             dialer,
             cancel,
+            control,
         }
     }
 
@@ -139,7 +151,7 @@ impl Link {
     /// handshake), which must never end the session. Only errors on the
     /// authenticated connection afterwards are the sender's own and
     /// returned (a lost connection is retried). A cancel ends the wait
-    /// with [`CoreError::Cancelled`].
+    /// with [`CoreError::Cancelled`]; the user's "Try now" ends a back-off.
     pub(crate) fn reconnect(
         &mut self,
         stage: ReceiverStage,
@@ -178,10 +190,23 @@ impl Link {
                 Err(TransportError::Cancelled) => return Err(CoreError::Cancelled),
                 Err(e) => tracing::debug!(error = %e, "reconnect attempt failed"),
             }
-            self.cancel
-                .sleep(backoff.min(window.saturating_sub(started.elapsed())))?;
+            self.back_off(backoff.min(window.saturating_sub(started.elapsed())))?;
             backoff = (backoff * 2).min(RECONNECT_BACKOFF_MAX);
         }
+    }
+
+    /// Wait `pause` in [`IDLE_SLICE`]s, ending early when the user asks to
+    /// retry now ([`TransferControl::retry_now`]).
+    fn back_off(&self, pause: Duration) -> Result<()> {
+        let started = Instant::now();
+        while !self.control.take_retry_now() {
+            let left = pause.saturating_sub(started.elapsed());
+            if left.is_zero() {
+                break;
+            }
+            self.cancel.sleep(left.min(IDLE_SLICE))?;
+        }
+        Ok(())
     }
 
     /// Send `msg`, reconnecting (within `window`) when the connection is

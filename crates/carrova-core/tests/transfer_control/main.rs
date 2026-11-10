@@ -66,6 +66,13 @@ fn ignoring_free_space_continues_a_transfer_paused_for_low_disk_space() {
         .position(|e| matches!(e, Event::TransferResumed))
         .unwrap();
     assert!(paused < resumed);
+    let Event::TransferPaused {
+        reason: PauseReason::LowDiskSpace { disk, .. },
+    } = &events[paused]
+    else {
+        unreachable!()
+    };
+    assert!(disk.is_some(), "the pause names the disk");
     running.thread.join().unwrap().unwrap();
 }
 

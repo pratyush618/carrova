@@ -318,12 +318,17 @@ fn events_serialize_to_golden_json() {
                     fs: "/state".into(),
                     available: 1,
                     needed: 2,
+                    disk: Some("/home".into()),
                 },
             },
-            r#"{"event":"transfer_paused","reason":{"kind":"low_disk_space","fs":"/state","available":1,"needed":2}}"#,
+            r#"{"event":"transfer_paused","reason":{"kind":"low_disk_space","fs":"/state","available":1,"needed":2,"disk":"/home"}}"#,
         ),
         (Event::TransferResumed, r#"{"event":"transfer_resumed"}"#),
         (Event::PairingFailed, r#"{"event":"pairing_failed"}"#),
+        (
+            Event::PairingInProgress,
+            r#"{"event":"pairing_in_progress"}"#,
+        ),
     ];
     for (event, golden) in cases {
         assert_eq!(serde_json::to_string(&event).unwrap(), golden);

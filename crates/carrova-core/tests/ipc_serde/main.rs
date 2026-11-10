@@ -94,6 +94,7 @@ fn events_round_trip_through_json() {
                 fs: "/s".into(),
                 available: 1,
                 needed: 2,
+                disk: None,
             },
         },
         Event::ItemCaptured {

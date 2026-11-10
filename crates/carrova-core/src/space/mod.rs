@@ -6,6 +6,8 @@
 //! apply, so when the state dir and a target root share a filesystem the
 //! data occupies it once; across filesystems the staged copy (state-dir
 //! filesystem) and the final copy (target filesystem) both need room.
+//! Files of plugin items are counted once more on the state-dir
+//! filesystem: the plugin's output is staged next to the original.
 
 use carrova_manifest::Manifest;
 use carrova_platform::Platform;
@@ -50,17 +52,26 @@ pub fn space_needs(
     plan: &Plan,
     manifest: &Manifest,
 ) -> Result<Vec<SpaceNeed>> {
-    Ok(needs(platform, &StageLayout::new(plan, manifest)?))
+    Ok(needs(platform, plan, &StageLayout::new(plan, manifest)?))
 }
 
-/// Needs of everything `layout` stages: each staged file occupies the
-/// state-dir filesystem and, unless that is also its target root's
-/// filesystem, the target filesystem too. Artifacts (no target root) are
-/// counted on the state-dir filesystem only.
-pub(crate) fn needs(platform: &dyn Platform, layout: &StageLayout) -> Vec<SpaceNeed> {
+/// Needs of everything `layout` (of `plan`) stages: each staged file
+/// occupies the state-dir filesystem and, unless that is also its target
+/// root's filesystem, the target filesystem too. Artifacts (no target
+/// root) are counted on the state-dir filesystem only, and so is the
+/// staged plugin output of a plugin item's file (assumed its original
+/// size; staging re-checks the real size, see `stage::run_plugins`).
+pub(crate) fn needs(platform: &dyn Platform, plan: &Plan, layout: &StageLayout) -> Vec<SpaceNeed> {
     let mut acc = SpaceAccount::new(platform);
     for f in layout.files() {
         acc.add(f.root, f.size);
+        if plan
+            .plugins
+            .iter()
+            .any(|p| p.items.contains(f.target.item()))
+        {
+            acc.add(None, f.size);
+        }
     }
     acc.finish()
 }

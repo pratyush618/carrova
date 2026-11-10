@@ -95,6 +95,9 @@ pub enum Event {
     /// A pairing attempt failed (wrong code or tampered connection). The
     /// sender burns the code and shows a fresh one.
     PairingFailed,
+    /// Sender: a receiver started the pairing handshake with the offered
+    /// code; [`Event::PeerConnected`] or [`Event::PairingFailed`] follows.
+    PairingInProgress,
 }
 
 /// Why a LAN transfer paused.
@@ -111,6 +114,9 @@ pub enum PauseReason {
         available: u64,
         /// Bytes needed to continue.
         needed: u64,
+        /// Mount point of that filesystem, if the platform knows it.
+        #[serde(default)]
+        disk: Option<String>,
     },
     /// The user paused the transfer
     /// ([`crate::TransferControl::pause`]).
