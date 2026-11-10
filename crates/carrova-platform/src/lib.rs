@@ -8,6 +8,7 @@ mod device;
 mod error;
 mod lock;
 mod meta;
+mod os;
 pub mod path;
 mod platform;
 mod root;
@@ -15,24 +16,31 @@ mod types;
 
 #[cfg(feature = "fake")]
 pub mod fake;
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 mod fsops;
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
-#[cfg(target_os = "linux")]
+#[cfg(any(unix, windows))]
 mod netops;
 #[cfg(target_os = "windows")]
 mod windows;
+#[cfg(windows)]
+use windows::fs as sys;
+
+/// Filesystem primitives of this OS family, one signature set for all.
+#[cfg(unix)]
+use fsops as sys;
 
 pub use error::PlatformError;
 pub use lock::FileLock;
+pub use os::{OsKind, PermissionModel, UnknownOsKind};
 pub use platform::Platform;
 pub use root::SemanticRoot;
 pub use types::{
-    Allocation, DirEntry, FileKind, FileMeta, FsId, LanInterface, OsKind, ProcessInfo,
-    SnapshotCapability, SocketBuffers,
+    Allocation, DirEntry, FileKind, FileMeta, FsId, LanInterface, ProcessInfo, SnapshotCapability,
+    SocketBuffers,
 };
 
 /// Platform adapter for the OS this binary was compiled for.
@@ -44,7 +52,7 @@ pub fn current() -> Box<dyn Platform> {
     }
     #[cfg(target_os = "macos")]
     {
-        Box::new(macos::MacPlatform)
+        Box::new(macos::MacPlatform::from_env())
     }
     #[cfg(target_os = "windows")]
     {

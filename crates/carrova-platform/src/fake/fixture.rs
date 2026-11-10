@@ -1,7 +1,7 @@
 //! Filesystem fixture helpers for tests of service crates, which must never
 //! need `std::os::*` themselves.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Create a symlink at `link` pointing to `target` (test fixtures only).
 pub fn symlink(target: impl AsRef<Path>, link: impl AsRef<Path>) -> std::io::Result<()> {
@@ -27,7 +27,7 @@ pub fn write_tool_script(
     dir: impl AsRef<Path>,
     name: &str,
     sh_body: &str,
-) -> std::io::Result<PathBuf> {
+) -> std::io::Result<std::path::PathBuf> {
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
     let path = dir.as_ref().join(name);

@@ -1,14 +1,21 @@
 use std::io::{Read, Write};
 use std::path::PathBuf;
 
-use rustix::fs::CWD;
-
 use super::*;
 use crate::{Allocation, FileKind};
 use tempfile::TempDir;
 
 fn mode_of(p: &Path) -> u32 {
     crate::meta::lstat(p).unwrap().mode.unwrap() & 0o7777
+}
+
+/// `mkfifo(1)`: rustix has no `mkfifoat` on Apple targets.
+fn mkfifo(path: &Path) {
+    let status = std::process::Command::new("mkfifo")
+        .arg(path)
+        .status()
+        .unwrap();
+    assert!(status.success());
 }
 
 fn kind(e: &PlatformError) -> io::ErrorKind {
@@ -42,7 +49,7 @@ fn open_append_nofollow_appends_to_regular_files_only() {
         io::ErrorKind::NotFound
     );
     let fifo = tmp.path().join("fifo");
-    rustix::fs::mknodat(CWD, &fifo, FileType::Fifo, Mode::from_raw_mode(0o600), 0).unwrap();
+    mkfifo(&fifo);
     assert!(open_append_nofollow(&fifo).is_err());
     assert_eq!(std::fs::read(&f).unwrap(), b"a");
 }
@@ -67,7 +74,7 @@ fn open_rw_nofollow_reads_and_writes_regular_files_only() {
         io::ErrorKind::NotFound
     );
     let fifo = tmp.path().join("fifo");
-    rustix::fs::mknodat(CWD, &fifo, FileType::Fifo, Mode::from_raw_mode(0o600), 0).unwrap();
+    mkfifo(&fifo);
     assert!(open_rw_nofollow(&fifo).is_err());
 }
 
@@ -87,16 +94,26 @@ fn preallocate_sizes_file_and_positional_writes_fill_it() {
 }
 
 #[test]
-fn fs_id_same_within_a_filesystem_and_sync_fs_works() {
+fn fs_id_same_within_a_filesystem() {
     let tmp = TempDir::new().unwrap();
-    let d = tmp.path().join("d");
-    std::fs::create_dir(&d).unwrap();
-    std::fs::write(d.join("f"), b"x").unwrap();
-    assert_eq!(fs_id(tmp.path()).unwrap(), fs_id(&d.join("f")).unwrap());
+    std::fs::write(tmp.path().join("f"), b"x").unwrap();
+    assert_eq!(
+        fs_id(tmp.path()).unwrap(),
+        fs_id(&tmp.path().join("f")).unwrap()
+    );
     assert_eq!(
         kind(&fs_id(&tmp.path().join("missing")).unwrap_err()),
         io::ErrorKind::NotFound
     );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn sync_fs_syncs_files_and_dirs_but_not_through_links() {
+    let tmp = TempDir::new().unwrap();
+    let d = tmp.path().join("d");
+    std::fs::create_dir(&d).unwrap();
+    std::fs::write(d.join("f"), b"x").unwrap();
     sync_fs(&d).unwrap();
     sync_fs(&d.join("f")).unwrap();
     let link = tmp.path().join("l");
@@ -215,7 +232,7 @@ fn open_read_nofollow_reads_files_only() {
     assert_eq!(kind(&e), io::ErrorKind::InvalidInput);
 
     let fifo = tmp.path().join("fifo");
-    rustix::fs::mknodat(CWD, &fifo, FileType::Fifo, Mode::from_raw_mode(0o600), 0).unwrap();
+    mkfifo(&fifo);
     let e = open_read_nofollow(&fifo).unwrap_err();
     assert_eq!(kind(&e), io::ErrorKind::InvalidInput);
 }

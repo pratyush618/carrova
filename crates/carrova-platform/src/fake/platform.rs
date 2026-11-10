@@ -4,12 +4,23 @@ use std::path::{Path, PathBuf};
 
 use super::FakePlatform;
 use crate::{
-    FileMeta, FsId, OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability,
+    FileMeta, FsId, OsKind, PermissionModel, Platform, PlatformError, ProcessInfo, SemanticRoot,
+    SnapshotCapability,
 };
 
 impl Platform for FakePlatform {
     fn os(&self) -> OsKind {
-        OsKind::Linux
+        self.os
+    }
+
+    /// Follows [`Platform::os`] on a Unix host. A Windows host's real files
+    /// carry no mode bits, so there it is always ACL, whatever `os`.
+    fn permission_model(&self) -> PermissionModel {
+        if cfg!(unix) {
+            self.os.permission_model()
+        } else {
+            PermissionModel::Acl
+        }
     }
 
     fn resolve_root(&self, root: SemanticRoot) -> Result<PathBuf, PlatformError> {
@@ -53,114 +64,114 @@ impl Platform for FakePlatform {
         Ok(self.state_dir.clone())
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn open_read_nofollow(&self, path: &Path) -> Result<std::fs::File, PlatformError> {
-        let file = crate::fsops::open_read_nofollow(path)?;
+        let file = crate::sys::open_read_nofollow(path)?;
         if let Some(hook) = &self.hooks.hooks.on_open {
             hook(path);
         }
         Ok(file)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn create_new_file(
         &self,
         path: &Path,
         mode: Option<u32>,
     ) -> Result<std::fs::File, PlatformError> {
-        crate::fsops::create_new_file(path, mode)
+        crate::sys::create_new_file(path, mode)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn create_dir(&self, path: &Path, mode: Option<u32>) -> Result<(), PlatformError> {
-        crate::fsops::create_dir(path, mode)
+        crate::sys::create_dir(path, mode)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn set_mode(&self, path: &Path, mode: u32) -> Result<(), PlatformError> {
-        crate::fsops::set_mode(path, mode)
+        crate::sys::set_mode(path, mode)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn create_symlink(&self, target: &str, link: &Path) -> Result<(), PlatformError> {
-        crate::fsops::create_symlink(target, link)
+        crate::sys::create_symlink(target, link)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn read_link(&self, path: &Path) -> Result<PathBuf, PlatformError> {
-        crate::fsops::read_link(path)
+        crate::sys::read_link(path)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn rename_noreplace(&self, from: &Path, to: &Path) -> Result<(), PlatformError> {
         if let Some(hook) = &self.hooks.hooks.on_rename {
             hook(from, to)?;
         }
-        crate::fsops::rename_noreplace(from, to)
+        crate::sys::rename_noreplace(from, to)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn rename_replace(&self, from: &Path, to: &Path) -> Result<(), PlatformError> {
-        crate::fsops::rename_replace(from, to)
+        crate::sys::rename_replace(from, to)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn sync_dir(&self, path: &Path) -> Result<(), PlatformError> {
         self.hooks.count_dir_sync();
-        crate::fsops::sync_dir(path)
+        crate::sys::sync_dir(path)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn remove_file(&self, path: &Path) -> Result<(), PlatformError> {
-        crate::fsops::remove_file(path)
+        crate::sys::remove_file(path)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn read_dir(&self, path: &Path) -> Result<Vec<crate::DirEntry>, PlatformError> {
-        crate::fsops::read_dir(path)
+        crate::sys::read_dir(path)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn remove_dir_all_confined(&self, path: &Path, within: &Path) -> Result<(), PlatformError> {
-        crate::fsops::remove_dir_all_confined(path, within)
+        crate::sys::remove_dir_all_confined(path, within)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn open_append_nofollow(&self, path: &Path) -> Result<std::fs::File, PlatformError> {
-        crate::fsops::open_append_nofollow(path)
+        crate::sys::open_append_nofollow(path)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn lock_exclusive(&self, path: &Path) -> Result<crate::FileLock, PlatformError> {
-        crate::fsops::lock_exclusive(path)
+        crate::sys::lock_exclusive(path)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn open_rw_nofollow(&self, path: &Path) -> Result<std::fs::File, PlatformError> {
-        crate::fsops::open_rw_nofollow(path)
+        crate::sys::open_rw_nofollow(path)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn fs_id(&self, path: &Path) -> Result<FsId, PlatformError> {
         match self.fake_fs(path) {
             Some(f) => Ok(f.id),
-            None => crate::fsops::fs_id(path),
+            None => crate::sys::fs_id(path),
         }
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn sync_fs(&self, path: &Path) -> Result<(), PlatformError> {
-        crate::fsops::sync_fs(path)
+        crate::sys::sync_fs(path)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn write_all_at(&self, file: &std::fs::File, buf: &[u8], offset: u64) -> std::io::Result<()> {
-        crate::fsops::write_all_at(file, buf, offset)
+        crate::sys::write_all_at(file, buf, offset)
     }
 
     /// Real allocation, but more than the configured default free space
     /// fails with `StorageFull` (see [`FakePlatform::free_space_bytes`]).
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn preallocate(&self, file: &std::fs::File, len: u64) -> std::io::Result<crate::Allocation> {
         if len > self.free_space {
             return Err(std::io::Error::new(
@@ -168,7 +179,7 @@ impl Platform for FakePlatform {
                 "FakePlatform: allocation exceeds configured free space",
             ));
         }
-        crate::fsops::preallocate(file, len)
+        crate::sys::preallocate(file, len)
     }
 
     /// The configured name ([`FakePlatform::with_device_name`]), sanitised.
@@ -180,7 +191,7 @@ impl Platform for FakePlatform {
 
     /// [`Hooks::uid`](super::Hooks::uid), else the real effective uid: fake metadata is real,
     /// so files the test creates are owned by it.
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     fn current_uid(&self) -> Option<u32> {
         self.hooks
             .hooks
@@ -188,19 +199,19 @@ impl Platform for FakePlatform {
             .or_else(|| Some(crate::netops::current_uid()))
     }
 
-    /// Real interfaces, like the Linux adapter (loopback tests need real
+    /// Real interfaces, like the native adapters (loopback tests need real
     /// sockets; discovery always also targets loopback).
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn lan_ipv4_interfaces(&self) -> Result<Vec<crate::LanInterface>, PlatformError> {
         crate::netops::lan_ipv4_interfaces()
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn bind_broadcast_udp(&self, port: u16) -> std::io::Result<std::net::UdpSocket> {
         crate::netops::bind_broadcast_udp(port)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn bind_udp(
         &self,
         port: u16,
@@ -209,23 +220,23 @@ impl Platform for FakePlatform {
         crate::netops::bind_udp(port, buffer)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     fn udp_buffer_hint(&self, wanted: usize) -> Option<String> {
         Some(crate::netops::udp_buffer_hint(wanted))
     }
 
-    /// `<home root>/.gnupg`, like the Linux adapter.
+    /// `<home root>/.gnupg`, like the Unix adapters.
     fn gnupg_home(&self) -> Result<PathBuf, PlatformError> {
         Ok(self.resolve_root(SemanticRoot::Home)?.join(".gnupg"))
     }
 
-    /// Same minimal environment as the Linux adapter, with the configured
+    /// Same minimal environment as the native adapter, with the configured
     /// home root and the test process's `PATH` (fake tool scripts need
     /// `mkdir` etc.).
-    #[cfg(target_os = "linux")]
+    #[cfg(any(unix, windows))]
     fn tool_command(&self, bin: &Path) -> Result<std::process::Command, PlatformError> {
         let path = std::env::var_os("PATH");
-        Ok(crate::fsops::tool_command(
+        Ok(crate::sys::tool_command(
             bin,
             &self.resolve_root(SemanticRoot::Home)?,
             path.as_deref(),

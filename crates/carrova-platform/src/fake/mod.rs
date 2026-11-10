@@ -2,8 +2,8 @@
 //! (e.g. a recipe fixture's fake home). Enabled with the `fake` feature.
 //!
 //! Filesystem writes (Phase 2 methods) and LAN sockets/interfaces (Phase 3)
-//! are real and shared with the Linux adapter; on other OSes they keep the
-//! trait's `Unsupported` defaults.
+//! are real and shared with the native adapter of the build OS (Unix or
+//! Windows).
 //!
 //! Faults (failing renames, racing swaps, changing metadata, another uid)
 //! are injected with [`FakePlatform::with_hooks`].
@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 #[cfg(doc)]
 use crate::Platform;
-use crate::{FsId, ProcessInfo, SemanticRoot};
+use crate::{FsId, OsKind, ProcessInfo, SemanticRoot};
 
 mod fixture;
 mod hooks;
@@ -35,6 +35,8 @@ use hooks::HookState;
 /// and free space are configured.
 #[derive(Debug, Clone)]
 pub struct FakePlatform {
+    /// OS family reported by [`Platform::os`] (default Linux).
+    os: OsKind,
     roots: HashMap<SemanticRoot, PathBuf>,
     binaries: HashMap<String, PathBuf>,
     processes: Vec<ProcessInfo>,
@@ -74,6 +76,7 @@ impl FakePlatform {
             (SemanticRoot::Documents, home.join("Documents")),
         ]);
         Self {
+            os: OsKind::Linux,
             roots,
             binaries: HashMap::new(),
             processes: Vec::new(),
@@ -83,6 +86,18 @@ impl FakePlatform {
             filesystems: Vec::new(),
             hooks: Arc::default(),
         }
+    }
+
+    /// Pretend to be a `os` machine (default [`OsKind::Linux`]), e.g. a
+    /// macOS or Windows peer in a cross-OS test. Only the identity changes:
+    /// [`Platform::os`] and [`Platform::permission_model`] follow `os`
+    /// (the latter only on a Unix host), while roots and filesystem
+    /// operations stay as configured (named `with_` so it does not shadow
+    /// the trait method).
+    #[must_use]
+    pub fn with_os(mut self, os: OsKind) -> Self {
+        self.os = os;
+        self
     }
 
     /// Override a single root.

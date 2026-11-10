@@ -2,12 +2,11 @@
 
 use std::fs::File;
 use std::io;
-use std::os::fd::AsRawFd;
 use std::path::Path;
 
 use rustix::fs::{FileType, Mode, OFlags};
 
-use super::{errno, file_type, invalid, perm};
+use super::{errno, invalid, perm};
 use crate::PlatformError;
 
 /// See [`crate::Platform::create_new_file`].
@@ -46,29 +45,53 @@ pub(crate) fn set_mode(path: &Path, mode: u32) -> Result<(), PlatformError> {
 /// effects on special files), checks its type with `fstat`, then chmods the
 /// inode it pins via `/proc/self/fd/N` — `fchmod` is not allowed on `O_PATH`
 /// fds, and `fchmodat(AT_SYMLINK_NOFOLLOW)` is not portable across kernels.
+#[cfg(target_os = "linux")]
 fn chmod_nofollow(path: &Path, mode: Mode, expect: Option<FileType>) -> Result<(), PlatformError> {
+    use std::os::fd::AsRawFd;
+
     let fd = rustix::fs::open(
         path,
         OFlags::PATH | OFlags::NOFOLLOW | OFlags::CLOEXEC,
         Mode::empty(),
     )
     .map_err(errno(path))?;
-    let ft = file_type(path, &fd)?;
-    match (ft, expect) {
-        (FileType::Symlink, _) => {
-            return Err(PlatformError::io(
-                path,
-                io::Error::from(rustix::io::Errno::LOOP),
-            ));
-        }
-        (actual, Some(want)) if actual != want => {
-            return Err(invalid(path, "object changed type during operation"));
-        }
-        (FileType::RegularFile | FileType::Directory, _) => {}
-        _ => return Err(invalid(path, "not a regular file or directory")),
-    }
+    check_chmod_target(path, super::file_type(path, &fd)?, expect)?;
     let magic = format!("/proc/self/fd/{}", fd.as_raw_fd());
     rustix::fs::chmod(magic.as_str(), mode).map_err(errno(path))
+}
+
+/// chmod the object at `path` itself, refusing symlinks and anything other
+/// than a regular file or directory (or exactly `expect`, if given).
+///
+/// No `O_PATH` here: `lstat` checks the type, then
+/// `fchmodat(AT_SYMLINK_NOFOLLOW)` changes whatever is at `path` without
+/// following it, so a swap in between can at worst chmod a link itself,
+/// never its target.
+#[cfg(not(target_os = "linux"))]
+fn chmod_nofollow(path: &Path, mode: Mode, expect: Option<FileType>) -> Result<(), PlatformError> {
+    use rustix::fs::{AtFlags, CWD};
+
+    let st = rustix::fs::statat(CWD, path, AtFlags::SYMLINK_NOFOLLOW).map_err(errno(path))?;
+    check_chmod_target(path, FileType::from_raw_mode(st.st_mode), expect)?;
+    rustix::fs::chmodat(CWD, path, mode, AtFlags::SYMLINK_NOFOLLOW).map_err(errno(path))
+}
+
+fn check_chmod_target(
+    path: &Path,
+    actual: FileType,
+    expect: Option<FileType>,
+) -> Result<(), PlatformError> {
+    match (actual, expect) {
+        (FileType::Symlink, _) => Err(PlatformError::io(
+            path,
+            io::Error::from(rustix::io::Errno::LOOP),
+        )),
+        (actual, Some(want)) if actual != want => {
+            Err(invalid(path, "object changed type during operation"))
+        }
+        (FileType::RegularFile | FileType::Directory, _) => Ok(()),
+        _ => Err(invalid(path, "not a regular file or directory")),
+    }
 }
 
 /// See [`crate::Platform::create_symlink`].

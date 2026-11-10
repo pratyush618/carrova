@@ -1,5 +1,5 @@
-//! Linux process-identity and LAN networking primitives shared by the
-//! Linux adapter and the fake (real in both).
+//! LAN networking primitives (Linux, macOS, Windows) and Unix process
+//! identity, shared by the native adapters and the fake (real in all).
 
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
@@ -37,25 +37,39 @@ fn any_v4(port: u16) -> socket2::SockAddr {
 }
 
 /// Non-blocking IPv4 UDP socket on `port` that may send broadcasts and
-/// shares the port with other such sockets: on Linux `SO_REUSEADDR` lets
-/// several UDP sockets bind one port, and a broadcast reaches every one.
+/// shares the port with other such sockets, each receiving every
+/// broadcast: `SO_REUSEADDR` on Linux and Windows, `SO_REUSEPORT` on
+/// macOS/BSD (where `SO_REUSEADDR` shares only multicast binds).
+///
+/// Security: sharing means another local process can bind the same port
+/// and read (or answer) discovery broadcasts; Windows `SO_EXCLUSIVEADDRUSE`
+/// would forbid exactly the sharing we need. Discovery data is public by design;
+/// pairing and transfer are authenticated end to end, never trusted from
+/// this socket.
 pub(crate) fn bind_broadcast_udp(port: u16) -> io::Result<UdpSocket> {
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
+    #[cfg(any(target_os = "linux", windows))]
     socket.set_reuse_address(true)?;
+    #[cfg(all(unix, not(target_os = "linux")))]
+    socket.set_reuse_port(true)?;
     socket.set_broadcast(true)?;
     socket.set_nonblocking(true)?;
     socket.bind(&any_v4(port))?;
     Ok(socket.into())
 }
 
+/// Smallest buffer request [`bind_udp`] steps down to before giving up.
+const MIN_UDP_BUFFER: usize = 64 * 1024;
+
 /// Non-blocking IPv4 UDP socket on `port` with `SO_SNDBUF`/`SO_RCVBUF`
 /// requested at `buffer` bytes. Linux clamps requests above
-/// `net.core.{w,r}mem_max` instead of refusing them; the read-back reports
-/// what was granted.
+/// `net.core.{w,r}mem_max`; macOS refuses them (`ENOBUFS` above
+/// `kern.ipc.maxsockbuf`), so a refused request is halved and retried.
+/// The read-back reports what was granted.
 pub(crate) fn bind_udp(port: u16, buffer: usize) -> io::Result<(UdpSocket, SocketBuffers)> {
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
-    socket.set_send_buffer_size(buffer)?;
-    socket.set_recv_buffer_size(buffer)?;
+    request_buffer(buffer, |n| socket.set_send_buffer_size(n))?;
+    request_buffer(buffer, |n| socket.set_recv_buffer_size(n))?;
     let buffers = SocketBuffers {
         send: socket.send_buffer_size()?,
         recv: socket.recv_buffer_size()?,
@@ -65,7 +79,20 @@ pub(crate) fn bind_udp(port: u16, buffer: usize) -> io::Result<(UdpSocket, Socke
     Ok((socket.into(), buffers))
 }
 
+/// Ask for `wanted` bytes via `set`, halving on refusal down to
+/// [`MIN_UDP_BUFFER`]; the last refusal is returned.
+fn request_buffer(wanted: usize, set: impl Fn(usize) -> io::Result<()>) -> io::Result<()> {
+    let mut size = wanted;
+    loop {
+        match set(size) {
+            Err(_) if size > MIN_UDP_BUFFER => size = (size / 2).max(MIN_UDP_BUFFER),
+            result => return result,
+        }
+    }
+}
+
 /// Effective uid of this process.
+#[cfg(unix)]
 pub(crate) fn current_uid() -> u32 {
     rustix::process::geteuid().as_raw()
 }
@@ -73,6 +100,7 @@ pub(crate) fn current_uid() -> u32 {
 /// The kernel host name (`uname` nodename): what `hostname` prints and
 /// what the LAN knows this machine as. Unlike `/etc/hostname` it is
 /// always set and reflects transient (DHCP, `hostnamectl`) names.
+#[cfg(unix)]
 pub(crate) fn host_name() -> String {
     rustix::system::uname()
         .nodename()
@@ -80,7 +108,9 @@ pub(crate) fn host_name() -> String {
         .into_owned()
 }
 
-/// How to raise the UDP buffer limit to `wanted` bytes.
+/// How to raise the UDP buffer limit to `wanted` bytes (Linux sysctl;
+/// macOS has its own hint, the fake reuses this one).
+#[cfg(any(target_os = "linux", all(unix, feature = "fake")))]
 pub(crate) fn udp_buffer_hint(wanted: usize) -> String {
     format!(
         "raise the limit for full LAN speed, e.g. \

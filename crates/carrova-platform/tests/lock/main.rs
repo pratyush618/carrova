@@ -1,5 +1,3 @@
-#![cfg(target_os = "linux")]
-
 //! `Platform::lock_exclusive`: an advisory, RAII exclusive file lock that
 //! also serializes threads of one process.
 
@@ -48,6 +46,7 @@ fn the_lock_file_is_created_and_reused() {
 }
 
 #[test]
+#[cfg(unix)] // Windows: tests/windows/unit.rs (symlinks need privileges there)
 fn a_symlink_is_never_locked_through() {
     let tmp = tempfile::tempdir().unwrap();
     let target = tmp.path().join("target");

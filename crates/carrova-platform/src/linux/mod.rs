@@ -9,7 +9,6 @@
 
 use std::ffi::OsString;
 use std::io;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 use crate::{
@@ -92,13 +91,6 @@ impl LinuxPlatform {
     }
 }
 
-fn is_executable_file(path: &Path) -> bool {
-    // Follows symlinks on purpose: installed binaries are often symlinks.
-    std::fs::metadata(path)
-        .map(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
-        .unwrap_or(false)
-}
-
 impl Platform for LinuxPlatform {
     fn os(&self) -> OsKind {
         OsKind::Linux
@@ -109,17 +101,7 @@ impl Platform for LinuxPlatform {
     }
 
     fn find_binary(&self, name: &str) -> Result<Option<PathBuf>, PlatformError> {
-        // Bare names only: no path separators, no `.`/`..` tricks.
-        if name.is_empty() || name.contains('/') || name == "." || name == ".." {
-            return Ok(None);
-        }
-        let Some(path_var) = self.env.path.as_ref() else {
-            return Ok(None);
-        };
-        Ok(std::env::split_paths(path_var)
-            .filter(|dir| dir.is_absolute())
-            .map(|dir| dir.join(name))
-            .find(|candidate| is_executable_file(candidate)))
+        Ok(crate::sys::find_binary(self.env.path.as_deref(), name))
     }
 
     fn metadata(&self, path: &Path) -> Result<FileMeta, PlatformError> {
@@ -159,9 +141,7 @@ impl Platform for LinuxPlatform {
     }
 
     fn free_space(&self, path: &Path) -> Result<u64, PlatformError> {
-        let st =
-            rustix::fs::statvfs(path).map_err(|e| PlatformError::io(path, io::Error::from(e)))?;
-        Ok(st.f_bavail.saturating_mul(st.f_frsize))
+        crate::sys::free_space(path)
     }
 
     /// See [`LinuxPlatform::detect_snapshot_capability`].
@@ -174,7 +154,7 @@ impl Platform for LinuxPlatform {
     }
 
     fn open_read_nofollow(&self, path: &Path) -> Result<std::fs::File, PlatformError> {
-        crate::fsops::open_read_nofollow(path)
+        crate::sys::open_read_nofollow(path)
     }
 
     fn create_new_file(
@@ -182,75 +162,75 @@ impl Platform for LinuxPlatform {
         path: &Path,
         mode: Option<u32>,
     ) -> Result<std::fs::File, PlatformError> {
-        crate::fsops::create_new_file(path, mode)
+        crate::sys::create_new_file(path, mode)
     }
 
     fn create_dir(&self, path: &Path, mode: Option<u32>) -> Result<(), PlatformError> {
-        crate::fsops::create_dir(path, mode)
+        crate::sys::create_dir(path, mode)
     }
 
     fn set_mode(&self, path: &Path, mode: u32) -> Result<(), PlatformError> {
-        crate::fsops::set_mode(path, mode)
+        crate::sys::set_mode(path, mode)
     }
 
     fn create_symlink(&self, target: &str, link: &Path) -> Result<(), PlatformError> {
-        crate::fsops::create_symlink(target, link)
+        crate::sys::create_symlink(target, link)
     }
 
     fn read_link(&self, path: &Path) -> Result<PathBuf, PlatformError> {
-        crate::fsops::read_link(path)
+        crate::sys::read_link(path)
     }
 
     fn rename_noreplace(&self, from: &Path, to: &Path) -> Result<(), PlatformError> {
-        crate::fsops::rename_noreplace(from, to)
+        crate::sys::rename_noreplace(from, to)
     }
 
     fn rename_replace(&self, from: &Path, to: &Path) -> Result<(), PlatformError> {
-        crate::fsops::rename_replace(from, to)
+        crate::sys::rename_replace(from, to)
     }
 
     fn sync_dir(&self, path: &Path) -> Result<(), PlatformError> {
-        crate::fsops::sync_dir(path)
+        crate::sys::sync_dir(path)
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), PlatformError> {
-        crate::fsops::remove_file(path)
+        crate::sys::remove_file(path)
     }
 
     fn read_dir(&self, path: &Path) -> Result<Vec<DirEntry>, PlatformError> {
-        crate::fsops::read_dir(path)
+        crate::sys::read_dir(path)
     }
 
     fn remove_dir_all_confined(&self, path: &Path, within: &Path) -> Result<(), PlatformError> {
-        crate::fsops::remove_dir_all_confined(path, within)
+        crate::sys::remove_dir_all_confined(path, within)
     }
 
     fn open_append_nofollow(&self, path: &Path) -> Result<std::fs::File, PlatformError> {
-        crate::fsops::open_append_nofollow(path)
+        crate::sys::open_append_nofollow(path)
     }
 
     fn open_rw_nofollow(&self, path: &Path) -> Result<std::fs::File, PlatformError> {
-        crate::fsops::open_rw_nofollow(path)
+        crate::sys::open_rw_nofollow(path)
     }
 
     fn fs_id(&self, path: &Path) -> Result<crate::FsId, PlatformError> {
-        crate::fsops::fs_id(path)
+        crate::sys::fs_id(path)
     }
 
     fn sync_fs(&self, path: &Path) -> Result<(), PlatformError> {
-        crate::fsops::sync_fs(path)
+        crate::sys::sync_fs(path)
     }
 
     fn write_all_at(&self, file: &std::fs::File, buf: &[u8], offset: u64) -> io::Result<()> {
-        crate::fsops::write_all_at(file, buf, offset)
+        crate::sys::write_all_at(file, buf, offset)
     }
 
     fn preallocate(&self, file: &std::fs::File, len: u64) -> io::Result<crate::Allocation> {
-        crate::fsops::preallocate(file, len)
+        crate::sys::preallocate(file, len)
     }
 
     fn lock_exclusive(&self, path: &Path) -> Result<crate::FileLock, PlatformError> {
-        crate::fsops::lock_exclusive(path)
+        crate::sys::lock_exclusive(path)
     }
 
     fn current_uid(&self) -> Option<u32> {
@@ -287,7 +267,7 @@ impl Platform for LinuxPlatform {
     }
 
     fn tool_command(&self, bin: &Path) -> Result<std::process::Command, PlatformError> {
-        Ok(crate::fsops::tool_command(
+        Ok(crate::sys::tool_command(
             bin,
             &self.home()?,
             self.env.path.as_deref(),

@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::{
-    Allocation, DirEntry, FileLock, FileMeta, FsId, LanInterface, OsKind, PlatformError,
-    ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
+    Allocation, DirEntry, FileLock, FileMeta, FsId, LanInterface, OsKind, PermissionModel,
+    PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
 };
 
 /// OS abstraction used by every service crate.
@@ -18,6 +18,15 @@ use crate::{
 pub trait Platform: Send + Sync + std::fmt::Debug {
     /// Which OS family this adapter serves.
     fn os(&self) -> OsKind;
+
+    /// How this OS protects files from other local users. Under
+    /// [`PermissionModel::Acl`] callers neither store nor enforce mode
+    /// bits ([`FileMeta::mode`] is `None`, `mode` arguments are ignored);
+    /// per-user privacy comes from the profile directories' ACLs.
+    /// Defaults to [`OsKind::permission_model`] of [`Platform::os`].
+    fn permission_model(&self) -> PermissionModel {
+        self.os().permission_model()
+    }
 
     /// Absolute, lexically normalised path of a semantic root for the current
     /// user. Never the filesystem root (`/`): such a value is reported as

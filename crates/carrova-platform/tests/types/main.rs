@@ -1,27 +1,14 @@
-//! Platform value types: stable OS ids and process/binary matching.
+//! Platform value types: process/binary matching.
 
 use std::path::PathBuf;
 
-use carrova_platform::{OsKind, ProcessInfo};
+use carrova_platform::ProcessInfo;
 
 fn proc(name: &str, exe: Option<&str>) -> ProcessInfo {
     ProcessInfo {
         pid: 1,
         name: name.into(),
         exe: exe.map(PathBuf::from),
-    }
-}
-
-#[test]
-fn os_kind_ids_and_display_names_are_stable() {
-    let cases = [
-        (OsKind::Linux, "linux", "Linux"),
-        (OsKind::MacOs, "macos", "macOS"),
-        (OsKind::Windows, "windows", "Windows"),
-    ];
-    for (os, id, name) in cases {
-        assert_eq!(os.as_str(), id);
-        assert_eq!(os.to_string(), name);
     }
 }
 
