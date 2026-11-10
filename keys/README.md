@@ -5,10 +5,9 @@ for recipe bundles. It is embedded into every build (`carrova_bundle::release_ro
 Format: `{ "roots": ["<64 hex digits>", ...] }`; rotation = add the new key,
 ship a release, later remove the old one.
 
-> **WARNING — DEVELOPMENT ROOT.** The key currently listed was generated on a
-> developer laptop for Phase 4 development (secret at
-> `~/.config/carrova-dev/bundle-root.key`, outside the repo). It **must be
-> replaced by the maintainer's offline root key before any public release.**
+> The listed key is the maintainer's release root (generated 2026-11-10).
+> Its secret is kept offline; it is only needed to certify a new signer
+> every ≤ 90 days.
 
 ## Chain
 

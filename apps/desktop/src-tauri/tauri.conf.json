@@ -79,7 +79,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkxREFEM0E3QkI5NENEOTAKUldTUXpaUzdwOVBha1N4TVBJb2FrdGRhNHhaRm9ZVjRidHUxUC9xdkI4bXJqNGNPcmhFRTFwMnkK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDBFNDM3RUMyNzJEQzAxNjkKUldScEFkeHl3bjVERGkyN2JtRkhudllHOTZuNDVySWJkdmI3ai92VHlsRWZMNlhLcjVnNVBRZUUK",
       "endpoints": ["https://github.com/pratyush618/carrova/releases/latest/download/latest.json"]
     }
   }

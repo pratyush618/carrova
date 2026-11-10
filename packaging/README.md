@@ -21,8 +21,8 @@ and tests must not need `dist/recipes`.
 
 ## Build locally
 
-Prerequisites: `just setup-ubuntu`, `just ui-install`, the dev keys in
-`~/.config/carrova-dev/` (see below). A release build compiles ~500 crates:
+Prerequisites: `just setup-ubuntu`, `just ui-install`, the release keys in
+`~/.config/carrova-release/` (see below). A release build compiles ~500 crates:
 check `uptime`/`df -h .` first and keep ≥ 15 GiB free.
 
 ```sh
@@ -37,12 +37,12 @@ bundle to `dist/recipes`, mapped to `recipes/` inside the app) and then
 `linuxdeploy` on first use (network).
 
 Because `bundle.createUpdaterArtifacts` is on, every `tauri build` needs the
-updater private key in the environment (`just package` reads the dev key by
+updater private key in the environment (`just package` reads the local release key by
 default):
 
 ```sh
-export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.config/carrova-dev/updater.key)"
-export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(cat ~/.config/carrova-dev/updater.key.password)"
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.config/carrova-release/updater.key)"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(cat ~/.config/carrova-release/updater.key.password)"
 ```
 
 The CLI: `cargo install --path apps/cli` (binary `carrova`).
@@ -73,11 +73,11 @@ only by the macOS/Windows jobs in `engine.yml` (`just ci-portable`).
 
 Two independent key systems; neither private key is ever committed.
 
-| Key | Signs | Dev copy | Public half lives in |
+| Key | Signs | Local copy | Public half lives in |
 |---|---|---|---|
-| Updater (minisign, Tauri) | app updates (`latest.json`, `.sig`) | `~/.config/carrova-dev/updater.key` + `updater.key.password` (0600) | `tauri.conf.json` → `plugins.updater.pubkey` |
-| Recipe bundle root (Ed25519, offline) | short-lived signer certificates | `~/.config/carrova-dev/bundle-root.key` | `keys/bundle-roots.json` |
-| Recipe bundle signer (Ed25519, CI) | each recipe bundle | `~/.config/carrova-dev/bundle-signer.key` + `.cert.json` | certified by the root |
+| Updater (minisign, Tauri) | app updates (`latest.json`, `.sig`) | `~/.config/carrova-release/updater.key` + `updater.key.password` (0600) | `tauri.conf.json` → `plugins.updater.pubkey` |
+| Recipe bundle root (Ed25519, offline) | short-lived signer certificates | `~/.config/carrova-release/bundle-root.key` | `keys/bundle-roots.json` |
+| Recipe bundle signer (Ed25519, CI) | each recipe bundle | `~/.config/carrova-release/bundle-signer.key` + `.cert.json` | certified by the root |
 
 Generate a fresh updater key pair (password from a 0600 file, no prompt):
 
