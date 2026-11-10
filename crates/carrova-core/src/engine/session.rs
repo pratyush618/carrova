@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use carrova_platform::Platform;
+use carrova_platform::{FileLock, Platform};
 
 use super::Engine;
 use crate::error::{CoreError, Result, SessionProblem};
@@ -13,6 +13,9 @@ use crate::journal::JOURNAL_FILE;
 use crate::session::{Event, EventSink, LogSink, Role, SessionId, State};
 use crate::store::{LOG_FILE, STAGING_DIR, SessionRecord, Source, Store};
 use crate::{stage, time};
+
+/// The session lock file ([`Session::load_locked`]).
+const LOCK_FILE: &str = "session.lock";
 
 /// Persisted record + its directory, log and the transition helper.
 ///
@@ -50,6 +53,18 @@ impl Session {
             return Err(CoreError::RecordMismatch { id: id.clone() });
         }
         Self::with_record(engine, store, record)
+    }
+
+    /// [`Self::load`] under the session's exclusive lock (file
+    /// `session.lock` in its dir), which serialises dismissal, expiry
+    /// pruning and the start of a rollback across processes; the record
+    /// is read after the lock is taken. Hold the guard while deciding on
+    /// and acting on the record.
+    pub(super) fn load_locked(engine: Engine, id: &SessionId) -> Result<(Self, FileLock)> {
+        // Loading first reports an unknown session as such, not as a lock I/O error.
+        let s = Self::load(engine, id)?;
+        let lock = s.platform().lock_exclusive(&s.dir.join(LOCK_FILE))?;
+        Ok((Self::load(s.engine, id)?, lock))
     }
 
     fn with_record(engine: Engine, store: Store, record: SessionRecord) -> Result<Self> {

@@ -3,7 +3,8 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const SECS_PER_DAY: u64 = 86_400;
+/// Seconds in a (UTC) day.
+pub const SECS_PER_DAY: u64 = 86_400;
 
 /// Current Unix time in seconds (`0` before the epoch).
 #[must_use]
