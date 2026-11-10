@@ -75,8 +75,12 @@ export function receiveProgressModel(
   if (state.apply.status === 'failed' && progress.link !== 'lost') {
     return { status: 'failed', error: state.apply.error };
   }
+  // An in-place resume reopens like the entry did: its status and error are the resume's.
+  const entry = state.origin === 'lan' ? state.code : state.file;
   return {
     status: 'transfer',
     transfer: transferModel('receive', progress, arrivingApps(review), peer, live),
+    resuming: entry.status === 'connecting' || entry.status === 'opening',
+    resumeError: entry.error,
   };
 }

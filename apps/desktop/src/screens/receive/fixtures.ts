@@ -200,6 +200,8 @@ export const reviewDetails: ReviewDetailsModel = {
 export const progressAt = (phase: Parameters<typeof transferAt>[0]): ReceiveProgressModel => ({
   status: 'transfer',
   transfer: transferAt(phase, 'receive'),
+  resuming: false,
+  resumeError: null,
 });
 
 export const progressFailed: ReceiveProgressModel = {

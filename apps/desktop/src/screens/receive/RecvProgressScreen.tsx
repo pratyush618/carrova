@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { errorText } from '../../engine/errors';
-import { ActionBar, Button, Empty, FlowLayout, LinkButton, Note } from '../../ui';
+import { ActionBar, Banner, Button, Empty, FlowLayout, LinkButton, Note } from '../../ui';
 import { TransferActions } from '../shared/TransferActions';
 import { TransferBody, TransferRail, TransferRoute } from '../shared/TransferBody';
 import type { TransferIntents } from '../shared/transfer';
@@ -18,12 +18,14 @@ export interface RecvProgressScreenProps {
 export function RecvProgressScreen({ model, on }: RecvProgressScreenProps) {
   const { t } = useTranslation();
   if (model.status === 'transfer') {
+    const failure = model.resumeError === null ? null : errorText(model.resumeError, t);
     return (
       <FlowLayout
         rail={<TransferRail model={model.transfer} />}
         route={<TransferRoute model={model.transfer} />}
-        actions={<TransferActions model={model.transfer} on={on} />}
+        actions={<TransferActions model={model.transfer} on={on} resuming={model.resuming} />}
       >
+        {failure && <Banner tone="danger" title={failure.title} body={failure.body} />}
         <TransferBody model={model.transfer} on={on} />
       </FlowLayout>
     );

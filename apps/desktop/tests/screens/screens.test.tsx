@@ -333,6 +333,16 @@ describe('Transfer', () => {
     expect(intents.onResumeSession).toHaveBeenCalledOnce();
   });
 
+  it('holds Resume while it reopens and says why the last one failed', () => {
+    const error = { code: 'network', message: 'the sender went away', hint: null } as const;
+    const resuming = { ...progressAt('lost'), resuming: true, resumeError: error };
+    renderScreen(
+      <RecvProgressScreen model={resuming} on={{ ...on(), onResumeSession: vi.fn() }} />,
+    );
+    expect(screen.getByRole('button', { name: 'Resume' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent('the sender went away');
+  });
+
   it('names the full disk by where it is mounted, when known', () => {
     const paused = progressAt('paused');
     if (paused.status !== 'transfer') throw new Error('fixture is not a transfer');

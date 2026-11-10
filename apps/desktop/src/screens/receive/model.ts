@@ -231,7 +231,14 @@ export interface ReviewDetailsIntents {
 
 /** Transfer + apply, or a failed apply that was rolled back. */
 export type ReceiveProgressModel =
-  | { readonly status: 'transfer'; readonly transfer: TransferModel }
+  | {
+      readonly status: 'transfer';
+      readonly transfer: TransferModel;
+      /** Resume is reopening the session; it can't be pressed again. */
+      readonly resuming: boolean;
+      /** Why the last Resume failed. */
+      readonly resumeError: BridgeError | null;
+    }
   /** Apply failed and was undone automatically; the engine says why. */
   | { readonly status: 'failed'; readonly error: BridgeError };
 

@@ -20,9 +20,12 @@ const NOTE = {
 export function TransferActions({
   model,
   on,
+  resuming = false,
 }: {
   readonly model: TransferModel;
   readonly on: TransferIntents;
+  /** Resume is reopening the session: it waits. */
+  readonly resuming?: boolean;
 }) {
   const { t } = useTranslation();
   const applying = model.phase === 'applying';
@@ -55,7 +58,7 @@ export function TransferActions({
             <Button onClick={on.onTryNow}>{t('transfer.tryNow')}</Button>
           )}
           {model.phase === 'lost' && on.onResumeSession && (
-            <Button kind="primary" icon="play" onClick={on.onResumeSession}>
+            <Button kind="primary" icon="play" disabled={resuming} onClick={on.onResumeSession}>
               {t('transfer.resume')}
             </Button>
           )}

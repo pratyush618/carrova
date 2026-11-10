@@ -128,13 +128,20 @@ export function useReceiveFlow(
     );
   }, []);
 
+  /** The session a resume is reopening (one at a time), so leaving can cancel it. */
+  const resuming = useRef<SessionId | null>(null);
   /** Pick session `id` up again and plan from the options it last planned with. */
   const resumed = useCallback(
     (id: SessionId) => {
+      if (resuming.current !== null) return;
+      resuming.current = id;
       const mine = ++ticket.current;
       dispatch({ type: 'opening' });
       port
         .resume(id)
+        .finally(() => {
+          resuming.current = null;
+        })
         .then(async ({ session: back }) => ({ back, stored: await port.planOptions(back) }))
         .then(
           ({ back, stored }) => {
@@ -195,12 +202,14 @@ export function useReceiveFlow(
   const stop = useCallback(() => {
     ticket.current++;
     if (connecting) void port.cancelConnect();
-    if (session !== null && state.apply.status === 'loading') void port.cancel(session);
+    if (resuming.current !== null) void port.cancel(resuming.current);
+    else if (session !== null && state.apply.status === 'loading') void port.cancel(session);
   }, [port, connecting, session, state.apply.status]);
 
   const start = useCallback(
     (origin: 'lan' | 'file') => {
       ticket.current++;
+      answering.current = { by: new Map(), planned: new Map() };
       dispatch({ type: 'start', origin, defaults });
     },
     [defaults],
