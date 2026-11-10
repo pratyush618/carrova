@@ -4,8 +4,10 @@
 
 use std::io::{self, Write};
 
-use carrova_core::Manifest;
-use carrova_core::plan::{Action, ObjectKind, Plan, PlannedAction, SpaceNeed};
+use carrova_core::plan::{
+    Action, Blocker, ObjectKind, PathMapping, Plan, PlannedAction, SpaceNeed,
+};
+use carrova_core::{ItemKey, Manifest};
 
 use carrova_view::Detail;
 use carrova_view::offer::{OfferedItem, offered_items};
@@ -13,8 +15,9 @@ use carrova_view::plan::{DirGroup, ItemView, Line, PlanView, plan_view, space_vi
 
 use super::text::{action_counts, human_size, safe};
 
-/// The dry-run plan: what the source offers (with `manifest`), one summary
-/// line per item with the lines [`plan_view`] picks under it at `detail`,
+/// The dry-run plan: what the source offers and which computer it comes
+/// from (with `manifest`), one summary line per item with the lines
+/// [`plan_view`] picks under it at `detail`,
 /// then handlers, apps, the space each filesystem needs (`needs`, from
 /// `carrova_core::plan::space_needs`), warnings and blockers.
 pub fn plan(
@@ -28,6 +31,12 @@ pub fn plan(
         offered(out, &offered_items(m, p))?;
     }
     writeln!(out, "Import plan (session {})", safe(&p.session.0))?;
+    if let Some(m) = manifest {
+        match &m.source.device_name {
+            Some(name) => writeln!(out, "  from: {} ({})", safe(name), m.source.os)?,
+            None => writeln!(out, "  from: a {} computer", m.source.os)?,
+        }
+    }
     if p.options.keep_group_write {
         writeln!(
             out,
@@ -38,6 +47,7 @@ pub fn plan(
     if p.actions.is_empty() {
         writeln!(out, "  nothing to write")?;
     }
+    mappings(out, p)?;
     side_effects(out, p)?;
     space(out, p, needs)?;
     problems(out, p)
@@ -159,7 +169,28 @@ fn facts(a: &PlannedAction) -> String {
     }
 }
 
-/// Conflicts, handlers and the apps the plan affects.
+/// Cross-OS items' paths, source → this computer.
+fn mappings(out: &mut impl Write, p: &Plan) -> io::Result<()> {
+    if p.mappings.is_empty() {
+        return Ok(());
+    }
+    writeln!(out, "Mapped to this OS's locations:")?;
+    for PathMapping { item, from, to, .. } in &p.mappings {
+        writeln!(
+            out,
+            "  {}  {}:{} -> {}:{}",
+            safe(item),
+            from.0,
+            safe(&from.1),
+            to.0,
+            safe(&to.1)
+        )?;
+    }
+    Ok(())
+}
+
+/// Conflicts, handlers, plugins (with their permissions) and the apps
+/// the plan affects.
 fn side_effects(out: &mut impl Write, p: &Plan) -> io::Result<()> {
     let conflicts = p.conflicts().count();
     writeln!(
@@ -179,6 +210,20 @@ fn side_effects(out: &mut impl Write, p: &Plan) -> io::Result<()> {
             h.handler,
             h.backup.len()
         )?;
+    }
+    for plugin in &p.plugins {
+        let items: Vec<&str> = plugin.items.iter().map(ItemKey::as_str).collect();
+        writeln!(
+            out,
+            "Plugin: {} {} changes {}: {}",
+            plugin.plugin,
+            safe(&plugin.version),
+            safe(&items.join(", ")),
+            safe(&plugin.description)
+        )?;
+        for line in &plugin.permissions {
+            writeln!(out, "    - {}", safe(line))?;
+        }
     }
     if !p.missing_apps.is_empty() {
         writeln!(
@@ -233,7 +278,17 @@ fn problems(out: &mut impl Write, p: &Plan) -> io::Result<()> {
     if !p.blockers.is_empty() {
         writeln!(out, "Blocked:")?;
         for b in &p.blockers {
-            writeln!(out, "  - {}", safe(&b.to_string()))?;
+            write!(out, "  - {}", safe(&b.to_string()))?;
+            match b {
+                Blocker::CrossOs { item, .. } => {
+                    write!(out, " (--allow-cross-os {})", safe(item))?;
+                }
+                Blocker::UnconfirmedPlugin { plugin, .. } => {
+                    write!(out, " (--allow-plugin {plugin})")?;
+                }
+                _ => {}
+            }
+            writeln!(out)?;
         }
     }
     Ok(())

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use carrova_core::ItemKey;
 use carrova_core::plan::{PlanOptions, Retention};
+use carrova_recipe::PluginId;
 use clap::Args;
 
 use super::FailpointArgs;
@@ -35,6 +36,14 @@ pub struct PlanArgs {
     /// Explicitly confirm importing a sensitive item.
     #[arg(long, value_name = "ITEM")]
     confirm_sensitive: Vec<ItemKey>,
+    /// Restore a same-OS item although the source is another OS family
+    /// (the app may not read it here; warned).
+    #[arg(long, value_name = "ITEM")]
+    allow_cross_os: Vec<ItemKey>,
+    /// Allow plugin ID to change the files of the items that use it, after
+    /// reviewing its permissions in the plan (repeatable).
+    #[arg(long, value_name = "ID")]
+    allow_plugin: Vec<PluginId>,
     /// Conflict rule: `default|ITEM|ROOT:REL|ITEM:ROOT:REL=replace|keep-both|skip`.
     /// File rules beat item rules beat `default` (suggested: replace).
     #[arg(long, value_name = "TARGET=RULE", value_parser = parse_rule)]
@@ -103,8 +112,9 @@ impl PlanArgs {
     /// defaults, or a resumed session's own options
     /// ([`carrova_core::Importer::plan_options`]). Only flags the user
     /// passed change anything: a list flag (`--item`,
-    /// `--confirm-sensitive`) replaces that list, `--rule` / `--remap` set
-    /// their target, a switch turns its option on. So a resume without
+    /// `--confirm-sensitive`, `--allow-cross-os`, `--allow-plugin`)
+    /// replaces that list, `--rule` / `--remap` set their target, a switch
+    /// turns its option on. So a resume without
     /// flags keeps the approved options, and with them the approval.
     pub fn options_over(&self, base: PlanOptions) -> PlanOptions {
         let mut o = base;
@@ -113,6 +123,12 @@ impl PlanArgs {
         }
         if !self.confirm_sensitive.is_empty() {
             o.confirmed_sensitive.clone_from(&self.confirm_sensitive);
+        }
+        if !self.allow_cross_os.is_empty() {
+            o.allow_cross_os.clone_from(&self.allow_cross_os);
+        }
+        if !self.allow_plugin.is_empty() {
+            o.confirmed_plugins.clone_from(&self.allow_plugin);
         }
         for r in &self.rule {
             match &r.target {

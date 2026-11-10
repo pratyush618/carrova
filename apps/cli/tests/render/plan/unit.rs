@@ -2,12 +2,12 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use carrova_core::plan::{
-    Action, Blocker, Handler, ObjectKind, Plan, PlanOptions, PlanWarning, PlannedAction,
-    PlannedHandler,
+    Action, Blocker, Handler, ObjectKind, PathMapping, Plan, PlanOptions, PlanWarning,
+    PlannedAction, PlannedHandler,
 };
 use carrova_core::session::SessionId;
 use carrova_manifest::{ItemFlags, Manifest, ManifestItem, SourceInfo};
-use carrova_platform::SemanticRoot;
+use carrova_platform::{OsKind, SemanticRoot};
 
 use carrova_view::Detail;
 const ESC: &str = "\x1b[1A\x1b[2K";
@@ -37,6 +37,7 @@ fn manifest_item(recipe: &str, id: &str, label: &str) -> ManifestItem {
         entries: Vec::new(),
         handler: None,
         artifacts: Vec::new(),
+        source_paths: Vec::new(),
     }
 }
 
@@ -70,6 +71,8 @@ fn sample() -> (Plan, Manifest) {
         missing_apps: vec![format!("app{ESC}")],
         running_apps: Vec::new(),
         app_names: Default::default(),
+        mappings: Vec::new(),
+        plugins: Vec::new(),
         blockers: vec![Blocker::RunningApp {
             app: format!("app{ESC}"),
             name: format!("app{ESC}"),
@@ -83,8 +86,9 @@ fn sample() -> (Plan, Manifest) {
     let manifest = Manifest::new(
         0,
         SourceInfo {
-            os: "linux".into(),
+            os: OsKind::Linux,
             carrova_version: "0".into(),
+            device_name: None,
         },
         vec![
             manifest_item("gnupg", "keys", "GnuPG keys"),
@@ -259,4 +263,55 @@ fn handler_trust_import_state_shown() {
     plan.options.import_trust = true;
     let out = render(&plan, &manifest);
     assert!(out.contains("trust import on"), "{out}");
+}
+
+#[test]
+fn cross_os_mappings_and_blocker_hint_are_shown() {
+    let (mut plan, manifest) = sample();
+    plan.mappings = vec![PathMapping {
+        item: "git/config".into(),
+        from: (SemanticRoot::UserConfig, format!("Code{ESC}/User")),
+        to: (SemanticRoot::UserData, "Code/User".into()),
+        to_abs: None,
+    }];
+    plan.blockers = vec![Blocker::CrossOs {
+        item: "gnupg/keys".into(),
+        from: OsKind::Linux,
+        to: OsKind::Windows,
+    }];
+    let out = render(&plan, &manifest);
+    assert!(out.contains("Mapped to this OS's locations:"), "{out}");
+    assert!(
+        out.contains("  git/config  user_config:Code\\u{1b}"),
+        "{out}"
+    );
+    assert!(out.contains("-> user_data:Code/User"), "{out}");
+    assert!(out.contains("(--allow-cross-os gnupg/keys)"), "{out}");
+}
+
+#[test]
+fn plugins_show_their_permissions_and_the_allow_hint() {
+    let (mut plan, manifest) = sample();
+    let plugin = carrova_recipe::PluginId::new("path-rewrite").unwrap();
+    plan.plugins = vec![carrova_core::plan::PlannedPlugin {
+        plugin: plugin.clone(),
+        version: "1.0.0".into(),
+        description: format!("Rewrites paths{ESC}."),
+        permissions: vec!["It sees the path of your home folder on this computer.".into()],
+        items: vec!["obsidian/vaults".into()],
+    }];
+    plan.blockers = vec![Blocker::UnconfirmedPlugin {
+        plugin,
+        items: vec!["obsidian/vaults".into()],
+    }];
+    let out = render(&plan, &manifest);
+    assert!(
+        out.contains("Plugin: path-rewrite 1.0.0 changes obsidian/vaults: Rewrites paths\\u{1b}"),
+        "{out}"
+    );
+    assert!(
+        out.contains("    - It sees the path of your home folder on this computer."),
+        "{out}"
+    );
+    assert!(out.contains("(--allow-plugin path-rewrite)"), "{out}");
 }

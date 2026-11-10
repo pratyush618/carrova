@@ -38,13 +38,11 @@ use carrova_view::Detail;
 use carrova_view::passphrase::PassphraseUse;
 use carrova_view::selection::selection_view;
 
-/// Engine wired like `scan`: the resolved recipes, the current platform.
+/// Engine wired like `scan`: the resolved recipes and their plugins, the
+/// current platform.
 pub fn engine(recipes: &RecipeLocations, sink: Arc<dyn EventSink>) -> Result<Engine> {
-    Ok(Engine::new(
-        Arc::from(carrova_platform::current()),
-        recipes.recipes()?,
-        sink,
-    ))
+    let (recipes, plugins) = recipes.recipes_and_plugins()?;
+    Ok(Engine::new(Arc::from(carrova_platform::current()), recipes, sink).with_plugins(plugins))
 }
 
 /// `carrova export`

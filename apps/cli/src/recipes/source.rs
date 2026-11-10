@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use carrova_bundle::{DevOverride, RecipeLocations, RecipeSource, ResolvedRecipes, SkippedRecipe};
-use carrova_core::Recipe;
+use carrova_core::{Plugin, Recipe};
 
 use super::error::{Action, explain};
 use super::seams::trusted_roots;
@@ -47,6 +47,10 @@ pub trait LoadRecipes {
     /// [`Self::load`] for commands that only need the recipes: skipped
     /// recipes are reported on stderr.
     fn recipes(&self) -> Result<Vec<Recipe>>;
+
+    /// [`Self::recipes`] plus the plugins from the same source, compiled;
+    /// one that fails to load is reported on stderr and left out.
+    fn recipes_and_plugins(&self) -> Result<(Vec<Recipe>, Vec<Plugin>)>;
 }
 
 impl LoadRecipes for RecipeLocations {
@@ -73,6 +77,19 @@ impl LoadRecipes for RecipeLocations {
         warn_skipped(&resolved.skipped);
         Ok(resolved.recipes.into_iter().map(|b| b.recipe).collect())
     }
+
+    fn recipes_and_plugins(&self) -> Result<(Vec<Recipe>, Vec<Plugin>)> {
+        let resolved = self.load()?;
+        warn_skipped(&resolved.skipped);
+        let (plugins, failed) = resolved.load_plugins();
+        for e in failed {
+            eprintln!("warning: skipping {}", safe(&e.to_string()));
+        }
+        Ok((
+            resolved.recipes.into_iter().map(|b| b.recipe).collect(),
+            plugins,
+        ))
+    }
 }
 
 /// The shipped bundle of a packaged install: `<prefix>/bin/carrova` →
@@ -88,8 +105,8 @@ pub fn shipped_dir_for(exe: &Path) -> Option<PathBuf> {
 pub fn unverified_warning(source: &RecipeSource) -> Option<String> {
     match source {
         RecipeSource::DevDir(dir) => Some(format!(
-            "warning: using unverified recipes from {} (developer recipe tree, \
-             not signature-checked)",
+            "warning: using unverified recipes and plugins from {} (developer \
+             recipe tree, not signature-checked)",
             safe(&dir.display().to_string())
         )),
         RecipeSource::Installed(_) | RecipeSource::Shipped { .. } => None,

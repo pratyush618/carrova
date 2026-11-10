@@ -37,6 +37,7 @@ fn resolved(source: RecipeSource, created: Option<u64>) -> ResolvedRecipes {
             id: "future-app".into(),
             reason: SkipCause::UnsupportedSchema { schema: 9 },
         }],
+        plugins: Vec::new(),
         created,
         rejected_install: None,
     }

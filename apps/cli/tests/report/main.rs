@@ -1,10 +1,12 @@
 //! `carrova report`: opt-in local error reports, end to end through the
-//! binary (HOME and Carrova's state dir in a temp dir).
+//! binary (HOME and Carrova's state dir in a temp dir). Linux only
+//! (`XDG_STATE_HOME` places the state dir; returns early elsewhere).
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
 
+use carrova_platform::OsKind;
 use serde_json::Value;
 use tempfile::TempDir;
 
@@ -14,11 +16,14 @@ struct User {
 }
 
 impl User {
-    fn new() -> Self {
+    fn new() -> Option<Self> {
+        if carrova_platform::current().os() != OsKind::Linux {
+            return None;
+        }
         let tmp = TempDir::new().unwrap();
         std::fs::create_dir_all(tmp.path().join("home")).unwrap();
         std::fs::create_dir_all(tmp.path().join("recipes")).unwrap();
-        Self { tmp }
+        Some(Self { tmp })
     }
 
     fn home(&self) -> PathBuf {
@@ -81,7 +86,7 @@ impl User {
 
 #[test]
 fn consent_starts_unset_and_nothing_is_recorded() {
-    let user = User::new();
+    let Some(user) = User::new() else { return };
 
     assert_eq!(user.json(&["report", "consent"])["consent"], "unset");
     user.fail_with_a_home_path();
@@ -93,7 +98,7 @@ fn consent_starts_unset_and_nothing_is_recorded() {
 
 #[test]
 fn with_consent_an_error_exit_saves_a_redacted_report() {
-    let user = User::new();
+    let Some(user) = User::new() else { return };
     user.ok(&["report", "consent", "allow"]);
 
     let out = user.fail_with_a_home_path();
@@ -116,7 +121,7 @@ fn with_consent_an_error_exit_saves_a_redacted_report() {
 
 #[test]
 fn issue_prints_the_draft_and_a_prefilled_url_without_sending() {
-    let user = User::new();
+    let Some(user) = User::new() else { return };
     user.ok(&["report", "consent", "allow"]);
     user.fail_with_a_home_path();
     let id = user.report_ids().remove(0);
@@ -135,7 +140,7 @@ fn issue_prints_the_draft_and_a_prefilled_url_without_sending() {
 
 #[test]
 fn delete_and_clear_refuse_without_a_terminal_or_yes() {
-    let user = User::new();
+    let Some(user) = User::new() else { return };
     user.ok(&["report", "consent", "allow"]);
     user.fail_with_a_home_path();
     user.fail_with_a_home_path();
@@ -160,7 +165,7 @@ fn delete_and_clear_refuse_without_a_terminal_or_yes() {
 
 #[test]
 fn denying_deletes_stored_reports_only_after_confirmation() {
-    let user = User::new();
+    let Some(user) = User::new() else { return };
     user.ok(&["report", "consent", "allow"]);
     user.fail_with_a_home_path();
 
@@ -176,7 +181,7 @@ fn denying_deletes_stored_reports_only_after_confirmation() {
 
 #[test]
 fn an_invalid_report_id_is_refused() {
-    let user = User::new();
+    let Some(user) = User::new() else { return };
 
     let out = user.carrova(&["report", "show", "../consent"]);
 
@@ -186,7 +191,7 @@ fn an_invalid_report_id_is_refused() {
 
 #[test]
 fn reports_and_the_consent_choice_are_private_to_the_user() {
-    let user = User::new();
+    let Some(user) = User::new() else { return };
     user.ok(&["report", "consent", "allow"]);
     user.fail_with_a_home_path();
     let id = user.report_ids().remove(0);

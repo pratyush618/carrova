@@ -14,7 +14,7 @@
   "skipped": [
     {
       "id": "future-app",
-      "reason": "recipe schema 9 is not supported by this Carrova (supports 1-2)"
+      "reason": "recipe schema 9 is not supported by this Carrova (supports 1-3)"
     }
   ]
 }
@@ -23,18 +23,18 @@ Source   installed bundle v7 [verified]
 Created  2027-01-15 (UTC)
 Recipes  3 (2 verified, 1 community)
 Skipped  1
-  - future-app: recipe schema 9 is not supported by this Carrova (supports 1-2)
+  - future-app: recipe schema 9 is not supported by this Carrova (supports 1-3)
 --
 Source   shipped bundle v3 (/usr/share/carrova/recipes) [verified]
 Created  2023-11-14 (UTC)
 Recipes  3 (2 verified, 1 community)
 Skipped  1
-  - future-app: recipe schema 9 is not supported by this Carrova (supports 1-2)
+  - future-app: recipe schema 9 is not supported by this Carrova (supports 1-3)
 --
 Source   developer recipe tree /src/carrova/recipes [unverified]
 Recipes  3 (3 unverified)
 Skipped  1
-  - future-app: recipe schema 9 is not supported by this Carrova (supports 1-2)
+  - future-app: recipe schema 9 is not supported by this Carrova (supports 1-3)
 --
 {
   "source": {
@@ -52,7 +52,7 @@ Skipped  1
   "skipped": [
     {
       "id": "future-app",
-      "reason": "recipe schema 9 is not supported by this Carrova (supports 1-2)"
+      "reason": "recipe schema 9 is not supported by this Carrova (supports 1-3)"
     }
   ]
 }

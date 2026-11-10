@@ -28,6 +28,7 @@ fn reset_without_a_terminal_needs_yes() -> Result<()> {
 }
 
 #[test]
+#[cfg(unix)] // Windows finds the store via known folders, not HOME: --yes would reset the real one
 fn reset_with_nothing_installed_says_so() -> Result<()> {
     let home = TempDir::new()?;
     let out = carrova(&home, &["recipes", "reset", "--yes"])?;
