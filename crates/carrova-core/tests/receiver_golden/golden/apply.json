@@ -1,0 +1,300 @@
+[
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app",
+    "action": "replace"
+  },
+  {
+    "event": "progress",
+    "phase": "apply",
+    "done": 0,
+    "total": 7
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/a.txt",
+    "action": "create"
+  },
+  {
+    "event": "progress",
+    "phase": "apply",
+    "done": 1,
+    "total": 7
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/b.txt",
+    "action": "identical"
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/c.txt",
+    "action": "replace"
+  },
+  {
+    "event": "progress",
+    "phase": "apply",
+    "done": 2,
+    "total": 7
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/d.txt",
+    "action": "replace"
+  },
+  {
+    "event": "progress",
+    "phase": "apply",
+    "done": 3,
+    "total": 7
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/e.txt",
+    "action": "replace"
+  },
+  {
+    "event": "progress",
+    "phase": "apply",
+    "done": 4,
+    "total": 7
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/w.txt",
+    "action": "create"
+  },
+  {
+    "event": "progress",
+    "phase": "apply",
+    "done": 5,
+    "total": 7
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/g.txt",
+    "action": "create"
+  },
+  {
+    "event": "progress",
+    "phase": "apply",
+    "done": 6,
+    "total": 7
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/sub",
+    "action": "skip"
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/dir",
+    "action": "skip"
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/isdir",
+    "action": "skip"
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/link",
+    "action": "create"
+  },
+  {
+    "event": "progress",
+    "phase": "apply",
+    "done": 6,
+    "total": 7
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/escape",
+    "action": "skip"
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/through",
+    "action": "skip"
+  },
+  {
+    "event": "action_applied",
+    "item": "other/data",
+    "target": "user_data:other/o.txt",
+    "action": "create"
+  },
+  {
+    "event": "progress",
+    "phase": "apply",
+    "done": 7,
+    "total": 7
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/sub/x.txt",
+    "action": "skip"
+  },
+  {
+    "event": "action_applied",
+    "item": "app/config",
+    "target": "user_config:app/via/y.txt",
+    "action": "skip"
+  }
+]
+[
+  {
+    "begin": {
+      "session": "20261108-000000-abcdef",
+      "version": 3
+    }
+  },
+  {
+    "mode_changed": {
+      "abs": "$TMP/recv/.config/app",
+      "old_mode": 511
+    }
+  },
+  {
+    "created_file": {
+      "abs": "$TMP/recv/.config/app/a.txt",
+      "src": "$TMP/session/staging/files/1",
+      "hash": "32684bfa28c0c84d6f210511aace0efc5171c7889148ba89208d5aa29705fa98",
+      "size": 1,
+      "backup": null
+    }
+  },
+  {
+    "backed_up": {
+      "abs": "$TMP/recv/.config/app/c.txt",
+      "backup": "$TMP/session/backup/1",
+      "kind": "file",
+      "mode": 420
+    }
+  },
+  {
+    "created_file": {
+      "abs": "$TMP/recv/.config/app/c.txt",
+      "src": "$TMP/session/staging/files/3",
+      "hash": "fc42a5a555aa7b01572f67aa5fca3e096055e62b818baf3ecd00e4f820cfe6b2",
+      "size": 1,
+      "backup": "$TMP/session/backup/1"
+    }
+  },
+  {
+    "backed_up": {
+      "abs": "$TMP/recv/.config/app/d.txt",
+      "backup": "$TMP/session/backup/2",
+      "kind": "file",
+      "mode": 420
+    }
+  },
+  {
+    "created_file": {
+      "abs": "$TMP/recv/.config/app/d.txt",
+      "src": "$TMP/session/staging/files/4",
+      "hash": "3afcdd8a9bd7b7458c2af708163c0a3259bef038576403af0d2c411a174c4b8f",
+      "size": 1,
+      "backup": "$TMP/session/backup/2"
+    }
+  },
+  {
+    "backed_up": {
+      "abs": "$TMP/recv/.config/app/e.txt",
+      "backup": "$TMP/session/backup/3",
+      "kind": "file",
+      "mode": 420
+    }
+  },
+  {
+    "created_file": {
+      "abs": "$TMP/recv/.config/app/e.txt",
+      "src": "$TMP/session/staging/files/5",
+      "hash": "ea6f1d357d34988f735500e28867a6b7851b15871edb2bd59c01f139320cab81",
+      "size": 1,
+      "backup": "$TMP/session/backup/3"
+    }
+  },
+  {
+    "created_file": {
+      "abs": "$TMP/recv/.config/app/w.txt",
+      "src": "$TMP/session/staging/files/6",
+      "hash": "3c604e5b425d7d43fb1b688860ffca3b50919f842087e8b53f181a2e4a92ad1a",
+      "size": 1,
+      "backup": null
+    }
+  },
+  {
+    "created_file": {
+      "abs": "$TMP/recv/.config/app/g.txt",
+      "src": "$TMP/session/staging/files/7",
+      "hash": "4889c6ba6664a3d43ab337e56fe73ce9e93d5796bdfae2f00b247def38d7e751",
+      "size": 1,
+      "backup": null
+    }
+  },
+  {
+    "created_symlink": {
+      "abs": "$TMP/recv/.config/app/link",
+      "target": "a.txt"
+    }
+  },
+  {
+    "created_dir": {
+      "abs": "$TMP/recv/.local"
+    }
+  },
+  {
+    "created_dir": {
+      "abs": "$TMP/recv/.local/share"
+    }
+  },
+  {
+    "created_dir": {
+      "abs": "$TMP/recv/.local/share/other"
+    }
+  },
+  {
+    "created_file": {
+      "abs": "$TMP/recv/.local/share/other/o.txt",
+      "src": "$TMP/session/staging/files/16",
+      "hash": "0bd4d2eca57d36d430645fe7642b5e444030f94f0596f2fd1a14ded8823c2ac9",
+      "size": 1,
+      "backup": null
+    }
+  },
+  "committed"
+]
+[
+  [
+    "user_config:app",
+    "user_config:app/a.txt",
+    "user_config:app/c.txt",
+    "user_config:app/d.txt",
+    "user_config:app/e.txt",
+    "user_config:app/w.txt",
+    "user_config:app/g.txt",
+    "user_config:app/link",
+    "user_data:other/o.txt"
+  ],
+  [
+    "user_config:app/c.txt",
+    "user_config:app/d.txt",
+    "user_config:app/e.txt"
+  ],
+  []
+]

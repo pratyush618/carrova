@@ -1,0 +1,122 @@
+[
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/hnew",
+    "outcome": "moved_aside"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/hfile",
+    "outcome": "failed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/hdir",
+    "outcome": "moved_aside"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/hblocked/inner",
+    "outcome": "failed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/hblocked",
+    "outcome": "failed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/restored",
+    "outcome": "restored"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/occupied",
+    "outcome": "failed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/mode_dir",
+    "outcome": "restored"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/dir_file",
+    "outcome": "failed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/full",
+    "outcome": "failed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/empty",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/link_file",
+    "outcome": "failed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/link_moved",
+    "outcome": "failed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/link_ok",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/now_dir",
+    "outcome": "failed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/changed",
+    "outcome": "failed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/removed",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/h/temp_dir",
+    "outcome": "failed"
+  }
+]
+removed $TMP/h/empty
+removed $TMP/h/link_ok
+removed $TMP/h/removed
+restored $TMP/h/restored
+restored $TMP/h/mode_dir
+quarantined $TMP/h/hnew -> $TMP/session/rollback-trash/17-0-hnew
+quarantined $TMP/h/hdir -> $TMP/session/rollback-trash/16-0-hdir
+failed $TMP/h/hfile: changed since apply; left in place
+failed $TMP/h/hblocked/inner: directory not empty; left in place
+failed $TMP/h/hblocked: holds entries rollback left in place
+failed $TMP/h/occupied: original location is occupied; backup kept
+failed $TMP/h/dir_file: no longer a directory; left in place
+failed $TMP/h/full: directory not empty; left in place
+failed $TMP/h/link_file: no longer a symlink; left in place
+failed $TMP/h/link_moved: symlink target changed; left in place
+failed $TMP/h/now_dir: no longer a regular file; left in place
+failed $TMP/h/changed: changed since apply; left in place
+failed $TMP/h/temp_dir: temp path is no longer a regular file
+--- second run
+failed $TMP/h/hfile: changed since apply; left in place
+failed $TMP/h/hblocked/inner: directory not empty; left in place
+failed $TMP/h/hblocked: holds entries rollback left in place
+failed $TMP/h/occupied: original location is occupied; backup kept
+failed $TMP/h/dir_file: no longer a directory; left in place
+failed $TMP/h/full: directory not empty; left in place
+failed $TMP/h/link_file: no longer a symlink; left in place
+failed $TMP/h/link_moved: symlink target changed; left in place
+failed $TMP/h/now_dir: no longer a regular file; left in place
+failed $TMP/h/changed: changed since apply; left in place
+failed $TMP/h/temp_dir: temp path is no longer a regular file

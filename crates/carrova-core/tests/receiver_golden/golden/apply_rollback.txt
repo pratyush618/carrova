@@ -1,0 +1,92 @@
+[
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.local/share/other/o.txt",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.local/share/other",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.local/share",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.local",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.config/app/link",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.config/app/g.txt",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.config/app/w.txt",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.config/app/e.txt",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.config/app/e.txt",
+    "outcome": "restored"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.config/app/d.txt",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.config/app/d.txt",
+    "outcome": "restored"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.config/app/c.txt",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.config/app/c.txt",
+    "outcome": "restored"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.config/app/a.txt",
+    "outcome": "removed"
+  },
+  {
+    "event": "rollback_step",
+    "target": "$TMP/recv/.config/app",
+    "outcome": "restored"
+  }
+]
+removed $TMP/recv/.local/share/other/o.txt
+removed $TMP/recv/.local/share/other
+removed $TMP/recv/.local/share
+removed $TMP/recv/.local
+removed $TMP/recv/.config/app/link
+removed $TMP/recv/.config/app/g.txt
+removed $TMP/recv/.config/app/w.txt
+removed $TMP/recv/.config/app/e.txt
+removed $TMP/recv/.config/app/d.txt
+removed $TMP/recv/.config/app/c.txt
+removed $TMP/recv/.config/app/a.txt
+restored $TMP/recv/.config/app/e.txt
+restored $TMP/recv/.config/app/d.txt
+restored $TMP/recv/.config/app/c.txt
+restored $TMP/recv/.config/app

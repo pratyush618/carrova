@@ -1,0 +1,51 @@
+[package]
+name = "carrova-core"
+description = "Carrova session engine: state machine, scan orchestration, typed events"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+carrova-archive = { workspace = true }
+carrova-crypto = { workspace = true }
+carrova-manifest = { workspace = true }
+carrova-transport = { workspace = true }
+blake3 = { workspace = true }
+ciborium = { workspace = true }
+data-encoding = { workspace = true }
+getrandom = { workspace = true }
+serde_json = { workspace = true }
+tracing-subscriber = { workspace = true }
+carrova-platform = { workspace = true }
+carrova-recipe = { workspace = true }
+serde = { workspace = true }
+serde_bytes = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+# `no-serde-warnings`: the serde attributes ts-rs cannot read (transparent
+# newtypes, `into`/`from` conversions, `serialize_with`) are covered by
+# explicit `ts(...)` overrides or already have the serialised shape.
+ts-rs = { workspace = true, optional = true, features = ["no-serde-warnings"] }
+walkdir = { workspace = true }
+zeroize = { workspace = true }
+
+[dev-dependencies]
+# Self dev-dependency: integration tests see the internal modules.
+carrova-core = { path = ".", features = ["test-support"] }
+carrova-platform = { workspace = true, features = ["fake"] }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true
+
+[features]
+# TypeScript bindings (ts-rs) for every type a front-end receives or sends.
+ts = ["dep:ts-rs", "carrova-archive/ts", "carrova-platform/ts"]
+# Test-only fault injection (fail apply after N actions). Never in release builds.
+failpoints = []
+# Exposes the private write-capable modules (apply, stage, rollback, handlers,
+# journal) to this crate's integration tests. Front-ends must not enable it.
+test-support = []

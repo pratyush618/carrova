@@ -1,0 +1,2 @@
+session store: no rollback point for this session
+session store: unsupported journal version 99

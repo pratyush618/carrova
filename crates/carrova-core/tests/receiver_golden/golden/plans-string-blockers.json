@@ -1,0 +1,1548 @@
+[
+  {
+    "session": "20261108-000000-abcdef",
+    "options": {
+      "items": [
+        "app/config",
+        "home/.bashrc",
+        "other/data",
+        "app/keyring",
+        "user_data/raw"
+      ],
+      "confirmed_sensitive": [
+        "app/keyring",
+        "user_data/raw"
+      ],
+      "default_rule": "replace",
+      "item_rules": {
+        "app/config": "replace"
+      },
+      "path_rules": {
+        "user_config:app/d.txt": "keep-both",
+        "user_config:app/e.txt": "skip",
+        "user_config:app/nothing": "skip"
+      },
+      "remaps": {
+        "other/data": {
+          "root": "documents",
+          "rel_prefix": "moved"
+        }
+      },
+      "ignore_requires_closed": false,
+      "ignore_free_space": false,
+      "keep_both_suffix": "carrova-{date}",
+      "retention": "until_dismissed",
+      "import_trust": false,
+      "keep_group_write": false
+    },
+    "actions": [
+      {
+        "item": "app/config",
+        "entry_index": 0,
+        "kind": "dir",
+        "root": "user_config",
+        "rel": "app",
+        "abs": "$TMP/recv/.config/app",
+        "size": 0,
+        "mode": 493,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "replace"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 1,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/a.txt",
+        "abs": "$TMP/recv/.config/app/a.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 2,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/b.txt",
+        "abs": "$TMP/recv/.config/app/b.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "identical"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 3,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/c.txt",
+        "abs": "$TMP/recv/.config/app/c.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "replace"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 4,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/d.txt",
+        "abs": "$TMP/recv/.config/app/d.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "keep-both",
+          "rel": "app/d.txt.carrova-20261108-2"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 5,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/e.txt",
+        "abs": "$TMP/recv/.config/app/e.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "kept existing (rule: skip)"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 6,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/w.txt",
+        "abs": "$TMP/recv/.config/app/w.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 7,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/g.txt",
+        "abs": "$TMP/recv/.config/app/g.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 8,
+        "kind": "dir",
+        "root": "user_config",
+        "rel": "app/sub",
+        "abs": "$TMP/recv/.config/app/sub",
+        "size": 0,
+        "mode": 493,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "a file or symlink exists where a directory is incoming; kept existing"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 9,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/sub/x.txt",
+        "abs": "$TMP/recv/.config/app/sub/x.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "user_config:app/sub exists and is not a directory"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 10,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/via/y.txt",
+        "abs": "$TMP/recv/.config/app/via/y.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "user_config:app/via is a symlink on this machine; never written through"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 11,
+        "kind": "dir",
+        "root": "user_config",
+        "rel": "app/dir",
+        "abs": "$TMP/recv/.config/app/dir",
+        "size": 0,
+        "mode": 448,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "a file or symlink exists where a directory is incoming; kept existing"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 12,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/isdir",
+        "abs": "$TMP/recv/.config/app/isdir",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "a directory exists where a file or symlink is incoming; a directory is never replaced"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 13,
+        "kind": "symlink",
+        "root": "user_config",
+        "rel": "app/link",
+        "abs": "$TMP/recv/.config/app/link",
+        "size": 0,
+        "mode": 493,
+        "link_target": "a.txt",
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 14,
+        "kind": "symlink",
+        "root": "user_config",
+        "rel": "app/escape",
+        "abs": "$TMP/recv/.config/app/escape",
+        "size": 0,
+        "mode": 493,
+        "link_target": "/etc/passwd",
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "symlink target `/etc/passwd` points outside the target root and home"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 15,
+        "kind": "symlink",
+        "root": "user_config",
+        "rel": "app/through",
+        "abs": "$TMP/recv/.config/app/through",
+        "size": 0,
+        "mode": 493,
+        "link_target": "../shared/x",
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "symlink target `../shared/x` goes through an existing link on this machine"
+        }
+      },
+      {
+        "item": "home/.bashrc",
+        "entry_index": 0,
+        "kind": "file",
+        "root": "home",
+        "rel": ".bashrc",
+        "abs": "$TMP/recv/.bashrc",
+        "size": 9,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "other/data",
+        "entry_index": 0,
+        "kind": "file",
+        "root": "documents",
+        "rel": "moved/other/o.txt",
+        "abs": "$TMP/recv/Documents/moved/other/o.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "user_data/raw",
+        "entry_index": 0,
+        "kind": "file",
+        "root": "user_data",
+        "rel": "raw/r.txt",
+        "abs": "$TMP/recv/.local/share/raw/r.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "unknown handler `rm-rf`"
+        }
+      }
+    ],
+    "handlers": [
+      {
+        "item": "app/keyring",
+        "handler": "gpg-keyring",
+        "backup": [
+          [
+            "home",
+            ".gnupg/pubring.kbx"
+          ],
+          [
+            "home",
+            ".gnupg/trustdb.gpg"
+          ]
+        ],
+        "import_trust": false
+      }
+    ],
+    "bytes_to_write": 34,
+    "free_space": 1000,
+    "missing_apps": [
+      "other"
+    ],
+    "running_apps": [
+      "app"
+    ],
+    "app_names": {
+      "app": "App",
+      "other": "Other"
+    },
+    "blockers": [
+      "`home/.bashrc` is sensitive (unrecognised data from the archive; can run code at login (home:.bashrc)): confirm it explicitly to import it, or deselect it",
+      "App (`app`) is running: close it before applying, or override the requires-closed check",
+      "not enough free space: 67108899 bytes needed on the filesystem of the state dir and user_config, home, documents (incl. margin), 1000 available"
+    ],
+    "warnings": [
+      {
+        "item": "other/data",
+        "message": "override: restoring to a different location (remap root documents, prefix moved)"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/sub: a file or symlink exists where a directory is incoming; kept existing"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/sub/x.txt: user_config:app/sub exists and is not a directory"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/via/y.txt: user_config:app/via is a symlink on this machine; never written through"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/dir: a file or symlink exists where a directory is incoming; kept existing"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/isdir: a directory exists where a file or symlink is incoming; a directory is never replaced"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/escape: symlink target `/etc/passwd` points outside the target root and home"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/through: symlink target `../shared/x` goes through an existing link on this machine"
+      },
+      {
+        "item": "user_data/raw",
+        "message": "skipped user_data:raw/r.txt: unknown handler `rm-rf`"
+      },
+      {
+        "item": "app/config",
+        "message": "group-write, world-write dropped on 2 path(s)"
+      },
+      {
+        "item": null,
+        "message": "per-file rule for `user_config:app/nothing` matches no conflicting target"
+      },
+      {
+        "item": "user_data/raw",
+        "message": "unknown handler `rm-rf`: item not applied"
+      },
+      {
+        "item": null,
+        "message": "app `other` is not installed here: its data is restored, install the app to use it"
+      }
+    ],
+    "sensitive": {
+      "app/keyring": "holds GnuPG keys, trust and agent programs (home:.gnupg/pubring.kbx)",
+      "ghost/x": "marked sensitive in the archive; unrecognised data from the archive (recipe `ghost` is not known here)",
+      "home/.bashrc": "unrecognised data from the archive; can run code at login (home:.bashrc)",
+      "user_data/raw": "unrecognised data from the archive"
+    }
+  },
+  {
+    "session": "20261108-000000-abcdef",
+    "options": {
+      "items": [
+        "app/config",
+        "home/.bashrc",
+        "other/data",
+        "app/keyring",
+        "user_data/raw"
+      ],
+      "confirmed_sensitive": [
+        "app/keyring",
+        "user_data/raw"
+      ],
+      "default_rule": "replace",
+      "item_rules": {
+        "app/config": "replace"
+      },
+      "path_rules": {
+        "user_config:app/d.txt": "keep-both",
+        "user_config:app/e.txt": "skip",
+        "user_config:app/nothing": "skip"
+      },
+      "remaps": {
+        "other/data": {
+          "root": "documents",
+          "rel_prefix": "moved"
+        }
+      },
+      "ignore_requires_closed": true,
+      "ignore_free_space": true,
+      "keep_both_suffix": "bak-{date}",
+      "retention": "until_dismissed",
+      "import_trust": true,
+      "keep_group_write": true
+    },
+    "actions": [
+      {
+        "item": "app/config",
+        "entry_index": 0,
+        "kind": "dir",
+        "root": "user_config",
+        "rel": "app",
+        "abs": "$TMP/recv/.config/app",
+        "size": 0,
+        "mode": 493,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "replace"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 1,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/a.txt",
+        "abs": "$TMP/recv/.config/app/a.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 2,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/b.txt",
+        "abs": "$TMP/recv/.config/app/b.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "identical"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 3,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/c.txt",
+        "abs": "$TMP/recv/.config/app/c.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "replace"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 4,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/d.txt",
+        "abs": "$TMP/recv/.config/app/d.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "keep-both",
+          "rel": "app/d.txt.bak-20261108"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 5,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/e.txt",
+        "abs": "$TMP/recv/.config/app/e.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "kept existing (rule: skip)"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 6,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/w.txt",
+        "abs": "$TMP/recv/.config/app/w.txt",
+        "size": 1,
+        "mode": 436,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 7,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/g.txt",
+        "abs": "$TMP/recv/.config/app/g.txt",
+        "size": 1,
+        "mode": 436,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 8,
+        "kind": "dir",
+        "root": "user_config",
+        "rel": "app/sub",
+        "abs": "$TMP/recv/.config/app/sub",
+        "size": 0,
+        "mode": 509,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "a file or symlink exists where a directory is incoming; kept existing"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 9,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/sub/x.txt",
+        "abs": "$TMP/recv/.config/app/sub/x.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "user_config:app/sub exists and is not a directory"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 10,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/via/y.txt",
+        "abs": "$TMP/recv/.config/app/via/y.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "user_config:app/via is a symlink on this machine; never written through"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 11,
+        "kind": "dir",
+        "root": "user_config",
+        "rel": "app/dir",
+        "abs": "$TMP/recv/.config/app/dir",
+        "size": 0,
+        "mode": 448,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "a file or symlink exists where a directory is incoming; kept existing"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 12,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/isdir",
+        "abs": "$TMP/recv/.config/app/isdir",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "a directory exists where a file or symlink is incoming; a directory is never replaced"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 13,
+        "kind": "symlink",
+        "root": "user_config",
+        "rel": "app/link",
+        "abs": "$TMP/recv/.config/app/link",
+        "size": 0,
+        "mode": 509,
+        "link_target": "a.txt",
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 14,
+        "kind": "symlink",
+        "root": "user_config",
+        "rel": "app/escape",
+        "abs": "$TMP/recv/.config/app/escape",
+        "size": 0,
+        "mode": 509,
+        "link_target": "/etc/passwd",
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "symlink target `/etc/passwd` points outside the target root and home"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 15,
+        "kind": "symlink",
+        "root": "user_config",
+        "rel": "app/through",
+        "abs": "$TMP/recv/.config/app/through",
+        "size": 0,
+        "mode": 509,
+        "link_target": "../shared/x",
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "symlink target `../shared/x` goes through an existing link on this machine"
+        }
+      },
+      {
+        "item": "home/.bashrc",
+        "entry_index": 0,
+        "kind": "file",
+        "root": "home",
+        "rel": ".bashrc",
+        "abs": "$TMP/recv/.bashrc",
+        "size": 9,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "other/data",
+        "entry_index": 0,
+        "kind": "file",
+        "root": "documents",
+        "rel": "moved/other/o.txt",
+        "abs": "$TMP/recv/Documents/moved/other/o.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "user_data/raw",
+        "entry_index": 0,
+        "kind": "file",
+        "root": "user_data",
+        "rel": "raw/r.txt",
+        "abs": "$TMP/recv/.local/share/raw/r.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "unknown handler `rm-rf`"
+        }
+      }
+    ],
+    "handlers": [
+      {
+        "item": "app/keyring",
+        "handler": "gpg-keyring",
+        "backup": [
+          [
+            "home",
+            ".gnupg/pubring.kbx"
+          ],
+          [
+            "home",
+            ".gnupg/trustdb.gpg"
+          ]
+        ],
+        "import_trust": true
+      }
+    ],
+    "bytes_to_write": 34,
+    "free_space": 1000,
+    "missing_apps": [
+      "other"
+    ],
+    "running_apps": [
+      "app"
+    ],
+    "app_names": {
+      "app": "App",
+      "other": "Other"
+    },
+    "blockers": [
+      "`home/.bashrc` is sensitive (unrecognised data from the archive; can run code at login (home:.bashrc)): confirm it explicitly to import it, or deselect it"
+    ],
+    "warnings": [
+      {
+        "item": "other/data",
+        "message": "override: restoring to a different location (remap root documents, prefix moved)"
+      },
+      {
+        "item": null,
+        "message": "override: keeping group-write bits from the archive"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/sub: a file or symlink exists where a directory is incoming; kept existing"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/sub/x.txt: user_config:app/sub exists and is not a directory"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/via/y.txt: user_config:app/via is a symlink on this machine; never written through"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/dir: a file or symlink exists where a directory is incoming; kept existing"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/isdir: a directory exists where a file or symlink is incoming; a directory is never replaced"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/escape: symlink target `/etc/passwd` points outside the target root and home"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/through: symlink target `../shared/x` goes through an existing link on this machine"
+      },
+      {
+        "item": "user_data/raw",
+        "message": "skipped user_data:raw/r.txt: unknown handler `rm-rf`"
+      },
+      {
+        "item": "app/config",
+        "message": "world-write dropped on 1 path(s)"
+      },
+      {
+        "item": null,
+        "message": "per-file rule for `user_config:app/nothing` matches no conflicting target"
+      },
+      {
+        "item": "user_data/raw",
+        "message": "unknown handler `rm-rf`: item not applied"
+      },
+      {
+        "item": null,
+        "message": "app `other` is not installed here: its data is restored, install the app to use it"
+      },
+      {
+        "item": null,
+        "message": "override: App is running and will be changed while open (requires-closed check ignored)"
+      },
+      {
+        "item": null,
+        "message": "override: free space check ignored (67108899 bytes needed on the filesystem of the state dir and user_config, home, documents (incl. margin), 1000 available)"
+      }
+    ],
+    "sensitive": {
+      "app/keyring": "holds GnuPG keys, trust and agent programs (home:.gnupg/pubring.kbx)",
+      "ghost/x": "marked sensitive in the archive; unrecognised data from the archive (recipe `ghost` is not known here)",
+      "home/.bashrc": "unrecognised data from the archive; can run code at login (home:.bashrc)",
+      "user_data/raw": "unrecognised data from the archive"
+    }
+  },
+  {
+    "session": "20261108-000000-abcdef",
+    "options": {
+      "items": null,
+      "confirmed_sensitive": [],
+      "default_rule": "replace",
+      "item_rules": {},
+      "path_rules": {},
+      "remaps": {},
+      "ignore_requires_closed": false,
+      "ignore_free_space": false,
+      "keep_both_suffix": "carrova-{date}",
+      "retention": "until_dismissed",
+      "import_trust": false,
+      "keep_group_write": false
+    },
+    "actions": [
+      {
+        "item": "app/config",
+        "entry_index": 0,
+        "kind": "dir",
+        "root": "user_config",
+        "rel": "app",
+        "abs": "$TMP/recv/.config/app",
+        "size": 0,
+        "mode": 493,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "replace"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 1,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/a.txt",
+        "abs": "$TMP/recv/.config/app/a.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 2,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/b.txt",
+        "abs": "$TMP/recv/.config/app/b.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "identical"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 3,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/c.txt",
+        "abs": "$TMP/recv/.config/app/c.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "replace"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 4,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/d.txt",
+        "abs": "$TMP/recv/.config/app/d.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "replace"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 5,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/e.txt",
+        "abs": "$TMP/recv/.config/app/e.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "replace"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 6,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/w.txt",
+        "abs": "$TMP/recv/.config/app/w.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 7,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/g.txt",
+        "abs": "$TMP/recv/.config/app/g.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 8,
+        "kind": "dir",
+        "root": "user_config",
+        "rel": "app/sub",
+        "abs": "$TMP/recv/.config/app/sub",
+        "size": 0,
+        "mode": 493,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "a file or symlink exists where a directory is incoming; kept existing"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 9,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/sub/x.txt",
+        "abs": "$TMP/recv/.config/app/sub/x.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "user_config:app/sub exists and is not a directory"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 10,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/via/y.txt",
+        "abs": "$TMP/recv/.config/app/via/y.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "user_config:app/via is a symlink on this machine; never written through"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 11,
+        "kind": "dir",
+        "root": "user_config",
+        "rel": "app/dir",
+        "abs": "$TMP/recv/.config/app/dir",
+        "size": 0,
+        "mode": 448,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "a file or symlink exists where a directory is incoming; kept existing"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 12,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/isdir",
+        "abs": "$TMP/recv/.config/app/isdir",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "a directory exists where a file or symlink is incoming; a directory is never replaced"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 13,
+        "kind": "symlink",
+        "root": "user_config",
+        "rel": "app/link",
+        "abs": "$TMP/recv/.config/app/link",
+        "size": 0,
+        "mode": 493,
+        "link_target": "a.txt",
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 14,
+        "kind": "symlink",
+        "root": "user_config",
+        "rel": "app/escape",
+        "abs": "$TMP/recv/.config/app/escape",
+        "size": 0,
+        "mode": 493,
+        "link_target": "/etc/passwd",
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "symlink target `/etc/passwd` points outside the target root and home"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 15,
+        "kind": "symlink",
+        "root": "user_config",
+        "rel": "app/through",
+        "abs": "$TMP/recv/.config/app/through",
+        "size": 0,
+        "mode": 493,
+        "link_target": "../shared/x",
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "symlink target `../shared/x` goes through an existing link on this machine"
+        }
+      },
+      {
+        "item": "other/data",
+        "entry_index": 0,
+        "kind": "file",
+        "root": "user_data",
+        "rel": "other/o.txt",
+        "abs": "$TMP/recv/.local/share/other/o.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      }
+    ],
+    "handlers": [],
+    "bytes_to_write": 7,
+    "free_space": 1099511627776,
+    "missing_apps": [
+      "other"
+    ],
+    "running_apps": [],
+    "app_names": {
+      "other": "Other"
+    },
+    "blockers": [],
+    "warnings": [
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/sub: a file or symlink exists where a directory is incoming; kept existing"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/sub/x.txt: user_config:app/sub exists and is not a directory"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/via/y.txt: user_config:app/via is a symlink on this machine; never written through"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/dir: a file or symlink exists where a directory is incoming; kept existing"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/isdir: a directory exists where a file or symlink is incoming; a directory is never replaced"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/escape: symlink target `/etc/passwd` points outside the target root and home"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/through: symlink target `../shared/x` goes through an existing link on this machine"
+      },
+      {
+        "item": "app/config",
+        "message": "group-write, world-write dropped on 2 path(s)"
+      },
+      {
+        "item": null,
+        "message": "app `other` is not installed here: its data is restored, install the app to use it"
+      }
+    ],
+    "sensitive": {
+      "app/keyring": "holds GnuPG keys, trust and agent programs (home:.gnupg/pubring.kbx)",
+      "ghost/x": "marked sensitive in the archive; unrecognised data from the archive (recipe `ghost` is not known here)",
+      "home/.bashrc": "unrecognised data from the archive; can run code at login (home:.bashrc)",
+      "user_data/raw": "unrecognised data from the archive"
+    }
+  },
+  {
+    "session": "20261108-000000-abcdef",
+    "options": {
+      "items": null,
+      "confirmed_sensitive": [],
+      "default_rule": "replace",
+      "item_rules": {},
+      "path_rules": {},
+      "remaps": {},
+      "ignore_requires_closed": true,
+      "ignore_free_space": true,
+      "keep_both_suffix": "carrova-{date}",
+      "retention": "until_dismissed",
+      "import_trust": false,
+      "keep_group_write": false
+    },
+    "actions": [
+      {
+        "item": "app/config",
+        "entry_index": 0,
+        "kind": "dir",
+        "root": "user_config",
+        "rel": "app",
+        "abs": "$TMP/recv/.config/app",
+        "size": 0,
+        "mode": 493,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "replace"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 1,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/a.txt",
+        "abs": "$TMP/recv/.config/app/a.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 2,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/b.txt",
+        "abs": "$TMP/recv/.config/app/b.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "identical"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 3,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/c.txt",
+        "abs": "$TMP/recv/.config/app/c.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "replace"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 4,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/d.txt",
+        "abs": "$TMP/recv/.config/app/d.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "replace"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 5,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/e.txt",
+        "abs": "$TMP/recv/.config/app/e.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "replace"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 6,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/w.txt",
+        "abs": "$TMP/recv/.config/app/w.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 7,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/g.txt",
+        "abs": "$TMP/recv/.config/app/g.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 8,
+        "kind": "dir",
+        "root": "user_config",
+        "rel": "app/sub",
+        "abs": "$TMP/recv/.config/app/sub",
+        "size": 0,
+        "mode": 493,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "a file or symlink exists where a directory is incoming; kept existing"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 9,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/sub/x.txt",
+        "abs": "$TMP/recv/.config/app/sub/x.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "user_config:app/sub exists and is not a directory"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 10,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/via/y.txt",
+        "abs": "$TMP/recv/.config/app/via/y.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "user_config:app/via is a symlink on this machine; never written through"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 11,
+        "kind": "dir",
+        "root": "user_config",
+        "rel": "app/dir",
+        "abs": "$TMP/recv/.config/app/dir",
+        "size": 0,
+        "mode": 448,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "a file or symlink exists where a directory is incoming; kept existing"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 12,
+        "kind": "file",
+        "root": "user_config",
+        "rel": "app/isdir",
+        "abs": "$TMP/recv/.config/app/isdir",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "a directory exists where a file or symlink is incoming; a directory is never replaced"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 13,
+        "kind": "symlink",
+        "root": "user_config",
+        "rel": "app/link",
+        "abs": "$TMP/recv/.config/app/link",
+        "size": 0,
+        "mode": 493,
+        "link_target": "a.txt",
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 14,
+        "kind": "symlink",
+        "root": "user_config",
+        "rel": "app/escape",
+        "abs": "$TMP/recv/.config/app/escape",
+        "size": 0,
+        "mode": 493,
+        "link_target": "/etc/passwd",
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "symlink target `/etc/passwd` points outside the target root and home"
+        }
+      },
+      {
+        "item": "app/config",
+        "entry_index": 15,
+        "kind": "symlink",
+        "root": "user_config",
+        "rel": "app/through",
+        "abs": "$TMP/recv/.config/app/through",
+        "size": 0,
+        "mode": 493,
+        "link_target": "../shared/x",
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "skip",
+          "reason": "symlink target `../shared/x` goes through an existing link on this machine"
+        }
+      },
+      {
+        "item": "other/data",
+        "entry_index": 0,
+        "kind": "file",
+        "root": "user_data",
+        "rel": "other/o.txt",
+        "abs": "$TMP/recv/.local/share/other/o.txt",
+        "size": 1,
+        "mode": 420,
+        "link_target": null,
+        "mtime_ns": 1700000000123456789,
+        "action": {
+          "action": "create"
+        }
+      }
+    ],
+    "handlers": [],
+    "bytes_to_write": 7,
+    "free_space": 1099511627776,
+    "missing_apps": [
+      "other"
+    ],
+    "running_apps": [],
+    "app_names": {
+      "other": "Other"
+    },
+    "blockers": [],
+    "warnings": [
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/sub: a file or symlink exists where a directory is incoming; kept existing"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/sub/x.txt: user_config:app/sub exists and is not a directory"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/via/y.txt: user_config:app/via is a symlink on this machine; never written through"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/dir: a file or symlink exists where a directory is incoming; kept existing"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/isdir: a directory exists where a file or symlink is incoming; a directory is never replaced"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/escape: symlink target `/etc/passwd` points outside the target root and home"
+      },
+      {
+        "item": "app/config",
+        "message": "skipped user_config:app/through: symlink target `../shared/x` goes through an existing link on this machine"
+      },
+      {
+        "item": "app/config",
+        "message": "group-write, world-write dropped on 2 path(s)"
+      },
+      {
+        "item": null,
+        "message": "app `other` is not installed here: its data is restored, install the app to use it"
+      },
+      {
+        "item": null,
+        "message": "override: requires-closed check disabled (no affected app is running now)"
+      },
+      {
+        "item": null,
+        "message": "override: free space check disabled"
+      }
+    ],
+    "sensitive": {
+      "app/keyring": "holds GnuPG keys, trust and agent programs (home:.gnupg/pubring.kbx)",
+      "ghost/x": "marked sensitive in the archive; unrecognised data from the archive (recipe `ghost` is not known here)",
+      "home/.bashrc": "unrecognised data from the archive; can run code at login (home:.bashrc)",
+      "user_data/raw": "unrecognised data from the archive"
+    }
+  }
+]
