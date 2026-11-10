@@ -9,6 +9,8 @@
 //!   effective tier and skipped recipes ([`RecipesInUse`]).
 //! * [`ResolvedRecipes::catalog`]: every known app with its effective tier
 //!   and whether it is detected here ([`KnownApp`]).
+//! * [`check`]: the same, but only reports whether a newer bundle is
+//!   offered ([`CheckAttempt`]).
 //! * [`update`] / [`update_with`]: open the store, follow the release
 //!   pointer, verify and install; a bundle that is not (yet) published is
 //!   [`UpdateAttempt::RetryLater`], not a failure.
@@ -25,4 +27,4 @@ mod update;
 pub use catalog::KnownApp;
 pub use status::RecipesInUse;
 pub use tier::{EffectiveTier, TierCounts};
-pub use update::{UpdateAttempt, update, update_with};
+pub use update::{CheckAttempt, UpdateAttempt, check, update, update_with};
