@@ -24,6 +24,7 @@
 //! in [`ScanReport::warnings`]. All output is deterministically ordered.
 
 mod apps;
+mod keys;
 mod machine;
 mod unrecognised;
 
@@ -35,6 +36,8 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, debug_span};
 
 use crate::cancel::Cancel;
+
+pub use keys::{KeyInfo, KeyKind};
 
 /// What to include in a scan.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -163,6 +166,9 @@ pub struct ItemReport {
     pub skipped: Vec<SkippedPath>,
     /// `requires_closed` and the app is currently running.
     pub app_running: bool,
+    /// Key files in the item, for telling keys apart (empty when it has
+    /// none).
+    pub keys: Vec<KeyInfo>,
 }
 
 /// Item flags, with the effective default selection.

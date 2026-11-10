@@ -11,6 +11,7 @@ use tracing::{debug, warn};
 
 use super::{
     AppReport, ItemFlags, ItemPortability, ItemReport, ScanError, ScanOptions, SkippedPath, Totals,
+    keys::{self, KeyInfo},
 };
 use crate::cancel::Cancel;
 use crate::key::RootedPath;
@@ -69,7 +70,9 @@ pub(super) fn recognise(
                     .iter()
                     .filter_map(|pr| roots.get(&pr.root).map(|base| pr.rel.join_to(base))),
             );
-            let report = item_report(recipe, item, &resolve_item(item, platform), running);
+            let resolved = resolve_item(item, platform);
+            let keys = keys::find(&resolved.entries, roots, platform);
+            let report = item_report(recipe, item, &resolved, keys, running);
             out.totals.recognised_size += report.size;
             if report.flags.default_selected {
                 out.totals.default_selected_size += report.size;
@@ -138,6 +141,7 @@ fn item_report(
     recipe: &Recipe,
     item: &Item,
     resolved: &ResolvedItem,
+    keys: Vec<KeyInfo>,
     app_running: bool,
 ) -> ItemReport {
     let file_count = resolved
@@ -175,6 +179,7 @@ fn item_report(
             })
             .collect(),
         app_running: app_running && item.is_movable() && item.flags.requires_closed,
+        keys,
     }
 }
 
