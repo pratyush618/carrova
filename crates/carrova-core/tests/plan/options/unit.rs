@@ -34,3 +34,12 @@ fn confirmation_is_recorded_per_item() {
     assert!(options.is_confirmed(&"app/keys".into()));
     assert!(!options.is_confirmed(&"app/token".into()));
 }
+
+#[test]
+fn cross_os_overrides_default_to_none_and_older_stored_options_still_read() {
+    assert!(PlanOptions::default().allow_cross_os.is_empty());
+    let mut stored = serde_json::to_value(PlanOptions::default()).unwrap();
+    stored.as_object_mut().unwrap().remove("allow_cross_os");
+    let read: PlanOptions = serde_json::from_value(stored).unwrap();
+    assert_eq!(read, PlanOptions::default());
+}

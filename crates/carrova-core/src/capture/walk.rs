@@ -32,7 +32,7 @@ pub(super) fn walk_items(
     planned
         .iter()
         .map(|p| {
-            if p.item.handler.is_some() {
+            if p.item.builtin_handler().is_some() {
                 return Vec::new();
             }
             let r = resolve_item(&p.item, platform);

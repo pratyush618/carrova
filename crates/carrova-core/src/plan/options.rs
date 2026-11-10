@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 
 use carrova_platform::SemanticRoot;
+use carrova_recipe::PluginId;
 use serde::{Deserialize, Serialize};
 
 use crate::key::ItemKey;
@@ -78,6 +79,19 @@ pub struct PlanOptions {
     /// umask-002 setup). World-write, setuid and setgid are never restored.
     #[serde(default)]
     pub keep_group_write: bool,
+    /// User override: same-OS item keys to restore although the archive
+    /// comes from another OS (each would otherwise be a
+    /// [`Blocker::CrossOs`](super::Blocker::CrossOs)). The user saw why
+    /// the recipe marks them same-OS and accepted the risk.
+    #[serde(default)]
+    pub allow_cross_os: Vec<ItemKey>,
+    /// Plugins the user allowed to change the files of the items that use
+    /// them, after seeing their permissions ([`super::Plan::plugins`]);
+    /// each other plugin in use is a
+    /// [`Blocker::UnconfirmedPlugin`](super::Blocker::UnconfirmedPlugin).
+    #[serde(default)]
+    #[cfg_attr(feature = "ts", ts(as = "Vec<String>"))]
+    pub confirmed_plugins: Vec<PluginId>,
 }
 
 impl PlanOptions {
@@ -134,6 +148,8 @@ impl Default for PlanOptions {
             retention: Retention::UntilDismissed,
             import_trust: false,
             keep_group_write: false,
+            allow_cross_os: Vec::new(),
+            confirmed_plugins: Vec::new(),
         }
     }
 }

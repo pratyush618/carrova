@@ -1,8 +1,9 @@
 //! Turning a selection's included items into something capturable
 //! ([`Planned`]), and the running-app warning.
 
+use carrova_manifest::SourcePath;
 use carrova_manifest::{ItemFlags, ManifestItem};
-use carrova_platform::{Platform, ProcessInfo};
+use carrova_platform::{OsKind, Platform, ProcessInfo};
 use carrova_recipe::{Flags, Item, PathRef, Portability, Recipe, RelPath};
 
 use crate::checklist::Skipped;
@@ -23,16 +24,17 @@ pub(super) struct Planned<'a> {
     pub(super) manifest_item: ManifestItem,
 }
 
-/// Every included item of `selection`, planned; items that cannot be go
-/// to the returned skip list with a reason.
+/// Every included item of `selection`, planned for capture on `os`; items
+/// that cannot be go to the returned skip list with a reason.
 pub(super) fn plan_items<'a>(
     selection: &'a Selection,
     recipes: &'a [Recipe],
+    os: OsKind,
 ) -> (Vec<Planned<'a>>, Vec<Skipped>) {
     let mut planned = Vec::new();
     let mut failed = Vec::new();
     for (key, choice) in selection.items.iter().filter(|(_, c)| c.included) {
-        match plan_item(key, choice, recipes) {
+        match plan_item(key, choice, recipes, os) {
             Ok(p) => planned.push(p),
             Err(reason) => failed.push(Skipped {
                 what: key.to_string(),
@@ -49,6 +51,7 @@ fn plan_item<'a>(
     key: &'a ItemKey,
     choice: &'a ItemChoice,
     recipes: &'a [Recipe],
+    os: OsKind,
 ) -> Result<Planned<'a>, String> {
     let excluded = choice
         .excluded_paths
@@ -58,7 +61,7 @@ fn plan_item<'a>(
     match key.target() {
         Some(ItemTarget::Raw(path)) => plan_raw_item(key, path, excluded),
         Some(ItemTarget::Recipe { recipe, item }) => {
-            plan_recipe_item(key, (recipe, item), choice, recipes, excluded)
+            plan_recipe_item(key, (recipe, item), choice, recipes, excluded, os)
         }
         None if key.is_raw() => Err(format!("malformed raw item key `{key}`")),
         None => Err(format!("malformed item key `{key}`")),
@@ -89,6 +92,7 @@ fn plan_raw_item<'a>(
             flags: Flags::default(),
             unmovable: None,
             handler: None,
+            os: None,
         },
         excluded,
         manifest_item: ManifestItem {
@@ -99,17 +103,20 @@ fn plan_raw_item<'a>(
             entries: Vec::new(),
             handler: None,
             artifacts: Vec::new(),
+            source_paths: Vec::new(),
         },
     })
 }
 
-/// Item `item_id` of loaded recipe `recipe_id` (selected as `key`).
+/// Item `item_id` of loaded recipe `recipe_id` (selected as `key`), with
+/// its paths on `os`.
 fn plan_recipe_item<'a>(
     key: &'a ItemKey,
     (recipe_id, item_id): (&str, &str),
     choice: &ItemChoice,
     recipes: &'a [Recipe],
     excluded: Vec<RootedPath<'a>>,
+    os: OsKind,
 ) -> Result<Planned<'a>, String> {
     let recipe = recipes
         .iter()
@@ -125,9 +132,14 @@ fn plan_recipe_item<'a>(
         // The user saw the reason and forced it.
         item.unmovable = None;
     }
-    if item.paths.is_empty() && item.handler.is_none() {
+    let paths = item.paths_for(os);
+    if paths.is_empty() && item.builtin_handler().is_none() {
         return Err("item declares no paths".into());
     }
+    let source_paths = paths
+        .iter()
+        .map(source_path)
+        .collect::<Result<Vec<_>, _>>()?;
     let manifest_item = ManifestItem {
         recipe_id: Some(recipe.id.clone()),
         item_id: item.id.clone(),
@@ -143,6 +155,7 @@ fn plan_recipe_item<'a>(
         entries: Vec::new(),
         handler: None,
         artifacts: Vec::new(),
+        source_paths,
     };
     Ok(Planned {
         key,
@@ -151,6 +164,14 @@ fn plan_recipe_item<'a>(
         excluded,
         manifest_item,
     })
+}
+
+/// A recipe path as the manifest records it (the manifest's own, stricter
+/// relative-path rules apply).
+fn source_path(p: &PathRef) -> Result<SourcePath, String> {
+    let rel = carrova_manifest::RelPath::new(p.rel.as_str())
+        .map_err(|e| format!("recipe path {p} cannot be recorded: {e}"))?;
+    Ok(SourcePath { root: p.root, rel })
 }
 
 /// Warn (never block: export only reads) for included `requires_closed`

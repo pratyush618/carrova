@@ -65,7 +65,7 @@ pub(super) fn recognise(
         app.running = running;
         for item in &recipe.items {
             out.claims.extend(
-                item.paths
+                item.paths_for(platform.os())
                     .iter()
                     .filter_map(|pr| roots.get(&pr.root).map(|base| pr.rel.join_to(base))),
             );

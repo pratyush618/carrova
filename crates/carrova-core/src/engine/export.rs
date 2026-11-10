@@ -197,7 +197,14 @@ fn write_archive(
     cancel: &Cancel,
 ) -> Result<(ArchiveSummary, Checklist)> {
     let platform = s.platform();
-    let cap = capture::capture(platform, &s.engine.recipes, selection, s.sink(), cancel)?;
+    let cap = capture::capture_with_plugins(
+        platform,
+        &s.engine.recipes,
+        &s.engine.plugins,
+        selection,
+        s.sink(),
+        cancel,
+    )?;
     let summary = export::write(platform, &cap, path, pass, opts, s.sink(), cancel)?;
     let checklist = Checklist {
         moved: cap.manifest.items.iter().map(ItemKey::of).collect(),

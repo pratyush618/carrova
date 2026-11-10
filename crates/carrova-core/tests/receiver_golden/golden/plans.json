@@ -33,7 +33,9 @@
       "keep_both_suffix": "carrova-{date}",
       "retention": "until_dismissed",
       "import_trust": false,
-      "keep_group_write": false
+      "keep_group_write": false,
+      "allow_cross_os": [],
+      "confirmed_plugins": []
     },
     "actions": [
       {
@@ -361,6 +363,8 @@
       "app": "App",
       "other": "Other"
     },
+    "mappings": [],
+    "plugins": [],
     "blockers": [
       {
         "kind": "unconfirmed_sensitive",
@@ -481,7 +485,9 @@
       "keep_both_suffix": "bak-{date}",
       "retention": "until_dismissed",
       "import_trust": true,
-      "keep_group_write": true
+      "keep_group_write": true,
+      "allow_cross_os": [],
+      "confirmed_plugins": []
     },
     "actions": [
       {
@@ -809,6 +815,8 @@
       "app": "App",
       "other": "Other"
     },
+    "mappings": [],
+    "plugins": [],
     "blockers": [
       {
         "kind": "unconfirmed_sensitive",
@@ -903,7 +911,9 @@
       "keep_both_suffix": "carrova-{date}",
       "retention": "until_dismissed",
       "import_trust": false,
-      "keep_group_write": false
+      "keep_group_write": false,
+      "allow_cross_os": [],
+      "confirmed_plugins": []
     },
     "actions": [
       {
@@ -1179,6 +1189,8 @@
     "app_names": {
       "other": "Other"
     },
+    "mappings": [],
+    "plugins": [],
     "blockers": [],
     "warnings": [
       {
@@ -1239,7 +1251,9 @@
       "keep_both_suffix": "carrova-{date}",
       "retention": "until_dismissed",
       "import_trust": false,
-      "keep_group_write": false
+      "keep_group_write": false,
+      "allow_cross_os": [],
+      "confirmed_plugins": []
     },
     "actions": [
       {
@@ -1515,6 +1529,8 @@
     "app_names": {
       "other": "Other"
     },
+    "mappings": [],
+    "plugins": [],
     "blockers": [],
     "warnings": [
       {

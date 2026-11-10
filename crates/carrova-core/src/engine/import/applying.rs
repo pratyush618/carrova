@@ -1,5 +1,5 @@
-//! Applying an approved import: stage (archive or LAN), the last cancel
-//! point, apply, and what a failed or cancelled staging run leaves behind.
+//! Applying an approved import: stage (archive or LAN), plugins over the
+//! staged files, the last cancel point, apply, and what a failed or cancelled staging run leaves behind.
 
 use super::{Approval, ImportFrom, Importer};
 use crate::apply;
@@ -96,7 +96,7 @@ impl Importer {
     }
 
     fn stage(&mut self, plan: &Plan) -> Result<Staged> {
-        let staged = match &self.from {
+        let mut staged = match &self.from {
             ImportFrom::Archive(archive) => {
                 let platform = self.s.platform();
                 let mut reader = archive.reopen(platform, self.s.record.archive_fingerprint())?;
@@ -111,6 +111,13 @@ impl Importer {
             }
             ImportFrom::Lan(_) => self.stage_lan(plan)?,
         };
+        stage::run_plugins(
+            self.s.platform(),
+            plan,
+            self.open_manifest(State::Staged)?,
+            self.s.engine.plugins(),
+            &mut staged,
+        )?;
         // Last chance to stop: from `Applying` on, apply runs to the end.
         self.cancel.check()?;
         self.s.transition(State::Staged)?;

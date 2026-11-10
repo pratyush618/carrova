@@ -5,9 +5,13 @@
 //! sensitivity ([`sensitivity`]), resolve every selected entry's final
 //! target ([`targets`]), decide each target's action ([`decide`]), then
 //! the item-level checks — handlers, apps, free space ([`checks`]).
+//! Plugin items are resolved right after selection ([`plugins`]).
 
 mod checks;
+mod cross_os;
 mod decide;
+mod os_rules;
+mod plugins;
 mod roots;
 mod sensitivity;
 mod skip;
@@ -19,6 +23,7 @@ use std::path::{Path, PathBuf};
 
 use carrova_manifest::{Manifest, RelPath};
 use carrova_platform::Platform;
+use carrova_plugin::Plugin;
 use carrova_recipe::Recipe;
 
 use super::confine::{Probe, probe};
@@ -28,12 +33,15 @@ use crate::key::ItemKey;
 use crate::mode::ModePolicy;
 use crate::session::SessionId;
 use crate::stage::StageLayout;
+use cross_os::Rebased;
 use roots::Roots;
+use skip::SkipReason;
 
 /// Planner state for one [`super::plan_on_date`] call.
 pub(super) struct Planner<'a> {
     platform: &'a dyn Platform,
     recipes: &'a [Recipe],
+    plugins: &'a [Plugin],
     manifest: &'a Manifest,
     options: &'a PlanOptions,
     policy: ModePolicy,
@@ -51,6 +59,14 @@ pub(super) struct Planner<'a> {
     warnings: Vec<PlanWarning>,
     /// Receiver-side sensitive items (key → reason).
     sensitive: BTreeMap<ItemKey, String>,
+    /// Cross-OS items rebased onto this OS's slots (foreign archives).
+    rebased: HashMap<ItemKey, Rebased>,
+    /// Cross-OS items that cannot be rebased (key → why).
+    unmapped: HashMap<ItemKey, String>,
+    /// Selected items whose files pass through a plugin.
+    plugin_items: HashMap<ItemKey, &'a Plugin>,
+    /// Selected plugin items that cannot run here, and why (skipped).
+    plugin_skips: HashMap<ItemKey, SkipReason>,
 }
 
 impl<'a> Planner<'a> {
@@ -59,6 +75,7 @@ impl<'a> Planner<'a> {
     pub(super) fn new(
         platform: &'a dyn Platform,
         recipes: &'a [Recipe],
+        plugins: &'a [Plugin],
         manifest: &'a Manifest,
         options: &'a PlanOptions,
         date: &str,
@@ -68,6 +85,7 @@ impl<'a> Planner<'a> {
         let mut planner = Self {
             platform,
             recipes,
+            plugins,
             manifest,
             options,
             policy: ModePolicy::of(options),
@@ -80,8 +98,14 @@ impl<'a> Planner<'a> {
             blockers: Vec::new(),
             warnings: Vec::new(),
             sensitive: BTreeMap::new(),
+            rebased: HashMap::new(),
+            unmapped: HashMap::new(),
+            plugin_items: HashMap::new(),
+            plugin_skips: HashMap::new(),
         };
+        planner.rebase_items();
         planner.select();
+        planner.resolve_plugins();
         Ok(planner)
     }
 
@@ -104,6 +128,8 @@ impl<'a> Planner<'a> {
             missing_apps,
             running_apps,
             app_names,
+            mappings: self.mappings(),
+            plugins: self.planned_plugins(),
             blockers: Vec::new(),
             warnings: Vec::new(),
             sensitive: std::mem::take(&mut self.sensitive),
@@ -156,7 +182,7 @@ fn unique_item_keys(manifest: &Manifest) -> Result<Vec<ItemKey>> {
 /// Every item key the options name must exist in the archive.
 fn check_option_keys(options: &PlanOptions, keys: &[ItemKey]) -> Result<()> {
     let known: HashSet<&ItemKey> = keys.iter().collect();
-    let lists: [(&str, Vec<&ItemKey>); 4] = [
+    let lists: [(&str, Vec<&ItemKey>); 5] = [
         ("items", options.items.iter().flatten().collect()),
         (
             "confirmed_sensitive",
@@ -164,6 +190,7 @@ fn check_option_keys(options: &PlanOptions, keys: &[ItemKey]) -> Result<()> {
         ),
         ("item_rules", options.item_rules.keys().collect()),
         ("remaps", options.remaps.keys().collect()),
+        ("allow_cross_os", options.allow_cross_os.iter().collect()),
     ];
     for (what, list) in lists {
         if let Some(k) = list.into_iter().find(|k| !known.contains(k)) {

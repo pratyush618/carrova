@@ -125,7 +125,7 @@ impl Inventory {
 }
 
 /// Longest peer device name kept (characters).
-pub const MAX_DEVICE_NAME: usize = 64;
+pub const MAX_DEVICE_NAME: usize = carrova_manifest::MAX_DEVICE_NAME;
 
 /// One app detected on the receiver.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

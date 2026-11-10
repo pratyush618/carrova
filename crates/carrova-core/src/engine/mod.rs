@@ -59,6 +59,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use carrova_platform::Platform;
+use carrova_plugin::Plugin;
 use carrova_recipe::Recipe;
 
 use crate::session::EventSink;
@@ -79,17 +80,19 @@ pub use export::Exporter;
 pub use import::{Importer, PlanApproval};
 pub use send::{CodeOffer, SendHandle, SendOutcome, SendPrompt, SendReport};
 
-/// Shared engine context: the platform, the loaded recipes and the
-/// front-end's event sink. Cheap to clone.
+/// Shared engine context: the platform, the loaded recipes and plugins,
+/// and the front-end's event sink. Cheap to clone.
 #[derive(Clone)]
 pub struct Engine {
     platform: Arc<dyn Platform>,
     recipes: Arc<[Recipe]>,
+    plugins: Arc<[Plugin]>,
     sink: Arc<dyn EventSink>,
 }
 
 impl Engine {
-    /// An engine on `platform` with `recipes`, reporting to `sink`.
+    /// An engine on `platform` with `recipes` and no plugins, reporting
+    /// to `sink`.
     pub fn new(
         platform: Arc<dyn Platform>,
         recipes: impl Into<Arc<[Recipe]>>,
@@ -98,8 +101,17 @@ impl Engine {
         Self {
             platform,
             recipes: recipes.into(),
+            plugins: Arc::new([]),
             sink,
         }
+    }
+
+    /// This engine with `plugins` (loaded from the same source as the
+    /// recipes): items whose local recipe names one pass through it.
+    #[must_use]
+    pub fn with_plugins(mut self, plugins: impl Into<Arc<[Plugin]>>) -> Self {
+        self.plugins = plugins.into();
+        self
     }
 
     /// The platform every session runs on.
@@ -114,6 +126,12 @@ impl Engine {
         &self.recipes
     }
 
+    /// The loaded plugins.
+    #[must_use]
+    pub fn plugins(&self) -> &[Plugin] {
+        &self.plugins
+    }
+
     /// The front-end's event sink.
     #[must_use]
     pub fn sink(&self) -> &Arc<dyn EventSink> {
@@ -126,6 +144,7 @@ impl fmt::Debug for Engine {
         f.debug_struct("Engine")
             .field("platform", &self.platform)
             .field("recipes", &self.recipes.len())
+            .field("plugins", &self.plugins.len())
             .finish_non_exhaustive()
     }
 }

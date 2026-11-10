@@ -109,7 +109,7 @@ impl Applier<'_> {
                             abs: abs.into(),
                             old_mode: have,
                         })?;
-                        self.p.set_mode(abs, fin)?;
+                        fsx::set_mode(self.p, abs, fin)?;
                     }
                 }
                 Ok(())

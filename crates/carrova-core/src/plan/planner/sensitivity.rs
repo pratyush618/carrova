@@ -8,7 +8,7 @@ use carrova_manifest::ManifestItem;
 use carrova_recipe::Item as RecipeItem;
 
 use super::Planner;
-use crate::key::RootedPath;
+use crate::key::{ItemKey, RootedPath};
 use crate::plan::{Blocker, recipe_sensitive};
 
 /// One reason an item needs explicit confirmation.
@@ -65,7 +65,9 @@ impl fmt::Display for SensitiveReason<'_> {
 impl<'a> Planner<'a> {
     /// Classify every item (receiver-side sensitivity), then select:
     /// [`crate::PlanOptions::picks`] (explicit `items`, or by default every
-    /// non-sensitive item plus the confirmed ones). A selected, unconfirmed sensitive item is a blocker.
+    /// non-sensitive item plus the confirmed ones), minus what a foreign
+    /// archive cannot restore here. A selected, unconfirmed sensitive item
+    /// is a blocker.
     pub(super) fn select(&mut self) {
         for idx in 0..self.manifest.items.len() {
             let reasons = self.sensitivity(idx);
@@ -75,11 +77,14 @@ impl<'a> Planner<'a> {
             }
         }
         let options = self.options;
-        let keys = &self.keys;
-        let sensitive = &self.sensitive;
-        self.selected = (0..keys.len())
-            .filter(|&i| options.picks(&keys[i], sensitive.get(&keys[i]).map(String::as_str)))
+        self.selected = (0..self.keys.len())
+            .filter(|&i| {
+                let key = &self.keys[i];
+                options.picks(key, self.sensitive.get(key).map(String::as_str))
+            })
             .collect();
+        self.check_cross_os();
+        let (keys, sensitive) = (&self.keys, &self.sensitive);
         for &i in &self.selected {
             if let Some(why) = sensitive.get(&keys[i])
                 && !options.is_confirmed(&keys[i])
@@ -100,7 +105,7 @@ impl<'a> Planner<'a> {
         if item.flags.sensitive {
             reasons.push(SensitiveReason::ArchiveFlag);
         }
-        reasons.extend(self.recipe_reasons(item, local));
+        reasons.extend(self.recipe_reasons(&self.keys[idx], item, local));
         reasons.extend(self.dangerous_reasons(idx, local));
         reasons.iter().map(ToString::to_string).collect()
     }
@@ -112,9 +117,11 @@ impl<'a> Planner<'a> {
     }
 
     /// Reasons from the local recipe: unknown here, flagged sensitive, or
-    /// carrying paths outside the recipe item's declared paths.
+    /// carrying paths (where they land before a user remap) outside the
+    /// recipe item's declared paths.
     fn recipe_reasons<'i>(
-        &self,
+        &'i self,
+        key: &ItemKey,
         item: &'i ManifestItem,
         local: Option<&'i RecipeItem>,
     ) -> Vec<SensitiveReason<'i>> {
@@ -135,19 +142,23 @@ impl<'a> Planner<'a> {
                 item: &li.id,
             });
         }
-        let outside = item.entries.iter().find(|e| {
-            !li.paths.iter().any(|p| {
-                self.roots.within(
-                    RootedPath::new(e.root, e.rel.as_str()),
-                    RootedPath::new(p.root, p.rel.as_str()),
-                )
-            })
-        });
-        if let Some(e) = outside {
+        let local_paths = li.paths_for(self.platform.os());
+        let outside = item
+            .entries
+            .iter()
+            .enumerate()
+            .map(|(i, e)| self.local_path(key, i, e))
+            .find(|at| {
+                !local_paths.iter().any(|p| {
+                    self.roots
+                        .within(*at, RootedPath::new(p.root, p.rel.as_str()))
+                })
+            });
+        if let Some(at) = outside {
             reasons.push(SensitiveReason::OutsideRecipe {
                 recipe,
                 item: &li.id,
-                example: RootedPath::new(e.root, e.rel.as_str()).to_string(),
+                example: at.to_string(),
             });
         }
         reasons
@@ -162,11 +173,15 @@ impl<'a> Planner<'a> {
     ) -> Vec<SensitiveReason<'static>> {
         let item = &self.manifest.items[idx];
         let key = &self.keys[idx];
-        let entries = item.entries.iter().map(|e| self.remapped(key, e));
+        let entries = item
+            .entries
+            .iter()
+            .enumerate()
+            .map(|(i, e)| self.remapped(key, i, e));
         let handler_paths = local
             .filter(|_| item.handler.is_some())
             .into_iter()
-            .flat_map(|li| &li.paths)
+            .flat_map(|li| li.paths_for(self.platform.os()))
             .map(|p| (p.root, p.rel.as_str().to_owned()));
         let mut reasons: Vec<SensitiveReason<'static>> = Vec::new();
         for (root, rel) in entries.chain(handler_paths) {

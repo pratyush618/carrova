@@ -4,7 +4,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use carrova_recipe::Handler;
+use carrova_recipe::{Handler, HandlerRef};
 
 use super::Planner;
 use crate::plan::{Blocker, PlannedHandler};
@@ -28,7 +28,9 @@ impl<'a> Planner<'a> {
                 );
                 continue;
             };
-            let Some(recipe_item) = self.local_item(item).filter(|i| i.handler == Some(handler))
+            let Some(recipe_item) = self
+                .local_item(item)
+                .filter(|i| i.handler == Some(HandlerRef::Builtin(handler)))
             else {
                 self.warn(
                     Some(&key),
@@ -42,7 +44,7 @@ impl<'a> Planner<'a> {
                 item: key,
                 handler,
                 backup: recipe_item
-                    .paths
+                    .paths_for(self.platform.os())
                     .iter()
                     .map(|p| (p.root, p.rel.as_str().to_owned()))
                     .collect(),

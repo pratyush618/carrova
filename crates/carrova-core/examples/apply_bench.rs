@@ -18,8 +18,8 @@ use carrova_core::test_support::stage::Staged;
 use carrova_manifest::{
     Blake3Hash, Entry, EntryKind, ItemFlags, Manifest, ManifestItem, RelPath, SourceInfo,
 };
-use carrova_platform::SemanticRoot;
 use carrova_platform::fake::FakePlatform;
+use carrova_platform::{OsKind, SemanticRoot};
 
 const FILE_SIZE: usize = 2048;
 const SID: &str = "bench";
@@ -64,16 +64,19 @@ fn run(
         entries: Vec::new(),
         handler: None,
         artifacts: Vec::new(),
+        source_paths: Vec::new(),
     };
     let key = carrova_core::ItemKey::of(&item);
     let mut manifest = Manifest {
         format_version: 2,
         created_at: 0,
         source: SourceInfo {
-            os: "linux".into(),
+            os: OsKind::Linux,
             carrova_version: "bench".into(),
+            device_name: None,
         },
         items: vec![item],
+        source_home: None,
     };
     let mut staged = Staged::default();
     let mut actions = Vec::with_capacity(files);
@@ -119,6 +122,8 @@ fn run(
         missing_apps: Vec::new(),
         running_apps: Vec::new(),
         app_names: Default::default(),
+        mappings: Vec::new(),
+        plugins: Vec::new(),
         blockers: Vec::new(),
         warnings: Vec::new(),
         sensitive: Default::default(),

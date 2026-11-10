@@ -184,6 +184,20 @@ pub struct PlanReview<'a> {
     /// Whether the user still has to approve the plan (a resumed
     /// session's plan approved earlier with the same options does not).
     pub approval: carrova_core::PlanApproval,
+    /// The computer the data comes from; `None` when the source's
+    /// manifest can no longer be read.
+    pub source: Option<SourceDevice<'a>>,
+}
+
+/// The computer a transfer comes from, as its manifest describes it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct SourceDevice<'a> {
+    /// Its OS family.
+    pub os: carrova_platform::OsKind,
+    /// Its device name (validated displayable text), if it sent one
+    /// (older senders do not).
+    pub device_name: Option<&'a str>,
 }
 
 impl<'a> ScanResult<'a> {
@@ -222,6 +236,10 @@ impl<'a> PlanReview<'a> {
             space: crate::plan::space_view(plan, needs),
             offered: manifest.map_or_else(Vec::new, |m| crate::offer::offered_items(m, plan)),
             approval,
+            source: manifest.map(|m| SourceDevice {
+                os: m.source.os,
+                device_name: m.source.device_name.as_deref(),
+            }),
         }
     }
 }

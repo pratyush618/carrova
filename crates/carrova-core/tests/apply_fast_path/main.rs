@@ -88,7 +88,9 @@ fn staged_file_is_moved_into_place_with_exact_mode_and_mtime() {
     let (ta, tb) = (env.home.join("cfg/a.conf"), env.home.join("cfg/ro"));
     assert_eq!(std::fs::read(&ta).unwrap(), b"alpha");
     assert_eq!(std::fs::read(&tb).unwrap(), b"read-only");
+    #[cfg(unix)]
     assert_eq!(env.mode(&ta), 0o640);
+    #[cfg(unix)]
     assert_eq!(env.mode(&tb), 0o400);
     for t in [&ta, &tb] {
         let m = env.platform.metadata(t).unwrap();
@@ -147,7 +149,9 @@ fn cross_device_staging_falls_back_to_copy() {
     let (ta, tr) = (env.home.join("new/a.txt"), env.home.join("notes.txt"));
     assert_eq!(std::fs::read(&ta).unwrap(), b"alpha");
     assert_eq!(std::fs::read(&tr).unwrap(), b"new notes");
+    #[cfg(unix)]
     assert_eq!(env.mode(&ta), 0o644);
+    #[cfg(unix)]
     assert_eq!(env.mode(&tr), 0o400);
     for t in [&ta, &tr] {
         let m = env.platform.metadata(t).unwrap();
@@ -197,6 +201,7 @@ fn cross_device_fallback_reads_staged_file_whose_final_mode_is_write_only() {
     )
     .unwrap();
     let t = env.home.join("wo");
+    #[cfg(unix)]
     assert_eq!(env.mode(&t), 0o200);
     assert_eq!(env.platform.metadata(&t).unwrap().size, 10);
 }

@@ -12,7 +12,7 @@ use carrova_manifest::{
     Blake3Hash, Entry, EntryKind, ItemFlags, Manifest, ManifestItem, RelPath, SourceInfo,
 };
 use carrova_platform::fake::FakePlatform;
-use carrova_platform::{FileKind, Platform, SemanticRoot};
+use carrova_platform::{FileKind, OsKind, Platform, SemanticRoot};
 
 pub const SID: &str = "sess-1";
 
@@ -96,9 +96,11 @@ impl Env {
             format_version: 2,
             created_at: 0,
             source: SourceInfo {
-                os: "linux".into(),
+                os: OsKind::Linux,
                 carrova_version: "test".into(),
+                device_name: None,
             },
+            source_home: None,
             items: items
                 .into_iter()
                 .map(|(item, entries)| ManifestItem {
@@ -109,6 +111,7 @@ impl Env {
                     entries,
                     handler: None,
                     artifacts: Vec::new(),
+                    source_paths: Vec::new(),
                 })
                 .collect(),
         }
@@ -217,6 +220,8 @@ pub fn plan(actions: Vec<PlannedAction>, handlers: Vec<PlannedHandler>) -> Plan 
         missing_apps: vec![],
         running_apps: vec![],
         app_names: Default::default(),
+        mappings: Vec::new(),
+        plugins: Vec::new(),
         blockers: vec![],
         warnings: vec![],
         sensitive: Default::default(),

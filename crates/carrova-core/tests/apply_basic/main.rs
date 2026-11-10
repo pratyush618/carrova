@@ -79,12 +79,17 @@ fn create_files_and_dirs_with_exact_modes() {
 
     let h = &env.home;
     assert_eq!(std::fs::read(h.join(".ssh/id_ed25519")).unwrap(), b"KEY");
+    #[cfg(unix)]
     assert_eq!(env.mode(&h.join(".ssh")), 0o700);
+    #[cfg(unix)]
     assert_eq!(env.mode(&h.join(".ssh/id_ed25519")), 0o600);
+    #[cfg(unix)]
     assert_eq!(env.mode(&h.join(".config/app/sub/conf.toml")), 0o644);
     // Group/other write is never granted (umask-independent otherwise).
+    #[cfg(unix)]
     assert_eq!(env.mode(&h.join(".config/app/wide")), 0o755);
     // Intermediate dirs not in the plan are private.
+    #[cfg(unix)]
     assert_eq!(env.mode(&h.join(".config/app/sub")), 0o700);
     assert_eq!(report.written.len(), 4);
     assert!(report.backed_up.is_empty());
@@ -165,6 +170,7 @@ fn replace_backs_up_and_rollback_restores_exactly() {
         std::fs::read(h.join(".config/app/settings.json")).unwrap(),
         b"{\"new\":1}"
     );
+    #[cfg(unix)]
     assert_eq!(env.mode(&h.join(".config/app/settings.json")), 0o600);
     assert_ne!(env.snap(), before);
 
@@ -260,7 +266,8 @@ fn keep_both_skip_and_identical() {
     assert_eq!(
         new,
         Node::File {
-            mode: 0o644,
+            // The snapshot reports 0 where files have no mode bits.
+            mode: if cfg!(unix) { 0o644 } else { 0 },
             bytes: b"incoming".to_vec()
         }
     );
@@ -355,6 +362,7 @@ fn symlink_entries_and_dir_mode_change_roll_back() {
         std::fs::read_link(cfg.join("current")).unwrap(),
         std::path::Path::new("settings.json")
     );
+    #[cfg(unix)]
     assert_eq!(env.mode(&cfg), 0o700);
 
     let rb = rollback(&env.platform, &env.session_dir, &NullSink).unwrap();

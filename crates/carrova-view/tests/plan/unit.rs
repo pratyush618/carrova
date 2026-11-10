@@ -37,6 +37,8 @@ fn plan(actions: Vec<PlannedAction>) -> Plan {
         missing_apps: Vec::new(),
         running_apps: Vec::new(),
         app_names: Default::default(),
+        mappings: Vec::new(),
+        plugins: Vec::new(),
         blockers: Vec::new(),
         warnings: Vec::new(),
         sensitive: BTreeMap::new(),

@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use carrova_manifest::ManifestItem;
 use carrova_platform::SemanticRoot;
 pub use carrova_recipe::Handler;
+use carrova_recipe::PluginId;
 use serde::{Deserialize, Serialize};
 
 use super::{Blocker, PlanOptions};
@@ -133,6 +134,35 @@ pub struct PlannedHandler {
     pub import_trust: bool,
 }
 
+/// A plugin the plan runs over the files of `items`, with what the user
+/// is asked to allow ([`PlanOptions::confirmed_plugins`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct PlannedPlugin {
+    #[cfg_attr(feature = "ts", ts(as = "String"))]
+    pub plugin: PluginId,
+    pub version: String,
+    pub description: String,
+    /// Plain sentences, one per permission (the plugin's manifest).
+    pub permissions: Vec<String>,
+    /// Selected items whose files it changes, manifest order.
+    pub items: Vec<ItemKey>,
+}
+
+/// One slot of a cross-OS item restored at this computer's path for it:
+/// the source OS's path `from` (from the archive) becomes the local
+/// recipe's path `to` for the same slot; every entry below `from` lands
+/// below `to`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct PathMapping {
+    pub item: ItemKey,
+    pub from: (SemanticRoot, String),
+    pub to: (SemanticRoot, String),
+    /// `to` resolved on this computer; `None` if its root is unusable here.
+    pub to_abs: Option<PathBuf>,
+}
+
 /// Non-fatal note shown with the plan (overrides used, older app, …).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -162,6 +192,14 @@ pub struct Plan {
     /// id → name). Empty in plans written before names were recorded.
     #[serde(default)]
     pub app_names: BTreeMap<String, String>,
+    /// Cross-OS items' path mappings, item and slot order (empty when the
+    /// archive comes from this OS family).
+    #[serde(default)]
+    pub mappings: Vec<PathMapping>,
+    /// Plugins run over selected items' files, by id (whether allowed or
+    /// not yet).
+    #[serde(default)]
+    pub plugins: Vec<PlannedPlugin>,
     /// Blockers not overridden by the user; apply refuses while non-empty.
     #[serde(deserialize_with = "super::blocker::read_blockers")]
     pub blockers: Vec<Blocker>,

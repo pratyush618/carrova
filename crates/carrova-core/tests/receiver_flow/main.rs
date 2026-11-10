@@ -5,6 +5,8 @@
 #[path = "../support/mod.rs"]
 mod common;
 
+mod cross_os;
+
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 
@@ -21,7 +23,7 @@ use carrova_manifest::{
     ItemFlags, Manifest, ManifestItem, SourceInfo, chunk_reader, entry_from_path,
 };
 use carrova_platform::fake::{FakePlatform, symlink};
-use carrova_platform::{Platform, SemanticRoot};
+use carrova_platform::{OsKind, Platform, SemanticRoot};
 use carrova_recipe::Recipe;
 use common::{mkdir, put};
 use tempfile::TempDir;
@@ -72,6 +74,7 @@ fn item(recipe: Option<&str>, id: &str, entries: Vec<Entry>) -> ManifestItem {
         entries,
         handler: None,
         artifacts: Vec::new(),
+        source_paths: Vec::new(),
     }
 }
 
@@ -79,8 +82,9 @@ fn manifest(items: Vec<ManifestItem>) -> Manifest {
     let m = Manifest::new(
         0,
         SourceInfo {
-            os: "linux".into(),
+            os: OsKind::Linux,
             carrova_version: "test".into(),
+            device_name: None,
         },
         items,
     );
@@ -212,7 +216,9 @@ fn create_identical_replace_and_default_selection() {
     assert_eq!(*action_of(&p, "app/d.txt"), Action::Replace);
     let a = p.actions.iter().find(|a| a.rel == "app/a.txt").unwrap();
     assert_eq!(a.abs, e.recv_home.join(".config/app/a.txt"));
-    assert_eq!((a.kind, a.size, a.mode), (ObjectKind::File, 1, Some(0o644)));
+    assert_eq!((a.kind, a.size), (ObjectKind::File, 1));
+    #[cfg(unix)]
+    assert_eq!(a.mode, Some(0o644));
     assert_eq!(a.link_target, None);
     assert_eq!(a.mtime_ns, m.items[0].entries[1].mtime_ns);
     assert!(a.mtime_ns.is_some());
@@ -809,6 +815,7 @@ fn stage_round_trip_only_needed_data() {
     ] {
         let f = &staged.files[&key(rel)];
         assert_eq!(std::fs::read(f).unwrap(), want, "{rel}");
+        #[cfg(unix)]
         assert_eq!(e.recv.metadata(f).unwrap().mode, Some(0o600));
         assert!(f.starts_with(&staging));
     }
@@ -820,6 +827,7 @@ fn stage_round_trip_only_needed_data() {
     }];
     assert_eq!(std::fs::read(art).unwrap(), PUBRING);
     assert!(!staging.join("chunks").exists());
+    #[cfg(unix)]
     assert_eq!(e.recv.metadata(&staging).unwrap().mode, Some(0o700));
     let ev = sink.events();
     assert!(ev.iter().any(|e| matches!(

@@ -25,8 +25,14 @@ impl Exporter {
         let cancel = self.cancel.clone();
         self.s.failing(|s| {
             let platform = s.platform();
-            let cap =
-                capture::capture(platform, s.engine.recipes(), &selection, s.sink(), &cancel)?;
+            let cap = capture::capture_with_plugins(
+                platform,
+                s.engine.recipes(),
+                s.engine.plugins(),
+                &selection,
+                s.sink(),
+                &cancel,
+            )?;
             let manifest = cap.persist(platform, &s.dir)?;
             s.record.source = Some(Source::Lan {
                 peer_cert_hash: None,

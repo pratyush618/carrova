@@ -15,11 +15,11 @@ use std::time::Duration;
 use carrova_core::lan::{ConflictTarget, MAX_PAIRING_FAILURES, PlanSummary};
 use carrova_core::store::{LOG_FILE, RESUME_KEY_FILE};
 use carrova_core::{
-    CoreError, Event, Importer, ItemKey, KdfParams, Passphrase, PlanOptions, SendOutcome, State,
-    Ticket, WriteOptions, sessions,
+    CoreError, Event, Importer, ItemKey, KdfParams, Passphrase, PlanOptions, SendOutcome, Source,
+    State, Ticket, WriteOptions, sessions,
 };
 use carrova_crypto::pairing::PairingCode;
-use carrova_platform::SemanticRoot;
+use carrova_platform::{OsKind, SemanticRoot};
 use lan_support::{Side, run, run_answering};
 
 fn options() -> PlanOptions {
@@ -236,6 +236,29 @@ fn declining_a_new_code_ends_the_send_without_offering_one_and_keeps_the_selecti
     );
     // The listener is gone: even the right (burned) code reaches nobody.
     assert!(Importer::connect(guesser.engine.clone(), &first).is_err());
+}
+
+#[test]
+fn receiver_knows_the_senders_os_and_device_name_before_planning() {
+    let sender = Side::seeded(Side::named(Some("ezio-thinkpad")));
+    let receiver = Side::new();
+
+    let mut exp = sender.selected_exporter();
+    let running = run(exp.prepare_send().unwrap());
+    let mut imp =
+        Importer::connect(receiver.engine.clone(), running.first.as_ref().unwrap()).unwrap();
+
+    let source = &imp.manifest().unwrap().source;
+    assert_eq!(source.os, OsKind::Linux);
+    assert_eq!(source.device_name.as_deref(), Some("ezio-thinkpad"));
+    let record = sessions::show(&receiver.engine, imp.id()).unwrap();
+    assert!(matches!(
+        record.source,
+        Some(Source::Lan { peer_name: Some(ref n), .. }) if n == "ezio-thinkpad"
+    ));
+    imp.plan(&options()).unwrap();
+    imp.end_dry_run().unwrap();
+    running.thread.join().unwrap().unwrap();
 }
 
 #[test]

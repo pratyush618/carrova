@@ -13,9 +13,12 @@ use carrova_core::session::{Event, NullSink, Phase, VecSink};
 use carrova_core::{Cancel, CoreError, Recipe, ScanOptions, scan};
 use carrova_crypto::{KdfParams, Passphrase};
 use carrova_manifest::{ChunkSource, EntryKind, Manifest};
+use carrova_platform::OsKind;
 use carrova_platform::fake::{FakePlatform, Hooks, symlink};
 use carrova_recipe::load_str;
 use tempfile::TempDir;
+
+mod per_os;
 
 const APP: &str = r"
 schema: 1
@@ -140,7 +143,7 @@ fn captures_suggested_items_with_flags_and_source() {
     let cap = env.capture(&env.selection(Preset::Suggested));
     assert!(cap.failed.is_empty());
     let m = &cap.manifest;
-    assert_eq!(m.source.os, "linux");
+    assert_eq!(m.source.os, OsKind::Linux);
     assert_eq!(m.items.len(), 2);
     assert_eq!(m.items[0].recipe_id.as_deref(), Some("app"));
     assert_eq!(m.items[0].item_id, "config");
@@ -504,6 +507,7 @@ fn export_fails_if_file_changed_after_capture() {
 }
 
 #[test]
+#[cfg(unix)] // Windows refuses control characters in file names
 fn control_chars_in_names_are_skipped_with_reason_not_fatal() {
     let e = env();
     // Legal on Linux, rejected by the manifest (terminal-escape spoofing).

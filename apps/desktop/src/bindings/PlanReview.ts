@@ -3,6 +3,7 @@ import type { OfferedItem } from "./OfferedItem";
 import type { Plan } from "./Plan";
 import type { PlanApproval } from "./PlanApproval";
 import type { PlanView } from "./PlanView";
+import type { SourceDevice } from "./SourceDevice";
 import type { SpaceView } from "./SpaceView";
 
 /**
@@ -30,4 +31,9 @@ offered: Array<OfferedItem>,
  * Whether the user still has to approve the plan (a resumed
  * session's plan approved earlier with the same options does not).
  */
-approval: PlanApproval, };
+approval: PlanApproval, 
+/**
+ * The computer the data comes from; `None` when the source's
+ * manifest can no longer be read.
+ */
+source: SourceDevice | null, };

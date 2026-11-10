@@ -133,3 +133,36 @@ fn a_stored_name_with_parentheses_still_reads_back() {
     };
     assert_eq!(legacy::parse(&blocker.to_string()).unwrap(), blocker);
 }
+
+fn cross_os() -> Blocker {
+    Blocker::CrossOs {
+        item: "vscode/settings".into(),
+        from: carrova_platform::OsKind::Linux,
+        to: carrova_platform::OsKind::Windows,
+    }
+}
+
+#[test]
+fn cross_os_text_names_both_systems_and_the_way_out() {
+    assert_eq!(
+        cross_os().to_string(),
+        "`vscode/settings` comes from Linux and only works on the same OS (Windows here): \
+         deselect it, or override the same-OS check"
+    );
+}
+
+#[test]
+fn cross_os_serialises_as_a_tagged_object_and_reads_back() {
+    let json = serde_json::to_value(cross_os()).unwrap();
+    assert_eq!(
+        json,
+        serde_json::json!({
+            "kind": "cross_os",
+            "item": "vscode/settings",
+            "from": "linux",
+            "to": "windows",
+        })
+    );
+    let stored = serde_json::to_string(&[&json]).unwrap();
+    assert_eq!(read(&stored).unwrap(), [cross_os()]);
+}

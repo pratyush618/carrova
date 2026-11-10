@@ -3,7 +3,7 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::time::Instant;
 
@@ -147,6 +147,8 @@ impl StagingStore {
                 "dropping torn progress log tail"
             );
             log.set_len(valid_len)?;
+            // Windows append handles are plain write handles: continue at the new end.
+            (&log).seek(SeekFrom::End(0))?;
             log.sync_data()?;
         }
         Ok(Some(Resumed { log, verified }))

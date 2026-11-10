@@ -18,8 +18,9 @@ mod source;
 mod walk;
 
 use carrova_manifest::{ChunkSource, Entry, Manifest, ManifestItem, SourceInfo};
-use carrova_platform::Platform;
-use carrova_recipe::{FileEntry, Recipe};
+use carrova_platform::{Platform, SemanticRoot};
+use carrova_plugin::{ContextField, Plugin};
+use carrova_recipe::{FileEntry, HandlerRef, Recipe};
 use tracing::{debug, warn};
 
 use self::items::{Planned, plan_items, warn_running};
@@ -74,8 +75,22 @@ pub fn capture(
     sink: &dyn EventSink,
     cancel: &Cancel,
 ) -> Result<Capture> {
+    capture_with_plugins(platform, recipes, &[], selection, sink, cancel)
+}
+
+/// [`capture`] with the `plugins` loaded here: the sender's home is
+/// recorded ([`Manifest::source_home`]) only when a captured item's plugin
+/// declares [`ContextField::SourceHome`].
+pub fn capture_with_plugins(
+    platform: &dyn Platform,
+    recipes: &[Recipe],
+    plugins: &[Plugin],
+    selection: &Selection,
+    sink: &dyn EventSink,
+    cancel: &Cancel,
+) -> Result<Capture> {
     selection.check()?;
-    let (planned, mut failed) = plan_items(selection, recipes);
+    let (planned, mut failed) = plan_items(selection, recipes, platform.os());
     warn_running(platform, &planned, sink);
     // Resolve everything first so progress has a byte total.
     let resolved = walk_items(platform, &planned, sink);
@@ -89,19 +104,34 @@ pub fn capture(
     .estimated()
     .start();
     let mut capturer = Capturer::new(platform, sink, progress);
+    let needs_home = planned.iter().any(|p| {
+        let Some(HandlerRef::Plugin(id)) = &p.item.handler else {
+            return false;
+        };
+        plugins.iter().any(|plugin| {
+            let m = plugin.manifest();
+            m.id == *id && m.context.contains(&ContextField::SourceHome)
+        })
+    });
     let mut items = Vec::with_capacity(planned.len());
     for (p, entries) in planned.into_iter().zip(resolved) {
         cancel.check()?;
         items.extend(capture_item(&mut capturer, p, &entries, &mut failed, sink));
     }
-    let manifest = Manifest::new(
+    let mut manifest = Manifest::new(
         i64::try_from(time::now_unix()).unwrap_or(i64::MAX),
         SourceInfo {
-            os: platform.os().as_str().into(),
+            os: platform.os(),
             carrova_version: env!("CARGO_PKG_VERSION").into(),
+            device_name: crate::about::device_name(platform),
         },
         items,
     );
+    // A non-UTF-8 home is left out.
+    manifest.source_home = needs_home
+        .then(|| platform.resolve_root(SemanticRoot::Home).ok())
+        .flatten()
+        .and_then(|h| h.to_str().map(str::to_owned));
     manifest.validate()?;
     failed.append(&mut capturer.skipped);
     debug!(
@@ -125,7 +155,8 @@ fn capture_item(
     failed: &mut Vec<Skipped>,
     sink: &dyn EventSink,
 ) -> Option<ManifestItem> {
-    let result = match &p.item.handler {
+    // Plugin items move their files; the receiver runs the plugin.
+    let result = match p.item.builtin_handler() {
         Some(h) => capturer.run_handler(h.as_str()),
         None => capturer.capture_entries(entries),
     };

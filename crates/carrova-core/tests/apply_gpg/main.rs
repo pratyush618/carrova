@@ -1,5 +1,7 @@
 //! Real `gpg-keyring` round trip between two temp GNUPGHOMEs. Skipped when
 //! `gpg` is not on PATH.
+// Unix-tool test: Windows' `gpg` (if any) is not what the handler targets yet.
+#![cfg(unix)]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 #[expect(dead_code, reason = "shared test helpers; this test uses a subset")]

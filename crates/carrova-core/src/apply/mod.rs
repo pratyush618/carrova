@@ -9,7 +9,8 @@
 //!    its final mode (the plan's `ModePolicy`) and mtime *on the staged file*,
 //!    and buffer its intents — [`Record::BackedUp`] if an existing target
 //!    is replaced, then [`Record::CreatedFile`] (hash and size from the
-//!    manifest: staging already verified those bytes, they are not hashed
+//!    manifest, or [`Staged::rewritten`] for a plugin's output: staging
+//!    already verified or produced those bytes, they are not hashed
 //!    again).
 //! 2. **One journal fsync** for the whole batch.
 //! 3. **Execute** each file in order: move the existing target to the

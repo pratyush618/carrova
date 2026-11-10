@@ -22,6 +22,7 @@ use carrova_core::{
     Checklist, ConflictRule, CoreError, Engine, Event, Exporter, Importer, KdfParams, Passphrase,
     PlanOptions, Preset, Role, ScanOptions, SessionId, State, VecSink, WriteOptions, sessions,
 };
+#[cfg(unix)]
 use carrova_platform::Platform;
 use carrova_platform::fake::FakePlatform;
 use tempfile::TempDir;
@@ -103,6 +104,7 @@ impl Side {
         common::mkdir(&*self.platform, &self.home, rel, mode);
     }
 
+    #[cfg(unix)]
     fn mode(&self, rel: &str) -> u32 {
         self.platform
             .metadata(&self.home.join(rel))
@@ -275,18 +277,25 @@ fn round_trip_rollback_and_redacted_log() {
 
     // Bytes + exact modes identical to the sender.
     assert_eq!(r.read(".config/app/settings.json"), b"{\"theme\":\"dark\"}");
+    #[cfg(unix)]
     assert_eq!(r.mode(".config/app/settings.json"), 0o644);
+    #[cfg(unix)]
     assert_eq!(r.mode(".config/app/notes.txt"), 0o640);
+    #[cfg(unix)]
     assert_eq!(r.mode(".config/app"), 0o700);
+    #[cfg(unix)]
     assert_eq!(r.mode(".config/app/sub"), 0o755);
     assert_eq!(r.read(".ssh/id_ed25519"), b"PRIVATE KEY BYTES");
+    #[cfg(unix)]
     assert_eq!(r.mode(".ssh/id_ed25519"), 0o600);
+    #[cfg(unix)]
     assert_eq!(r.mode(".ssh"), 0o700);
 
     let id = imp.id().clone();
     let dir = r.session_dir(&id);
     assert!(!dir.join(STAGING_DIR).exists(), "staging wiped");
     assert!(dir.join(PLAN_FILE).exists());
+    #[cfg(unix)]
     assert_eq!(
         r.platform.metadata(&dir).unwrap().mode.unwrap() & 0o777,
         0o700
@@ -298,6 +307,7 @@ fn round_trip_rollback_and_redacted_log() {
 
     // log.jsonl: 600, one JSON object per event, mentions the key path.
     let log = dir.join(LOG_FILE);
+    #[cfg(unix)]
     assert_eq!(
         r.platform.metadata(&log).unwrap().mode.unwrap() & 0o777,
         0o600
@@ -380,6 +390,7 @@ fn conflict_rules_replace_keep_both_skip() {
 
     // Replace (suggested default).
     assert_eq!(r.read(".config/app/settings.json"), b"{\"theme\":\"dark\"}");
+    #[cfg(unix)]
     assert_eq!(r.mode(".config/app/settings.json"), 0o644);
     // Skip.
     assert_eq!(r.read(".config/app/notes.txt"), b"receiver notes");
@@ -617,6 +628,7 @@ fn sessions_list_show_dismiss_and_corrupt_records() {
 
     // A corrupt record is reported, not fatal.
     let root = Store::open(&*s.platform).unwrap().root().to_path_buf();
+    #[cfg(unix)]
     assert_eq!(
         s.platform.metadata(&root).unwrap().mode.unwrap() & 0o777,
         0o700
@@ -641,7 +653,9 @@ fn sessions_list_show_dismiss_and_corrupt_records() {
     assert!(sessions::show(&s.engine, &SessionId("20000101-000000-nosuch".into())).is_err());
 
     // session.json is 600; dismiss of a session without rollback point is fine.
+    #[cfg(unix)]
     let sj = root.join(&ids[0].0).join("session.json");
+    #[cfg(unix)]
     assert_eq!(
         s.platform.metadata(&sj).unwrap().mode.unwrap() & 0o777,
         0o600
