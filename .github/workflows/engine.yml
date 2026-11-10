@@ -54,6 +54,8 @@ jobs:
           rust: "true"
           tauri-deps: "true" # `--workspace` includes carrova-desktop (apt libs on Linux only)
           node: ${{ matrix.node }}
+      - if: runner.os == 'macOS'
+        run: just macos-loopback
       - run: just "$RECIPE" # the justfile runs under Git Bash on Windows
         shell: bash
         env:

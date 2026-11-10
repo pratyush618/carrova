@@ -53,6 +53,10 @@ fixtures app="":
 check-targets:
     for target in aarch64-apple-darwin x86_64-pc-windows-msvc; do rustup target add "$target" && cargo check --target "$target" --all-targets -p carrova-platform -p carrova-recipe -p carrova-crypto -p carrova-plugin -p carrova-report; done
 
+# macOS only: alias 127.0.0.2–80 on lo0 so transport tests can dial as distinct peers (sudo, until reboot)
+macos-loopback:
+    for i in $(seq 2 80); do sudo ifconfig lo0 alias "127.0.0.$i" up; done
+
 # Validate every recipe in recipes/ (schema + policy issues)
 recipes-validate:
     cargo run -q -p carrova-cli -- recipes validate recipes
