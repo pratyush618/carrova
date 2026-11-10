@@ -18,7 +18,6 @@ use lan_support::{Side, loopback_broadcast_works, run};
 fn options() -> PlanOptions {
     PlanOptions {
         confirmed_sensitive: vec!["app/keys".into()],
-        ignore_free_space: true,
         ..PlanOptions::default()
     }
 }
