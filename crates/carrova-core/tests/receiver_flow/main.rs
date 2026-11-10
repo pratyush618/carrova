@@ -213,7 +213,13 @@ fn create_identical_replace_and_default_selection() {
     assert_eq!(*action_of(&p, "app/a.txt"), Action::Create);
     assert_eq!(*action_of(&p, "app/b.txt"), Action::Identical);
     assert_eq!(*action_of(&p, "app/c.txt"), Action::Replace);
-    assert_eq!(*action_of(&p, "app/d.txt"), Action::Replace);
+    // Same bytes, other mode: only Unix compares modes (Windows uses ACLs).
+    let mode_only = if cfg!(unix) {
+        Action::Replace
+    } else {
+        Action::Identical
+    };
+    assert_eq!(*action_of(&p, "app/d.txt"), mode_only);
     let a = p.actions.iter().find(|a| a.rel == "app/a.txt").unwrap();
     assert_eq!(a.abs, e.recv_home.join(".config/app/a.txt"));
     assert_eq!((a.kind, a.size), (ObjectKind::File, 1));
