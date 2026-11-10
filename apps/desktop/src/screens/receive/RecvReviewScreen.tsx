@@ -16,12 +16,19 @@ import {
 import { MoveRail, RouteChip } from '../shared/MoveRail';
 import { ReviewDecisions, unanswered } from './ReviewDecisions';
 import { SpaceRow } from './SpaceRow';
+import type { Retention } from '../../engine/types';
 import type { ReviewIntents, ReviewModel } from './model';
 
 export interface RecvReviewScreenProps {
   readonly model: ReviewModel;
   readonly on: ReviewIntents;
 }
+
+/** The retention as a copy key under `receive.review.undoKept`/`lede`, with its days to count. */
+const retentionCopy = (retention: Retention) =>
+  typeof retention === 'string'
+    ? ({ key: retention, count: 0 } as const)
+    : ({ key: 'keep_for', count: retention.keep_for.days } as const);
 
 function ReviewRail({ model }: { readonly model: ReviewModel }) {
   const { t } = useTranslation();
@@ -53,6 +60,7 @@ function Suggestions({ model, on }: RecvReviewScreenProps) {
   const { t } = useTranslation();
   const os = (kind: NonNullable<ReviewModel['mapped']>['to']) => t(`settings.about.os.${kind}`);
   const { mapped, counts } = model;
+  const kept = retentionCopy(model.retention);
   return (
     <section aria-label={t('receive.review.suggested')}>
       <GroupHead title={t('receive.review.suggested')} />
@@ -77,7 +85,7 @@ function Suggestions({ model, on }: RecvReviewScreenProps) {
         />
         <Row
           lead={<AppGlyph glyph={{ icon: 'history' }} />}
-          title={t(`receive.review.undoKept.${model.retention}`)}
+          title={t(`receive.review.undoKept.${kept.key}`, { count: kept.count })}
           sub={t('receive.review.undoSub')}
           trail={
             <LinkButton aria-label={t('receive.review.changeUndo')} onClick={on.onSeeEvery}>
@@ -107,6 +115,7 @@ export function RecvReviewScreen({ model, on }: RecvReviewScreenProps) {
         ? t('receive.review.blockedNote')
         : t('receive.review.ready', { size: format.bytes(model.rail.bytes) });
   const { counts } = model;
+  const kept = retentionCopy(model.retention);
   return (
     <FlowLayout
       rail={<ReviewRail model={model} />}
@@ -127,7 +136,10 @@ export function RecvReviewScreen({ model, on }: RecvReviewScreenProps) {
         />
       }
     >
-      <Head title={t('receive.review.title')} lede={t(`receive.review.lede.${model.retention}`)} />
+      <Head
+        title={t('receive.review.title')}
+        lede={t(`receive.review.lede.${kept.key}`, { count: kept.count })}
+      />
       <section aria-label={t('receive.review.counts')}>
         <Stats>
           <Stat

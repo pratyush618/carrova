@@ -193,7 +193,11 @@ export function TransferBody({ model, on }: TransferBodyProps) {
   return (
     <>
       <Head
-        title={t(`transfer.title.${model.phase}`)}
+        title={
+          model.phase === 'paused' && model.disk !== null
+            ? t('transfer.pausedDisk', { disk: model.disk })
+            : t(`transfer.title.${model.phase}`)
+        }
         lede={t(`transfer.lede.${model.phase}`, { size: shortfall })}
       />
       {model.phase === 'paused' && (
@@ -210,7 +214,7 @@ export function TransferBody({ model, on }: TransferBodyProps) {
           }
         />
       )}
-      {(model.phase === 'held' || model.phase === 'reconnecting') && (
+      {(model.phase === 'held' || model.phase === 'reconnecting' || model.phase === 'lost') && (
         <Banner
           tone="warning"
           title={t('transfer.safeTitle', { size: format.bytes(model.done) })}

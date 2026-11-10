@@ -1,6 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import type { PlanReview } from '@/bindings/PlanReview';
 import { renderApp } from '../../support/app';
 
 async function toReview(user: UserEvent, code = '7-acid-lemon'): Promise<void> {
@@ -43,7 +44,7 @@ describe('receiving over the LAN', () => {
   it('re-plans with a per-file rule chosen in Every change', async () => {
     const user = userEvent.setup();
     const { port } = await renderApp({ returning: true });
-    const plan = vi.spyOn(port, 'plan');
+    const edit = vi.spyOn(port, 'editPlan');
     await toReview(user);
     await bringAll(user);
     await user.click(screen.getByRole('button', { name: /See every change/ }));
@@ -52,22 +53,26 @@ describe('receiving over the LAN', () => {
     if (first === undefined) throw new Error('no clashes in the fixture');
     await user.selectOptions(first, 'keep-both');
 
-    const last = plan.mock.calls.at(-1)?.[1];
-    expect(Object.values(last?.path_rules ?? {})).toEqual(['keep-both']);
+    expect(edit.mock.calls.at(-1)?.[1]).toEqual([
+      { kind: 'path_rule', path: expect.any(String) as string, rule: 'keep-both' },
+    ]);
+    const replanned = (await edit.mock.results.at(-1)?.value) as PlanReview | undefined;
+    expect(Object.values(replanned?.plan.options.path_rules ?? {})).toEqual(['keep-both']);
   });
 
   it('leaves a sensitive item behind when the user says so', async () => {
     const user = userEvent.setup();
     const { port } = await renderApp({ returning: true });
-    const plan = vi.spyOn(port, 'plan');
+    const edit = vi.spyOn(port, 'editPlan');
     await toReview(user);
     const [leave] = screen.getAllByRole('radio', { name: 'Leave behind' });
     if (leave === undefined) throw new Error('no decisions in the fixture');
     await user.click(leave);
 
-    const last = plan.mock.calls.at(-1)?.[1];
-    expect(last?.items).not.toBeNull();
-    expect(last?.confirmed_sensitive).toEqual([]);
+    expect(edit.mock.calls.at(-1)?.[1]).toMatchObject([{ kind: 'answer_sensitive', bring: false }]);
+    const replanned = (await edit.mock.results.at(-1)?.value) as PlanReview | undefined;
+    expect(replanned?.plan.options.items).not.toBeNull();
+    expect(replanned?.plan.options.confirmed_sensitive).toEqual([]);
   });
 
   it('keeps Approve disabled while the plan has a blocker and asks about it', async () => {
@@ -81,7 +86,7 @@ describe('receiving over the LAN', () => {
   it('brings an item from another system only after the "I understand" override', async () => {
     const user = userEvent.setup();
     const { port } = await renderApp({ returning: true, scenario: 'cross-os' });
-    const plan = vi.spyOn(port, 'plan');
+    const edit = vi.spyOn(port, 'editPlan');
     await toReview(user);
     await user.click(screen.getByRole('button', { name: /^Override… / }));
     const dialog = screen.getByRole('alertdialog', { name: /anyway\?$/ });
@@ -90,20 +95,24 @@ describe('receiving over the LAN', () => {
     await user.click(within(dialog).getByRole('checkbox', { name: /I understand/ }));
     await user.click(go);
 
-    expect(plan.mock.calls.at(-1)?.[1].allow_cross_os).toEqual(['tmux/config']);
+    expect(edit.mock.calls.at(-1)?.[1]).toEqual([
+      { kind: 'allow_cross_os', item: 'tmux/config', allow: true },
+    ]);
     expect(await screen.findByText('Bringing it anyway')).toBeInTheDocument();
   });
 
   it("asks this computer to allow a plugin and writes the user's consent", async () => {
     const user = userEvent.setup();
     const { port } = await renderApp({ returning: true, scenario: 'plugin' });
-    const plan = vi.spyOn(port, 'plan');
+    const edit = vi.spyOn(port, 'editPlan');
     await toReview(user);
     await user.click(screen.getByRole('button', { name: 'Review… (path-rewrite plugin)' }));
     const dialog = screen.getByRole('dialog', { name: 'Allow “path-rewrite”?' });
     await user.click(within(dialog).getByRole('button', { name: 'Allow for this move' }));
 
-    expect(plan.mock.calls.at(-1)?.[1].confirmed_plugins).toEqual(['path-rewrite']);
+    expect(edit.mock.calls.at(-1)?.[1]).toEqual([
+      { kind: 'allow_plugin', plugin: 'path-rewrite', allow: true },
+    ]);
     expect(await screen.findByText('Allowed for this move')).toBeInTheDocument();
   });
 

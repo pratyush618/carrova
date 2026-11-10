@@ -1,6 +1,7 @@
 import { Trans, useTranslation } from 'react-i18next';
 import {
   ActionBar,
+  AppGlyph,
   Banner,
   Button,
   CodeDisplay,
@@ -9,10 +10,13 @@ import {
   FlowCenter,
   FlowLayout,
   Handshake,
+  GroupHead,
   Head,
   Input,
   Kbd,
+  List,
   Note,
+  Row,
   Status,
 } from '../../ui';
 import { osName } from '../send/SendRail';
@@ -26,6 +30,8 @@ export interface RecvCodeScreenProps {
   readonly model: CodeEntryModel;
   /** This computer, the move's destination. */
   readonly here: Computer;
+  /** Senders nearby offering a code, by device name (reassurance: the code is still typed). */
+  readonly nearby: readonly string[];
   readonly on: CodeEntryIntents;
 }
 
@@ -49,6 +55,29 @@ function FailedBanner({ error }: { readonly error: BridgeError }) {
   return <Banner tone="danger" title={text.title} body={text.body} />;
 }
 
+/** Who nearby offers a code right now; refreshed while the screen shows. */
+function Nearby({ names }: { readonly names: readonly string[] }) {
+  const { t } = useTranslation();
+  return (
+    <section aria-label={t('receive.code.nearby')} aria-live="polite">
+      <GroupHead title={t('receive.code.nearby')} />
+      {names.length === 0 ? (
+        <Note>{t('receive.code.nearbyEmpty')}</Note>
+      ) : (
+        <List>
+          {names.map((name, i) => (
+            <Row
+              key={`${String(i)}:${name}`}
+              lead={<AppGlyph glyph={{ icon: 'laptop' }} />}
+              title={name}
+            />
+          ))}
+        </List>
+      )}
+    </section>
+  );
+}
+
 /** The code's leading number ("7" of "7-zebra-lemon"), for the not-found message. */
 const codeNumber = (value: string): string => value.split('-')[0] ?? '';
 
@@ -56,7 +85,7 @@ const codeNumber = (value: string): string => value.split('-')[0] ?? '';
  * Words autocomplete after three letters; Tab accepts. Connecting is the
  * handshake moment. "Didn't match" tells the truth: the sender made a new code.
  */
-export function RecvCodeScreen({ model, here, on }: RecvCodeScreenProps) {
+export function RecvCodeScreen({ model, here, nearby, on }: RecvCodeScreenProps) {
   const { t } = useTranslation();
 
   if (model.status === 'connecting') {
@@ -162,6 +191,7 @@ export function RecvCodeScreen({ model, here, on }: RecvCodeScreenProps) {
           }
         />
       )}
+      <Nearby names={nearby} />
     </FlowLayout>
   );
 }

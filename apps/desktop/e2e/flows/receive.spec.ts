@@ -46,7 +46,9 @@ test('receive: a full disk pauses the transfer, then it picks up again', async (
   await openApp(page, 'disk-full');
   await toReview(page);
   await page.getByRole('button', { name: 'Approve and move' }).click();
-  await expect(page.getByRole('heading', { name: 'Paused: this disk is full' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Paused — the disk at /home is full' }),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible();
   await expectAccessible(page, 'recv-paused');
   await expect(page.getByText('Everything arrived.')).toBeVisible({ timeout: 15_000 });

@@ -2,9 +2,9 @@ import type { AppRef, Bytes, MoveRoute } from './model';
 
 /**
  * Where a transfer is: moving, paused for space, held by the user, waiting
- * for the link, or the final apply.
+ * for the link, given up on the link (resumable), or the final apply.
  */
-export type TransferPhase = 'moving' | 'paused' | 'held' | 'reconnecting' | 'applying';
+export type TransferPhase = 'moving' | 'paused' | 'held' | 'reconnecting' | 'lost' | 'applying';
 
 /** Per-app progress, in the engine's order (small first). */
 export interface TransferApp extends AppRef {
@@ -30,6 +30,8 @@ export interface TransferModel {
   readonly apps: readonly TransferApp[];
   /** Paused: bytes still needed on this disk. */
   readonly shortfall: Bytes;
+  /** Paused: where that disk is mounted, when the engine knows. */
+  readonly disk: string | null;
 }
 
 /** Optional intents are offered only when the engine supports them (no dead buttons). */
@@ -38,13 +40,17 @@ export interface TransferIntents {
   readonly onPause?: () => void;
   readonly onResume?: () => void;
   readonly onIgnoreSpace?: () => void;
+  /** Reconnecting: try the link now instead of after the back-off. */
+  readonly onTryNow?: () => void;
+  /** Lost: pick the session up again (what arrived is kept). */
+  readonly onResumeSession?: () => void;
   readonly onOpenFiles?: () => void;
   readonly onSeeArrived?: () => void;
 }
 
 /** Stopped part-way, with what arrived kept (disk full, held, link lost). */
 export const interrupted = (phase: TransferPhase): boolean =>
-  phase === 'paused' || phase === 'held' || phase === 'reconnecting';
+  phase === 'paused' || phase === 'held' || phase === 'reconnecting' || phase === 'lost';
 
 /**
  * The app a stopped transfer is paused at: the one moving, else the next to

@@ -26,11 +26,34 @@ describe('transfer view', () => {
     const session = {
       ...emptySession('s'),
       link: 'retrying' as const,
-      paused: { kind: 'low_disk_space' as const, fs: '/home', available: 100, needed: 500 },
+      paused: {
+        kind: 'low_disk_space' as const,
+        fs: '/home',
+        available: 100,
+        needed: 500,
+        disk: null,
+      },
     };
     expect(transferPhase(session)).toBe('paused');
     expect(transferModel('receive', session, apps, 'old').shortfall).toBe(400);
     expect(transferPhase({ ...session, paused: null })).toBe('reconnecting');
+  });
+
+  it('names the full disk when the engine knows where it is mounted', () => {
+    const paused = {
+      kind: 'low_disk_space' as const,
+      fs: '/home/ana/.local/state/carrova',
+      available: 100,
+      needed: 500,
+      disk: '/home',
+    };
+    const session = { ...emptySession('s'), paused };
+    expect(transferModel('receive', session, apps, 'old').disk).toBe('/home');
+    expect(transferModel('receive', emptySession('s'), apps, 'old').disk).toBeNull();
+  });
+
+  it('stops at a link the engine gave up on, until the user resumes', () => {
+    expect(transferPhase({ ...emptySession('s'), link: 'lost' })).toBe('lost');
   });
 
   it('enters the apply phase from apply progress', () => {

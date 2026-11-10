@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENGINE_DEFAULTS } from '@/bindings/constants';
 import type { PlanReview } from '@/bindings/PlanReview';
-import { planUnder, type PlanConditions } from '@/ipc/fake/planner';
+import { editOptions, planUnder, type PlanConditions } from '@/ipc/fake/planner';
 import { plan } from '@/ipc/fixtures/plan';
 import { planVariants } from '@/ipc/fixtures/plan-variants';
 
@@ -53,5 +53,59 @@ describe('the fake planner, held to the engine', () => {
       ).plan.blockers;
     expect(replan(false)).toContainEqual(running);
     expect(replan(true)).not.toContainEqual(running);
+  });
+});
+
+describe('the fake planner, editing options like PlanOptions::apply_all', () => {
+  const base = planUnder(plan, ENGINE_DEFAULTS.plan_options, none);
+
+  it('answers a sensitive item: confirm keeps the default picks, leave freezes them', () => {
+    const brought = editOptions(base, [
+      { kind: 'answer_sensitive', item: 'ssh/keys', bring: true },
+    ]);
+    expect(brought.items).toBeNull();
+    expect(brought.confirmed_sensitive).toEqual(['ssh/keys']);
+    const left = editOptions(planUnder(plan, brought, none), [
+      { kind: 'answer_sensitive', item: 'ssh/keys', bring: false },
+    ]);
+    expect(left.items).not.toContain('ssh/keys');
+    expect(left.confirmed_sensitive).toEqual([]);
+  });
+
+  it('skips an app and brings back only its non-sensitive or confirmed items', () => {
+    const skipped = editOptions(base, [
+      { kind: 'answer_sensitive', item: 'ssh/config', bring: true },
+      { kind: 'skip_app', app: 'ssh', skip: true },
+    ]);
+    expect(skipped.items?.some((k) => k.startsWith('ssh/'))).toBe(false);
+    const back = editOptions(planUnder(plan, skipped, none), [
+      { kind: 'skip_app', app: 'ssh', skip: false },
+    ]);
+    expect(back.items).toContain('ssh/config');
+    expect(back.items).not.toContain('ssh/keys');
+  });
+
+  it('toggles as sets and clears per-key rules', () => {
+    const edited = editOptions(base, [
+      { kind: 'allow_cross_os', item: 'git/config', allow: true },
+      { kind: 'allow_cross_os', item: 'git/config', allow: true },
+      { kind: 'path_rule', path: 'home:.gitconfig', rule: 'skip' },
+      { kind: 'path_rule', path: 'home:.gitconfig', rule: null },
+      { kind: 'keep_both_suffix', suffix: '  ' },
+      { kind: 'override', check: 'space' },
+    ]);
+    expect(edited.allow_cross_os).toEqual(['git/config']);
+    expect(edited.path_rules).toEqual({});
+    expect(edited.keep_both_suffix).toBe(base.plan.options.keep_both_suffix);
+    expect(edited.ignore_free_space).toBe(true);
+  });
+
+  it('rejects an unknown item or plugin', () => {
+    expect(() =>
+      editOptions(base, [{ kind: 'item_rule', item: 'nope/x', rule: 'skip' }]),
+    ).toThrow();
+    expect(() =>
+      editOptions(base, [{ kind: 'allow_plugin', plugin: 'nope', allow: true }]),
+    ).toThrow();
   });
 });

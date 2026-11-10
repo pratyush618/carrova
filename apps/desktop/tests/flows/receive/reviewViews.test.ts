@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { ENGINE_DEFAULTS } from '@/bindings/constants';
+import type { PlanOptions } from '@/bindings/PlanOptions';
 import type { PlanReview } from '@/bindings/PlanReview';
 import { plan } from '@/ipc/fixtures/plan';
 import { planUnconfirmed } from '@/ipc/fixtures/plan-unconfirmed';
-import { allowCrossOs, allowPlugin, setPathRule } from '@/flows/receive/planOptions';
 import {
   arrivedModel,
   decisions,
@@ -17,7 +16,6 @@ import {
 import type { MoveRoute } from '@/screens/shared/model';
 
 const inputs = (over: Partial<ReviewInputs> = {}): ReviewInputs => ({
-  options: ENGINE_DEFAULTS.plan_options,
   answers: {},
   asked: nothingAsked,
   ...over,
@@ -26,6 +24,11 @@ const route: MoveRoute = {
   from: { name: 'ana-desktop', os: 'mac_os' },
   to: { name: 'ana-laptop', os: 'linux' },
 };
+/** `review` as the engine plans it with `patch` on its options. */
+const withOptions = (review: PlanReview, patch: Partial<PlanOptions>): PlanReview => ({
+  ...review,
+  plan: { ...review.plan, options: { ...review.plan.options, ...patch } },
+});
 const [first, second] = plan.offered;
 if (first === undefined || second === undefined) throw new Error('fixture offers too little');
 
@@ -77,8 +80,8 @@ describe('review views', () => {
 
   it('asks about an item made for the other system until it is left or brought anyway', () => {
     const asked = rememberAsked(nothingAsked, crossOs);
-    const row = (review: PlanReview, options = ENGINE_DEFAULTS.plan_options) =>
-      decisions(review, inputs({ options, asked })).find((d) => d.kind === 'cross-os');
+    const row = (review: PlanReview) =>
+      decisions(review, inputs({ asked })).find((d) => d.kind === 'cross-os');
     expect(row(crossOs)).toMatchObject({
       key: second.key,
       title: second.label,
@@ -88,16 +91,14 @@ describe('review views', () => {
     });
     // Answered, the engine stops asking; the row stays with the answer.
     expect(row(unpicked(crossOs, second.key))?.answer).toBe('leave');
-    const allowed = allowCrossOs(ENGINE_DEFAULTS.plan_options, second.key);
-    expect(row({ ...crossOs, plan: { ...crossOs.plan, blockers: [] } }, allowed)?.answer).toBe(
-      'bring',
-    );
+    const unblocked = { ...crossOs, plan: { ...crossOs.plan, blockers: [] } };
+    expect(row(withOptions(unblocked, { allow_cross_os: [second.key] }))?.answer).toBe('bring');
   });
 
   it('asks to allow a plugin by name, with the items it changes, and remembers the answer', () => {
     const asked = rememberAsked(nothingAsked, pluginBlocked);
-    const row = (review: PlanReview, options = ENGINE_DEFAULTS.plan_options) =>
-      decisions(review, inputs({ options, asked })).find((d) => d.kind === 'plugin');
+    const row = (review: PlanReview) =>
+      decisions(review, inputs({ asked })).find((d) => d.kind === 'plugin');
     expect(row(pluginBlocked)).toEqual({
       kind: 'plugin',
       key: 'path-rewrite',
@@ -105,8 +106,8 @@ describe('review views', () => {
       items: [first.label],
       answer: null,
     });
-    const allowed = allowPlugin(ENGINE_DEFAULTS.plan_options, 'path-rewrite');
-    expect(row(pluginBlocked, allowed)?.answer).toBe('allow');
+    const allowed = withOptions(pluginBlocked, { confirmed_plugins: ['path-rewrite'] });
+    expect(row(allowed)?.answer).toBe('allow');
     const noPlugin = { ...unpicked(pluginBlocked, first.key) };
     expect(row({ ...noPlugin, plan: { ...noPlugin.plan, plugins: [] } })?.answer).toBe('leave');
   });
@@ -170,14 +171,25 @@ describe('review views', () => {
   });
 
   it('shows a per-file rule on its clash and the item rule elsewhere', () => {
-    const options = ENGINE_DEFAULTS.plan_options;
-    const groups = detailsModel(plan, options).groups.filter((g) => g.clashes.length > 0);
+    const groups = detailsModel(plan).groups.filter((g) => g.clashes.length > 0);
     const [group] = groups;
     const clash = group?.clashes[0];
     if (group === undefined || clash === undefined) throw new Error('fixture has no clash');
     expect(group.rule).toBe('replace');
-    const ruled = detailsModel(plan, setPathRule(options, clash.path, 'skip'));
+    const ruled = detailsModel(withOptions(plan, { path_rules: { [clash.path]: 'skip' } }));
     expect(ruled.groups.find((g) => g.id === group.id)?.clashes[0]?.rule).toBe('skip');
+  });
+
+  it('shows the retention and space the engine planned with, the disk size when known', () => {
+    const kept = withOptions(plan, { retention: { keep_for: { days: 30 } } });
+    expect(reviewModel(kept, inputs(), false, route).retention).toEqual({ keep_for: { days: 30 } });
+    expect(detailsModel(kept).choices.retention).toEqual({ keep_for: { days: 30 } });
+    const [fs] = plan.space.filesystems;
+    if (fs === undefined) throw new Error('fixture checks no filesystem');
+    const sized = { ...plan, space: { ...plan.space, filesystems: [{ ...fs, total: 500 }] } };
+    expect(reviewModel(sized, inputs(), false, route).space.total).toBe(500);
+    const unsized = { ...plan, space: { ...plan.space, filesystems: [{ ...fs, total: null }] } };
+    expect(reviewModel(unsized, inputs(), false, route).space.total).toBeNull();
   });
 
   it('lists apps to install, what arrived, and skipped items as failures', () => {

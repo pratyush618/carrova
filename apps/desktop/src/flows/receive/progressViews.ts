@@ -60,7 +60,11 @@ export function arrivingApps(review: PlanReview | null): SizedApp[] {
   return [...bytes].map(([id, size]) => ({ ...appRef(id, id), bytes: size }));
 }
 
-/** Transfer and apply progress, or the failure that was rolled back. */
+/**
+ * Transfer and apply progress, or the failure that was rolled back. A sender
+ * that stayed unreachable ends the task too, but the session is kept: that
+ * stays a stopped transfer, to resume.
+ */
 export function receiveProgressModel(
   state: ReceiveFlowState,
   progress: SessionProgress,
@@ -68,7 +72,9 @@ export function receiveProgressModel(
   peer: string,
   live: TransferLive = {},
 ): ReceiveProgressModel {
-  if (state.apply.status === 'failed') return { status: 'failed', error: state.apply.error };
+  if (state.apply.status === 'failed' && progress.link !== 'lost') {
+    return { status: 'failed', error: state.apply.error };
+  }
   return {
     status: 'transfer',
     transfer: transferModel('receive', progress, arrivingApps(review), peer, live),

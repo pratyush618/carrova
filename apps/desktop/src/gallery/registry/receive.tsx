@@ -7,6 +7,7 @@ import { RecvProgressScreen } from '../../screens/receive/RecvProgressScreen';
 import { RecvReviewScreen } from '../../screens/receive/RecvReviewScreen';
 import { ReviewDetailsSheet } from '../../screens/receive/ReviewDetailsSheet';
 import * as fx from '../../screens/receive/fixtures';
+import { SENDER } from '../../screens/shared/fixtures';
 import type { CodeEntryModel, ReceiveProgressModel } from '../../screens/receive/model';
 import { UndoConfirmDialog } from '../../screens/undo/UndoConfirmDialog';
 import { UndoResultScreen } from '../../screens/undo/UndoResultScreen';
@@ -31,7 +32,10 @@ export const reviewOn = noops(
   'onCancel',
   'onApprove',
 );
-const progressOn = { ...transferOn, ...noops('onRetry', 'onSeeWhat', 'onHome') };
+const progressOn = {
+  ...transferOn,
+  ...noops('onTryNow', 'onResumeSession', 'onRetry', 'onSeeWhat', 'onHome'),
+};
 const arrivedOn = noops('onRetry', 'onUndo', 'onDone');
 
 const CODE: Record<string, CodeEntryModel> = {
@@ -45,6 +49,7 @@ const PROGRESS: Record<string, ReceiveProgressModel> = {
   paused: fx.progressAt('paused'),
   held: fx.progressAt('held'),
   reconnecting: fx.progressAt('reconnecting'),
+  lost: fx.progressAt('lost'),
   applying: fx.progressAt('applying'),
   failed: fx.progressFailed,
 };
@@ -69,6 +74,7 @@ export const receiveScreens: readonly GalleryScreen[] = [
         <RecvCodeScreen
           model={CODE[s] ?? fx.codeTyping}
           here={fx.ROUTE.to}
+          nearby={s === 'typing' ? [SENDER] : []}
           on={noops('onChange', 'onAddress', 'onConnect', 'onCancel', 'onBack')}
         />
       ),
@@ -145,6 +151,7 @@ export const receiveScreens: readonly GalleryScreen[] = [
       ['paused', 'Disk full'],
       ['held', 'Paused by you'],
       ['reconnecting', 'Reconnecting'],
+      ['lost', 'Sender unreachable'],
       ['applying', 'Putting in place'],
       ['failed', 'Failed, undone'],
     ),

@@ -97,6 +97,8 @@ export interface ReviewModel {
     readonly needed: Bytes;
     /** `null` when the free space couldn't be measured. */
     readonly free: Bytes | null;
+    /** The disk's size; `null` when unknown (the bar then has no "used" part). */
+    readonly total: Bytes | null;
     readonly short: boolean;
     /** The user chose to ignore the space check. */
     readonly ignored: boolean;

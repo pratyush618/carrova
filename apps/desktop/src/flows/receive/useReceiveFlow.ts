@@ -1,26 +1,22 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { toBridgeError } from '../../engine/errors';
 import type { DesktopHost } from '../../engine/host';
+import type { NearbyPeer } from '../../bindings/NearbyPeer';
+import type { PlanEdit } from '../../bindings/PlanEdit';
+import type { PlanOverride } from '../../bindings/PlanOverride';
 import type {
   ConflictRule,
   ItemKey,
   MoveDefaults,
   CarrovaPort,
+  PlanReview,
   Remap,
   SessionId,
 } from '../../engine/types';
 import type { DecisionAnswer, ImportChoices } from '../../screens/receive/model';
 import { current } from '../remote';
 import { connectTarget } from './entry';
-import {
-  allowCrossOs,
-  allowPlugin,
-  setChoices,
-  setItemRule,
-  setPathRule,
-  setRemap,
-  type PlanOverride,
-} from './planOptions';
+import { answerEdits, choiceEdits } from './planOptions';
 import { initialReceiveFlow, receiveFlowReducer, type ReceiveFlowState } from './receiveFlow';
 
 /** Commands of the receiving side (LAN and file); screens call these, never the port. */
@@ -51,6 +47,10 @@ export interface ReceiveController {
   readonly setPaused: (paused: boolean) => void;
   /** Continue a transfer paused for low space, ignoring the check (after the warning). */
   readonly continueDespiteSpace: () => void;
+  /** Reconnect a lost LAN transfer now instead of after the back-off. */
+  readonly tryNow: () => void;
+  /** Senders nearby offering a code (reassurance only: the code is still typed). */
+  readonly browseNearby: () => Promise<NearbyPeer[]>;
   /** Pick the session up again after a failure (what arrived is kept). */
   readonly retry: () => void;
   /** "Cancel, change nothing": ends the review as a dry run. */
@@ -73,7 +73,7 @@ export function useReceiveFlow(
   const applying = state.apply.status !== 'idle';
   const review = current(state.review);
 
-  // The plan follows the options: every change the user makes is re-planned.
+  // The first plan of a session; the user's changes then go to the engine as edits.
   useEffect(() => {
     if (session === null || applying) return;
     const mine = ++ticket.current;
@@ -89,6 +89,31 @@ export function useReceiveFlow(
       },
     );
   }, [port, session, options, applying]);
+
+  /** Edits in the order the user made them, each sent once the one before is answered. */
+  const edits = useRef<Promise<unknown>>(Promise.resolve());
+  const edit = useCallback(
+    (changes: PlanEdit[]) => {
+      if (session === null || changes.length === 0) return;
+      const mine = ++ticket.current;
+      dispatch({ type: 'plan', action: { type: 'start' } });
+      const reply: Promise<PlanReview> = edits.current.then(() => port.editPlan(session, changes));
+      edits.current = reply.catch(() => undefined);
+      reply.then(
+        (value) => {
+          if (mine === ticket.current) dispatch({ type: 'plan', action: { type: 'ok', value } });
+        },
+        (reason: unknown) => {
+          if (mine === ticket.current) {
+            dispatch({ type: 'plan', action: { type: 'fail', error: toBridgeError(reason) } });
+          }
+        },
+      );
+    },
+    [port, session],
+  );
+
+  const browseNearby = useCallback(() => port.browseNearby(), [port]);
 
   const opened = useCallback((task: Promise<{ session: SessionId }>) => {
     const mine = ++ticket.current;
@@ -201,32 +226,34 @@ export function useReceiveFlow(
       open,
       answer: (key: ItemKey, answer: DecisionAnswer) => {
         dispatch({ type: 'answer', key, answer });
+        edit(answerEdits(key, answer));
       },
       setRule: (item: ItemKey, rule: ConflictRule) => {
-        dispatch({ type: 'options', options: setItemRule(options, item, rule) });
+        edit([{ kind: 'item_rule', item, rule }]);
       },
       setFileRule: (path: string, rule: ConflictRule | null) => {
-        dispatch({ type: 'options', options: setPathRule(options, path, rule) });
+        edit([{ kind: 'path_rule', path, rule }]);
       },
       setRemap: (item: ItemKey, remap: Remap | null) => {
-        dispatch({ type: 'options', options: setRemap(options, item, remap) });
+        edit([{ kind: 'remap', item, remap }]);
       },
       setChoices: (patch: Partial<ImportChoices>) => {
-        dispatch({ type: 'options', options: setChoices(options, patch) });
+        edit(choiceEdits(patch));
       },
       allowCrossOs: (item: ItemKey) => {
-        dispatch({ type: 'options', options: allowCrossOs(options, item) });
+        edit([{ kind: 'allow_cross_os', item, allow: true }]);
       },
       allowPlugin: (plugin: string) => {
-        dispatch({ type: 'options', options: allowPlugin(options, plugin) });
+        edit([{ kind: 'allow_plugin', plugin, allow: true }]);
       },
       leavePlugin: (plugin: string) => {
-        for (const key of state.asked.plugins[plugin]?.items ?? []) {
-          dispatch({ type: 'answer', key, answer: 'leave' });
-        }
+        const items = state.asked.plugins[plugin]?.items ?? [];
+        for (const key of items) dispatch({ type: 'answer', key, answer: 'leave' });
+        edit(items.flatMap((key) => answerEdits(key, 'leave')));
       },
       override: (override: PlanOverride, app: string | null) => {
-        dispatch({ type: 'override', override, app });
+        if (app !== null) dispatch({ type: 'answer', key: app, answer: 'closed' });
+        edit([{ kind: 'override', check: override }]);
       },
       approve,
       setPaused: (paused: boolean) => {
@@ -235,6 +262,10 @@ export function useReceiveFlow(
       continueDespiteSpace: () => {
         if (session !== null) void port.ignoreFreeSpace(session);
       },
+      tryNow: () => {
+        if (session !== null) void port.retryConnection(session);
+      },
+      browseNearby,
       retry: () => {
         if (session !== null) resumed(session);
       },
@@ -251,6 +282,6 @@ export function useReceiveFlow(
         resumed(id);
       },
     }),
-    [state, start, choosePath, open, options, approve, session, resumed, port, stop],
+    [state, start, choosePath, open, edit, browseNearby, approve, session, resumed, port, stop],
   );
 }
