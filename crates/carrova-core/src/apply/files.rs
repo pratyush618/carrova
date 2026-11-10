@@ -102,10 +102,11 @@ impl Applier<'_> {
             .policy
             .final_mode(a.mode.unwrap_or(MODELESS_FILE_MODE), None);
         let mtime = a.mtime_ns.map(carrova_manifest::time_from_unix_nanos);
-        // mtime first: setting it needs an fd, opening needs read access,
-        // which the final mode may not grant.
+        // mtime first, while the staged file is still ours (`STAGED_MODE`):
+        // the final mode may not grant access, and Windows only sets times
+        // through a handle with write access.
         if let Some(t) = mtime {
-            self.p.open_read_nofollow(&src)?.set_modified(t)?;
+            self.p.open_rw_nofollow(&src)?.set_modified(t)?;
         }
         fsx::set_mode(self.p, &src, mode)?;
 
