@@ -1,0 +1,27 @@
+[package]
+name = "carrova-view"
+description = "Pure presentation models of Carrova engine results, shared by every front-end"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+carrova-core = { workspace = true }
+carrova-platform = { workspace = true }
+# Only for the TS export of error-report types (desktop IPC contract).
+carrova-report = { workspace = true, optional = true }
+serde = { workspace = true }
+ts-rs = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[features]
+# TypeScript bindings (ts-rs) of the view-models and every engine type a
+# front-end receives or sends; `tests/export_bindings/main.rs` writes them.
+ts = ["dep:ts-rs", "carrova-core/ts", "carrova-platform/ts", "dep:carrova-report", "carrova-report/ts"]
+
+[lints]
+workspace = true
