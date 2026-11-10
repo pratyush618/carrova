@@ -68,6 +68,20 @@ export function skipApp(
   return { ...options, items: skip ? base : [...base, ...back.map((o) => o.key)] };
 }
 
+/** Restore a same-system item from another system anyway (picked again if it was left). */
+export function allowCrossOs(options: PlanOptions, item: ItemKey): PlanOptions {
+  return {
+    ...options,
+    items: options.items === null ? null : withOne(options.items, item),
+    allow_cross_os: withOne(options.allow_cross_os, item),
+  };
+}
+
+/** Let a plugin change the files of the items that use it (the user saw its permissions). */
+export function allowPlugin(options: PlanOptions, plugin: string): PlanOptions {
+  return { ...options, confirmed_plugins: withOne(options.confirmed_plugins, plugin) };
+}
+
 /** Clash rule for a whole item. */
 export function setItemRule(options: PlanOptions, item: ItemKey, rule: ConflictRule): PlanOptions {
   return { ...options, item_rules: { ...options.item_rules, [item]: rule } };

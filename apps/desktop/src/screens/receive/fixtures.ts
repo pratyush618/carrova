@@ -1,9 +1,12 @@
 import { APPS, GB, RECEIVER, SENDER } from '../shared/fixtures';
 import { transferAt } from '../shared/transferFixtures';
+import type { MoveRoute } from '../shared/model';
 import type {
   ArrivedModel,
   CodeEntryModel,
   DecisionModel,
+  MappingModel,
+  PluginConsentModel,
   ReceiveProgressModel,
   ReviewDetailsModel,
   ReviewModel,
@@ -35,6 +38,7 @@ export const codeConnecting: CodeEntryModel = {
   status: 'connecting',
   here: RECEIVER,
   peer: SENDER,
+  code: ['7', 'zebra', 'lemon'],
 };
 export const codeNotFound: CodeEntryModel = {
   status: 'not-found',
@@ -50,6 +54,15 @@ export const codeMismatch: CodeEntryModel = {
   words: WORDS,
   address: '',
 };
+
+/** The fictional move: ezio-desktop (Linux) to this computer. */
+export const ROUTE: MoveRoute = {
+  from: { name: SENDER, os: 'linux' },
+  to: { name: RECEIVER, os: 'linux' },
+};
+
+/** The same move from a Mac, so items cross systems. */
+const CROSS_ROUTE: MoveRoute = { ...ROUTE, from: { name: SENDER, os: 'mac_os' } };
 
 const decisions = (answered: boolean): DecisionModel[] => [
   {
@@ -70,16 +83,82 @@ const decisions = (answered: boolean): DecisionModel[] => [
 ];
 
 const review = (answered: boolean): ReviewModel => ({
-  counts: { added: 412, replaced: 3, identical: 28 },
-  undoDays: 30,
+  counts: { added: 412, replaced: 3, identical: 28, left: 1 },
   decisions: decisions(answered),
   space: { needed: 1.2 * GB, free: 112 * GB, short: false, ignored: false },
-  blockers: [],
+  mapped: null,
+  rule: 'replace',
+  retention: 'until_dismissed',
+  blocked: !answered,
+  rail: {
+    route: ROUTE,
+    apps: { moving: 5, offered: 6 },
+    bytes: 1.2 * GB,
+    keys: answered ? ['Your SSH keys'] : null,
+  },
   busy: false,
 });
 
 export const reviewDecide = review(false);
 export const reviewReady = review(true);
+
+/** From a Mac: a Linux-only item to answer, a plugin to allow, and paths that change place. */
+export const reviewCrossOs: ReviewModel = {
+  ...reviewDecide,
+  decisions: [
+    {
+      kind: 'cross-os',
+      key: 'gnome-terminal/profile',
+      title: 'GNOME Terminal profile',
+      from: 'mac_os',
+      to: 'linux',
+      answer: null,
+    },
+    {
+      kind: 'plugin',
+      key: 'path-rewrite',
+      description: 'Rewrites home folder paths in the vault list for this computer.',
+      items: ['Vault list'],
+      answer: null,
+    },
+  ],
+  mapped: { from: 'mac_os', to: 'linux', apps: 2 },
+  rail: { ...reviewDecide.rail, route: CROSS_ROUTE },
+};
+
+export const mapping: MappingModel = {
+  from: 'mac_os',
+  to: 'linux',
+  moved: [
+    {
+      key: 'vscode/settings#0',
+      glyph: '{ }',
+      title: 'VS Code settings',
+      from: { root: 'user_data', rel: 'Code/User', abs: null },
+      to: { root: 'user_config', rel: 'Code/User', abs: '/home/ezio/.config/Code/User' },
+    },
+  ],
+  same: [
+    {
+      key: 'git/config#0',
+      glyph: 'git',
+      title: 'Git',
+      from: { root: 'home', rel: '.gitconfig', abs: null },
+      to: { root: 'home', rel: '.gitconfig', abs: '/home/ezio/.gitconfig' },
+    },
+  ],
+};
+
+export const pluginConsent: PluginConsentModel = {
+  plugin: 'path-rewrite',
+  version: '1.0.0',
+  description: 'Rewrites home folder paths in the vault list for this computer.',
+  permissions: [
+    'It sees the path of your home folder on this computer.',
+    'It cannot use the network.',
+  ],
+  items: ['Vault list'],
+};
 
 export const reviewDetails: ReviewDetailsModel = {
   groups: [
@@ -133,19 +212,18 @@ export const progressFailed: ReceiveProgressModel = {
 };
 
 const arrived = (partial: boolean): ArrivedModel => ({
-  peer: SENDER,
-  apps: partial ? 4 : 5,
-  appsTotal: 5,
+  route: ROUTE,
+  moved: partial
+    ? ['Git', 'SSH', 'Bash and Zsh', 'VS Code']
+    : ['Git', 'SSH', 'GnuPG', 'Bash and Zsh', 'VS Code', 'tmux'],
+  appsTotal: 6,
+  files: 415,
   bytes: 1.2 * GB,
   replaced: 3,
   failures: partial
     ? [{ what: 'GnuPG trust settings', reason: 'the folder is locked by another program' }]
     : [],
-  tasks: [
-    { kind: 'reinstall', app: 'VS Code', count: 12, command: 'code --install-extension …' },
-    { kind: 'new-terminal' },
-    { kind: 'sign-in', app: 'GitHub CLI' },
-  ],
+  toInstall: ['VS Code', 'tmux'],
 });
 
 export const arrivedAll = arrived(false);

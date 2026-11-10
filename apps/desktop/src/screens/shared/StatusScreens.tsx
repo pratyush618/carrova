@@ -18,7 +18,15 @@ export function BusyScreen({
   return (
     <FlowLayout
       actions={
-        <ActionBar start={onCancel && <Button onClick={onCancel}>{t('action.cancel')}</Button>} />
+        <ActionBar
+          start={
+            onCancel && (
+              <Button kind="quiet" onClick={onCancel}>
+                {t('action.cancel')}
+              </Button>
+            )
+          }
+        />
       }
     >
       <Head title={title} />
@@ -41,7 +49,15 @@ export function FailedScreen({
   const text = errorText(error, t);
   return (
     <FlowLayout
-      actions={<ActionBar start={<Button onClick={onHome}>{t('action.backHome')}</Button>} />}
+      actions={
+        <ActionBar
+          start={
+            <Button kind="quiet" onClick={onHome}>
+              {t('action.backHome')}
+            </Button>
+          }
+        />
+      }
     >
       <Empty
         art="search"

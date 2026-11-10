@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { errorText } from '../../engine/errors';
 import { ActionBar, Button, Empty, FlowLayout, LinkButton, Note } from '../../ui';
 import { TransferActions } from '../shared/TransferActions';
-import { TransferBody } from '../shared/TransferBody';
+import { TransferBody, TransferRail, TransferRoute } from '../shared/TransferBody';
 import type { TransferIntents } from '../shared/transfer';
 import type { ReceiveProgressIntents, ReceiveProgressModel } from './model';
 
@@ -19,14 +19,26 @@ export function RecvProgressScreen({ model, on }: RecvProgressScreenProps) {
   const { t } = useTranslation();
   if (model.status === 'transfer') {
     return (
-      <FlowLayout actions={<TransferActions model={model.transfer} on={on} />}>
+      <FlowLayout
+        rail={<TransferRail model={model.transfer} />}
+        route={<TransferRoute model={model.transfer} />}
+        actions={<TransferActions model={model.transfer} on={on} />}
+      >
         <TransferBody model={model.transfer} on={on} />
       </FlowLayout>
     );
   }
   return (
     <FlowLayout
-      actions={<ActionBar start={<Button onClick={on.onHome}>{t('action.backHome')}</Button>} />}
+      actions={
+        <ActionBar
+          start={
+            <Button kind="quiet" onClick={on.onHome}>
+              {t('action.backHome')}
+            </Button>
+          }
+        />
+      }
     >
       <Empty
         art="undo"

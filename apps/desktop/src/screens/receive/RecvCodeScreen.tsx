@@ -3,22 +3,44 @@ import {
   ActionBar,
   Banner,
   Button,
+  CodeDisplay,
   CodeInput,
   Field,
+  FlowCenter,
   FlowLayout,
   Handshake,
   Head,
   Input,
   Kbd,
+  Note,
   Status,
 } from '../../ui';
+import { osName } from '../send/SendRail';
 import { errorText } from '../../engine/errors';
 import type { BridgeError } from '../../engine/types';
+import { MoveRail } from '../shared/MoveRail';
+import type { Computer } from '../shared/model';
 import type { CodeEntryIntents, CodeEntryModel } from './model';
 
 export interface RecvCodeScreenProps {
   readonly model: CodeEntryModel;
+  /** This computer, the move's destination. */
+  readonly here: Computer;
   readonly on: CodeEntryIntents;
+}
+
+/** Before pairing the rail knows one end: this computer. */
+function CodeRail({ here, peer }: { readonly here: Computer; readonly peer: string | null }) {
+  const { t } = useTranslation();
+  return (
+    <MoveRail
+      route={{ from: { name: peer, os: null }, to: here }}
+      here="to"
+      notes={{ from: t('transfer.move.pairing'), to: t('transfer.move.here') }}
+      facts={[]}
+      promise={t('receive.code.promise')}
+    />
+  );
 }
 
 function FailedBanner({ error }: { readonly error: BridgeError }) {
@@ -34,17 +56,39 @@ const codeNumber = (value: string): string => value.split('-')[0] ?? '';
  * Words autocomplete after three letters; Tab accepts. Connecting is the
  * handshake moment. "Didn't match" tells the truth: the sender made a new code.
  */
-export function RecvCodeScreen({ model, on }: RecvCodeScreenProps) {
+export function RecvCodeScreen({ model, here, on }: RecvCodeScreenProps) {
   const { t } = useTranslation();
 
   if (model.status === 'connecting') {
     return (
       <FlowLayout
-        actions={<ActionBar start={<Button onClick={on.onCancel}>{t('action.cancel')}</Button>} />}
+        rail={<CodeRail here={here} peer={model.peer} />}
+        actions={
+          <ActionBar
+            start={
+              <Button kind="quiet" onClick={on.onCancel}>
+                {t('action.cancel')}
+              </Button>
+            }
+          />
+        }
       >
-        <Head title={t('receive.code.connectingTitle')} lede={t('receive.code.connectingLede')} />
-        <Handshake here={model.here} there={model.peer} linked={false} />
-        <Status>{t('receive.code.checking', { peer: model.peer })}</Status>
+        <Head
+          center
+          title={t('receive.code.connectingTitle')}
+          lede={t('receive.code.connectingLede')}
+        />
+        <Handshake
+          here={model.here}
+          there={model.peer}
+          linked={false}
+          hereOs={here.os === null ? null : { kind: here.os, label: osName(here.os, t) }}
+        />
+        <FlowCenter>
+          <CodeDisplay words={model.code} size="sm" />
+          <Note center>{t('receive.code.typed')}</Note>
+          <Status>{t('receive.code.checking', { peer: model.peer })}</Status>
+        </FlowCenter>
       </FlowLayout>
     );
   }
@@ -53,10 +97,11 @@ export function RecvCodeScreen({ model, on }: RecvCodeScreenProps) {
   const address = notFound ? model.address : '';
   return (
     <FlowLayout
+      rail={<CodeRail here={here} peer={model.status === 'failed' ? null : model.peer} />}
       actions={
         <ActionBar
           start={
-            <Button icon="back" onClick={on.onBack}>
+            <Button kind="quiet" icon="back" onClick={on.onBack}>
               {t('action.back')}
             </Button>
           }

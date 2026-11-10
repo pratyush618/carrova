@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import type { TransferApp, TransferModel } from './transfer';
+import { interrupted, type TransferApp, type TransferModel } from './transfer';
 
 /**
  * What a chip says about its app. Pure, so the wording rules (the moving app
@@ -18,11 +18,7 @@ export function chipText(
     case 'failed':
       return t('transfer.chip.failed');
     case 'waiting':
-      return transfer.phase === 'paused' ||
-        transfer.phase === 'held' ||
-        transfer.phase === 'reconnecting'
-        ? t('transfer.chip.paused')
-        : t('transfer.chip.waiting');
+      return interrupted(transfer.phase) ? t('transfer.chip.paused') : t('transfer.chip.waiting');
     case 'moving':
       if (applying) return t('transfer.chip.placing');
       return app.bytesDone > 0

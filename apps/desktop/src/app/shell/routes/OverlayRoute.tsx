@@ -6,12 +6,16 @@ import {
   ForgetOverlay,
   RecipeOverlay,
   ReportOverlay,
-  SessionOverlay,
   UndoConfirmOverlay,
   UpdateOverlay,
 } from './HubOverlays';
 import { OverrideRoute } from './OverrideRoute';
-import { RemapOverlay, ReviewDetailsOverlay } from './ReceiveOverlays';
+import {
+  MappingOverlay,
+  PluginConsentOverlay,
+  RemapOverlay,
+  ReviewDetailsOverlay,
+} from './ReceiveOverlays';
 import { CustomizeOverlay, UnrecognisedOverlay } from './SendOverlays';
 import { useStartFlows } from './useStartFlows';
 
@@ -32,12 +36,14 @@ export function OverlayRoute({ overlay }: { readonly overlay: Overlay }) {
       return <UnrecognisedOverlay />;
     case 'review-details':
       return <ReviewDetailsOverlay />;
+    case 'mappings':
+      return <MappingOverlay />;
+    case 'plugin-consent':
+      return <PluginConsentOverlay plugin={overlay.plugin} />;
     case 'remap':
       return <RemapOverlay item={overlay.item} />;
     case 'undo-confirm':
       return <UndoConfirmOverlay />;
-    case 'session':
-      return <SessionOverlay id={overlay.id} />;
     case 'forget':
       return <ForgetOverlay id={overlay.id} />;
     case 'recipe':

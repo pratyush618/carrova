@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { ENGINE_DEFAULTS } from '@/bindings/constants';
 import type { OfferedItem } from '@/engine/types';
 import {
+  allowCrossOs,
+  allowPlugin,
   answerSensitive,
   applyOverride,
   setItemRule,
@@ -35,6 +37,21 @@ describe('plan options', () => {
     const leave = answerSensitive(bring, offered, 'ssh/keys', false);
     expect(leave.confirmed_sensitive).toEqual([]);
     expect(leave.items).toEqual(['ssh/config', 'vscode/settings']);
+  });
+
+  it('allows a same-system item once, however often the user asks', () => {
+    const once = allowCrossOs(ENGINE_DEFAULTS.plan_options, 'editor/state');
+    expect(allowCrossOs(once, 'editor/state').allow_cross_os).toEqual(['editor/state']);
+  });
+
+  it('picks a same-system item again when the user overrides after leaving it', () => {
+    const left = { ...ENGINE_DEFAULTS.plan_options, items: ['ssh/config'] };
+    expect(allowCrossOs(left, 'editor/state').items).toEqual(['ssh/config', 'editor/state']);
+  });
+
+  it('allows a plugin once, however often the user asks', () => {
+    const once = allowPlugin(ENGINE_DEFAULTS.plan_options, 'path-rewrite');
+    expect(allowPlugin(once, 'path-rewrite').confirmed_plugins).toEqual(['path-rewrite']);
   });
 
   it('skips every item of an open app and brings them back', () => {

@@ -15,7 +15,7 @@ export const select: ScanResult = {
             file_count: 1,
             flags: {
               default_selected: true,
-              portability: 'same_os',
+              portability: 'cross_os',
               requires_closed: false,
               sensitive: false,
             },
@@ -33,7 +33,7 @@ export const select: ScanResult = {
             file_count: 0,
             flags: {
               default_selected: false,
-              portability: 'same_os',
+              portability: 'cross_os',
               requires_closed: false,
               sensitive: true,
             },
@@ -107,7 +107,7 @@ export const select: ScanResult = {
             file_count: 2,
             flags: {
               default_selected: true,
-              portability: 'same_os',
+              portability: 'cross_os',
               requires_closed: false,
               sensitive: false,
             },
@@ -153,7 +153,7 @@ export const select: ScanResult = {
             file_count: 1,
             flags: {
               default_selected: true,
-              portability: 'same_os',
+              portability: 'cross_os',
               requires_closed: false,
               sensitive: false,
             },
@@ -278,7 +278,7 @@ export const select: ScanResult = {
             file_count: 1,
             flags: {
               default_selected: true,
-              portability: 'same_os',
+              portability: 'cross_os',
               requires_closed: false,
               sensitive: false,
             },
@@ -450,7 +450,7 @@ export const select: ScanResult = {
       },
     },
   },
-  session: '20261110-021713-205b40',
+  session: '20261110-050017-f8867c',
   view: {
     hidden_raw: 0,
     included: 7,

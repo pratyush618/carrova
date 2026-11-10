@@ -1,0 +1,85 @@
+/* The live card: percent, bytes and pace on top, the bar running from sender to receiver below. */
+.s-live {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: var(--r-card);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  box-shadow: var(--e-2);
+}
+
+.s-live__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-2);
+  color: var(--text-secondary);
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.s-live__pct {
+  font-size: var(--t-3xl);
+  font-weight: 750;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.s-live__status {
+  margin-inline-start: auto;
+  color: var(--text-muted);
+}
+
+.s-live__wire {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--t-sm);
+}
+
+.s-live__end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.s-live__end b {
+  display: block;
+}
+
+/* A small computer: screen with a base, as in the pairing handshake. */
+.s-live__screen {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 46px;
+  block-size: 30px;
+  border-radius: 5px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface-0);
+  color: var(--text-muted);
+}
+
+.s-live__screen::after {
+  content: '';
+  position: absolute;
+  inset-block-end: -6px;
+  inset-inline: -5px;
+  block-size: 3px;
+  border-radius: 0 0 4px 4px;
+  background: var(--border-strong);
+}
+
+@media (max-width: 760px) {
+  .s-live__wire {
+    grid-template-columns: 1fr;
+  }
+}
+
+.s-live__count {
+  color: var(--text-muted);
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+}

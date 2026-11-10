@@ -1,0 +1,91 @@
+/* Space needed against free: one line and a meter. */
+.s-space {
+  display: grid;
+  gap: var(--sp-1);
+  padding: 12px 14px;
+  border-radius: var(--r-card);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.s-space__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+.s-space__top b {
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.s-space--plenty .s-space__top .p-icon {
+  color: var(--success);
+}
+
+.s-space--short .s-space__top .p-icon {
+  color: var(--danger);
+}
+
+.s-space--ignored .s-space__top .p-icon {
+  color: var(--warning);
+}
+
+.s-space__bar {
+  display: block;
+  block-size: 6px;
+  border-radius: 3px;
+  background: var(--surface-0);
+  overflow: hidden;
+}
+
+/* shortcut: the engine reports free space but not the disk's size, so the track is the free space
+   and there is no grey "used" segment; add it once FsSpace carries the filesystem total. */
+.s-space__bar i {
+  display: block;
+  block-size: 100%;
+  inline-size: calc(var(--p, 0) * 100%);
+  min-inline-size: 6px;
+  background: var(--accent-fill);
+}
+
+.s-space--short .s-space__bar i {
+  background: var(--danger);
+}
+
+/* Arrived: the seal beside the headline, then receipt and checklist side by side. */
+.s-arrived {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.s-arrived__cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-2);
+  align-items: start;
+}
+
+.s-receipt__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2) var(--sp-2);
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+@media (max-width: 760px) {
+  .s-arrived {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .s-arrived__cols {
+    grid-template-columns: 1fr;
+  }
+}

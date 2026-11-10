@@ -34,6 +34,11 @@ export function transferAt(phase: TransferPhase, side: TransferModel['side']): T
     done: PHASE_DONE[phase],
     total: TOTAL_BYTES,
     secondsLeft: phase === 'moving' ? 120 : null,
+    bytesPerSecond: phase === 'moving' ? 10 * MB : null,
+    route: {
+      from: { name: SENDER, os: 'linux' },
+      to: { name: RECEIVER, os: 'linux' },
+    },
     apps: PHASE_APPS[phase],
     shortfall: 0.4 * GB,
   };

@@ -1,3 +1,5 @@
+import type { OsKind } from '../../engine/types';
+
 /** One rule the user may bend, behind a warning that states the reason. */
 export type OverrideModel =
   | {
@@ -10,6 +12,13 @@ export type OverrideModel =
     }
   | { readonly kind: 'running'; readonly app: string }
   | { readonly kind: 'space' }
+  /** A same-system item from another system: restored where it was there. */
+  | {
+      readonly kind: 'cross_os';
+      readonly item: string;
+      readonly from: OsKind;
+      readonly to: OsKind;
+    }
   | { readonly kind: 'elsewhere' };
 
 export interface OverrideIntents {

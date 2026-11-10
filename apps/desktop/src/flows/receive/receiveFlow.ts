@@ -24,7 +24,7 @@ import {
   suggestedPlanOptions,
   type PlanOverride,
 } from './planOptions';
-import type { Answers } from './reviewViews';
+import { nothingAsked, rememberAsked, type Answers, type Asked } from './reviewViews';
 
 /** Receiving over the LAN or from a file: entry → review → apply → arrived. */
 export interface ReceiveFlowState {
@@ -35,6 +35,8 @@ export interface ReceiveFlowState {
   /** Every user decision for the import; the plan is rebuilt from it after each change. */
   readonly options: PlanOptions;
   readonly answers: Answers;
+  /** Questions the engine raised during this review (rows stay after they're answered). */
+  readonly asked: Asked;
   readonly review: Remote<PlanReview>;
   /** Approve + apply (transfer, stage, put in place). */
   readonly apply: Remote<Checklist>;
@@ -69,6 +71,7 @@ export const initialReceiveFlow: ReceiveFlowState = {
   session: null,
   options: ENGINE_DEFAULTS.plan_options,
   answers: {},
+  asked: nothingAsked,
   review: idle,
   apply: idle,
 };
@@ -114,18 +117,26 @@ export function receiveFlowReducer(
         ? { ...state, code: codeFailure(state.code, action.error) }
         : { ...state, file: fileFailure(state.file, action.error) };
     case 'opened':
-      return { ...state, session: action.session, review: idle, apply: idle };
+      return { ...state, session: action.session, asked: nothingAsked, review: idle, apply: idle };
     case 'resumed':
       // The session's own options, not the suggestions: its choices and approval carry over.
       return {
         ...state,
         session: action.session,
         options: action.options ?? state.options,
+        asked: nothingAsked,
         review: idle,
         apply: idle,
       };
     case 'plan':
-      return { ...state, review: remoteReducer(state.review, action.action) };
+      return {
+        ...state,
+        review: remoteReducer(state.review, action.action),
+        asked:
+          action.action.type === 'ok'
+            ? rememberAsked(state.asked, action.action.value)
+            : state.asked,
+      };
     case 'options':
       return { ...state, options: action.options };
     case 'answer':

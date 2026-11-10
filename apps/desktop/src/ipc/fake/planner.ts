@@ -12,15 +12,30 @@ import type { Action } from '../../bindings/Action';
 import type { ActionCounts } from '../../bindings/ActionCounts';
 import type { Blocker } from '../../bindings/Blocker';
 import type { ConflictRule } from '../../bindings/ConflictRule';
+import type { ItemKey } from '../../bindings/ItemKey';
 import type { ItemView } from '../../bindings/ItemView';
 import type { OfferedItem } from '../../bindings/OfferedItem';
+import type { OsKind } from '../../bindings/OsKind';
+import type { PathMapping } from '../../bindings/PathMapping';
 import type { PlannedAction } from '../../bindings/PlannedAction';
+import type { PlannedPlugin } from '../../bindings/PlannedPlugin';
 import type { PlanOptions } from '../../bindings/PlanOptions';
 import type { PlanReview } from '../../bindings/PlanReview';
 
-/** Extra blockers of the scenario (e.g. a running app), unless overridden. */
+/** An archive from another system: its OS, its same-system items, and where paths land. */
+export interface CrossOsConditions {
+  readonly source: OsKind;
+  /** Items whose recipe keeps them on their system (each a `cross_os` blocker unless allowed). */
+  readonly sameOs: readonly ItemKey[];
+  readonly mappings: readonly PathMapping[];
+}
+
+/** Extra conditions of the scenario (a running app, another system, a plugin), unless overridden. */
 export interface PlanConditions {
   readonly runningApp: Blocker | null;
+  readonly crossOs?: CrossOsConditions;
+  /** A plugin run over its items' files (an `unconfirmed_plugin` blocker until allowed). */
+  readonly plugin?: PlannedPlugin;
 }
 
 /** `PlanOptions::picks`: an explicit list wins; else all but unconfirmed sensitive items. */
@@ -122,15 +137,41 @@ export function planUnder(
   if (conditions.runningApp !== null && !options.ignore_requires_closed) {
     blockers.push(conditions.runningApp);
   }
+  const { crossOs, plugin } = conditions;
+  // The fake receiver runs Linux (its About), like the machine that recorded `base`.
+  const to: OsKind = 'linux';
+  if (crossOs !== undefined) {
+    for (const item of crossOs.sameOs) {
+      if (picked.has(item) && !options.allow_cross_os.includes(item)) {
+        blockers.push({ kind: 'cross_os', item, from: crossOs.source, to });
+      }
+    }
+  }
+  const plugins = plugin?.items.some((k) => picked.has(k)) ? [plugin] : [];
+  for (const p of plugins) {
+    if (!options.confirmed_plugins.includes(p.plugin)) {
+      blockers.push({
+        kind: 'unconfirmed_plugin',
+        plugin: p.plugin,
+        items: p.items.filter((k) => picked.has(k)),
+      });
+    }
+  }
   const items = base.view.items.filter((i) => picked.has(i.key)).map((i) => itemView(i, actions));
   return {
     ...base,
     offered,
+    source:
+      crossOs === undefined
+        ? base.source
+        : { os: crossOs.source, device_name: base.source?.device_name ?? null },
     plan: {
       ...base.plan,
       options,
       actions,
       blockers,
+      mappings: crossOs?.mappings.filter((m) => picked.has(m.item)) ?? base.plan.mappings,
+      plugins,
       bytes_to_write: actions.filter(writes).reduce((n, a) => n + a.size, 0),
     },
     view: { ...base.view, items },

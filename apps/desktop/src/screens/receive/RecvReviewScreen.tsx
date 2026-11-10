@@ -2,53 +2,123 @@ import { useTranslation } from 'react-i18next';
 import { useFormat } from '../../i18n/useFormat';
 import {
   ActionBar,
-  Banner,
+  AppGlyph,
   Button,
   FlowLayout,
+  GroupHead,
   Head,
-  Icon,
-  LinkRow,
+  LinkButton,
   List,
+  Row,
   Stat,
   Stats,
 } from '../../ui';
+import { MoveRail, RouteChip } from '../shared/MoveRail';
 import { ReviewDecisions, unanswered } from './ReviewDecisions';
 import { SpaceRow } from './SpaceRow';
-import type { BlockerModel, ReviewIntents, ReviewModel } from './model';
+import type { ReviewIntents, ReviewModel } from './model';
 
 export interface RecvReviewScreenProps {
   readonly model: ReviewModel;
   readonly on: ReviewIntents;
 }
 
+function ReviewRail({ model }: { readonly model: ReviewModel }) {
+  const { t } = useTranslation();
+  const format = useFormat();
+  const { rail } = model;
+  const keys =
+    rail.keys === null
+      ? t('receive.review.rail.keysUnanswered')
+      : rail.keys.length === 0
+        ? t('receive.review.rail.keysNone')
+        : rail.keys.join(', ');
+  return (
+    <MoveRail
+      route={rail.route}
+      here="to"
+      notes={{ from: t('receive.review.rail.source'), to: t('transfer.move.here') }}
+      facts={[
+        { label: t('receive.review.rail.apps'), value: t('receive.review.rail.appsOf', rail.apps) },
+        { label: t('receive.review.rail.size'), value: format.bytes(rail.bytes) },
+        { label: t('receive.review.rail.keys'), value: keys },
+      ]}
+      promise={t('receive.review.rail.promise')}
+    />
+  );
+}
+
+/** "Suggested, change anything": where things land, clashes and undo, each one tap from changing. */
+function Suggestions({ model, on }: RecvReviewScreenProps) {
+  const { t } = useTranslation();
+  const os = (kind: NonNullable<ReviewModel['mapped']>['to']) => t(`settings.about.os.${kind}`);
+  const { mapped, counts } = model;
+  return (
+    <section aria-label={t('receive.review.suggested')}>
+      <GroupHead title={t('receive.review.suggested')} />
+      <List>
+        {mapped !== null && (
+          <Row
+            lead={<AppGlyph glyph={{ icon: 'swap' }} tone="accent" />}
+            title={t('receive.review.mapped', { from: os(mapped.from), to: os(mapped.to) })}
+            sub={t('receive.review.mappedSub', { count: mapped.apps, to: os(mapped.to) })}
+            trail={<LinkButton onClick={on.onSeeWhere}>{t('receive.review.seeWhere')}</LinkButton>}
+          />
+        )}
+        <Row
+          lead={<AppGlyph glyph={{ icon: 'file' }} />}
+          title={
+            counts.replaced > 0
+              ? t('receive.review.differ', { count: counts.replaced })
+              : t('receive.review.noneDiffer')
+          }
+          sub={t(`receive.review.rule.${model.rule}`)}
+          trail={<LinkButton onClick={on.onSeeEvery}>{t('receive.review.every')}</LinkButton>}
+        />
+        <Row
+          lead={<AppGlyph glyph={{ icon: 'history' }} />}
+          title={t(`receive.review.undoKept.${model.retention}`)}
+          sub={t('receive.review.undoSub')}
+          trail={
+            <LinkButton aria-label={t('receive.review.changeUndo')} onClick={on.onSeeEvery}>
+              {t('action.change')}
+            </LinkButton>
+          }
+        />
+      </List>
+    </section>
+  );
+}
+
 /**
- * The approval gate: facts first (three numbers), then decisions. Approve
- * unlocks when each has an answer; per-file rules are one tap away.
+ * The approval gate (a dry run): facts first (counts and space), then only
+ * the questions that need the user, then the suggestions. Approve unlocks
+ * once every question has an answer and the engine no longer blocks.
  */
 export function RecvReviewScreen({ model, on }: RecvReviewScreenProps) {
   const { t } = useTranslation();
   const format = useFormat();
-  const blockerText = (b: BlockerModel): string => {
-    switch (b.kind) {
-      case 'unconfirmed_sensitive':
-        return t('receive.review.blocker.unconfirmed_sensitive', { what: b.what, why: b.why });
-      case 'running_app':
-        return t('receive.review.blocker.running_app', { app: b.app });
-      case 'free_space':
-        return t('receive.review.blocker.free_space', {
-          needed: format.bytes(b.needed),
-          free: format.bytes(b.free),
-        });
-    }
-  };
   const left = unanswered(model.decisions);
-  const blocked = left > 0 || model.blockers.length > 0 || model.busy;
+  const blocked = left > 0 || model.blocked || model.busy;
+  const note =
+    left > 0
+      ? t('receive.review.needs', { count: left })
+      : model.blocked
+        ? t('receive.review.blockedNote')
+        : t('receive.review.ready', { size: format.bytes(model.rail.bytes) });
+  const { counts } = model;
   return (
     <FlowLayout
+      rail={<ReviewRail model={model} />}
+      route={<RouteChip route={model.rail.route} here="to" />}
       actions={
         <ActionBar
-          start={<Button onClick={on.onCancel}>{t('receive.review.cancel')}</Button>}
-          note={left > 0 ? t('receive.review.needs', { count: left }) : ''}
+          start={
+            <Button kind="quiet" onClick={on.onCancel}>
+              {t('receive.review.cancel')}
+            </Button>
+          }
+          note={note}
           end={
             <Button kind="primary" disabled={blocked} onClick={on.onApprove}>
               {t('receive.review.approve')}
@@ -57,41 +127,21 @@ export function RecvReviewScreen({ model, on }: RecvReviewScreenProps) {
         />
       }
     >
-      <Head
-        title={t('receive.review.title')}
-        lede={
-          model.undoDays === null
-            ? t('receive.review.ledeKept')
-            : t('receive.review.lede', { days: model.undoDays })
-        }
-      />
-      <Stats>
-        <Stat
-          value={format.number(model.counts.added)}
-          label={t('receive.review.added', { count: model.counts.added })}
-        />
-        <Stat value={format.number(model.counts.replaced)} label={t('receive.review.replaced')} />
-        <Stat value={format.number(model.counts.identical)} label={t('receive.review.identical')} />
-      </Stats>
+      <Head title={t('receive.review.title')} lede={t(`receive.review.lede.${model.retention}`)} />
+      <section aria-label={t('receive.review.counts')}>
+        <Stats>
+          <Stat
+            value={format.number(counts.added)}
+            label={t('receive.review.added', { count: counts.added })}
+          />
+          <Stat value={format.number(counts.replaced)} label={t('receive.review.replaced')} />
+          <Stat value={format.number(counts.identical)} label={t('receive.review.identical')} />
+          <Stat value={format.number(counts.left)} label={t('receive.review.stayed')} />
+        </Stats>
+      </section>
+      <SpaceRow space={model.space} onIgnore={on.onIgnoreSpace} />
       {model.decisions.length > 0 && <ReviewDecisions decisions={model.decisions} on={on} />}
-      {model.blockers.map((blocker, i) => (
-        <Banner
-          key={`${blocker.kind}-${String(i)}`}
-          tone="warning"
-          title={t('receive.review.blocked')}
-          body={blockerText(blocker)}
-        />
-      ))}
-      <List>
-        <SpaceRow space={model.space} onIgnore={on.onIgnoreSpace} />
-        <LinkRow
-          lead={<Icon name="swap" />}
-          title={t('receive.review.every')}
-          sub={t('receive.review.everySub')}
-          trail={<Icon name="chev" />}
-          onClick={on.onSeeEvery}
-        />
-      </List>
+      <Suggestions model={model} on={on} />
     </FlowLayout>
   );
 }
