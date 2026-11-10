@@ -263,12 +263,22 @@ pub struct Running {
     pub tickets: mpsc::Receiver<Ticket>,
     pub first: Option<Ticket>,
     pub asked: Arc<Mutex<Vec<(u32, u32)>>>,
+    /// Every code shown: which offer and how long it stays valid.
+    pub offers: Arc<Mutex<Vec<(CodeOffer, Duration)>>>,
 }
 
 impl Running {
     /// The `(failures, remaining)` questions asked so far.
     pub fn asked(&self) -> Vec<(u32, u32)> {
         asked(&self.asked)
+    }
+
+    /// The codes shown so far.
+    pub fn offers(&self) -> Vec<(CodeOffer, Duration)> {
+        self.offers
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     /// Wait for the send to end: its result, the questions asked and the
@@ -287,17 +297,23 @@ fn asked(log: &Mutex<Vec<(u32, u32)>>) -> Vec<(u32, u32)> {
     log.lock().unwrap_or_else(PoisonError::into_inner).clone()
 }
 
-/// Test front-end: forwards renewed codes, records and answers questions.
+/// Test front-end: forwards every code after the first, records codes
+/// shown and answers questions.
 struct TestPrompt {
     port: u16,
     tx: mpsc::Sender<Ticket>,
     answer: bool,
     asked: Arc<Mutex<Vec<(u32, u32)>>>,
+    offers: Arc<Mutex<Vec<(CodeOffer, Duration)>>>,
 }
 
 impl SendPrompt for TestPrompt {
-    fn show_code(&mut self, ticket: &Ticket, offer: CodeOffer) {
-        if offer == CodeOffer::Renewed {
+    fn show_code(&mut self, ticket: &Ticket, offer: CodeOffer, expires_in: Duration) {
+        self.offers
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push((offer, expires_in));
+        if offer != CodeOffer::First {
             let _ = self.tx.send(loopback(ticket, self.port));
         }
     }
@@ -322,11 +338,13 @@ pub fn run_answering(handle: SendHandle, answer: bool) -> Running {
     let first = handle.ticket().map(|t| loopback(t, port));
     let (tx, tickets) = mpsc::channel();
     let asked = Arc::new(Mutex::new(Vec::new()));
+    let offers = Arc::new(Mutex::new(Vec::new()));
     let mut prompt = TestPrompt {
         port,
         tx,
         answer,
         asked: asked.clone(),
+        offers: offers.clone(),
     };
     let thread = thread::spawn(move || handle.run(&mut prompt));
     Running {
@@ -334,6 +352,7 @@ pub fn run_answering(handle: SendHandle, answer: bool) -> Running {
         tickets,
         first,
         asked,
+        offers,
     }
 }
 

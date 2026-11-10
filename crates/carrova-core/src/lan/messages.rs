@@ -112,16 +112,21 @@ impl Inventory {
     /// characters, `None` if nothing is left.
     #[must_use]
     pub fn device_name(&self) -> Option<String> {
-        let clean: String = self
-            .device_name
-            .as_deref()?
-            .chars()
-            .filter(|c| !carrova_manifest::is_unsafe_char(*c))
-            .take(MAX_DEVICE_NAME)
-            .collect();
-        let clean = clean.trim();
-        (!clean.is_empty()).then(|| clean.to_owned())
+        clean_device_name(self.device_name.as_deref()?)
     }
+}
+
+/// A peer-announced device name, safe to display and store: control and
+/// bidi characters dropped, at most [`MAX_DEVICE_NAME`] characters, `None`
+/// if nothing is left.
+pub(crate) fn clean_device_name(raw: &str) -> Option<String> {
+    let clean: String = raw
+        .chars()
+        .filter(|c| !carrova_manifest::is_unsafe_char(*c))
+        .take(MAX_DEVICE_NAME)
+        .collect();
+    let clean = clean.trim();
+    (!clean.is_empty()).then(|| clean.to_owned())
 }
 
 /// Longest peer device name kept (characters).

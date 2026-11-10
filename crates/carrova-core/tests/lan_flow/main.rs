@@ -12,11 +12,13 @@ use std::collections::BTreeSet;
 
 use std::time::Duration;
 
-use carrova_core::lan::{ConflictTarget, MAX_PAIRING_FAILURES, PlanSummary};
+use carrova_core::lan::{
+    BROWSE_WINDOW, ConflictTarget, MAX_PAIRING_FAILURES, PlanSummary, browse_nearby,
+};
 use carrova_core::store::{LOG_FILE, RESUME_KEY_FILE};
 use carrova_core::{
-    CoreError, Event, Importer, ItemKey, KdfParams, Passphrase, PlanOptions, SendOutcome, Source,
-    State, Ticket, WriteOptions, sessions,
+    CodeOffer, CoreError, Event, Importer, ItemKey, KdfParams, Passphrase, PlanOptions,
+    SendOutcome, Source, State, Ticket, WriteOptions, sessions,
 };
 use carrova_crypto::pairing::PairingCode;
 use carrova_platform::{OsKind, PermissionModel, Platform, SemanticRoot};
@@ -256,6 +258,118 @@ fn receiver_knows_the_senders_os_and_device_name_before_planning() {
         record.source,
         Some(Source::Lan { peer_name: Some(ref n), .. }) if n == "ezio-thinkpad"
     ));
+    assert_eq!(record.peer_os, Some(OsKind::Linux));
+    imp.plan(&options()).unwrap();
+    imp.end_dry_run().unwrap();
+    running.thread.join().unwrap().unwrap();
+}
+
+#[test]
+fn sender_says_the_code_is_being_checked_and_records_the_receivers_os() {
+    let sender = Side::sender();
+    let receiver = Side::new();
+    let mut exp = sender.selected_exporter();
+    let running = run(exp.prepare_send().unwrap());
+    let mut imp =
+        Importer::connect(receiver.engine.clone(), running.first.as_ref().unwrap()).unwrap();
+    imp.plan(&options()).unwrap();
+    imp.end_dry_run().unwrap();
+    running.thread.join().unwrap().unwrap();
+
+    let events = sender.sink.events();
+    let checking = events
+        .iter()
+        .position(|e| matches!(e, Event::PairingInProgress));
+    let connected = events
+        .iter()
+        .position(|e| matches!(e, Event::PeerConnected { .. }));
+    assert!(
+        checking.is_some() && checking < connected,
+        "PairingInProgress precedes PeerConnected: {events:?}"
+    );
+    assert_eq!(
+        events
+            .iter()
+            .filter(|e| matches!(e, Event::PairingInProgress))
+            .count(),
+        1
+    );
+    let record = sessions::show(&sender.engine, exp.id()).unwrap();
+    assert_eq!(record.peer_os, Some(OsKind::Linux));
+}
+
+#[test]
+fn an_expired_code_is_replaced_and_only_the_fresh_one_pairs() {
+    const LIFETIME: Duration = Duration::from_secs(4);
+    let sender = Side::sender();
+    let receiver = Side::new();
+    let mut exp = sender.selected_exporter();
+    let mut handle = exp.prepare_send().unwrap();
+    handle.set_code_lifetime(LIFETIME);
+    let running = run(handle);
+    let first = running.first.clone().unwrap();
+
+    let fresh = running
+        .tickets
+        .recv_timeout(Duration::from_secs(30))
+        .unwrap();
+    assert_ne!(fresh.code, first.code);
+    let offers = running.offers();
+    assert_eq!(offers.len(), 2, "{offers:?}");
+    assert_eq!(offers[0].0, CodeOffer::First);
+    assert!(offers[0].1 <= LIFETIME);
+    assert_eq!(offers[1], (CodeOffer::Expired, LIFETIME));
+
+    assert!(Importer::connect(receiver.engine.clone(), &first).is_err());
+    let mut imp = Importer::connect(receiver.engine.clone(), &fresh).unwrap();
+    imp.plan(&options()).unwrap();
+    imp.end_dry_run().unwrap();
+    let (result, asked, _) = running.finish();
+    result.unwrap();
+    assert!(asked.is_empty(), "an expiry is not a failed attempt");
+    assert!(
+        !sender
+            .sink
+            .events()
+            .iter()
+            .any(|e| matches!(e, Event::PairingFailed))
+    );
+}
+
+#[test]
+fn receivers_see_a_sender_nearby_by_its_sanitised_name_only_while_it_offers_a_code() {
+    if !lan_support::loopback_broadcast_works() {
+        return;
+    }
+    let raw = format!("nearby-\u{202e}{}", std::process::id());
+    let clean = format!("nearby-{}", std::process::id());
+    let sender = Side::seeded(Side::named(Some(&raw)));
+    let receiver = Side::new();
+    let names = || -> Vec<String> {
+        browse_nearby(&*receiver.platform)
+            .unwrap()
+            .into_iter()
+            .map(|n| n.device_name)
+            .collect()
+    };
+    let mut exp = sender.selected_exporter();
+    let running = run(exp.prepare_send().unwrap());
+    let found = names();
+    assert!(found.contains(&clean), "{found:?}");
+    assert!(!found.iter().any(|n| n.contains('\u{202e}')));
+    let advertised: Vec<String> = carrova_transport::browse(&*receiver.platform, BROWSE_WINDOW)
+        .unwrap()
+        .into_iter()
+        .map(|n| n.device_name)
+        .collect();
+    assert!(
+        advertised.contains(&clean),
+        "sender advertises the sanitised name: {advertised:?}"
+    );
+
+    let mut imp =
+        Importer::connect(receiver.engine.clone(), running.first.as_ref().unwrap()).unwrap();
+    assert!(!names().contains(&clean), "paired: no longer offered");
     imp.plan(&options()).unwrap();
     imp.end_dry_run().unwrap();
     running.thread.join().unwrap().unwrap();

@@ -25,6 +25,12 @@ pub const TRANSFER_BATCH_BYTES: u64 = 4 * CHECKPOINT_BYTES;
 /// ([`CoreError::PairingAttemptsExhausted`]). Bounds online guessing of the
 /// ~20.7-bit code to this many tries.
 pub const MAX_PAIRING_FAILURES: u32 = 3;
+/// Sender: how long one pairing code stays valid before it is replaced
+/// by a fresh one ([`crate::CodeOffer::Expired`]).
+pub const CODE_LIFETIME: Duration = Duration::from_secs(5 * 60);
+/// Receiver: how long one look for senders nearby lasts
+/// ([`super::browse_nearby`]).
+pub const BROWSE_WINDOW: Duration = Duration::from_secs(2);
 /// Receiver: how long pairing (discovery + handshake) may take.
 pub const PAIR_TIMEOUT: Duration = Duration::from_secs(60);
 /// How long one side waits for a control message the other side sends
