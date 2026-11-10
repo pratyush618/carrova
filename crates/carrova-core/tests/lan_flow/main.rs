@@ -324,15 +324,20 @@ fn plan_summary_lists_counts_and_only_conflicting_receiver_paths() {
         .inspect(|c| assert_eq!(c.root, SemanticRoot::UserConfig))
         .map(|c| c.rel.as_str())
         .collect();
-    // The existing dir (mode tightened) and the differing file; nothing
-    // else of the receiver's.
-    assert_eq!(rels, BTreeSet::from(["app", "app/settings.json"]));
+    // The differing file and, where modes apply (not Windows ACLs), the
+    // existing dir whose mode is tightened; nothing else of the receiver's.
+    let expected = if cfg!(unix) {
+        BTreeSet::from(["app", "app/settings.json"])
+    } else {
+        BTreeSet::from(["app/settings.json"])
+    };
+    assert_eq!(rels, expected);
     let config = summary
         .items
         .iter()
         .find(|i| i.item == "app/config")
         .unwrap();
-    assert_eq!(config.counts.replace, 2);
+    assert_eq!(config.counts.replace as usize, expected.len());
     assert!(config.counts.create >= 1);
     let wire = serde_json::to_string(&summary).unwrap();
     assert!(!wire.contains("unrelated"));
