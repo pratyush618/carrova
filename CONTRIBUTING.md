@@ -37,6 +37,15 @@ recipes, so green locally means green in CI.
 
 Add new workflows as `just` recipes, not ad-hoc scripts or CI-only steps.
 
+## Recipes and plugins
+
+- **Recipes** are data only: [`recipes/CONTRIBUTING.md`](recipes/CONTRIBUTING.md)
+  covers the schema (`recipes/schema/recipe.v3.json`, including per-OS `os:`
+  paths), fixtures and review tiers.
+- **Plugins** are sandboxed WebAssembly transforms for what data cannot
+  express: [`plugins/README.md`](plugins/README.md) covers writing, building
+  (`just plugins`) and shipping one. Core maintainers review every plugin.
+
 ## Architecture rules (never break)
 
 1. **OS-specific code lives only in `carrova-platform`.** No `cfg(target_os)`,
