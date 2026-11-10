@@ -50,7 +50,7 @@
   background: var(--accent-fill);
 }
 
-.s-space--short .s-space__bar i {
+.s-space--short .s-space__bar i:not(.s-space__used) {
   background: var(--danger);
 }
 
