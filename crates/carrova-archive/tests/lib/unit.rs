@@ -220,6 +220,7 @@ fn item(id: &str, entries: Vec<Entry>, artifacts: Vec<Artifact>) -> ManifestItem
         entries,
         handler: None,
         artifacts,
+        source_paths: Vec::new(),
     }
 }
 
@@ -227,8 +228,9 @@ fn manifest(items: Vec<ManifestItem>) -> Manifest {
     Manifest::new(
         1_700_000_000,
         SourceInfo {
-            os: "linux".into(),
+            os: OsKind::Linux,
             carrova_version: "test".into(),
+            device_name: None,
         },
         items,
     )
@@ -922,8 +924,9 @@ fn archive_created_with_mode_600() {
     assert_eq!(creates.len(), 1);
     let (mode, native) = creates[0];
     assert_eq!(mode, Some(0o600), "writer must request mode 600");
-    if native {
-        // FakePlatform now implements create_new_file: check the result too.
+    // FakePlatform now implements create_new_file: check the result too
+    // (Unix only: Windows files have no mode bits).
+    if native && cfg!(unix) {
         let meta = env.platform.metadata(&env.dir.join("a.carrova")).unwrap();
         assert_eq!(meta.mode.map(|m| m & 0o777), Some(0o600));
     }

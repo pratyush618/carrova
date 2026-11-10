@@ -63,6 +63,7 @@ fn item(id: &str, entries: Vec<Entry>) -> ManifestItem {
         entries,
         handler: None,
         artifacts: Vec::new(),
+        source_paths: Vec::new(),
     }
 }
 
@@ -70,8 +71,9 @@ fn manifest(items: Vec<ManifestItem>) -> Manifest {
     Manifest::new(
         1_700_000_000,
         SourceInfo {
-            os: "linux".into(),
+            os: OsKind::Linux,
             carrova_version: "0.0.1".into(),
+            device_name: None,
         },
         items,
     )

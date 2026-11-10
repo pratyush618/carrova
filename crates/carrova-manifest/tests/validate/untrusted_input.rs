@@ -7,10 +7,10 @@
 
 use carrova_manifest::{
     Artifact, Blake3Hash, ChunkHash, ChunkRef, DEFAULT_CHUNK_PARAMS, DEFAULT_MAX_MANIFEST_BYTES,
-    Entry, EntryKind, ItemFlags, MAX_ARTIFACTS_PER_ITEM, MAX_CHUNK_LEN, MAX_ENTRIES, MAX_ITEMS,
-    Manifest, ManifestError, ManifestItem, RelPath, SourceInfo,
+    Entry, EntryKind, ItemFlags, MAX_ARTIFACTS_PER_ITEM, MAX_CHUNK_LEN, MAX_DEVICE_NAME,
+    MAX_ENTRIES, MAX_ITEMS, Manifest, ManifestError, ManifestItem, RelPath, SourceInfo,
 };
-use carrova_platform::SemanticRoot;
+use carrova_platform::{OsKind, SemanticRoot};
 
 fn dir(rel: &str) -> Entry {
     Entry {
@@ -50,6 +50,7 @@ fn item(id: &str, entries: Vec<Entry>) -> ManifestItem {
         entries,
         handler: Some("gpg-keyring".into()),
         artifacts: vec![artifact("pubring.asc")],
+        source_paths: Vec::new(),
     }
 }
 
@@ -57,8 +58,9 @@ fn manifest(items: Vec<ManifestItem>) -> Manifest {
     Manifest::new(
         1_700_000_000,
         SourceInfo {
-            os: "linux".into(),
+            os: OsKind::Linux,
             carrova_version: "0.0.1".into(),
+            device_name: None,
         },
         items,
     )
@@ -139,9 +141,11 @@ fn control_and_bidi_chars_rejected_in_text_fields() {
                 target: format!("keys{s}v2"),
             };
         }),
-        ("source os", |m, s| m.source.os = format!("linux{s}")),
         ("source carrova_version", |m, s| {
             m.source.carrova_version = format!("0.0.1{s}");
+        }),
+        ("source device_name", |m, s| {
+            m.source.device_name = Some(format!("ezio{s}thinkpad"));
         }),
     ];
     for (field, edit) in edits {
@@ -214,6 +218,17 @@ fn too_many_entries_rejected() {
     it.entries = vec![dir("d"); MAX_ENTRIES + 1];
     let err = manifest(vec![it]).validate().unwrap_err();
     assert!(too_many(&err, "entries", MAX_ENTRIES), "{err:?}");
+}
+
+#[test]
+fn device_name_longer_than_the_limit_rejected_and_at_the_limit_accepted() {
+    let mut m = sample();
+    m.source.device_name = Some("é".repeat(MAX_DEVICE_NAME));
+    m.validate().unwrap();
+    m.source.device_name = Some("é".repeat(MAX_DEVICE_NAME + 1));
+    assert_rejected(&m, |e| {
+        too_many(e, "source device_name characters", MAX_DEVICE_NAME)
+    });
 }
 
 #[test]

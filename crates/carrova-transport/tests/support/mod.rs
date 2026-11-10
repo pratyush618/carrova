@@ -13,6 +13,7 @@ use carrova_manifest::{
     Artifact, Blake3Hash, ChunkHash, ChunkRef, ChunkSource, ChunkSourceError, ItemFlags, Manifest,
     ManifestItem, SourceInfo,
 };
+use carrova_platform::OsKind;
 use carrova_transport::{
     AllowedChunks, ConnectOptions, Connection, ListenOptions, Listener, Target, Ticket, connect,
 };
@@ -143,8 +144,9 @@ pub fn manifest(chunks: &[ChunkRef]) -> Manifest {
     Manifest::new(
         0,
         SourceInfo {
-            os: "linux".into(),
+            os: OsKind::Linux,
             carrova_version: "test".into(),
+            device_name: None,
         },
         vec![ManifestItem {
             recipe_id: None,
@@ -159,6 +161,7 @@ pub fn manifest(chunks: &[ChunkRef]) -> Manifest {
                 hash: Blake3Hash::of(b"unused"),
                 chunks: chunks.to_vec(),
             }],
+            source_paths: Vec::new(),
         }],
     )
 }
