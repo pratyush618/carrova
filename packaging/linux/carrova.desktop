@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name={{name}}
+{{#if comment}}
+Comment={{comment}}
+{{/if}}
+Exec={{exec}}
+Icon={{icon}}
+Terminal=false
+Categories=Utility;System;
+Keywords=migrate;transfer;move;settings;dotfiles;backup;
+StartupWMClass=carrova-desktop

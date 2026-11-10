@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carrova terminal UI mockups</title>
+<style>
+  /* Page tokens: same semantic table as gui.html (see README "Colour tokens"). */
+  :root {
+    --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Noto Sans", Ubuntu, sans-serif;
+    --mono: "Atkinson Hyperlegible Mono", ui-monospace, "JetBrains Mono", "Ubuntu Mono", monospace;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --surface-0: #F0F2F5; --surface-1: #F7F8FA; --surface-2: #FFFFFF;
+    --text-primary: #15181D; --text-secondary: #3E4552; --text-muted: #5E6672;
+    --border: #E3E6EB; --control: #858C98;
+    --accent: #3346D3; --accent-soft: #EEF0FD; --focus: #3346D3;
+    --success: #1F7A4D; --success-soft: #E8F5EE;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-0: #101216; --surface-1: #15171C; --surface-2: #1C1E24;
+    --text-primary: #E4E6EA; --text-secondary: #B0B4BC; --text-muted: #8E939D;
+    --border: #2C2F35; --control: #6E747F;
+    --accent: #A4ADEB; --accent-soft: #262A45; --focus: #A4ADEB;
+    --success: #82C9A5; --success-soft: #1A2B23;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface-1); color: var(--text-primary); font: 15px/1.5 var(--font); }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+  .topbar { display: flex; align-items: center; gap: 16px; padding-block: 12px; padding-inline: 24px; border-block-end: 1px solid var(--border); }
+  .topbar h1 { font-size: 16px; margin: 0; }
+  .topbar .spacer { flex: 1; }
+  .btn { font: inherit; font-size: 13px; font-weight: 700; color: var(--text-primary); background: var(--surface-2); border: 1px solid var(--control); border-radius: 8px; padding-block: 5px; padding-inline: 12px; cursor: pointer; }
+  .btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 264px minmax(0, 1fr); min-block-size: calc(100vh - 56px); }
+  .index { border-inline-end: 1px solid var(--border); padding: 16px 12px; overflow-y: auto; max-block-size: calc(100vh - 56px); position: sticky; inset-block-start: 0; }
+  .index h2 { font-size: 12px; color: var(--text-muted); margin-block: 16px 4px; margin-inline: 8px; }
+  .index h2:first-child { margin-block-start: 0; }
+  .index ol { list-style: none; margin: 0; padding: 0; }
+  .index a { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; text-decoration: none; color: var(--text-primary); font-size: 13px; padding: 4px 8px; border-radius: 6px; }
+  .index a:hover { background: var(--surface-0); }
+  .index a[aria-current="page"] { background: var(--accent-soft); font-weight: 700; }
+  /* Phase badges live only in this dev index, never in the product UI. */
+  .badge { flex: none; font-size: 11px; font-weight: 700; line-height: 1.6; padding-inline: 6px; border-radius: 999px; white-space: nowrap; }
+  .badge.ready { color: var(--success); background: var(--success-soft); }
+  .badge.p4 { color: var(--accent); background: var(--accent-soft); }
+  .badge.p5 { color: var(--text-secondary); background: var(--surface-0); border: 1px solid var(--border); }
+
+  main { padding-block: 24px 40px; padding-inline: 32px; min-inline-size: 0; }
+  .screen-head { display: flex; align-items: center; gap: 12px; margin-block-end: 16px; }
+  .screen-head h2 { font-size: 22px; margin: 0; }
+  .screen-head .group { color: var(--text-muted); font-size: 14px; }
+
+  /* Terminal palettes. Dark is the default terminal: near-black neutral, ~90% white text,
+     desaturated accent/status colours (same hues as the GUI dark tokens). */
+  .term {
+    --t-bg: #15171C; --t-fg: #E4E6EA; --t-dim: #8E939D; --t-acc: #A4ADEB; --t-sens: #DDB76A; --t-err: #EC9C92; --t-ok: #82C9A5;
+    --t-sel: #262A45; --t-tile: #2A2D35; --t-hdr: #1C1E24; --t-pop: #23262D; --t-line: #4A4F59; --t-shadow: #0C0D10; --t-chrome: #1C1E24;
+    display: inline-block; max-inline-size: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #2C2F35; background: var(--t-bg);
+  }
+  .term.light {
+    --t-bg: #F7F8FA; --t-fg: #15181D; --t-dim: #5E6672; --t-acc: #3346D3; --t-sens: #8A5A00; --t-err: #B42318; --t-ok: #1F7A4D;
+    --t-sel: #E4E7FB; --t-tile: #DDE1E8; --t-hdr: #ECEEF2; --t-pop: #FFFFFF; --t-line: #A9B0BA; --t-shadow: #DCDFE5; --t-chrome: #E6E8EC;
+    border-color: #CDD2DA;
+  }
+  .term-bar { display: flex; align-items: center; gap: 7px; padding: 8px 12px; background: var(--t-chrome); color: var(--t-dim); font: 12px/1 var(--mono); }
+  .term-bar i { inline-size: 11px; block-size: 11px; border-radius: 50%; background: var(--t-line); display: inline-block; }
+  .term-bar span { margin-inline-start: 10px; }
+  .term-scroll { overflow-x: auto; }
+  pre.screen { margin: 0; padding: 6px 8px; font-family: var(--mono); font-size: clamp(9px, 1.02vw, 14px); line-height: 1.32; color: var(--t-fg); background: var(--t-bg); white-space: pre; inline-size: max-content; direction: ltr; }
+  pre.screen .g { display: inline-block; inline-size: 1ch; text-align: center; overflow: hidden; vertical-align: bottom; }
+  .t-dim { color: var(--t-dim); } .t-acc { color: var(--t-acc); } .t-sens { color: var(--t-sens); } .t-err { color: var(--t-err); } .t-ok { color: var(--t-ok); }
+  .t-line { color: var(--t-line); } .t-b { font-weight: 700; } .t-u { text-decoration: underline; } .t-key { color: var(--t-acc); font-weight: 700; }
+  .t-hdr { background: var(--t-hdr); } .t-pop { background: var(--t-pop); } .t-sel { background: var(--t-sel); }
+  .t-inv { background: var(--t-acc); color: var(--t-bg); font-weight: 700; }
+  .t-tile { background: var(--t-tile); color: var(--t-fg); font-weight: 700; }
+  .t-shadow { background: var(--t-shadow); }
+
+  .note { max-inline-size: 75ch; margin-block: 16px 0; color: var(--text-secondary); }
+  .pager { display: flex; gap: 10px; margin-block-start: 16px; align-items: center; }
+  .pager .hint { color: var(--text-muted); font-size: 13px; }
+  kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--control); border-block-end-width: 2px; border-radius: 4px; padding-inline: 5px; background: var(--surface-2); }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    .index { position: static; max-block-size: none; border-inline-end: 0; border-block-end: 1px solid var(--border); }
+    main { padding-inline: 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <h1>Carrova terminal UI</h1>
+  <a href="gui.html">Desktop app mockups</a>
+  <span class="spacer"></span>
+  <button class="btn" id="termPalette" aria-pressed="false">Light terminal</button>
+  <button class="btn" id="pageTheme" aria-pressed="false">Dark page</button>
+</header>
+<div class="layout">
+  <nav class="index" id="index" aria-label="Screen index"></nav>
+  <main>
+    <div class="screen-head">
+      <h2 id="screenTitle" tabindex="-1"></h2>
+      <span class="badge" id="screenBadge"></span>
+      <span class="group" id="screenGroup"></span>
+    </div>
+    <div class="term" id="term">
+      <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>carrova — 100×30</span></div>
+      <div class="term-scroll"><pre class="screen" id="screen" role="img" aria-label="Terminal screen"></pre></div>
+    </div>
+    <p class="note" id="screenNote"></p>
+    <div class="pager">
+      <button class="btn" id="prev">Previous screen</button>
+      <button class="btn" id="next">Next screen</button>
+      <span class="hint"><kbd>←</kbd> <kbd>→</kbd> also step through screens</span>
+    </div>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- Cell buffer renderer ---------- */
+
+const W = 100;
+const H = 30;
+const SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
+
+class Buf {
+  constructor() {
+    this.bg = "";
+    this.cells = [];
+    for (let y = 0; y < H; y++) {
+      this.cells.push(Array.from({ length: W }, () => [" ", ""]));
+    }
+  }
+  cls(c) {
+    return [c, this.bg].filter(Boolean).join(" ");
+  }
+  put(x, y, s, c = "", max = Infinity) {
+    if (y < 0 || y >= H) return x;
+    const chars = [...s];
+    const n = Math.min(chars.length, max);
+    const k = this.cls(c);
+    for (let i = 0; i < n; i++) {
+      const xx = x + i;
+      if (xx >= 0 && xx < W) this.cells[y][xx] = [chars[i], k];
+    }
+    return x + n;
+  }
+  putR(xEnd, y, s, c = "") {
+    return this.put(xEnd - [...s].length, y, s, c);
+  }
+  center(y, s, c = "", x0 = 0, w = W) {
+    return this.put(x0 + Math.floor((w - [...s].length) / 2), y, s, c);
+  }
+  clear(x, y, w, h, c = "") {
+    for (let j = y; j < y + h; j++) this.put(x, j, " ".repeat(w), c);
+  }
+  addClass(x, y, w, h, c) {
+    for (let j = y; j < Math.min(y + h, H); j++) {
+      for (let i = x; i < Math.min(x + w, W); i++) {
+        const cell = this.cells[j][i];
+        cell[1] = [cell[1], c].filter(Boolean).join(" ");
+      }
+    }
+  }
+  box(x, y, w, h, title = "", o = {}) {
+    const set = o.double ? "╔╗╚╝═║" : o.rounded ? "╭╮╰╯─│" : "┌┐└┘─│";
+    const c = o.cls || "line";
+    if (o.fill !== undefined) this.clear(x + 1, y + 1, w - 2, h - 2, o.fill);
+    this.put(x, y, set[0] + set[4].repeat(w - 2) + set[1], c);
+    this.put(x, y + h - 1, set[2] + set[4].repeat(w - 2) + set[3], c);
+    for (let j = y + 1; j < y + h - 1; j++) {
+      this.put(x, j, set[5], c);
+      this.put(x + w - 1, j, set[5], c);
+    }
+    if (title) this.put(x + 2, y, " " + title + " ", o.tcls || "b");
+  }
+  bar(x, y, w, frac, c = "acc") {
+    const n = Math.round(w * Math.max(0, Math.min(1, frac)));
+    this.put(x, y, "█".repeat(n), c);
+    this.put(x + n, y, "░".repeat(w - n), "line");
+  }
+  wrap(x, y, w, text, c = "") {
+    let line = "";
+    for (const word of text.split(" ")) {
+      if (line && (line + " " + word).length > w) {
+        this.put(x, y++, line, c);
+        line = word;
+      } else {
+        line = line ? line + " " + word : word;
+      }
+    }
+    if (line) this.put(x, y++, line, c);
+    return y;
+  }
+  toHTML() {
+    return this.cells.map(rowHTML).join("\n");
+  }
+}
+
+function esc(ch) {
+  return ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch === "&" ? "&amp;" : ch;
+}
+
+function glyph(ch) {
+  const cp = ch.codePointAt(0);
+  const boxDrawing = cp >= 0x2500 && cp <= 0x259f;
+  return cp >= 0x2000 && !boxDrawing ? `<span class="g">${ch}</span>` : esc(ch);
+}
+
+function rowHTML(row) {
+  let out = "";
+  let i = 0;
+  while (i < row.length) {
+    const c = row[i][1];
+    let text = "";
+    while (i < row.length && row[i][1] === c) text += glyph(row[i++][0]);
+    out += c ? `<span class="${c.split(" ").map((t) => "t-" + t).join(" ")}">${text}</span>` : text;
+  }
+  return out;
+}
+
+/* ---------- Shared chrome ---------- */
+
+function hdr(b, area, ctx, right = "") {
+  b.clear(0, 0, W, 1, "hdr");
+  let x = b.put(1, 0, "carrova", "hdr b acc");
+  x = b.put(x + 1, 0, "0.1.0", "hdr dim");
+  x = b.put(x, 0, "  │  ", "hdr line");
+  x = b.put(x, 0, area, "hdr b");
+  if (ctx) {
+    x = b.put(x, 0, "  │  ", "hdr line");
+    b.put(x, 0, ctx, "hdr");
+  }
+  if (right) b.putR(99, 0, right, "hdr dim");
+}
+
+function foot(b, keys) {
+  b.clear(0, H - 1, W, 1, "hdr");
+  let x = 1;
+  for (const [k, label] of keys) {
+    x = b.put(x, H - 1, k, "hdr key");
+    x = b.put(x, H - 1, " " + label + "   ", "hdr dim");
+  }
+}
+
+function popup(b, w, h, title, tone = "acc") {
+  const x = Math.floor((W - w) / 2);
+  const y = Math.floor((H - h) / 2);
+  b.addClass(x + 2, y + h, w, 1, "shadow");
+  b.addClass(x + w, y + 1, 2, h, "shadow");
+  b.bg = "pop";
+  b.clear(x, y, w, h);
+  b.box(x, y, w, h, title, { double: true, cls: tone, tcls: "b " + tone });
+  return { x: x + 3, y: y + 2, w: w - 6 };
+}
+
+function endPopup(b) {
+  b.bg = "";
+}
+
+function spin(b, x, y) {
+  b.put(x, y, SPIN[2], "acc spin");
+}
+
+function kv(b, x, y, k, v, vc = "", kw = 16) {
+  b.put(x, y, k, "dim");
+  return b.put(x + kw, y, v, vc);
+}
+
+function check(b, x, y, text, c = "") {
+  b.put(x, y, "✓", "ok");
+  return b.put(x + 2, y, text, c);
+}
+
+function choice(b, x, y, key, label, c = "") {
+  let xx = b.put(x, y, "[" + key + "]", "key");
+  return b.put(xx + 1, y, label, c);
+}
+
+/* ---------- Data (same session as gui.html) ---------- */
+
+const SENDER = "ezio-desktop";
+const RECEIVER = "ezio-thinkpad-new";
+const APPS = [
+  ["Git", "name, email, aliases", "4 KB"],
+  ["SSH", "server list and shortcuts", "14 KB"],
+  ["GnuPG", "public keys and trust", "96 KB"],
+  ["Bash and Zsh", "history, aliases, prompt", "2.3 MB"],
+  ["VS Code", "settings, keybindings, snippets", "1.2 GB"],
+];
+const ASKS = [
+  ["Your SSH keys", "Log you in to servers and GitHub. Anyone with a copy can, too."],
+  ["Your GnuPG secret keys", "Sign your commits and open mail sent to you."],
+  ["Shell startup files", "Run every time you open a terminal. Bring if you checked them."],
+];
+
+/* ---------- Layout kit: one focus per screen ---------- */
+
+const X0 = 8;   // wizard column start
+const CW = 84;  // wizard column width
+
+/* Header: product name, where you are, steps as dots (wizard) or a quiet tab bar (hub). */
+function wizard(b, flow, step, total, right = "") {
+  hdr(b, flow, "", right);
+  let x = 99 - (right ? right.length + 3 : 0) - total * 2;
+  for (let i = 1; i <= total; i++) x = b.put(x, 0, i < step ? "● " : i === step ? "◉ " : "○ ", i <= step ? "hdr acc" : "hdr dim");
+}
+function hub(b, tab) {
+  b.clear(0, 0, W, 1, "hdr");
+  let x = b.put(1, 0, "carrova", "hdr b acc") + 3;
+  for (const t of ["Home", "History", "Apps", "Settings"]) {
+    x = b.put(x, 0, t === tab ? ` ${t} ` : ` ${t} `, t === tab ? "hdr b u" : "hdr dim") + 1;
+  }
+}
+function title(b, y, text, sub = "") {
+  b.put(X0, y, text, "b");
+  return sub ? b.wrap(X0, y + 1, CW, sub, "dim") + 1 : y + 2;
+}
+function primary(b, x, y, label) { return b.put(x, y, ` ${label} `, "inv"); }
+function secondary(b, x, y, label) { return b.put(x, y, `‹ ${label} ›`, "acc"); }
+function actions(b, y, left, right) {
+  if (left) secondary(b, X0, y, left);
+  if (right) primary(b, X0 + CW - right.length - 2, y, right);
+}
+function rule(b, y) { b.put(X0, y, "─".repeat(CW), "line"); }
+function lock(b, y, text, x = X0) { b.put(x, y, "✓", "ok"); b.put(x + 2, y, text, "ok"); }
+function banner(b, y, tone, head, body = "") {
+  const c = { sens: "sens", err: "err", acc: "acc", ok: "ok" }[tone];
+  b.put(X0, y, "▌", c);
+  b.put(X0 + 2, y, head, "b " + c);
+  if (body) return b.wrap(X0 + 2, y + 1, CW - 2, body, "dim") + 1;
+  return y + 2;
+}
+function appRow(b, y, [name, what, size], on = true, sel = false) {
+  if (sel) { b.clear(X0 - 1, y, CW + 2, 1, "sel"); b.bg = "sel"; }
+  b.put(X0, y, on ? "[✓]" : "[ ]", on ? "acc" : "dim");
+  b.put(X0 + 4, y, name, "b");
+  b.put(X0 + 20, y, what, "dim");
+  b.putR(X0 + CW, y, size, "dim");
+  b.bg = "";
+}
+function ask(b, y, [name, why], value, sel = false) {
+  if (sel) { b.clear(X0 - 1, y, CW + 2, 2, "sel"); b.bg = "sel"; }
+  b.put(X0, y, "◆", "sens");
+  b.put(X0 + 2, y, name, "b");
+  const opts = ["Leave behind", "Bring them"];
+  let x = X0 + CW - 29;
+  for (const o of opts) {
+    x = b.put(x, y, o === value ? `(•) ${o}` : `( ) ${o}`, o === value ? "acc b" : "dim") + 2;
+  }
+  b.put(X0 + 2, y + 1, why, "dim", CW - 2);
+  b.bg = "";
+}
+/* The code: each character a tile, three rows tall, readable across a room. */
+function bigCode(b, y, words, x0) {
+  const chars = words.join("-");
+  const width = [...chars].reduce((n, c) => n + (c === "-" ? 3 : 4), -1);
+  let x = x0 ?? Math.floor((W - width) / 2);
+  for (const c of chars) {
+    if (c === "-") { b.put(x + 1, y + 1, "─", "dim"); x += 3; continue; }
+    const cls = /\d/.test(c) ? "inv" : "tile";
+    b.put(x, y, "   ", cls); b.put(x, y + 1, ` ${c} `, cls); b.put(x, y + 2, "   ", cls);
+    x += 4;
+  }
+}
+function chipRow(b, y, [name, , size], state, extra = "") {
+  const mark = { done: ["✓", "ok"], moving: [SPIN[2], "acc spin"], wait: ["·", "dim"], fail: ["✗", "err"] }[state];
+  b.put(X0, y, mark[0], mark[1]);
+  b.put(X0 + 2, y, name, state === "wait" ? "dim" : "b");
+  b.put(X0 + 20, y, size, "dim");
+  b.putR(X0 + CW, y, extra || { done: "arrived", moving: "moving", wait: "waiting", fail: "failed" }[state], mark[1].replace(" spin", ""));
+}
+
+/* ---------- Screens ---------- */
+
+const READY = "ready";
+const P4 = "p4";
+const P5 = "p5";
+
+const SCREENS = [];
+function screen(id, group, title, phase, note, draw) {
+  SCREENS.push({ id, group, title, phase, note, draw });
+}
+
+/* Start */
+
+screen("welcome", "Start", "Welcome (first run)", P4,
+  "One screen instead of three: what Carrova does, three promises, and error-report consent (off, asked once).",
+  (b) => {
+    hdr(b, "Welcome");
+    let y = title(b, 3, "Bring your setup to a new computer.", "Settings, keys and data for the apps you use. You choose what moves; the apps themselves get reinstalled.");
+    for (const [h, s] of [["Straight between your computers.", "No account, no cloud, encrypted on the way."], ["Nothing changes until you approve.", "You see exactly what will change first."], ["Every move can be undone.", "Replaced files are backed up. Undo for 30 days."]]) {
+      check(b, X0, y, h, "b"); b.put(X0 + 2, y + 1, s, "dim"); y += 3;
+    }
+    b.put(X0, y + 1, "[ ] Send error reports if Carrova crashes", ""); b.put(X0 + 4, y + 2, "No file names, contents or keys.", "dim");
+    actions(b, 27, "", "Get started");
+    foot(b, [["enter", "get started"], ["space", "toggle reports"], ["q", "quit"]]);
+  });
+
+screen("home", "Start", "Home", READY,
+  "Two verbs. The file route is a quiet third key. The last move sits on one line with its undo key.",
+  (b) => {
+    hub(b, "Home");
+    b.center(5, "What are we doing on this computer?", "b");
+    b.box(18, 8, 30, 7, "", { rounded: true, cls: "acc" });
+    b.box(52, 8, 30, 7, "", { rounded: true, cls: "line" });
+    b.put(21, 10, "↑  Send", "b acc"); b.put(24, 12, "This is the old computer", "dim");
+    b.put(55, 10, "↓  Receive", "b"); b.put(58, 12, "This is the new computer", "dim");
+    b.center(17, "f  use an encrypted file instead", "dim");
+    b.center(22, `↺ Received from ${SENDER} yesterday, 5 apps.   u undo`, "dim");
+    foot(b, [["←→", "choose"], ["enter", "start"], ["f", "file"], ["h", "history"], ["a", "apps"], ["s", "settings"], ["q", "quit"]]);
+  });
+
+/* Send */
+
+screen("send-found", "Send", "Here's what we found", READY,
+  "Was scan + selection tree + sensitive confirm. Now one summary: app rows with sizes, and the three risky items asked once in plain words, defaulting to leave behind. 'c' drills into the full tree.",
+  (b) => {
+    wizard(b, "Send", 1, 4, SENDER);
+    let y = title(b, 2, "Here's what we found", "5 apps, 412 files, 1.2 GB. We ticked what most people bring.");
+    APPS.forEach((a, i) => appRow(b, y + i, a, true, i === 0));
+    y += APPS.length + 1;
+    b.put(X0, y, "Needs your OK", "b"); b.putR(X0 + CW, y, "off unless you say so", "sens");
+    y += 1;
+    ASKS.forEach((a, i) => ask(b, y + i * 2, a, "Leave behind"));
+    actions(b, 27, "c Customize", "Get pairing code");
+    foot(b, [["↑↓", "move"], ["space", "toggle"], ["←→", "answer"], ["c", "customize"], ["enter", "get code"], ["esc", "back"]]);
+  });
+
+screen("customize", "Send", "‹Customize› drill-in", READY,
+  "The detailed tree is one drill-in away, not the main path: single files, flags, sizes. Unmovable items stay visible with a reason; including them asks first.",
+  (b) => {
+    wizard(b, "Send › Customize", 1, 4, SENDER);
+    b.put(X0, 2, "Customize what moves", "b"); b.putR(X0 + CW, 2, "/ filter", "dim");
+    const rows = [
+      [0, "[~]", "SSH", "", "14 KB", ""], [1, "[✓]", "Server list and shortcuts", "~/.ssh/config", "6 KB", "suggested"],
+      [1, "[✓]", "Known servers", "~/.ssh/known_hosts", "8 KB", "suggested"], [1, "[ ]", "SSH keys", "4 files", "9 KB", "sensitive"],
+      [1, "[ ]", "Keys allowed to log in here", "~/.ssh/authorized_keys", "1 KB", "sensitive"], [0, "[✓]", "Git", "", "4 KB", ""],
+      [1, "[ ]", "Saved passwords and tokens", "~/.git-credentials", "1 KB", "sensitive"], [0, "[~]", "VS Code", "", "1.2 GB", ""],
+      [1, "[✓]", "Settings and keybindings", "Code/User", "212 KB", "suggested"], [1, " ✗ ", "Extensions", "built for this system", "640 MB", "can't move · x include anyway"],
+      [1, "[ ]", "Cache", "cache/Code", "380 MB", ""], [0, "[ ]", "Folders Carrova doesn't recognise", "3 over 10 MB", "127 MB", "enter to browse"],
+      [0, "[ ]", "Include caches and logs", "usually rebuilt", "412 MB", ""],
+    ];
+    rows.forEach(([d, c, n, sub, size, flag], i) => {
+      const y = 4 + i;
+      if (i === 3) { b.clear(X0 - 1, y, CW + 2, 1, "sel"); b.bg = "sel"; }
+      const x = X0 + d * 3;
+      if (d === 0) b.put(x - 2, y, "▾", "dim");
+      b.put(x, y, c, c.includes("✓") || c.includes("~") ? "acc" : "dim");
+      b.put(x + 4, y, n, d === 0 ? "b" : flag.startsWith("can't") ? "dim" : "");
+      if (sub) b.put(X0 + 38, y, sub, "dim", 22);
+      b.putR(X0 + CW - 24, y, size, "dim");
+      if (flag) b.put(X0 + CW - 22, y, flag, flag === "sensitive" ? "sens" : "dim", 22);
+      b.bg = "";
+    });
+    actions(b, 27, "r reset to suggestions", "Done");
+    b.put(X0 + 30, 27, "398 of 418 files, 1.2 GB", "dim");
+    foot(b, [["↑↓", "move"], ["space", "tick"], ["→←", "open/close"], ["/", "filter"], ["r", "reset"], ["esc", "back to summary"]]);
+  });
+
+screen("send-code", "Send", "Pairing code", READY,
+  "The code is the one big thing: tiles readable across a room. The fallback address sits one key away.",
+  (b) => {
+    wizard(b, "Send", 2, 4, SENDER);
+    b.center(4, "On the new computer, choose Receive and type", "b");
+    bigCode(b, 7, ["7", "zebra", "lemon"]);
+    spin(b, 33, 12); b.put(35, 12, `Waiting for ${RECEIVER}…`, "");
+    b.center(14, "✓ Encrypted. The code never travels over the network.", "ok");
+    b.center(18, "a  can't connect? show the address", "dim");
+    actions(b, 27, "esc Back", "");
+    b.putR(X0 + CW, 27, "n  show a new code", "acc");
+    foot(b, [["a", "address"], ["n", "new code"], ["y", "copy code"], ["esc", "back"]]);
+  });
+
+screen("send-code-addr", "Send", "Pairing code: can't connect", READY,
+  "Discovery blocked: the address appears under the code, ready to copy.",
+  (b) => {
+    wizard(b, "Send", 2, 4, SENDER);
+    b.center(4, "On the new computer, choose Receive and type", "b");
+    bigCode(b, 7, ["7", "zebra", "lemon"]);
+    let y = banner(b, 13, "acc", "The other computer can't find this one", "Some networks block discovery. Type this address on the other computer instead.");
+    b.box(X0, y, CW, 3, "", { rounded: true, cls: "line" });
+    b.put(X0 + 2, y + 1, "7-zebra-lemon@192.168.1.20:47822", "b"); b.putR(X0 + CW - 2, y + 1, "y copy", "acc");
+    actions(b, 27, "esc Back", "");
+    foot(b, [["y", "copy address"], ["n", "new code"], ["esc", "back"]]);
+  });
+
+screen("send-code-new", "Send", "Pairing code: wrong code tried", READY,
+  "One guess per code: after a wrong attempt the code is burned and a new one shows, with one sentence of why.",
+  (b) => {
+    wizard(b, "Send", 2, 4, SENDER);
+    banner(b, 3, "sens", "A wrong code was typed, so here's a new one", "Each code works once. If it wasn't you, someone nearby may be guessing.");
+    bigCode(b, 8, ["7", "acorn", "maple"]);
+    spin(b, 33, 13); b.put(35, 13, `Waiting for ${RECEIVER}…`, "");
+    actions(b, 27, "esc Back", "");
+    foot(b, [["a", "address"], ["n", "new code"], ["esc", "back"]]);
+  });
+
+screen("send-code-locked", "Send", "Pairing stopped (3 wrong codes)", READY,
+  "Error state: what happened, why, one recovery.",
+  (b) => {
+    wizard(b, "Send", 2, 4, SENDER);
+    b.center(8, "✗", "err b");
+    b.center(10, "Pairing stopped", "b");
+    b.center(12, "Three wrong codes in a row were tried. That can be a typo,", "dim");
+    b.center(13, "or someone else on this network guessing. Carrova stopped to be safe.", "dim");
+    b.put(42, 16, " Start again ", "inv");
+    foot(b, [["enter", "start again"], ["esc", "home"]]);
+  });
+
+screen("send-live", "Send", "Connected, they're reviewing", READY,
+  "Was two screens. The handshake lands, then this becomes progress when they approve.",
+  (b) => {
+    wizard(b, "Send", 3, 4, SENDER);
+    title(b, 2, `Connected to ${RECEIVER}`, "They're looking over what will change. Keep Carrova open.");
+    b.put(22, 7, "▣ " + SENDER, ""); b.put(42, 7, "━━━━ ✓ ━━━━", "ok"); b.put(60, 7, "▣ " + RECEIVER, "");
+    spin(b, X0, 10); b.put(X0 + 2, 10, "Waiting for their approval…");
+    banner(b, 13, "acc", "3 of their files will be replaced", "They're backed up first on that computer, so the move can be undone.");
+    actions(b, 27, "x Cancel", "");
+    foot(b, [["x", "cancel"]]);
+  });
+
+function progress(b, step, flow, heading, sub, frac, states, meta, lockText, keys) {
+  wizard(b, flow, step, 4, flow === "Send" ? SENDER : RECEIVER);
+  let y = title(b, 2, heading, sub);
+  b.bar(X0, y, CW, frac, frac < 1 && states.includes("wait") && heading.startsWith("Paused") ? "dim" : "acc");
+  b.put(X0, y + 1, meta[0], "dim"); b.putR(X0 + CW, y + 1, meta[1], "dim");
+  y += 3;
+  APPS.forEach((a, i) => chipRow(b, y + i, a, states[i], states[i] === "moving" && i === 4 ? meta[0] : ""));
+  lock(b, y + 6, lockText);
+  foot(b, keys);
+}
+
+screen("send-progress", "Send", "Sending", READY,
+  "Small configs first (the engine's real order), so four apps tick off within seconds.",
+  (b) => {
+    progress(b, 3, "Send", "Moving your setup", "Small settings go first, so most apps are done in seconds.", .52,
+      ["done", "done", "done", "done", "moving"], ["612 MB of 1.2 GB", "about a minute left"], `Encrypted. Only ${RECEIVER} can read this.`,
+      [["p", "pause"], ["x", "cancel"]]);
+    actions(b, 27, "x Cancel", "");
+  });
+
+screen("send-done", "Send", "Delivered", READY,
+  "The completion moment, in terminal terms: a stamp box. Nothing was removed from this computer.",
+  (b) => {
+    wizard(b, "Send", 4, 4, SENDER);
+    b.box(38, 4, 24, 5, "", { double: true, cls: "ok" });
+    b.center(5, "DELIVERED", "ok b"); b.center(7, "5 apps, 1.2 GB", "ok");
+    b.center(11, "Your setup is on the new computer.", "b");
+    b.center(12, `${RECEIVER} approved and put everything in place.`, "dim");
+    b.center(13, "Nothing was removed from this computer.", "dim");
+    actions(b, 27, "d Details", "Done");
+    foot(b, [["enter", "done"], ["d", "details"]]);
+  });
+
+/* Receive */
+
+screen("recv-code", "Receive", "Type the code", READY,
+  "Words autocomplete after three letters (dim suffix); Tab accepts. The code is case- and separator-tolerant.",
+  (b) => {
+    wizard(b, "Receive", 1, 4, RECEIVER);
+    title(b, 2, "Type the code from the other computer");
+    b.box(X0, 5, 50, 3, "Pairing code", { rounded: true, cls: "acc", tcls: "acc" });
+    b.put(X0 + 2, 6, "7-zebra-lem", "b"); b.put(X0 + 13, 6, "on", "dim"); b.put(X0 + 13, 6, "o", "dim u");
+    b.put(X0, 9, "Like 7-zebra-lemon. Words finish themselves: press tab.", "dim");
+    actions(b, 27, "esc Back", "Connect");
+    foot(b, [["tab", "complete word"], ["enter", "connect"], ["a", "use an address"], ["esc", "back"]]);
+  });
+
+screen("recv-connecting", "Receive", "Connecting (handshake)", READY,
+  "The handshake moment: two computers, a line, the lock clicks in when both sides prove the code.",
+  (b) => {
+    wizard(b, "Receive", 1, 4, RECEIVER);
+    title(b, 2, "Connecting…", "Both computers are checking the code. It's never sent over the network.");
+    b.put(22, 8, "▣ " + SENDER, ""); b.put(42, 8, "─ ─ ● ─ ─ ─", "acc"); b.put(60, 8, "▣ " + RECEIVER, "");
+    spin(b, X0, 11); b.put(X0 + 2, 11, `Found ${SENDER}. Checking the code…`);
+    foot(b, [["esc", "cancel"]]);
+  });
+
+screen("recv-not-found", "Receive", "Other computer not found", READY,
+  "One recovery: type the address shown on the sender.",
+  (b) => {
+    wizard(b, "Receive", 1, 4, RECEIVER);
+    title(b, 2, "Type the code from the other computer");
+    let y = banner(b, 4, "acc", "Couldn't find code 7 on this network", "Check both computers are on the same Wi-Fi. Or type the address shown under 'can't connect?' on the other computer.");
+    b.box(X0, y, 50, 3, "Address", { rounded: true, cls: "acc", tcls: "acc" });
+    b.put(X0 + 2, y + 1, "7-zebra-lemon@192.168.1.20:47822", "b");
+    actions(b, 27, "esc Back", "Connect with address");
+    foot(b, [["enter", "connect"], ["esc", "back"]]);
+  });
+
+screen("recv-mismatch", "Receive", "Code didn't match", READY,
+  "Truthful copy: the sender burned the code and shows a new one.",
+  (b) => {
+    wizard(b, "Receive", 1, 4, RECEIVER);
+    title(b, 2, "Type the code from the other computer");
+    banner(b, 4, "err", "That code didn't match", `For safety, ${SENDER} made a new code. Type the new one shown on its screen.`);
+    b.box(X0, 8, 50, 3, "Pairing code", { rounded: true, cls: "acc", tcls: "acc" });
+    b.put(X0 + 2, 9, "█", "acc");
+    actions(b, 27, "esc Back", "Connect");
+    foot(b, [["enter", "connect"], ["esc", "back"]]);
+  });
+
+screen("recv-review", "Receive", "Here's what will change", READY,
+  "Approval gate: three numbers, then the decisions. Approve stays disabled until each has an answer. 'd' drills into every file and its rule.",
+  (b) => {
+    wizard(b, "Receive", 2, 4, RECEIVER);
+    let y = title(b, 2, "Here's what will change", "Nothing changes on this computer until you approve. You can undo for 30 days.");
+    b.put(X0, y, "412", "b"); b.put(X0 + 4, y, "files added", "dim");
+    b.put(X0 + 20, y, "3", "b"); b.put(X0 + 22, y, "replaced, backed up first", "dim");
+    b.put(X0 + 52, y, "28", "b"); b.put(X0 + 55, y, "already the same", "dim");
+    y += 2;
+    b.put(X0, y, "Your decisions", "b"); b.putR(X0 + CW, y, "2 to answer", "sens");
+    y += 1;
+    ask(b, y, ASKS[0], "Bring them");
+    ask(b, y + 2, ASKS[1], "", true);
+    b.put(X0, y + 4, "⚠", "sens"); b.put(X0 + 2, y + 4, "VS Code is open", "b");
+    b.put(X0 + CW - 29, y + 4, "( ) Skip VS Code  ( ) I closed it", "dim");
+    b.put(X0 + 2, y + 5, "Close it so its settings can be replaced.  o apply while open…", "dim");
+    y += 7;
+    b.put(X0, y, "Space", "dim"); b.put(X0 + 8, y, "needs 1.2 GB, 112 GB free", ""); b.put(X0 + 36, y, "✓ enough", "ok");
+    b.put(X0, y + 1, "d", "key"); b.put(X0 + 2, y + 1, "see every change", "acc");
+    secondary(b, X0, 27, "x Cancel, change nothing");
+    b.put(X0 + 40, 27, "answer 2 to continue", "dim");
+    b.put(X0 + CW - 18, 27, " Approve and move ", "dim u");
+    foot(b, [["↑↓", "move"], ["←→", "answer"], ["d", "every change"], ["enter", "approve"], ["x", "cancel"]]);
+  });
+
+screen("recv-details", "Receive", "‹Every change› drill-in", READY,
+  "Per-app and per-file rules. The suggested rule is labelled, never silent. Remap ('somewhere else') asks first.",
+  (b) => {
+    wizard(b, "Receive › Every change", 2, 4, RECEIVER);
+    b.put(X0, 2, "Every change", "b"); b.putR(X0 + CW, 2, "suggested rule: back up and replace", "dim");
+    const rows = [
+      ["SSH", "", "replace (suggested)", "b"], ["  ~/.ssh/config", "exists here", "back up, replace", ""], ["  2 new files", "", "add", "dim"],
+      ["Git", "", "replace (suggested)", "b"], ["  ~/.gitconfig", "exists here", "back up, replace", ""],
+      ["VS Code", "", "replace (suggested)", "b"], ["  Code/User/settings.json", "exists here", "keep both", "acc"], ["  386 new files", "", "add", "dim"],
+    ];
+    rows.forEach(([n, s, r, c], i) => {
+      const y = 4 + i;
+      if (i === 6) { b.clear(X0 - 1, y, CW + 2, 1, "sel"); b.bg = "sel"; }
+      b.put(X0, y, n, c === "b" ? "b" : ""); b.put(X0 + 40, y, s, "dim"); b.putR(X0 + CW, y, r, c === "acc" ? "acc" : c === "dim" ? "dim" : "");
+      b.bg = "";
+    });
+    b.put(X0, 14, "Rule for this file:", "dim"); b.put(X0 + 20, 14, "( ) Replace  (•) Keep both  ( ) Skip", "acc");
+    b.put(X0, 16, "e", "key"); b.put(X0 + 2, 16, "put somewhere else…", "acc");
+    actions(b, 27, "", "Done");
+    foot(b, [["↑↓", "move"], ["←→", "rule"], ["e", "somewhere else"], ["esc", "back to summary"]]);
+  });
+
+screen("override", "Receive", "Override warning", READY,
+  "Every override uses one popup: consequence, what stays safe, and a button naming the exact risk. The safe choice has focus.",
+  (b) => {
+    wizard(b, "Receive", 2, 4, RECEIVER);
+    b.put(X0, 2, "Here's what will change", "dim");
+    const p = popup(b, 64, 13, "Apply while VS Code is open?", "sens");
+    let y = b.wrap(p.x, p.y, p.w, "VS Code saves its state when it closes. If it's open while Carrova replaces that state, it will likely write over it.", "");
+    y = b.wrap(p.x, y + 1, p.w, "Your other apps aren't affected, and Undo still works.", "dim");
+    b.put(p.x, p.y + 8, " Keep it safe ", "inv"); b.put(p.x + p.w - 23, p.y + 8, "‹ Apply while it's open ›", "err");
+    endPopup(b);
+    foot(b, [["enter", "keep it safe"], ["!", "apply anyway"], ["esc", "back"]]);
+  });
+
+screen("recv-progress", "Receive", "Moving", READY,
+  "Transfer and apply are one screen. Every piece is checked as it arrives.",
+  (b) => {
+    progress(b, 3, "Receive", "Moving your setup", "Small settings go first, so most apps are done in seconds.", .52,
+      ["done", "done", "done", "done", "moving"], ["612 MB of 1.2 GB", "about a minute left"], "Encrypted. Each piece is checked as it arrives.",
+      [["p", "pause"], ["x", "cancel"]]);
+    actions(b, 27, "x Cancel", "");
+  });
+
+screen("recv-paused", "Receive", "Paused: disk full", READY,
+  "Kept what arrived; resumes on its own. The space override is one key, behind a warning.",
+  (b) => {
+    progress(b, 3, "Receive", "Paused: this disk is full", "Carrova kept everything that arrived. Free up 400 MB and it picks up where it stopped.", .52,
+      ["done", "done", "done", "done", "wait"], ["612 MB of 1.2 GB", "checking every 5 s"], "Nothing was lost.",
+      [["i", "ignore space check…"], ["x", "cancel"]]);
+    actions(b, 27, "i Ignore the space check", "");
+  });
+
+screen("recv-reconnecting", "Receive", "Reconnecting", READY,
+  "Survives sleep, Wi-Fi drops and restarts; re-pulls only what's missing.",
+  (b) => {
+    progress(b, 3, "Receive", "Lost the connection", "Trying again. It'll pick up where it left off, even after sleep or a restart.", .52,
+      ["done", "done", "done", "done", "wait"], ["612 MB of 1.2 GB", "retrying for up to 10 min"], "Resume is encrypted the same way.",
+      [["x", "cancel"]]);
+  });
+
+screen("recv-failed", "Receive", "Failed, undone automatically", READY,
+  "The worst case reads calmly: nothing changed, why, one retry.",
+  (b) => {
+    wizard(b, "Receive", 3, 4, RECEIVER);
+    b.center(7, "↺", "err b");
+    b.center(9, "Something went wrong, so nothing changed", "b");
+    b.center(11, "Carrova couldn't write VS Code's settings (permission denied) and put", "dim");
+    b.center(12, "every file back the way it was. What arrived is kept, so retrying is quick.", "dim");
+    b.put(44, 15, " Try again ", "inv");
+    b.center(17, "l  see what happened", "acc");
+    foot(b, [["enter", "try again"], ["l", "log"], ["esc", "home"]]);
+  });
+
+screen("recv-done", "Receive", "Arrived", READY,
+  "Stamp, then what's left for you. Undo is a key on this screen, never buried.",
+  (b) => {
+    wizard(b, "Receive", 4, 4, RECEIVER);
+    b.box(38, 2, 24, 5, "", { double: true, cls: "ok" });
+    b.center(3, "ARRIVED", "ok b"); b.center(5, "5 apps, 1.2 GB", "ok");
+    b.center(8, "Everything arrived.", "b");
+    b.center(9, `From ${SENDER}. 3 replaced files were backed up.`, "dim");
+    b.put(X0, 12, "Left for you", "b");
+    const left = [["Reinstall 12 VS Code extensions", "y copy command"], ["Open a new terminal so your shell settings load", ""], ["Sign in to GitHub CLI (tokens stayed behind)", ""]];
+    left.forEach(([t, k], i) => { b.put(X0, 13 + i, "[ ]", "dim"); b.put(X0 + 4, 13 + i, t); if (k) b.putR(X0 + CW, 13 + i, k, "acc"); });
+    actions(b, 27, "u Undo this move", "Done");
+    foot(b, [["space", "tick"], ["y", "copy"], ["u", "undo"], ["enter", "done"]]);
+  });
+
+screen("undo-confirm", "Receive", "Undo preview", READY,
+  "Undo is a plan you preview: restored, removed, moved aside. Nothing is deleted.",
+  (b) => {
+    wizard(b, "Receive", 4, 4, RECEIVER);
+    const p = popup(b, 60, 13, "Undo this move?", "acc");
+    b.put(p.x, p.y, "This computer goes back to yesterday, 14:02.");
+    b.put(p.x, p.y + 2, "3", "b"); b.put(p.x + 4, p.y + 2, "files restored from the backup");
+    b.put(p.x, p.y + 3, "412", "b"); b.put(p.x + 4, p.y + 3, "files removed (the ones this move added)");
+    b.put(p.x, p.y + 4, "1", "b"); b.put(p.x + 4, p.y + 4, "file moved aside (you changed it after)", "");
+    b.put(p.x, p.y + 7, "‹ Keep everything ›", "acc"); b.put(p.x + p.w - 15, p.y + 7, " Undo the move ", "inv");
+    endPopup(b);
+    foot(b, [["enter", "undo"], ["esc", "keep everything"]]);
+  });
+
+/* Encrypted file */
+
+screen("file-save", "Encrypted file", "Save: passphrase", READY,
+  "Same summary as sending, then this. Lock strength is behind 'Advanced' and can't go below the safe floor.",
+  (b) => {
+    wizard(b, "Save to a file", 2, 3);
+    title(b, 2, "Lock the file with a passphrase", "You'll type it on the other computer. Carrova can't recover it if it's lost.");
+    b.box(X0, 6, 50, 3, "Passphrase", { rounded: true, cls: "acc", tcls: "acc" }); b.put(X0 + 2, 7, "••••••••••••••••••••", "b");
+    b.put(X0, 9, "████████████", "ok"); b.put(X0 + 13, 9, "Strong. Four words or more is great.", "dim");
+    b.box(X0, 11, 50, 3, "Type it again", { rounded: true, cls: "line" });
+    b.put(X0, 15, "▸ Advanced", "acc"); b.put(X0 + 12, 15, "lock strength: standard", "dim");
+    actions(b, 27, "esc Back", "Save file");
+    foot(b, [["tab", "next field"], ["a", "advanced"], ["enter", "save"], ["esc", "back"]]);
+  });
+
+screen("file-open", "Encrypted file", "Open a file", READY,
+  "File and passphrase on one screen; then the same review, progress and done as receiving.",
+  (b) => {
+    wizard(b, "Open a file", 1, 4);
+    title(b, 2, "Open your Carrova file");
+    b.put(X0, 4, "▤", "acc"); b.put(X0 + 2, 4, "carrova-ezio-desktop-2026-11-08.carrova", "b"); b.putR(X0 + CW, 4, "1.2 GB, saved today", "dim");
+    b.box(X0, 6, 50, 3, "Passphrase", { rounded: true, cls: "err", tcls: "err" }); b.put(X0 + 2, 7, "••••••••", "b");
+    b.put(X0, 9, "That passphrase doesn't open this file. Check caps lock and try again.", "err");
+    actions(b, 27, "esc Back", "Open");
+    foot(b, [["enter", "open"], ["o", "choose another file"], ["esc", "back"]]);
+  });
+
+/* Hub */
+
+screen("history", "History", "History", READY,
+  "Every move with its undo window. Enter opens details.",
+  (b) => {
+    hub(b, "History");
+    b.put(X0, 3, "History", "b");
+    const rows = [["↓", `Received from ${SENDER}`, "yesterday 14:02, 5 apps, 1.2 GB", "undo until 8 Dec"], ["▤", "Saved to a file", "2 Nov, 3 apps, 40 MB", ""], ["↺", `Undid a move from ${SENDER}`, "28 Oct", ""]];
+    rows.forEach(([g, t, s, u], i) => {
+      const y = 5 + i * 3;
+      if (i === 0) { b.clear(X0 - 1, y, CW + 2, 2, "sel"); b.bg = "sel"; }
+      b.put(X0, y, g, "acc"); b.put(X0 + 3, y, t, "b"); b.put(X0 + 3, y + 1, s, "dim"); if (u) b.putR(X0 + CW, y, u, "acc");
+      b.bg = "";
+    });
+    foot(b, [["↑↓", "move"], ["enter", "details"], ["u", "undo"], ["esc", "home"]]);
+  });
+
+screen("history-empty", "History", "History: empty", READY,
+  "Empty state with one action.",
+  (b) => {
+    hub(b, "History");
+    b.center(9, "↺", "dim b");
+    b.center(11, "No moves yet", "b");
+    b.center(12, "When you send or receive, it shows up here with a way to undo it.", "dim");
+    b.put(36, 15, " Receive from another computer ", "inv");
+    foot(b, [["enter", "receive"], ["esc", "home"]]);
+  });
+
+screen("session", "History", "Move details", READY,
+  "Timeline, a redacted log, and the undo point.",
+  (b) => {
+    hub(b, "History");
+    b.put(X0, 3, `Received from ${SENDER}`, "b");
+    [["Paired, encrypted", "14:00"], ["You approved the plan", "14:01"], ["412 files arrived, all checked", "14:02"], ["Put in place, 3 backed up", "14:02"]].forEach(([t, w], i) => {
+      b.put(X0, 5 + i, "●", "ok"); b.put(X0 + 2, 5 + i, t); b.putR(X0 + 40, 5 + i, w, "dim");
+    });
+    b.box(X0, 10, CW, 5, "Log", { cls: "line" });
+    b.put(X0 + 2, 11, `14:00:12 pair ok peer=${SENDER} code=[hidden]`, "dim");
+    b.put(X0 + 2, 12, "14:01:40 plan approved add=412 replace=3 same=28", "dim");
+    b.put(X0 + 2, 13, "14:02:31 apply ok journal=closed backups=3", "dim");
+    b.put(X0, 16, "Undo point", "b"); b.put(X0 + 12, 16, "kept until 8 Dec, 18 MB", "dim"); b.putR(X0 + CW, 16, "r remove", "dim");
+    actions(b, 27, "esc Back", "Undo this move");
+    foot(b, [["u", "undo"], ["r", "remove undo point"], ["esc", "back"]]);
+  });
+
+screen("apps", "Apps Carrova knows", "Apps Carrova knows", P4,
+  "Catalogue: tier and whether it's set up here. Signature status on one line.",
+  (b) => {
+    hub(b, "Apps");
+    b.put(X0, 3, "Apps Carrova knows", "b"); b.putR(X0 + CW, 3, "/ search 15 apps", "dim");
+    b.put(X0, 4, "✓ App list updated 2 days ago. Signature checked.", "ok");
+    const rows = [["SSH", "verified", true], ["Git", "verified", true], ["VS Code", "verified", true], ["GnuPG", "verified", true], ["Bash and Zsh", "verified", true], ["tmux", "verified", false], ["Neovim", "community", false], ["Kitty", "community", false]];
+    rows.forEach(([n, t, here], i) => {
+      const y = 6 + i;
+      if (i === 0) { b.clear(X0 - 1, y, CW + 2, 1, "sel"); b.bg = "sel"; }
+      b.put(X0, y, n, "b"); b.put(X0 + 20, y, t === "verified" ? "✓ verified" : "community", t === "verified" ? "ok" : "dim");
+      b.putR(X0 + CW, y, here ? "set up here" : "not found here", "dim");
+      b.bg = "";
+    });
+    foot(b, [["↑↓", "move"], ["enter", "details"], ["/", "search"], ["tab", "all/verified/community"], ["esc", "home"]]);
+  });
+
+screen("settings", "Settings", "Settings", P4,
+  "Every default, written as a suggestion where it is one.",
+  (b) => {
+    hub(b, "Settings");
+    b.put(X0, 3, "Settings", "b");
+    const rows = [
+      ["This computer", "", ""], ["Name others see", SENDER, ""], ["Appearance", "match system", ""],
+      ["Moving", "", ""], ["When a file already exists", "back up and replace", "suggested"], ["Keep undo points for", "30 days", ""], ["Include caches and logs", "off", ""],
+      ["Privacy", "", ""], ["Send error reports if Carrova crashes", "off", ""],
+      ["More", "", ""], ["Plugins", "›", ""], ["Updates", "0.2.0 is ready ›", ""], ["About and licences", "›", ""],
+    ];
+    rows.forEach(([k, v, s], i) => {
+      const y = 5 + i;
+      if (!v) { b.put(X0, y, k, "dim"); return; }
+      if (i === 4) { b.clear(X0 - 1, y, CW + 2, 1, "sel"); b.bg = "sel"; }
+      b.put(X0 + 2, y, k); b.putR(X0 + CW, y, v, "acc"); if (s) b.put(X0 + 50, y, s, "dim");
+      b.bg = "";
+    });
+    foot(b, [["↑↓", "move"], ["←→", "change"], ["enter", "open"], ["esc", "home"]]);
+  });
+
+screen("plugins", "Settings", "Plugins", P5,
+  "Signed status is a word, not just a colour. Unsigned asks first.",
+  (b) => {
+    hub(b, "Settings");
+    b.put(X0, 3, "Plugins", "b");
+    b.wrap(X0, 4, CW, "Plugins teach Carrova apps that need more than a recipe. They run sandboxed with only the permissions they list.", "dim");
+    b.put(X0, 7, "[✓]", "acc"); b.put(X0 + 4, 7, "Firefox profiles", "b"); b.put(X0 + 30, 7, "✓ signed", "ok"); b.putR(X0 + CW, 7, "reads ~/.mozilla/firefox", "dim");
+    b.put(X0, 8, "[ ]", "dim"); b.put(X0 + 4, 8, "Obsidian vaults", "b"); b.put(X0 + 30, 8, "✗ unsigned", "err"); b.putR(X0 + CW, 8, "community author", "dim");
+    foot(b, [["space", "turn on/off"], ["p", "permissions"], ["esc", "back"]]);
+  });
+
+screen("xos", "Moving between systems", "Moving to Windows", P5,
+  "Same review, plus where each thing lands and what can't move, with reasons.",
+  (b) => {
+    wizard(b, "Receive", 2, 4, "ezio-win11");
+    let y = title(b, 2, "Here's what will change on Windows", "Some things live in different places on Windows. This is where each one lands.");
+    [["VS Code settings", "%APPDATA%\\Code\\User"], ["Git settings", "%USERPROFILE%\\.gitconfig"], ["SSH server list", "%USERPROFILE%\\.ssh\\config"]].forEach(([n, p], i) => {
+      b.put(X0, y + i, "✓", "ok"); b.put(X0 + 2, y + i, n); b.put(X0 + 24, y + i, "→ " + p, "dim");
+    });
+    y += 4;
+    b.put(X0, y, "Can't move to Windows", "b");
+    b.put(X0, y + 1, "✗", "dim"); b.put(X0 + 2, y + 1, "Bash and Zsh startup files"); b.put(X0 + 30, y + 1, "no Bash on Windows", "dim"); b.putR(X0 + CW, y + 1, "w put in WSL", "acc");
+    b.put(X0, y + 2, "✗", "dim"); b.put(X0 + 2, y + 2, "GnuPG agent settings"); b.put(X0 + 30, y + 2, "different format; keys still move", "dim");
+    actions(b, 27, "x Cancel, change nothing", "Approve and move");
+    foot(b, [["w", "use WSL"], ["enter", "approve"], ["x", "cancel"]]);
+  });
+
+screen("update", "Settings", "Update ready", P4,
+  "Popup over Settings; signature status shown.",
+  (b) => {
+    hub(b, "Settings");
+    const p = popup(b, 56, 10, "Carrova 0.2.0 is ready", "acc");
+    b.put(p.x, p.y, "Faster moves on busy networks, and 4 new apps.");
+    b.put(p.x, p.y + 2, "✓ Signature verified", "ok");
+    b.put(p.x, p.y + 5, "‹ Later ›", "acc"); b.put(p.x + p.w - 19, p.y + 5, " Restart to update ", "inv");
+    endPopup(b);
+    foot(b, [["enter", "restart"], ["esc", "later"]]);
+  });
+
+screen("crash", "Settings", "Error report", P4,
+  "Asked once after a crash, only if reports are off. No guilt wording.",
+  (b) => {
+    hub(b, "Home");
+    const p = popup(b, 64, 13, "Carrova closed unexpectedly", "err");
+    b.wrap(p.x, p.y, p.w, "Your files are safe: any unfinished move was undone. Sending a report helps us fix this.");
+    b.put(p.x, p.y + 3, "Includes: version, OS, stack trace.", "dim");
+    b.put(p.x, p.y + 4, "Never: file names, contents, keys or codes.", "dim");
+    b.put(p.x, p.y + 7, "‹ Don't send ›", "acc"); b.put(p.x + p.w - 13, p.y + 7, " Send report ", "inv");
+    endPopup(b);
+    foot(b, [["enter", "send"], ["v", "view report"], ["esc", "don't send"]]);
+  });
+
+/* ---------- Page wiring ---------- */
+
+const BADGE = {
+  ready: ["engine ready", "ready"],
+  p4: ["Phase 4 — planned", "p4"],
+  p5: ["Phase 5 — planned", "p5"],
+};
+
+function renderScreen(s) {
+  const b = new Buf();
+  s.draw(b);
+  return b.toHTML();
+}
+
+function buildIndex() {
+  const nav = document.getElementById("index");
+  const groups = [...new Set(SCREENS.map((s) => s.group))];
+  nav.innerHTML = groups.map((g) => {
+    const items = SCREENS.filter((s) => s.group === g).map((s) => {
+      const [label, cls] = BADGE[s.phase];
+      return `<li><a href="#tui-${s.id}" data-id="${s.id}"><span>${s.title}</span><span class="badge ${cls}">${label}</span></a></li>`;
+    }).join("");
+    return `<h2>${g}</h2><ol>${items}</ol>`;
+  }).join("");
+}
+
+function currentIndex() {
+  const id = location.hash.replace("#tui-", "");
+  const i = SCREENS.findIndex((s) => s.id === id);
+  return i < 0 ? 0 : i;
+}
+
+function show(i, focus = false) {
+  const s = SCREENS[i];
+  document.getElementById("screen").innerHTML = renderScreen(s);
+  document.getElementById("screen").setAttribute("aria-label", "Terminal screen: " + s.title);
+  document.getElementById("screenTitle").textContent = s.title;
+  document.getElementById("screenGroup").textContent = s.group;
+  const [label, cls] = BADGE[s.phase];
+  const badge = document.getElementById("screenBadge");
+  badge.textContent = label;
+  badge.className = "badge " + cls;
+  document.getElementById("screenNote").textContent = s.note;
+  document.querySelectorAll("#index a").forEach((a) => {
+    if (a.dataset.id === s.id) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  });
+  if (focus) document.getElementById("screenTitle").focus();
+}
+
+function step(delta) {
+  const i = (currentIndex() + delta + SCREENS.length) % SCREENS.length;
+  location.hash = "tui-" + SCREENS[i].id;
+}
+
+function toggle(btn, apply) {
+  const on = btn.getAttribute("aria-pressed") !== "true";
+  btn.setAttribute("aria-pressed", String(on));
+  apply(on);
+}
+
+function startSpinner() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  let f = 0;
+  setInterval(() => {
+    f = (f + 1) % SPIN.length;
+    document.querySelectorAll(".t-spin .g").forEach((g) => { g.textContent = SPIN[f]; });
+  }, 110);
+}
+
+function init() {
+  buildIndex();
+  show(currentIndex());
+  window.addEventListener("hashchange", () => show(currentIndex(), true));
+  document.getElementById("prev").addEventListener("click", () => step(-1));
+  document.getElementById("next").addEventListener("click", () => step(1));
+  document.addEventListener("keydown", (e) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.key === "ArrowRight") step(1);
+    if (e.key === "ArrowLeft") step(-1);
+  });
+  /* Page theme follows the OS (live) until the toggle is used. */
+  const pageBtn = document.getElementById("pageTheme");
+  const mqDark = window.matchMedia("(prefers-color-scheme: dark)");
+  let chosen = false;
+  const setPage = (dark) => {
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+    pageBtn.setAttribute("aria-pressed", String(dark));
+  };
+  setPage(mqDark.matches);
+  mqDark.addEventListener("change", () => { if (!chosen) setPage(mqDark.matches); });
+  pageBtn.addEventListener("click", () => toggle(pageBtn, (on) => { chosen = true; setPage(on); }));
+  const termBtn = document.getElementById("termPalette");
+  termBtn.addEventListener("click", () => toggle(termBtn, (on) => {
+    document.getElementById("term").classList.toggle("light", on);
+  }));
+  startSpinner();
+}
+
+if (typeof document !== "undefined") init();
+if (typeof module !== "undefined") module.exports = { SCREENS, Buf };
+</script>
+</body>
+</html>
+

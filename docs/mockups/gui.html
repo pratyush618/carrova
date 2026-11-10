@@ -1,0 +1,1282 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carrova desktop mockups</title>
+<style>
+/* =====================================================================
+   1. Tokens. Every colour, size and duration used below comes from here.
+   Roles, not hues: one accent; sens/danger/ok are status, never action.
+   ===================================================================== */
+:root {
+  --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", "Noto Sans", Ubuntu, sans-serif;
+  --mono: "Atkinson Hyperlegible Mono", ui-monospace, "JetBrains Mono", "Ubuntu Mono", monospace;
+
+  /* type scale, ratio 1.25 on a 15px base */
+  --t-sm: 13px; --t-md: 15px; --t-lg: 18px; --t-xl: 22px; --t-2xl: 28px; --t-3xl: 36px;
+  --lh-tight: 1.2; --lh-body: 1.55;
+
+  /* 8-pt spacing (4 only for hairline gaps) */
+  --sp-0: 4px; --sp-1: 8px; --sp-2: 16px; --sp-3: 24px; --sp-4: 32px; --sp-5: 40px; --sp-6: 48px; --sp-8: 64px;
+
+  /* radii by hierarchy */
+  --r-ctl: 8px; --r-card: 14px; --r-sheet: 20px; --r-pill: 999px;
+
+  /* motion */
+  --dur-1: 120ms; --dur-2: 220ms; --dur-3: 420ms;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --ease-spring: cubic-bezier(.3, 1.45, .5, 1);
+
+  /* layout */
+  --col: 36rem;          /* flow column */
+  --page: 46rem;         /* hub page */
+  --win-w: 1000px; --win-h: 680px;
+}
+/* ---------------------------------------------------------------------
+   Semantic colour tokens: ONE table, light and dark side by side.
+   Dark follows Material 3 / Primer / HIG practice: a near-black neutral
+   base (never #000), elevation by progressively lighter surfaces rather
+   than shadows, ~90% / ~68% / ~55% white text, borders at ~10% white,
+   and an accent + status colours that are lighter and desaturated so
+   they don't vibrate. Measured contrast ratios are in README.md.
+
+   token            light      dark       role
+   surface-0        #F0F2F5    #101216    wells: inputs, segmented track, logs
+   surface-1        #F7F8FA    #15171C    window base
+   surface-2        #FFFFFF    #1C1E24    cards, rows, chips (elevation 1)
+   surface-3        #FFFFFF    #23262D    sheets, dialogs, index (elevation 2)
+   text-primary     #15181D    #E4E6EA    body and headings
+   text-secondary   #3E4552    #B0B4BC    supporting copy
+   text-muted       #5E6672    #8E939D    metadata, hints
+   border           #E3E6EB    #2C2F35    dividers (decorative)
+   border-strong    #CDD2DA    #3C4048    card edges, window edge
+   control          #858C98    #6E747F    edges of inputs/checkboxes/toggles (3:1)
+   accent           #3346D3    #A4ADEB    the only "act" colour, links
+   accent-hover     #2836B0    #BAC1F2
+   accent-on        #FFFFFF    #151830    text on accent
+   accent-soft      #EEF0FD    #262A45    selected, info banners
+   warning          #8A5A00    #DDB76A    sensitive items (keys, scripts)
+   warning-soft     #FFF4DC    #2A2519
+   danger           #B42318    #EC9C92    destructive, failed
+   danger-soft      #FDECEA    #2F1F1E
+   success          #1F7A4D    #82C9A5    arrived, verified, encrypted
+   success-soft     #E8F5EE    #1A2B23
+   focus            #3346D3    #A4ADEB    focus ring (3:1 on every surface)
+   --------------------------------------------------------------------- */
+[data-theme="light"] {
+  color-scheme: light;
+  --backdrop: #E6E8EC;
+  --surface-0: #F0F2F5; --surface-1: #F7F8FA; --surface-2: #FFFFFF; --surface-3: #FFFFFF;
+  --text-primary: #15181D; --text-secondary: #3E4552; --text-muted: #5E6672;
+  --border: #E3E6EB; --border-strong: #CDD2DA; --control: #858C98;
+  --accent: #3346D3; --accent-hover: #2836B0; --accent-on: #FFFFFF; --accent-soft: #EEF0FD;
+  --warning: #8A5A00; --warning-soft: #FFF4DC;
+  --danger: #B42318; --danger-soft: #FDECEA;
+  --success: #1F7A4D; --success-soft: #E8F5EE;
+  --focus: #3346D3;
+  --flap: #1B1E24; --flap-ink: #F7F8FA; --flap-seam: #0E1013; --flap-edge: transparent;
+  --knob: #FFFFFF;
+  --scrim: rgb(21 24 29 / .32);
+  /* light: depth from soft shadows */
+  --e-1: 0 1px 2px rgb(21 24 29 / .06);
+  --e-2: 0 1px 2px rgb(21 24 29 / .05), 0 10px 28px -14px rgb(21 24 29 / .22);
+  --e-3: 0 2px 6px rgb(21 24 29 / .08), 0 28px 64px -20px rgb(21 24 29 / .38);
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --backdrop: #0C0D10;
+  --surface-0: #101216; --surface-1: #15171C; --surface-2: #1C1E24; --surface-3: #23262D;
+  --text-primary: #E4E6EA; --text-secondary: #B0B4BC; --text-muted: #8E939D;
+  --border: #2C2F35; --border-strong: #3C4048; --control: #6E747F;
+  --accent: #A4ADEB; --accent-hover: #BAC1F2; --accent-on: #151830; --accent-soft: #262A45;
+  --warning: #DDB76A; --warning-soft: #2A2519;
+  --danger: #EC9C92; --danger-soft: #2F1F1E;
+  --success: #82C9A5; --success-soft: #1A2B23;
+  --focus: #A4ADEB;
+  --flap: #2A2D35; --flap-ink: #E4E6EA; --flap-seam: #15171C; --flap-edge: #3C4048;
+  --knob: #E4E6EA;
+  --scrim: rgb(8 9 11 / .6);
+  /* dark: depth from lighter surfaces; shadows only separate overlays from the scrim */
+  --e-1: none;
+  --e-2: none;
+  --e-3: 0 24px 64px -16px rgb(0 0 0 / .55);
+}
+
+/* =====================================================================
+   2. Base
+   ===================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font: var(--t-md)/var(--lh-body) var(--font); color: var(--text-primary); background: var(--backdrop); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, p, ul, ol, figure { margin: 0; padding: 0; }
+h1, h2, h3 { line-height: var(--lh-tight); font-weight: 700; }
+ul, ol { list-style: none; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+code, .mono { font-family: var(--mono); font-size: .93em; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-ctl); }
+.vh { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.icon { inline-size: 20px; block-size: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.icon--sm { inline-size: 16px; block-size: 16px; }
+.icon--lg { inline-size: 28px; block-size: 28px; }
+[dir="rtl"] .icon--dir { transform: scaleX(-1); }
+
+/* Reduced motion: set on <html> from the OS setting or the prototype toggle.
+   Decorative motion stops; functional updates (progress numbers) still happen, instantly. */
+.rm *, .rm *::before, .rm *::after { animation: none !important; transition: none !important; }
+
+/* =====================================================================
+   3. Components (the whole kit; see the "Design system" screen)
+   ===================================================================== */
+
+/* Text roles */
+.title { font-size: var(--t-2xl); letter-spacing: -.01em; }
+.title--hero { font-size: var(--t-3xl); letter-spacing: -.02em; }
+.heading { font-size: var(--t-lg); }
+.lede { font-size: var(--t-lg); color: var(--text-secondary); max-inline-size: 40ch; }
+.muted { color: var(--text-muted); }
+.small { font-size: var(--t-sm); }
+.center { text-align: center; }
+.stack { display: grid; gap: 12px; text-align: start; inline-size: 100%; }
+
+/* Buttons: primary (one per screen), secondary, quiet, danger */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1);
+  min-block-size: 40px; padding-inline: var(--sp-2); border-radius: var(--r-ctl);
+  border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text-primary); font-weight: 700;
+  transition: background var(--dur-1) var(--ease), transform var(--dur-1) var(--ease), border-color var(--dur-1);
+}
+.btn:hover { border-color: var(--text-muted); }
+.btn:active { transform: scale(.98); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; transform: none; }
+.btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+.btn--primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn--quiet { border-color: transparent; background: transparent; color: var(--accent); padding-inline: var(--sp-1); }
+.btn--quiet:hover { border-color: transparent; background: var(--accent-soft); }
+.btn--danger { color: var(--danger); }
+.btn--danger:hover { border-color: var(--danger); }
+.btn--sm { min-block-size: 32px; padding-inline: 12px; font-size: var(--t-sm); }
+.link { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+
+/* Choice tile: the big Home choices */
+.tile-choice {
+  display: grid; gap: var(--sp-1); align-content: start; text-align: start;
+  padding: var(--sp-3); border-radius: var(--r-card); border: 1px solid var(--border); background: var(--surface-2);
+  box-shadow: var(--e-1); transition: transform var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease), border-color var(--dur-2);
+}
+.tile-choice:hover { transform: translateY(-2px); box-shadow: var(--e-2); border-color: var(--border-strong); }
+.tile-choice__icon { inline-size: 48px; block-size: 48px; border-radius: 12px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); margin-block-end: var(--sp-1); }
+.tile-choice__title { font-size: var(--t-xl); font-weight: 700; }
+.tile-choice__sub { color: var(--text-muted); }
+
+/* Card: grouping surface. Used sparingly: lists and sheets mostly sit on the canvas. */
+.card { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-card); }
+.card--pad { padding: var(--sp-3); }
+
+/* List + row: the workhorse. lead | body | trail */
+.list { display: grid; }
+.list--card { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-card); }
+.row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--sp-2); padding: 12px var(--sp-2); min-block-size: 56px; }
+.list--card .row + .row, .list--plain .row + .row { border-block-start: 1px solid var(--border); }
+.list--plain .row, .row--flush { padding-inline: 0; }
+.row__title { font-weight: 700; }
+.row__sub { display: block; color: var(--text-muted); font-size: var(--t-sm); }
+.row__trail { display: flex; align-items: center; gap: var(--sp-2); color: var(--text-muted); font-size: var(--t-sm); }
+.row--off .row__title, .row--off .app { opacity: .55; }
+.row--link { inline-size: 100%; border: 0; background: none; text-align: start; border-radius: 0; }
+.row--link:hover { background: var(--surface-0); }
+.row--stack { grid-template-columns: auto 1fr; }
+.row--stack .row__trail { grid-column: 2; }
+
+/* App glyph: neutral, so the accent stays the only colour that means "act" */
+.app { inline-size: 40px; block-size: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-0); border: 1px solid var(--border); font: 700 13px/1 var(--mono); color: var(--text-secondary); }
+.app--sm { inline-size: 28px; block-size: 28px; border-radius: 7px; font-size: 10px; }
+
+/* Toggle */
+.toggle { inline-size: 40px; block-size: 24px; border-radius: var(--r-pill); border: 0; padding: 0; background: var(--control); position: relative; flex: none; transition: background var(--dur-2) var(--ease); }
+.toggle::after { content: ""; position: absolute; inset-block-start: 3px; inset-inline-start: 3px; inline-size: 18px; block-size: 18px; border-radius: 50%; background: var(--knob); box-shadow: var(--e-1); transition: inset-inline-start var(--dur-2) var(--ease-spring); }
+.toggle[aria-checked="true"] { background: var(--accent); }
+.toggle[aria-checked="true"]::after { inset-inline-start: 19px; }
+
+/* Checkbox (tree, checklists) */
+.check { inline-size: 20px; block-size: 20px; border-radius: 6px; border: 1.5px solid var(--control); background: var(--surface-2); padding: 0; display: grid; place-items: center; flex: none; color: var(--accent-on); }
+.check .icon { inline-size: 14px; block-size: 14px; stroke-width: 2.5; stroke-dasharray: 24; stroke-dashoffset: 24; transition: stroke-dashoffset var(--dur-2) var(--ease); }
+.check[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.check[aria-checked="true"] .icon { stroke-dashoffset: 0; }
+.check[aria-checked="mixed"] { background: var(--accent); border-color: var(--accent); }
+.check[aria-checked="mixed"]::after { content: ""; inline-size: 10px; block-size: 2px; background: var(--accent-on); border-radius: 1px; }
+.check[aria-checked="mixed"] .icon { display: none; }
+
+/* Segmented choice: explicit answers ("Leave behind" | "Bring them") */
+.seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px; background: var(--surface-0); border: 1px solid var(--border); }
+.seg__opt { border: 0; background: none; padding: 6px 12px; border-radius: 7px; font-size: var(--t-sm); font-weight: 700; color: var(--text-secondary); white-space: nowrap; transition: background var(--dur-1), color var(--dur-1); }
+.seg__opt[aria-checked="true"] { background: var(--surface-2); color: var(--text-primary); box-shadow: var(--e-1); }
+
+/* Badge: status only. Phase badges are NOT in the product; see the dev index. */
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; line-height: 1; padding: 5px 8px; border-radius: var(--r-pill); background: var(--surface-0); color: var(--text-secondary); white-space: nowrap; }
+.badge--accent { background: var(--accent-soft); color: var(--accent); }
+.badge--warning { background: var(--warning-soft); color: var(--warning); }
+.badge--danger { background: var(--danger-soft); color: var(--danger); }
+.badge--success { background: var(--success-soft); color: var(--success); }
+
+/* Banner: one message, one action */
+.banner { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; padding: var(--sp-2); border-radius: var(--r-card); background: var(--surface-0); color: var(--text-primary); }
+.banner > .icon { margin-block-start: 1px; }
+.banner__title { font-weight: 700; }
+.banner__body { color: var(--text-secondary); font-size: var(--t-sm); margin-block-start: 2px; }
+.banner--warning { background: var(--warning-soft); } .banner--warning > .icon { color: var(--warning); }
+.banner--danger { background: var(--danger-soft); } .banner--danger > .icon { color: var(--danger); }
+.banner--success { background: var(--success-soft); } .banner--success > .icon { color: var(--success); }
+.banner--accent { background: var(--accent-soft); } .banner--accent > .icon { color: var(--accent); }
+
+/* Decision: a sensitive or blocking question in plain words */
+.decision { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-1) var(--sp-2); align-items: center; padding-block: var(--sp-2); }
+.decision + .decision { border-block-start: 1px solid var(--border); }
+.decision__title { font-weight: 700; display: flex; gap: var(--sp-1); align-items: center; }
+.decision__why { color: var(--text-secondary); font-size: var(--t-sm); grid-column: 1; max-inline-size: 46ch; }
+.decision > .seg { grid-row: 1 / span 2; grid-column: 2; }
+.group-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-block: var(--sp-4) var(--sp-0); }
+.group-head h2 { font-size: var(--t-md); }
+
+/* Stat: a number with a plain label */
+.stats { display: flex; flex-wrap: wrap; gap: var(--sp-4); }
+.stat__n { font-size: var(--t-2xl); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat__l { color: var(--text-muted); font-size: var(--t-sm); margin-block-start: var(--sp-0); }
+
+/* Progress */
+.progress { block-size: 8px; border-radius: var(--r-pill); background: var(--surface-0); border: 1px solid var(--border); overflow: hidden; }
+.progress__fill { block-size: 100%; inline-size: calc(var(--p, 0) * 100%); background: var(--accent); border-radius: inherit; transition: inline-size var(--dur-3) var(--ease); }
+.progress--paused .progress__fill { background: var(--text-muted); }
+.progress-meta { display: flex; justify-content: space-between; gap: var(--sp-2); font-size: var(--t-sm); color: var(--text-muted); margin-block-start: var(--sp-1); font-variant-numeric: tabular-nums; }
+
+/* App chips: what is moving, small configs first */
+.chips { display: grid; gap: var(--sp-1); }
+.chip { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
+.chip__state { font-size: var(--t-sm); color: var(--text-muted); display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.chip[data-state="done"] .chip__state { color: var(--success); }
+.chip[data-state="done"] .app { background: var(--success-soft); border-color: transparent; color: var(--success); animation: tick var(--dur-3) var(--ease-spring); }
+.chip[data-state="moving"] { border-color: var(--accent); }
+.chip[data-state="failed"] .chip__state { color: var(--danger); }
+@keyframes tick { 0% { transform: scale(.8); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+/* Lock line: the trust signal */
+.lockline { display: inline-flex; align-items: center; gap: 6px; color: var(--success); font-size: var(--t-sm); font-weight: 700; }
+
+/* Pulse dot: "waiting for the other side" */
+.pulse { inline-size: 10px; block-size: 10px; border-radius: 50%; background: var(--accent); position: relative; flex: none; }
+.pulse::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--accent); animation: pulse 1.6s var(--ease) infinite; }
+@keyframes pulse { from { transform: scale(1); opacity: .6; } to { transform: scale(3); opacity: 0; } }
+.status { display: flex; align-items: center; gap: 12px; color: var(--text-secondary); }
+
+/* Code tag: the one bold element. Split-flap tiles, like a station departure board. */
+.code { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; direction: ltr; justify-content: center; }
+.code__word { display: flex; gap: 4px; }
+.code__dash { inline-size: 14px; block-size: 4px; border-radius: 2px; background: var(--text-muted); }
+.flap {
+  inline-size: 40px; block-size: 58px; border-radius: 8px; display: grid; place-items: center; position: relative;
+  background: var(--flap); color: var(--flap-ink); font: 700 34px/1 var(--mono); text-transform: lowercase; box-shadow: var(--e-2), inset 0 0 0 1px var(--flap-edge);
+}
+.flap::after { content: ""; position: absolute; inset-inline: 0; inset-block-start: 50%; block-size: 2px; background: var(--flap-seam); opacity: .55; }
+.flap--num { background: var(--accent); color: var(--accent-on); }
+.flap.is-spinning { animation: flip 90ms linear infinite; }
+.flap.is-set { animation: settle var(--dur-2) var(--ease-spring); }
+@keyframes flip { 50% { transform: scaleY(.82); } }
+@keyframes settle { from { transform: scaleY(.6); } to { transform: scaleY(1); } }
+.code--sm .flap { inline-size: 26px; block-size: 36px; font-size: 20px; border-radius: 5px; }
+
+/* Input */
+.field { display: grid; gap: var(--sp-1); }
+.field__label { font-weight: 700; }
+.field__hint { font-size: var(--t-sm); color: var(--text-muted); }
+.field__hint--error { color: var(--danger); }
+.input { inline-size: 100%; min-block-size: 44px; padding-inline: 14px; border-radius: var(--r-ctl); border: 1px solid var(--control); background: var(--surface-0); }
+.input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+.input--code { font: 700 var(--t-2xl)/1 var(--mono); min-block-size: 64px; letter-spacing: .02em; }
+.ghost { position: relative; }
+.ghost__hint { position: absolute; inset-block: 0; inset-inline-start: 15px; display: flex; align-items: center; pointer-events: none; font: 700 var(--t-2xl)/1 var(--mono); letter-spacing: .02em; color: var(--text-muted); white-space: pre; }
+.ghost__hint b { visibility: hidden; font-weight: inherit; }
+.meter { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.meter i { block-size: 4px; border-radius: 2px; background: var(--border); }
+.meter[data-level="1"] i:nth-child(-n+1) { background: var(--danger); }
+.meter[data-level="3"] i:nth-child(-n+3) { background: var(--success); }
+.meter[data-level="4"] i { background: var(--success); }
+
+/* Disclosure */
+.disclose > summary { cursor: pointer; color: var(--accent); font-weight: 700; list-style: none; display: inline-flex; gap: 6px; align-items: center; border-radius: var(--r-ctl); }
+.disclose > summary::-webkit-details-marker { display: none; }
+.disclose > summary .icon { transition: transform var(--dur-2) var(--ease); }
+.disclose[open] > summary .icon { transform: rotate(90deg); }
+[dir="rtl"] .disclose[open] > summary .icon { transform: scaleX(-1) rotate(90deg); }
+.disclose__body { padding-block-start: 12px; }
+
+/* Copy box: address, commands */
+.copybox { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-1); padding: 6px 6px 6px 14px; padding-inline: 14px 6px; border-radius: var(--r-ctl); background: var(--surface-0); border: 1px solid var(--border); font-family: var(--mono); font-size: var(--t-sm); }
+.copybox code { direction: ltr; unicode-bidi: isolate; overflow-wrap: anywhere; }
+
+/* Empty / error state */
+.empty { display: grid; justify-items: center; text-align: center; gap: var(--sp-1); padding: var(--sp-6) var(--sp-3); }
+.empty__art { inline-size: 64px; block-size: 64px; border-radius: 20px; display: grid; place-items: center; background: var(--surface-0); color: var(--text-muted); margin-block-end: var(--sp-1); }
+.empty__art--danger { background: var(--danger-soft); color: var(--danger); }
+.empty p { color: var(--text-muted); max-inline-size: 40ch; }
+.empty .btn { margin-block-start: var(--sp-2); }
+
+/* Key hints */
+kbd, .kbd { font: 700 11px/1 var(--mono); padding: 3px 6px; border-radius: 5px; border: 1px solid var(--border-strong); border-block-end-width: 2px; background: var(--surface-2); color: var(--text-secondary); }
+
+/* Handshake: two computers, one encrypted link */
+.handshake { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--sp-2); padding-block: var(--sp-3); }
+.handshake__end { display: grid; justify-items: center; gap: 6px; font-size: var(--t-sm); color: var(--text-secondary); }
+.handshake__pc { inline-size: 64px; block-size: 64px; border-radius: 18px; display: grid; place-items: center; background: var(--surface-2); border: 1px solid var(--border); box-shadow: var(--e-1); color: var(--text-secondary); }
+.handshake__wire { position: relative; block-size: 2px; background: repeating-linear-gradient(90deg, var(--border-strong) 0 6px, transparent 6px 12px); }
+.handshake__dot { position: absolute; inset-block-start: -4px; inline-size: 10px; block-size: 10px; border-radius: 50%; background: var(--accent); animation: travel 1.4s var(--ease) infinite alternate; }
+.handshake__dot:nth-child(2) { animation-delay: .7s; opacity: .5; }
+@keyframes travel { from { inset-inline-start: 0; } to { inset-inline-start: calc(100% - 10px); } }
+.handshake__lock { position: absolute; inset-inline-start: 50%; inset-block-start: 50%; translate: -50% -50%; inline-size: 40px; block-size: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--success); color: var(--surface-1); animation: snap var(--dur-3) var(--ease-spring); }
+[dir="rtl"] .handshake__lock { translate: 50% -50%; }
+.handshake.is-linked .handshake__wire { background: var(--success); }
+.handshake.is-linked .handshake__pc { border-color: var(--success); }
+@keyframes snap { from { scale: .2; opacity: 0; } to { scale: 1; opacity: 1; } }
+
+/* Arrival stamp: the completion moment */
+.arrival { position: relative; display: grid; place-items: center; block-size: 140px; }
+.stamp {
+  display: grid; justify-items: center; gap: 2px; padding: 12px 22px; border: 3px solid var(--success); border-radius: 14px;
+  color: var(--success); rotate: -6deg; animation: stamp 520ms var(--ease-spring) both;
+}
+.stamp__word { font: 700 var(--t-2xl)/1 var(--font); letter-spacing: .02em; }
+.stamp__meta { font-size: 12px; font-weight: 700; }
+.burst { position: absolute; inset: 0; pointer-events: none; }
+.burst i { position: absolute; inset-inline-start: 50%; inset-block-start: 50%; inline-size: 8px; block-size: 12px; border-radius: 2px; opacity: 0; animation: fly 900ms var(--ease) 220ms forwards; }
+.burst i:nth-child(odd) { background: var(--accent); } .burst i:nth-child(even) { background: var(--success); }
+@keyframes stamp { 0% { scale: 1.8; opacity: 0; } 60% { scale: .94; opacity: 1; } 100% { scale: 1; opacity: 1; } }
+@keyframes fly { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); } }
+
+/* Tree (Customize sheet) */
+.tree { display: grid; }
+.tree__row { display: grid; grid-template-columns: 24px auto 1fr auto; align-items: center; gap: 12px; padding-block: 10px; padding-inline-start: calc(var(--depth, 0) * 28px); border-block-start: 1px solid var(--border); }
+.tree__row:first-child { border-block-start: 0; }
+.tree__exp { border: 0; background: none; padding: 0; color: var(--text-muted); display: grid; place-items: center; }
+.tree__name { min-inline-size: 0; }
+.tree__name small { display: block; color: var(--text-muted); font-size: var(--t-sm); }
+.tree__meta { display: flex; gap: var(--sp-1); align-items: center; font-size: var(--t-sm); color: var(--text-muted); }
+.tree__row--off .tree__name { color: var(--text-muted); }
+
+/* Timeline (session detail). A real sequence, so it is ordered. */
+.timeline { display: grid; gap: 0; }
+.timeline li { display: grid; grid-template-columns: 16px 1fr auto; gap: 12px; padding-block: 8px; position: relative; }
+.timeline li::before { content: ""; inline-size: 10px; block-size: 10px; border-radius: 50%; background: var(--success); margin-block-start: 6px; margin-inline-start: 3px; }
+.timeline li::after { content: ""; position: absolute; inset-inline-start: 7px; inset-block: 24px -6px; inline-size: 2px; background: var(--border); }
+.timeline li:last-child::after { display: none; }
+.timeline time { color: var(--text-muted); font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
+.log { margin: 0; padding: var(--sp-2); border-radius: var(--r-ctl); background: var(--surface-0); font: 12px/1.6 var(--mono); color: var(--text-secondary); overflow: auto; direction: ltr; text-align: left; }
+
+/* =====================================================================
+   4. Layouts: hub, flow, bare, sheet, dialog
+   ===================================================================== */
+.window {
+  position: relative; inline-size: 100%; block-size: var(--win-h); overflow: hidden;
+  display: grid; grid-template-rows: auto 1fr auto; background: var(--surface-1); border-radius: 14px;
+  border: 1px solid var(--border-strong); box-shadow: var(--e-3);
+}
+
+/* Hub: a quiet top bar that recedes; the page holds focus */
+.topbar { display: flex; align-items: center; gap: var(--sp-2); padding: 12px var(--sp-3); border-block-end: 1px solid var(--border); }
+.wordmark { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: var(--t-lg); letter-spacing: -.01em; border: 0; background: none; padding: 0; }
+.wordmark__mark { inline-size: 26px; block-size: 26px; border-radius: 8px; background: var(--accent); color: var(--accent-on); display: grid; place-items: center; }
+.wordmark__mark .icon { inline-size: 16px; block-size: 16px; stroke-width: 2.25; }
+.nav { display: flex; gap: var(--sp-0); margin-inline-start: auto; }
+.nav__link { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--r-ctl); border: 0; background: none; color: var(--text-muted); font-weight: 700; font-size: var(--t-sm); }
+.nav__link:hover { color: var(--text-primary); background: var(--surface-0); }
+.nav__link[aria-current="page"] { color: var(--text-primary); background: var(--surface-0); }
+.page { overflow: auto; padding: var(--sp-5) var(--sp-3); }
+.page__inner { max-inline-size: var(--page); margin-inline: auto; display: grid; gap: var(--sp-3); }
+.page__head { display: flex; align-items: end; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* Flow: the nav disappears; close, where you are, one column, one action bar */
+.flowbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 12px var(--sp-3); }
+.flowbar__close { justify-self: start; }
+.flowbar__name { font-size: var(--t-sm); font-weight: 700; color: var(--text-muted); text-align: center; }
+.dots { justify-self: end; display: flex; gap: 6px; }
+.dots i { inline-size: 8px; block-size: 8px; border-radius: var(--r-pill); background: var(--border-strong); transition: inline-size var(--dur-2) var(--ease); }
+.dots i.is-done { background: var(--accent); opacity: .45; }
+.dots i.is-now { background: var(--accent); inline-size: 22px; }
+.flow { overflow: auto; padding: var(--sp-3) var(--sp-3) var(--sp-4); }
+.flow__col { max-inline-size: var(--col); margin-inline: auto; display: grid; gap: var(--sp-3); }
+.flow__center { display: grid; gap: var(--sp-3); justify-items: center; text-align: center; }
+.flow__center .lede { margin-inline: auto; }
+.flow__head { display: grid; gap: var(--sp-1); }
+.actions { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-block-start: 1px solid var(--border); background: var(--surface-1); }
+.actions__note { margin-inline-start: auto; font-size: var(--t-sm); color: var(--text-muted); }
+.actions__end { display: flex; gap: var(--sp-1); margin-inline-start: auto; }
+.actions__note + .actions__end { margin-inline-start: 0; }
+
+/* Bare: first run, nothing but the message */
+.bare { grid-row: 1 / -1; display: grid; place-items: center; padding: var(--sp-5); overflow: auto; }
+
+/* Overlays live inside the window */
+.scrim { position: absolute; inset: 0; background: var(--scrim); animation: fade var(--dur-2) var(--ease); }
+.sheet {
+  position: absolute; inset-block: 8px; inset-inline-end: 8px; inline-size: min(560px, calc(100% - 16px));
+  display: grid; grid-template-rows: auto 1fr auto; background: var(--surface-3); border-radius: var(--r-sheet); box-shadow: var(--e-3);
+  animation: slide-in var(--dur-3) var(--ease);
+}
+[dir="rtl"] .sheet { animation-name: slide-in-rtl; }
+.sheet__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-block-end: 1px solid var(--border); }
+.sheet__head h2 { font-size: var(--t-lg); }
+.sheet__body { overflow: auto; padding: var(--sp-3); display: grid; gap: var(--sp-3); align-content: start; }
+.sheet__foot { display: flex; gap: var(--sp-1); justify-content: flex-end; align-items: center; padding: var(--sp-2) var(--sp-3); border-block-start: 1px solid var(--border); }
+.sheet__foot .actions__note { margin-inline: 0 auto; }
+.dialog {
+  position: absolute; inset-inline-start: 50%; inset-block-start: 50%; translate: -50% -50%; inline-size: min(460px, calc(100% - 32px));
+  background: var(--surface-3); border-radius: var(--r-sheet); box-shadow: var(--e-3); padding: var(--sp-3); display: grid; gap: var(--sp-2);
+  animation: pop var(--dur-2) var(--ease-spring);
+}
+[dir="rtl"] .dialog { translate: 50% -50%; }
+.dialog__icon { inline-size: 44px; block-size: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.dialog--warning .dialog__icon { background: var(--warning-soft); color: var(--warning); }
+.dialog--danger .dialog__icon { background: var(--danger-soft); color: var(--danger); }
+.dialog h2 { font-size: var(--t-xl); }
+.dialog p { color: var(--text-secondary); }
+.dialog__foot { display: flex; gap: var(--sp-1); justify-content: flex-end; margin-block-start: var(--sp-1); flex-wrap: wrap; }
+@keyframes fade { from { opacity: 0; } }
+@keyframes slide-in { from { transform: translateX(40px); opacity: 0; } }
+@keyframes slide-in-rtl { from { transform: translateX(-40px); opacity: 0; } }
+@keyframes pop { from { scale: .94; opacity: 0; } }
+
+/* Screen entrance: one short fade for the whole view, nothing per element */
+.view-enter { animation: fade var(--dur-2) var(--ease); }
+
+/* Home */
+.home { display: grid; align-content: center; justify-items: center; gap: var(--sp-4); padding: var(--sp-5) var(--sp-3); overflow: auto; }
+.home__choices { display: grid; grid-template-columns: repeat(2, minmax(0, 15.5rem)); gap: var(--sp-2); }
+.home__last { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--t-sm); color: var(--text-muted); }
+
+/* Catalogue grid */
+.grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: var(--sp-2); }
+.app-card { display: grid; gap: var(--sp-1); padding: var(--sp-2); border-radius: var(--r-card); border: 1px solid var(--border); background: var(--surface-2); text-align: start; }
+.app-card:hover { border-color: var(--border-strong); box-shadow: var(--e-1); }
+.app-card__top { display: flex; align-items: center; justify-content: space-between; }
+.search { display: flex; align-items: center; gap: var(--sp-1); padding-inline: 12px; border-radius: var(--r-ctl); border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text-muted); min-block-size: 40px; }
+.search input { border: 0; background: none; outline: 0; flex: 1; min-block-size: 38px; color: var(--text-primary); }
+.search:focus-within { outline: 2px solid var(--accent); }
+
+/* Settings */
+.settings-group h2 { font-size: var(--t-sm); color: var(--text-muted); margin-block-end: var(--sp-1); }
+select.input { min-block-size: 36px; inline-size: auto; padding-inline: 10px; }
+
+/* =====================================================================
+   5. Prototype chrome (not product). Dev bar, screen index, notes.
+   ===================================================================== */
+.dev { position: sticky; inset-block-start: 0; z-index: 5; display: flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; padding: 10px var(--sp-3); background: var(--backdrop); border-block-end: 1px solid var(--border-strong); font-size: var(--t-sm); }
+.dev__title { font-weight: 700; margin-inline-end: var(--sp-1); }
+.dev__where { color: var(--text-secondary); margin-inline: var(--sp-1) auto; display: flex; gap: var(--sp-1); align-items: center; flex-wrap: wrap; }
+.dev .btn { min-block-size: 30px; padding-inline: 10px; font-size: var(--t-sm); }
+.dev .btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+#frame { inline-size: min(var(--win-w), 100%); display: grid; justify-items: center; }
+.stage { display: grid; justify-items: center; gap: var(--sp-2); padding: var(--sp-4) var(--sp-3) var(--sp-8); }
+.states { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.states .btn[aria-current="true"] { background: var(--text-primary); color: var(--surface-1); border-color: var(--text-primary); }
+.note { max-inline-size: 72ch; color: var(--text-secondary); font-size: var(--t-sm); text-align: center; }
+.index { position: fixed; z-index: 10; inset-block: 0; inset-inline-start: 0; inline-size: 340px; overflow: auto; padding: var(--sp-3); background: var(--surface-3); box-shadow: var(--e-3); animation: fade var(--dur-2); }
+.index[hidden] { display: none; }
+.index__head { display: flex; align-items: center; justify-content: space-between; margin-block-end: var(--sp-2); }
+.index h3 { font-size: 12px; color: var(--text-muted); margin-block: var(--sp-2) var(--sp-0); }
+.index a { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-1); padding: 6px 8px; border-radius: 6px; color: var(--text-primary); text-decoration: none; font-size: var(--t-sm); }
+.index a:hover { background: var(--surface-0); }
+.index a[aria-current="page"] { background: var(--accent-soft); font-weight: 700; }
+.phase { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: var(--r-pill); white-space: nowrap; }
+.phase--ready { background: var(--success-soft); color: var(--success); }
+.phase--p4 { background: var(--accent-soft); color: var(--accent); }
+.phase--p5 { background: var(--surface-0); color: var(--text-secondary); border: 1px solid var(--border-strong); }
+.index__legend { margin-block-start: var(--sp-3); font-size: 12px; color: var(--text-muted); display: grid; gap: 6px; }
+
+/* Design system document */
+.doc { inline-size: 100%; display: grid; gap: var(--sp-5); padding: var(--sp-5); background: var(--surface-1); border-radius: 14px; border: 1px solid var(--border-strong); }
+.doc section { display: grid; gap: var(--sp-2); }
+.doc h2 { font-size: var(--t-xl); }
+.doc h3 { font-size: var(--t-md); color: var(--text-muted); }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--sp-1); }
+.swatch { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface-2); font-size: 12px; }
+.swatch__chip { block-size: 48px; }
+.swatch__meta { padding: 8px 10px; display: grid; }
+.swatch__meta code { color: var(--text-muted); }
+.specimen { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.spacing { display: flex; align-items: end; gap: var(--sp-2); flex-wrap: wrap; font-size: 12px; color: var(--text-muted); }
+.spacing i { display: block; background: var(--accent); block-size: var(--h); inline-size: var(--h); border-radius: 3px; margin-block-end: 4px; }
+.layouts { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); }
+.mini { aspect-ratio: 4 / 3; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface-2); position: relative; overflow: hidden; }
+.mini b { position: absolute; background: var(--border); border-radius: 3px; }
+.mini b.a { background: var(--accent); }
+.mini-cap { font-size: var(--t-sm); margin-block-start: 6px; }
+.rules { display: grid; gap: var(--sp-1); max-inline-size: 70ch; color: var(--text-secondary); }
+.rules li { padding-inline-start: var(--sp-2); position: relative; }
+.rules li::before { content: ""; position: absolute; inset-inline-start: 0; inset-block-start: .6em; inline-size: 6px; block-size: 6px; border-radius: 50%; background: var(--accent); }
+
+@media (max-width: 760px) {
+  :root { --win-h: 760px; }
+  .home__choices { grid-template-columns: 1fr; }
+  .layouts { grid-template-columns: repeat(2, 1fr); }
+  .nav__link span { display: none; }
+  .decision { grid-template-columns: 1fr; }
+  .decision > .seg { grid-row: auto; grid-column: 1; justify-self: start; }
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" class="vh" aria-hidden="true">
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></symbol>
+  <symbol id="i-receive" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9.5 15v-1.5a2.5 2.5 0 0 1 5 0V15M9 15h6v3H9z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3M5.5 11h13v9.5h-13z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4v4.5H8M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-apps" viewBox="0 0 24 24"><path d="M4.5 4.5h6v6h-6zM13.5 4.5h6v6h-6zM4.5 13.5h6v6h-6zM13.5 13.5h6v6h-6z"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l2.5 2.5M14 9l1.5 1.5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4L2.5 20h19zM12 10v4.5M12 17.2v.3"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8v.3"/></symbol>
+  <symbol id="i-laptop" viewBox="0 0 24 24"><path d="M5 5.5h14v10H5zM2.5 19h19"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6.5 8h11v3a5.5 5.5 0 0 1-11 0zM12 16.5V21"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.5 16a5 5 0 0 1 7 0M12 19.5v.1"/></symbol>
+  <symbol id="i-disk" viewBox="0 0 24 24"><path d="M3.5 13.5l2.5-8h12l2.5 8v5h-17zM3.5 13.5h17M16.5 16.5v.1"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 6.5a1.5 1.5 0 0 1 1.5-1.5h4.5l2 2.5H19a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 7h13M16 3l4 4-4 4M17 17H4M8 13l-4 4 4 4"/></symbol>
+</svg>
+
+<header class="dev" aria-label="Prototype controls">
+  <span class="dev__title">Carrova mockups</span>
+  <button class="btn" id="openIndex" aria-expanded="false" aria-controls="index">Screen index <kbd>i</kbd></button>
+  <span class="dev__where" id="where"></span>
+  <button class="btn" id="prev" aria-label="Previous screen"><kbd>[</kbd> Prev</button>
+  <button class="btn" id="next" aria-label="Next screen">Next <kbd>]</kbd></button>
+  <button class="btn" id="tTheme" aria-pressed="false">Dark</button>
+  <button class="btn" id="tRtl" aria-pressed="false">Right to left</button>
+  <button class="btn" id="tMotion" aria-pressed="false">Reduce motion</button>
+  <a class="btn" href="tui.html">Terminal UI</a>
+</header>
+
+<nav class="index" id="index" aria-label="Screen index" hidden></nav>
+
+<main class="stage">
+  <div class="states" id="states" role="group" aria-label="States of this screen"></div>
+  <div id="frame"></div>
+  <p class="note" id="note"></p>
+</main>
+
+<script>
+"use strict";
+/* =====================================================================
+   Data. One fictional session: ezio-desktop sends to ezio-thinkpad-new.
+   ===================================================================== */
+const SENDER = "ezio-desktop", RECEIVER = "ezio-thinkpad-new";
+const CODE = ["7", "zebra", "lemon"], CODE2 = ["7", "acorn", "maple"];
+const ADDRESS = "7-zebra-lemon@192.168.1.20:47822";
+const WORDS = ["zebra", "zesty", "zippy", "zone", "lemon", "lemur", "level", "orbit", "maple", "acid", "acorn", "bagel"];
+
+/* Ordered small-first: matches the engine's transfer order, so chips tick off early */
+const APPS = [
+  { id: "git", glyph: "git", name: "Git", what: "Name, email, aliases, global ignore", files: 2, size: "4 KB" },
+  { id: "ssh", glyph: ">_", name: "SSH", what: "Server list and shortcuts", files: 3, size: "14 KB" },
+  { id: "gpg", glyph: "gpg", name: "GnuPG", what: "Public keys and trust settings", files: 4, size: "96 KB" },
+  { id: "shell", glyph: "$_", name: "Bash and Zsh", what: "History, aliases and prompt theme", files: 15, size: "2.3 MB" },
+  { id: "vscode", glyph: "{ }", name: "VS Code", what: "Settings, keybindings, snippets", files: 388, size: "1.2 GB" },
+];
+const ASKS = [
+  { id: "ssh-keys", title: "Your SSH keys", why: "They log you in to servers and GitHub. Anyone with a copy can do the same, as you.", icon: "key" },
+  { id: "gpg-keys", title: "Your GnuPG secret keys", why: "They sign your commits and open mail sent to you. Anyone with a copy can do both.", icon: "key" },
+  { id: "rc", title: "Shell startup files", why: "They run every time you open a terminal. Bring them if you wrote or checked them yourself.", icon: "warn" },
+];
+const OVERRIDES = {
+  unmovable: { base: "customize", title: "Include VS Code extensions anyway?", body: ["Extensions are programs built for one system and one VS Code version. Copied ones often fail to start.", "Carrova's suggestion: reinstall them. You'll get one command that does all 12."], go: "Include anyway" },
+  running: { base: "recv-review:decide", title: "Apply while VS Code is open?", body: ["VS Code saves its state when it closes. If it's open while Carrova replaces that state, it will likely write over it, leaving a mix of old and new.", "Your other apps aren't affected, and Undo still works."], go: "Apply while it's open" },
+  space: { base: "recv-progress:paused", title: "Ignore the free-space check?", body: ["Carrova checks space so a move can't fill your disk. If the disk fills anyway, other apps may fail to save files.", "Carrova itself stays safe: it pauses and keeps what arrived."], go: "Ignore and continue" },
+  elsewhere: { base: "review-details", title: "Put this somewhere else?", body: ["Pick a folder inside your home, config or data folders. Carrova refuses anywhere outside them.", "The app may not find its settings in the new place."], go: "Choose a folder" },
+  unsigned: { base: "plugins", title: "Turn on an unsigned plugin?", body: ["Nobody from the Carrova project has reviewed this code. It runs sandboxed with the permissions it lists, but it could misuse them, for example by reading your notes.", "Only turn it on if you trust who made it."], go: "Turn on anyway", tone: "danger" },
+};
+
+/* =====================================================================
+   Components. Each returns an HTML string; screens compose these only.
+   ===================================================================== */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const attrs = o => Object.entries(o).filter(([, v]) => v !== undefined && v !== false).map(([k, v]) => v === true ? ` ${k}` : ` ${k}="${esc(v)}"`).join("");
+const icon = (name, cls = "") => `<svg class="icon ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+
+function btn(label, { kind = "", go, size, icon: ic, iconEnd, disabled, id, needs, label: aria } = {}) {
+  const cls = ["btn", kind && `btn--${kind}`, size && `btn--${size}`].filter(Boolean).join(" ");
+  return `<button${attrs({ class: cls, type: "button", "data-go": go, disabled, id, "data-needs": needs, "aria-label": aria })}>${ic ? icon(ic) : ""}${label}${iconEnd ? icon(iconEnd, "icon--dir") : ""}</button>`;
+}
+const link = (label, go) => `<button class="link" type="button" data-go="${go}">${label}</button>`;
+const app = (a, sm) => `<span class="app${sm ? " app--sm" : ""}" aria-hidden="true">${esc(a.glyph)}</span>`;
+const badge = (text, tone = "") => `<span class="badge${tone ? " badge--" + tone : ""}">${text}</span>`;
+const toggle = (label, on) => `<button class="toggle" type="button" role="switch" aria-checked="${on}" aria-label="${esc(label)}"></button>`;
+const check = (label, on) => `<button class="check" type="button" role="checkbox" aria-checked="${on}" aria-label="${esc(label)}">${icon("check")}</button>`;
+const lockline = text => `<span class="lockline">${icon("lock", "icon--sm")}${text}</span>`;
+const status = text => `<p class="status" role="status"><span class="pulse" aria-hidden="true"></span>${text}</p>`;
+const kbd = k => `<kbd>${k}</kbd>`;
+
+function seg(name, options, value, required) {
+  return `<div class="seg" role="radiogroup" aria-label="${esc(name)}"${required ? " data-required" : ""}>${options.map(o =>
+    `<button class="seg__opt" type="button" role="radio" aria-checked="${o === value}">${o}</button>`).join("")}</div>`;
+}
+function row({ lead = "", title, sub = "", trail = "", cls = "", go }) {
+  const inner = `${lead || "<span></span>"}<span><span class="row__title">${title}</span>${sub ? `<span class="row__sub">${sub}</span>` : ""}</span><span class="row__trail">${trail}</span>`;
+  return go ? `<li><button class="row row--link ${cls}" type="button" data-go="${go}">${inner}</button></li>` : `<li class="row ${cls}">${inner}</li>`;
+}
+const list = (rows, kind = "card") => `<ul class="list list--${kind}">${rows.join("")}</ul>`;
+function banner(tone, title, body = "", action = "") {
+  const ic = { warning: "key", danger: "warn", success: "check", accent: "info" }[tone] || "info";
+  return `<div class="banner banner--${tone}" role="${tone === "danger" ? "alert" : "status"}">${icon(ic)}<div><p class="banner__title">${title}</p>${body ? `<p class="banner__body">${body}</p>` : ""}</div><div>${action}</div></div>`;
+}
+const stat = (n, l) => `<div class="stat"><div class="stat__n">${n}</div><div class="stat__l">${l}</div></div>`;
+const progress = (p, paused) => `<div class="progress${paused ? " progress--paused" : ""}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(p * 100)}" aria-label="Overall progress"><div class="progress__fill" style="--p:${p}"></div></div>`;
+function code(words, { reveal = false, sm = false } = {}) {
+  const tiles = w => [...w].map(ch => `<span class="flap${/\d/.test(ch) ? " flap--num" : ""}" data-ch="${ch}">${reveal ? "" : ch}</span>`).join("");
+  return `<div class="code${sm ? " code--sm" : ""}"${reveal ? " data-reveal" : ""} role="img" aria-label="Pairing code: ${words.join(" ")}">${words.map(w => `<span class="code__word">${tiles(w)}</span>`).join('<span class="code__dash"></span>')}</div>`;
+}
+function empty({ art = "info", tone = "", title, body, action = "" }) {
+  return `<div class="empty"><div class="empty__art${tone ? " empty__art--" + tone : ""}">${icon(art, "icon--lg")}</div><h2 class="heading">${title}</h2><p>${body}</p>${action}</div>`;
+}
+function decision({ id, title, why, icon: ic = "key" }, value, opts = ["Leave behind", "Bring them"]) {
+  return `<div class="decision" data-id="${id}"><p class="decision__title">${icon(ic, "icon--sm")}${title}</p><p class="decision__why">${why}</p>${seg(title, opts, value, true)}</div>`;
+}
+function chip(a, state, text) {
+  const ic = state === "done" ? icon("check", "icon--sm") : "";
+  return `<li class="chip" data-app="${a.id}" data-state="${state}">${state === "done" ? `<span class="app" aria-hidden="true">${icon("check")}</span>` : app(a)}<span><span class="row__title">${a.name}</span><span class="row__sub">${a.size}</span></span><span class="chip__state">${ic}${text}</span></li>`;
+}
+function handshake(linked, left = SENDER, right = RECEIVER) {
+  return `<div class="handshake${linked ? " is-linked" : ""}" aria-hidden="true">
+    <div class="handshake__end"><span class="handshake__pc">${icon("laptop", "icon--lg")}</span>${left}</div>
+    <div class="handshake__wire">${linked ? `<span class="handshake__lock">${icon("lock")}</span>` : '<span class="handshake__dot"></span><span class="handshake__dot"></span>'}</div>
+    <div class="handshake__end"><span class="handshake__pc">${icon("laptop", "icon--lg")}</span>${right}</div></div>`;
+}
+const arrival = (word, meta) => `<div class="arrival"><div class="stamp" role="img" aria-label="${word}"><span class="stamp__word">${word}</span><span class="stamp__meta">${meta}</span></div><div class="burst" aria-hidden="true"></div></div>`;
+const copybox = text => `<div class="copybox"><code>${esc(text)}</code>${btn("Copy", { size: "sm", icon: "copy" })}</div>`;
+const disclose = (summary, body, open) => `<details class="disclose"${open ? " open" : ""}><summary>${icon("chev", "icon--sm icon--dir")}${summary}</summary><div class="disclose__body">${body}</div></details>`;
+const head = (title, lede = "", hero) => `<div class="flow__head"><h1 class="title${hero ? " title--hero" : ""}" tabindex="-1">${title}</h1>${lede ? `<p class="lede">${lede}</p>` : ""}</div>`;
+
+/* =====================================================================
+   Screen registry. layout: hub | flow | bare | doc. Overlays name a base.
+   ===================================================================== */
+const SCREENS = [];
+const S = def => SCREENS.push({ states: [], phase: "ready", ...def });
+const FLOWS = { send: ["Send", 4], receive: ["Receive", 4], save: ["Save to a file", 3], open: ["Open a file", 4], undo: ["Undo", 2] };
+
+/* ---------- Start ---------- */
+S({ id: "welcome", group: "Start", title: "Welcome (first run)", phase: "p4", layout: "bare",
+  note: "Was three onboarding screens. Now one: what moves, the three promises, and error-report consent (off, asked once, never again).",
+  render: () => ({ body: `<div class="flow__col">
+    <span class="wordmark"><span class="wordmark__mark">${icon("swap")}</span>Carrova</span>
+    ${head("Bring your setup to a new computer.", "Settings, keys and data for the apps you use. You choose what moves; the apps themselves get reinstalled.", true)}
+    ${list([
+      row({ lead: icon("lock"), title: "Straight between your computers", sub: "No account, no cloud. Everything is encrypted on the way." }),
+      row({ lead: icon("check"), title: "Nothing changes until you approve", sub: "You see exactly what will change on the new computer first." }),
+      row({ lead: icon("undo"), title: "Every move can be undone", sub: "Replaced files are backed up. Undo for 30 days." }),
+    ], "plain")}
+    <div class="row row--flush"><span></span><span><span class="row__title">Send error reports if Carrova crashes</span><span class="row__sub">No file names, contents or keys. You can change this in Settings.</span></span>${toggle("Send error reports", false)}</div>
+    <div>${btn("Get started", { kind: "primary", go: "home:first" })}</div></div>` }) });
+
+S({ id: "home", group: "Start", title: "Home", layout: "hub", nav: "home",
+  states: [["returning", "Returning"], ["first", "No moves yet"]],
+  note: "Two verbs, nothing else competes. The file route is a quiet link. The last move is one line, with Undo, because Undo should never be buried.",
+  render: st => ({ raw: `<div class="home">
+    <h1 class="title" tabindex="-1">What are we doing on this computer?</h1>
+    <div class="home__choices">
+      <button class="tile-choice" type="button" data-go="send-found:scanning"><span class="tile-choice__icon">${icon("send", "icon--lg")}</span><span class="tile-choice__title">Send</span><span class="tile-choice__sub">This is the old computer</span></button>
+      <button class="tile-choice" type="button" data-go="recv-code:typing"><span class="tile-choice__icon">${icon("receive", "icon--lg")}</span><span class="tile-choice__title">Receive</span><span class="tile-choice__sub">This is the new computer</span></button>
+    </div>
+    ${link("Use an encrypted file instead", "file-choose")}
+    ${st === "returning" ? `<p class="home__last">${icon("history", "icon--sm")}Received from ${SENDER} yesterday, 5 apps. ${btn("Undo", { kind: "quiet", size: "sm", go: "undo-confirm" })}</p>` : ""}
+  </div>` }) });
+
+S({ id: "file-choose", group: "Start", title: "Use a file instead (dialog)", base: "home:returning",
+  note: "For computers that can't see each other. Two choices in a dialog instead of a whole screen.",
+  overlay: () => ({ kind: "dialog", icon: "file", title: "Use an encrypted file",
+    body: `<p>Save your setup into one file protected by a passphrase, then open it on the other computer.</p>
+      ${list([row({ lead: icon("send"), title: "Save to a file", sub: "On the old computer", trail: icon("chev", "icon--dir"), go: "save-what" }),
+              row({ lead: icon("receive"), title: "Open a file", sub: "On the new computer", trail: icon("chev", "icon--dir"), go: "open-file:ready" })])}`,
+    foot: [btn("Cancel", { go: "home:returning" })] }) });
+
+/* ---------- Send ---------- */
+function foundBody(st, mode) {
+  if (st === "scanning") return { body: `${head("Looking at this computer…", "Checking which apps you use. This takes a few seconds and reads nothing yet.")}
+    ${status("Found Git, SSH, GnuPG…")}${progress(.45)}`, foot: { start: [btn("Cancel", { go: "home:returning" })] } };
+  if (st === "nothing") return { body: empty({ art: "search", title: "No apps Carrova knows yet", body: "Carrova looked for 15 apps and found none set up here. You can still pick folders yourself.", action: btn("Pick folders", { kind: "primary", go: "unrecognised" }) }) + `<p class="small muted center">${link("See which apps Carrova knows", "apps:verified")}</p>`, foot: { start: [btn("Back", { go: "home:returning", icon: "back" })] } };
+  const xfile = mode === "save";
+  return { body: `${head("Here's what we found", "5 apps, 412 files, 1.2 GB. We ticked what most people bring.")}
+    ${list(APPS.map(a => row({ lead: app(a), title: a.name, sub: a.what, trail: `<span>${a.size}</span>${toggle("Bring " + a.name, true)}` })))}
+    <div><div class="group-head"><h2>Needs your OK</h2>${badge("Off unless you say so", "warning")}</div>
+    ${ASKS.map(a => decision(a, "Leave behind")).join("")}</div>`,
+    foot: { start: [btn("Customize", { go: "customize" })], note: "1.2 GB, no keys", end: [btn(xfile ? "Continue" : "Get pairing code", { kind: "primary", go: xfile ? "save-lock:typing" : "send-code:waiting" })] } };
+}
+S({ id: "send-found", group: "Send", title: "Here's what we found", layout: "flow", flow: "send", step: 1,
+  states: [["scanning", "Scanning"], ["ready", "Found"], ["nothing", "Nothing found"]],
+  note: "Replaces scan + Simple/Advanced chooser + unrecognised folders. Apps are rows with sizes; risky items are asked once, in plain words, and start on 'Leave behind'. Everything finer lives in Customize.",
+  render: st => foundBody(st) });
+
+const TREE = [
+  [0, "SSH", "", "14 KB", "mixed", ""],
+  [1, "Server list and shortcuts", "~/.ssh/config", "6 KB", "true", "suggested"],
+  [1, "Known servers", "~/.ssh/known_hosts", "8 KB", "true", "suggested"],
+  [1, "SSH keys", "4 files", "9 KB", "false", "warning"],
+  [1, "Keys allowed to log in here", "~/.ssh/authorized_keys", "1 KB", "false", "warning"],
+  [0, "Git", "", "4 KB", "true", ""],
+  [1, "Saved passwords and tokens", "~/.git-credentials", "1 KB", "false", "warning"],
+  [0, "VS Code", "", "1.2 GB", "mixed", ""],
+  [1, "Settings and keybindings", "user_config/Code/User", "212 KB", "true", "suggested"],
+  [1, "Extensions", "12 extensions", "640 MB", "false", "unmovable"],
+  [1, "Cache", "cache/Code", "380 MB", "false", ""],
+];
+S({ id: "customize", group: "Send", title: "Customize (sheet)", base: "send-found:ready",
+  note: "The full tree, one level down from the summary: single files, sizes, flags. Unmovable items stay visible with a reason and an override behind a warning.",
+  overlay: () => ({ kind: "sheet", title: "Customize what moves",
+    body: `<div class="search">${icon("search", "icon--sm")}<input aria-label="Filter items" placeholder="Filter by app or file"></div>
+      <div class="tree" role="tree">${TREE.map(([d, name, sub, size, on, flag]) => `<div class="tree__row${flag === "unmovable" ? " tree__row--off" : ""}" role="treeitem" aria-level="${d + 1}" style="--depth:${d}">
+        <button class="tree__exp" type="button" aria-label="Expand">${d === 0 ? icon("chev", "icon--sm icon--dir") : ""}</button>
+        ${flag === "unmovable" ? `<span class="check" aria-hidden="true"></span>` : check(name, on)}
+        <span class="tree__name">${d === 0 ? `<b>${name}</b>` : name}${sub ? `<small><span class="mono" dir="ltr">${sub}</span></small>` : ""}${flag === "unmovable" ? `<small>Built for this system. Reinstall instead. ${link("Include anyway", "override:unmovable")}</small>` : ""}</span>
+        <span class="tree__meta">${flag === "warning" ? badge("Sensitive", "warning") : flag === "suggested" ? badge("Suggested") : ""}${size}</span></div>`).join("")}</div>
+      ${list([row({ lead: icon("folder"), title: "Folders Carrova doesn't recognise", sub: "3 folders over 10 MB in your home", trail: icon("chev", "icon--dir"), go: "unrecognised" }),
+              row({ lead: icon("disk"), title: "Include caches and logs", sub: "Usually rebuilt by the app. Adds 412 MB.", trail: toggle("Include caches", false) })])}`,
+    foot: [`<span class="actions__note">398 of 418 files, 1.2 GB</span>`, btn("Reset to suggestions", { kind: "quiet" }), btn("Done", { kind: "primary", go: "send-found:ready" })] }) });
+
+S({ id: "unrecognised", group: "Send", title: "Folders Carrova doesn't recognise (sheet)", base: "customize",
+  note: "Raw folders, for data no recipe covers. A size filter keeps the list short.",
+  overlay: () => ({ kind: "sheet", title: "Folders Carrova doesn't recognise",
+    body: `<p class="muted">These aren't linked to an app Carrova knows. Pick any you want to bring. They go to the same place on the new computer.</p>
+      <div class="row row--flush"><span></span><span class="row__title">Show folders larger than</span><select class="input" aria-label="Minimum size"><option>10 MB</option><option>100 MB</option><option>Any size</option></select></div>
+      ${list([["~/projects/notes", "Markdown notes", "84 MB"], ["~/.local/share/fonts", "Fonts you installed", "31 MB"], ["~/.config/obsidian", "An app Carrova doesn't know yet", "12 MB"]].map(([p, s, z]) =>
+        row({ lead: check(p, false), title: `<span class="mono" dir="ltr">${p}</span>`, sub: s, trail: z })))}`,
+    foot: [btn("Done", { kind: "primary", go: "customize" })] }) });
+
+S({ id: "send-code", group: "Send", title: "Pairing code", layout: "flow", flow: "send", step: 2,
+  states: [["waiting", "Waiting"], ["cant-connect", "Can't connect"], ["new-code", "Wrong code tried"], ["locked", "3 wrong codes"]],
+  note: "The signature moment: the code flips in like a departure board, readable across a room. Every error state has one action. The fallback address sits behind 'Can't connect?'.",
+  render: st => {
+    if (st === "locked") return { body: empty({ art: "lock", tone: "danger", title: "Pairing stopped", body: "Three wrong codes in a row were tried. That can be a typo, or someone else on this network guessing. Carrova stopped to be safe.", action: btn("Start again", { kind: "primary", go: "send-code:waiting" }) }), foot: { start: [btn("Back to Home", { go: "home:returning" })] } };
+    const words = st === "new-code" ? CODE2 : CODE;
+    return { body: `<div class="flow__center">
+      ${head("On the new computer, choose Receive and type", "")}
+      ${st === "new-code" ? banner("warning", "A wrong code was typed, so we made a new one", "Each code works only once. If it wasn't you, someone nearby may be guessing.") : ""}
+      ${code(words, { reveal: true })}
+      ${st === "cant-connect" ? "" : status(`Waiting for ${RECEIVER}…`)}
+      ${lockline("Encrypted. The code never travels over the network.")}
+      ${st === "cant-connect"
+        ? `<div class="stack">${banner("accent", "The other computer can't find this one", "Some networks block discovery. Type this address on the other computer instead.")}${copybox(ADDRESS)}</div>`
+        : disclose("Can't connect?", `<div class="stack"><p class="small muted">Type this address on the other computer instead.</p>${copybox(ADDRESS)}</div>`)}</div>`,
+      foot: { start: [btn("Back", { go: "send-found:ready", icon: "back" })], end: [btn("Show a new code", { kind: "quiet" })] } };
+  } });
+
+S({ id: "send-live", group: "Send", title: "Connected, then sending", layout: "flow", flow: "send", step: 3,
+  states: [["reviewing", "They're reviewing"], ["moving", "Moving"], ["reconnecting", "Reconnecting"]],
+  note: "Was two screens (their review, then sending). Now one live screen: the handshake lands, then becomes progress when they approve.",
+  render: st => {
+    if (st === "reviewing") return { body: `${head(`Connected to ${RECEIVER}`, "They're looking over what will change. Keep Carrova open.")}
+      ${handshake(true)}${status("Waiting for their approval…")}
+      ${banner("accent", "3 of their files will be replaced", "They're backed up first on that computer, so the move can be undone.")}`,
+      foot: { start: [btn("Cancel", { kind: "danger" })] } };
+    return progressBody(st, "send");
+  } });
+
+function progressBody(st, side) {
+  const paused = st === "paused" || st === "reconnecting";
+  const p = st === "applying" ? 1 : st === "moving" ? .08 : .52;
+  const chips = APPS.map((a, i) => {
+    if (st === "applying") return chip(a, i < 3 ? "done" : "moving", i < 3 ? "In place" : "Putting in place…");
+    if (st === "moving") return chip(a, "waiting", "Waiting");
+    return chip(a, i < 4 ? "done" : paused ? "waiting" : "moving", i < 4 ? "Arrived" : paused ? "Paused" : "612 MB of 1.2 GB");
+  });
+  const title = { moving: "Moving your setup", paused: "Paused: this disk is full", reconnecting: "Lost the connection", applying: "Putting things in place" }[st];
+  const lede = { moving: "Small settings go first, so most apps are done in seconds.", paused: "Carrova kept everything that arrived. Free up 400 MB and it picks up where it stopped.", reconnecting: "Trying again. It'll pick up where it left off, even after sleep or a restart.", applying: "Replaced files are backed up first. If anything goes wrong, Carrova undoes it automatically." }[st];
+  const meta = st === "applying" ? ["1.2 GB arrived", "Almost done"] : paused ? ["612 MB of 1.2 GB", st === "paused" ? "Waiting for space" : "Retrying for up to 10 minutes"] : ["0 of 1.2 GB", "About 2 minutes left"];
+  return { body: `${head(title, lede)}
+    ${st === "paused" ? banner("danger", "400 MB more space needed", "Checked every 5 seconds.", btn("Open Files", { size: "sm" })) : ""}
+    <div>${progress(p, paused)}<div class="progress-meta"><span data-sim-done>${meta[0]}</span><span data-sim-left>${meta[1]}</span></div></div>
+    <ul class="chips"${st === "moving" ? " data-sim" : ""}>${chips.join("")}</ul>
+    ${lockline(side === "send" ? `Encrypted. Only ${RECEIVER} can read this.` : `Encrypted. Each piece is checked as it arrives.`)}`,
+    foot: { start: [st === "paused" ? btn("Ignore the space check", { kind: "quiet", go: "override:space" }) : btn("Cancel", { kind: "danger" })],
+      end: [st === "moving" ? btn("Pause", { icon: "pause" }) : "", st === "applying" ? btn("See what arrived", { kind: "primary", go: side === "send" ? "send-done" : "recv-done:done" }) : ""] } };
+}
+
+S({ id: "send-done", group: "Send", title: "Sent", layout: "flow", flow: "send", step: 4,
+  note: "Completion is a moment: the stamp lands with a small burst (static with reduced motion). Then it says what's true: nothing was removed here.",
+  render: () => ({ body: `<div class="flow__center">${arrival("Delivered", "5 apps, 1.2 GB")}
+    ${head("Your setup is on the new computer.", `${RECEIVER} approved and put everything in place. Nothing was removed from this computer.`)}</div>`,
+    foot: { start: [btn("See details", { go: "session" })], end: [btn("Done", { kind: "primary", go: "home:returning" })] } }) });
+
+/* ---------- Receive ---------- */
+S({ id: "recv-code", group: "Receive", title: "Type the code", layout: "flow", flow: "receive", step: 1,
+  states: [["typing", "Typing"], ["connecting", "Connecting"], ["not-found", "Not found"], ["mismatch", "Code didn't match"]],
+  note: "Words autocomplete after three letters (EFF words have unique prefixes; Tab accepts). Connecting is the handshake moment. 'Didn't match' tells the truth: the other side made a new code.",
+  render: st => {
+    if (st === "connecting") return { body: `${head("Connecting…", "Both computers are checking the code. It's never sent over the network.")}${handshake(false)}${status(`Found ${SENDER}. Checking the code…`)}`, foot: { start: [btn("Cancel", { go: "recv-code:typing" })] } };
+    const input = `<div class="field"><label class="field__label" for="codeIn">Pairing code</label>
+      <div class="ghost"><input id="codeIn" class="input input--code" autocomplete="off" spellcheck="false" dir="ltr" value="${st === "typing" ? "7-zebra-lem" : ""}" aria-describedby="codeHint"><span class="ghost__hint" aria-hidden="true"></span></div>
+      <p class="field__hint" id="codeHint">Like ${kbd("7-zebra-lemon")}. Words finish themselves, press ${kbd("Tab")}.</p></div>`;
+    const extra = st === "not-found"
+      ? `${banner("accent", `Couldn't find code 7 on this network`, "Check both computers are on the same Wi-Fi. Or type the address shown under 'Can't connect?' on the other computer.")}
+         <div class="field"><label class="field__label" for="addrIn">Address</label><input id="addrIn" class="input mono" dir="ltr" placeholder="7-zebra-lemon@192.168.1.20:47822"></div>`
+      : st === "mismatch" ? banner("danger", "That code didn't match", `For safety, ${SENDER} made a new code. Type the new one shown on its screen.`) : "";
+    return { body: `${head("Type the code from the other computer", "")}${input}${extra}`,
+      foot: { start: [btn("Back", { go: "home:returning", icon: "back" })], end: [btn(st === "not-found" ? "Connect with address" : "Connect", { kind: "primary", go: "recv-code:connecting" })] } };
+  } });
+
+S({ id: "recv-review", group: "Receive", title: "Here's what will change", layout: "flow", flow: "receive", step: 2,
+  states: [["decide", "Needs answers"], ["ready", "Ready"]],
+  note: "Approval gate. Facts first (three numbers), then a short list of decisions; Approve unlocks when each has an answer. Conflict rules, per-file choices and remaps are one tap away in 'See every change'.",
+  render: st => {
+    const v = st === "ready";
+    return { body: `${head("Here's what will change", "Nothing changes on this computer until you approve. You can undo for 30 days.")}
+      <div class="stats">${stat(412, "files added")}${stat(3, "replaced, backed up first")}${stat(28, "already the same")}</div>
+      <div><div class="group-head"><h2>Your decisions</h2><span class="small muted" data-left>${v ? "All answered" : "3 to answer"}</span></div>
+      ${decision(ASKS[0], v ? "Bring them" : "", ["Leave behind", "Bring them"])}
+      ${decision({ ...ASKS[1], why: "They sign your commits and open mail sent to you. GnuPG is stopped for a moment while they're placed." }, v ? "Leave behind" : "", ["Leave behind", "Bring them"])}
+      ${decision({ id: "vscode-open", title: "VS Code is open", why: `Close it so its settings can be replaced, or skip VS Code for now. ${link("Apply while it's open", "override:running")}`, icon: "warn" }, v ? "I closed it" : "", ["Skip VS Code", "I closed it"])}</div>
+      ${list([row({ lead: icon("disk"), title: "Space", sub: "Needs 1.2 GB. 112 GB free.", trail: badge("Enough", "success") }),
+              row({ lead: icon("swap"), title: "See every change", sub: "Per app and per file, with what happens to each", trail: icon("chev", "icon--dir"), go: "review-details" })])}`,
+      foot: { start: [btn("Cancel, change nothing")], note: v ? "" : "Answer 3 questions to continue", end: [btn("Approve and move", { kind: "primary", go: "recv-progress:moving", needs: "decisions", disabled: !v })] } };
+  } });
+
+S({ id: "review-details", group: "Receive", title: "Every change (sheet)", base: "recv-review:ready",
+  note: "Where 'user decides everything' lives in full: per-item and per-file conflict rules (suggested one is labelled), restore elsewhere, all behind a sheet.",
+  overlay: () => ({ kind: "sheet", title: "Every change",
+    body: `<p class="muted">The suggestion for clashes is to back up and replace. Change it for a whole app or a single file.</p>
+      ${["SSH", "Git", "VS Code"].map((n, i) => `<div class="card card--pad stack">
+        <div class="page__head"><h3 class="heading">${n}</h3>${seg(n + " clashes", ["Replace", "Keep both", "Skip"], "Replace")}</div>
+        ${list([
+          row({ title: `<span class="mono" dir="ltr">${["~/.ssh/config", "~/.gitconfig", "Code/User/settings.json"][i]}</span>`, sub: "Exists here. Backed up, then replaced. " + badge("Suggested"), trail: btn("Change", { kind: "quiet", size: "sm" }) }),
+          row({ title: `${[2, 1, 386][i]} new files`, sub: "Added", trail: i === 2 ? btn("Put elsewhere…", { kind: "quiet", size: "sm", go: "override:elsewhere" }) : "" })], "plain")}</div>`).join("")}`,
+    foot: [btn("Done", { kind: "primary", go: "recv-review:ready" })] }) });
+
+S({ id: "recv-progress", group: "Receive", title: "Moving", layout: "flow", flow: "receive", step: 3,
+  states: [["moving", "Moving"], ["paused", "Disk full"], ["reconnecting", "Reconnecting"], ["applying", "Putting in place"], ["failed", "Failed, undone"]],
+  note: "Transfer and apply are one screen. Chips tick off small apps first (the engine's real order). Paused and reconnecting keep everything that arrived. A failed apply is undone automatically, with one recovery.",
+  render: st => st === "failed"
+    ? { body: empty({ art: "undo", tone: "danger", title: "Something went wrong, so nothing changed", body: "Carrova couldn't write VS Code's settings (permission denied) and put every file back the way it was. What arrived is kept, so trying again is quick.", action: btn("Try again", { kind: "primary", go: "recv-progress:applying" }) }) + `<p class="small center">${link("See what happened", "session")}</p>`, foot: { start: [btn("Back to Home", { go: "home:returning" })] } }
+    : progressBody(st, "receive") });
+
+S({ id: "recv-done", group: "Receive", title: "Arrived", layout: "flow", flow: "receive", step: 4,
+  states: [["done", "All arrived"], ["partial", "Some failed"]],
+  note: "The stamp moment, then what's left for you as a short checklist. Undo sits next to Done, never buried.",
+  render: st => {
+    const left = list([
+      row({ lead: check("Done", false), title: "Reinstall 12 VS Code extensions", sub: "One command does all of them", trail: btn("Copy command", { size: "sm", icon: "copy" }) }),
+      row({ lead: check("Done", false), title: "Open a new terminal", sub: "So your shell settings load" }),
+      row({ lead: check("Done", false), title: "Sign in to GitHub CLI", sub: "Tokens stayed on the old computer" })]);
+    return { body: `<div class="flow__center">${arrival(st === "partial" ? "Mostly here" : "Arrived", st === "partial" ? "4 of 5 apps" : "5 apps, 1.2 GB")}
+      ${head(st === "partial" ? "Almost everything arrived." : "Everything arrived.", st === "partial" ? "GnuPG's trust settings couldn't be written. The rest is in place." : `From ${SENDER}. 3 replaced files were backed up.`)}</div>
+      ${st === "partial" ? banner("danger", "1 item didn't move", "GnuPG trust settings: the folder is locked by another program.", btn("Try again", { size: "sm" })) : ""}
+      <div><div class="group-head"><h2>Left for you</h2></div>${left}</div>`,
+      foot: { start: [btn("Undo this move", { icon: "undo", go: "undo-confirm" })], end: [btn("Done", { kind: "primary", go: "home:returning" })] } };
+  } });
+
+S({ id: "undo-confirm", group: "Receive", title: "Undo preview (dialog)", base: "recv-done:done",
+  note: "Undo is itself a plan you preview: restored, removed, moved aside. Nothing is ever deleted.",
+  overlay: () => ({ kind: "dialog", icon: "undo", title: "Undo this move?",
+    body: `<p>This computer goes back to how it was yesterday at 14:02.</p>
+      ${list([row({ title: "3 files restored", sub: "From the backup made before the move" }), row({ title: "412 files removed", sub: "The ones this move added" }), row({ title: "1 file moved aside", sub: "You changed it after the move, so it's kept in a folder" })], "plain")}`,
+    foot: [btn("Keep everything", { go: "recv-done:done" }), btn("Undo the move", { kind: "primary", go: "undo-result:complete" })] }) });
+
+S({ id: "undo-result", group: "Receive", title: "Undone", layout: "flow", flow: "undo", step: 2,
+  states: [["complete", "Complete"], ["partial", "Partly failed"]],
+  note: "Same shape as every result: what happened, what's true now, one action.",
+  render: st => ({ body: `${head(st === "partial" ? "Mostly undone" : "Undone. This computer is back to how it was.", st === "partial" ? "One file couldn't be restored because it's open in another program." : "3 files restored, 412 removed, 1 moved aside to a folder you can open.")}
+    ${st === "partial" ? banner("danger", "1 file not restored", "~/.bashrc is open in another program. Close it and try again.", btn("Try again", { size: "sm" })) : ""}
+    ${list([row({ lead: icon("folder"), title: "Moved-aside files", sub: `<span class="mono" dir="ltr">~/.local/share/carrova/moved-aside/</span>`, trail: btn("Open", { size: "sm" }) })])}`,
+    foot: { end: [btn("Done", { kind: "primary", go: "home:returning" })] } }) });
+
+S({ id: "xos", group: "Receive", title: "Moving to Windows", phase: "p5", layout: "flow", flow: "receive", step: 2,
+  note: "Cross-OS is the same review screen plus 'where it lands' and a plain list of what can't move and why.",
+  render: () => ({ body: `${head("Here's what will change on Windows", "Some things live in different places on Windows. This is where each one lands.")}
+    ${list([["VS Code settings", "%APPDATA%\\Code\\User"], ["Git settings", "%USERPROFILE%\\.gitconfig"], ["SSH server list", "%USERPROFILE%\\.ssh\\config"]].map(([t, p]) =>
+      row({ title: t, sub: `<span class="mono" dir="ltr">${esc(p)}</span>`, trail: badge("Lands here", "success") })))}
+    <div><div class="group-head"><h2>Can't move to Windows</h2></div>${list([
+      row({ title: "Bash and Zsh startup files", sub: "Windows has no Bash. If you use WSL, you can put them there instead.", trail: btn("Put in WSL", { kind: "quiet", size: "sm" }) }),
+      row({ title: "GnuPG agent settings", sub: "Gpg4win uses a different format. Your keys still move." })], "plain")}</div>`,
+    foot: { start: [btn("Cancel, change nothing")], end: [btn("Approve and move", { kind: "primary" })] } }) });
+
+/* ---------- Encrypted file ---------- */
+S({ id: "save-what", group: "Encrypted file", title: "Save: what goes in", layout: "flow", flow: "save", step: 1,
+  note: "Same 'Here's what we found' screen as sending. One component, two flows.",
+  render: () => foundBody("ready", "save") });
+
+S({ id: "save-lock", group: "Encrypted file", title: "Save: passphrase", layout: "flow", flow: "save", step: 2,
+  states: [["typing", "Strong"], ["weak", "Too weak"]],
+  note: "Strength is shown, not lectured. The strength setting (key derivation) is behind Advanced, with a floor that can't be lowered.",
+  render: st => ({ body: `${head("Lock the file with a passphrase", "You'll type it on the other computer. Carrova can't recover it if it's lost.")}
+    <div class="field"><label class="field__label" for="pp">Passphrase</label><input id="pp" class="input" type="password" value="${st === "weak" ? "summer" : "correct horse battery"}">
+    <div class="meter" data-level="${st === "weak" ? 1 : 4}" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <p class="field__hint">${st === "weak" ? "Too easy to guess. Try three or four unrelated words." : "Strong. Four words or more is great."}</p></div>
+    <div class="field"><label class="field__label" for="pp2">Type it again</label><input id="pp2" class="input" type="password"></div>
+    ${disclose("Advanced", list([row({ title: "Lock strength", sub: "Higher is slower to open and harder to crack. Never below the safe minimum.", trail: `<select class="input" aria-label="Lock strength"><option>Standard</option><option>Strong</option><option>Strongest</option></select>` })], "plain"))}`,
+    foot: { start: [btn("Back", { go: "save-what", icon: "back" })], end: [btn("Save file", { kind: "primary", go: "save-done", disabled: st === "weak" })] } }) });
+
+S({ id: "save-done", group: "Encrypted file", title: "Save: saved", layout: "flow", flow: "save", step: 3,
+  render: () => ({ body: `<div class="flow__center">${arrival("Packed", "1.2 GB, encrypted")}${head("Your setup is in one file.", "Copy it to the other computer any way you like, then choose Open a file there.")}</div>
+    ${copybox("~/carrova-ezio-desktop-2026-11-08.carrova")}`,
+    foot: { start: [btn("Show in folder", { icon: "folder" })], end: [btn("Done", { kind: "primary", go: "home:returning" })] } }) });
+
+S({ id: "open-file", group: "Encrypted file", title: "Open a file", layout: "flow", flow: "open", step: 1,
+  states: [["ready", "Ready"], ["wrong", "Wrong passphrase"]],
+  note: "File and passphrase on one screen; then the same review, progress and done screens as receiving.",
+  render: st => ({ body: `${head("Open your Carrova file", "")}
+    ${list([row({ lead: icon("file"), title: `<span class="mono" dir="ltr">carrova-ezio-desktop-2026-11-08.carrova</span>`, sub: "1.2 GB, saved today", trail: btn("Choose another", { kind: "quiet", size: "sm" }) })])}
+    <div class="field"><label class="field__label" for="op">Passphrase</label><input id="op" class="input" type="password" value="••••••••"${st === "wrong" ? ' aria-invalid="true"' : ""}>
+    ${st === "wrong" ? `<p class="field__hint field__hint--error">That passphrase doesn't open this file. Check caps lock and try again.</p>` : ""}</div>`,
+    foot: { start: [btn("Back", { go: "file-choose", icon: "back" })], end: [btn("Open", { kind: "primary", go: "recv-review:decide" })] } }) });
+
+/* ---------- Hub: history, apps, settings ---------- */
+S({ id: "history", group: "History", title: "History", layout: "hub", nav: "history",
+  states: [["list", "With moves"], ["empty", "Empty"]],
+  render: st => ({ body: st === "empty"
+    ? empty({ art: "history", title: "No moves yet", body: "When you send or receive, it shows up here with a way to undo it.", action: btn("Receive from another computer", { kind: "primary", go: "recv-code:typing" }) })
+    : `<div class="page__head"><h1 class="title" tabindex="-1">History</h1></div>${list([
+      row({ lead: icon("receive"), title: `Received from ${SENDER}`, sub: "Yesterday, 14:02. 5 apps, 1.2 GB", trail: `${badge("Undo until 8 Dec", "accent")}${icon("chev", "icon--dir")}`, go: "session" }),
+      row({ lead: icon("file"), title: "Saved to a file", sub: "2 Nov. 3 apps, 40 MB", trail: icon("chev", "icon--dir"), go: "session" }),
+      row({ lead: icon("undo"), title: `Undid a move from ${SENDER}`, sub: "28 Oct", trail: icon("chev", "icon--dir"), go: "session" })])}` }) });
+
+S({ id: "session", group: "History", title: "Move details (sheet)", base: "history:list",
+  note: "Timeline, a log with every secret redacted, and the undo point. Removing an undo point is the only destructive action, and it's quiet.",
+  overlay: () => ({ kind: "sheet", title: `Received from ${SENDER}`,
+    body: `<ol class="timeline">${[["Paired, encrypted", "14:00"], ["You approved the plan", "14:01"], ["412 files arrived, all checked", "14:02"], ["Put in place, 3 backed up", "14:02"]].map(([t, w]) => `<li><span></span><span>${t}</span><time>${w}</time></li>`).join("")}</ol>
+      ${disclose("Log", `<pre class="log">14:00:12 pair ok peer=${SENDER} code=[hidden]\n14:01:40 plan approved add=412 replace=3 same=28\n14:02:31 apply ok journal=closed backups=3</pre>`)}
+      ${list([row({ lead: icon("undo"), title: "Undo point", sub: "Kept until 8 Dec. Uses 18 MB.", trail: btn("Remove", { kind: "quiet", size: "sm" }) })])}`,
+    foot: [btn("Undo this move", { kind: "primary", icon: "undo", go: "undo-confirm" })] }) });
+
+const RECIPES = [["ssh", ">_", "SSH", "verified", true], ["git", "git", "Git", "verified", true], ["vscode", "{ }", "VS Code", "verified", true], ["gpg", "gpg", "GnuPG", "verified", true], ["shell", "$_", "Bash and Zsh", "verified", true], ["tmux", "tmx", "tmux", "verified", false], ["nvim", "nv", "Neovim", "community", false], ["kitty", "kt", "Kitty", "community", false]];
+S({ id: "apps", group: "Apps Carrova knows", title: "Apps Carrova knows", phase: "p4", layout: "hub", nav: "apps",
+  states: [["verified", "All"], ["community", "Community"]],
+  note: "The catalogue is a grid of the same app glyphs used everywhere. Trust tier is a badge; signature status is one lock line.",
+  render: st => ({ body: `<div class="page__head"><h1 class="title" tabindex="-1">Apps Carrova knows</h1>${seg("Show", ["All", "Verified", "Community"], st === "community" ? "Community" : "All")}</div>
+    <div class="search">${icon("search", "icon--sm")}<input aria-label="Search apps" placeholder="Search 15 apps"></div>
+    ${lockline("App list updated 2 days ago. Signature checked.")}
+    ${st === "community" ? banner("warning", "Community apps are checked by tests, not reviewed by the Carrova team", "They're still data only: they can't run code.") : ""}
+    <div class="grid-cards">${RECIPES.filter(r => st !== "community" || r[3] === "community").map(([id, g, n, tier, here]) => `<button class="app-card" type="button" data-go="recipe">
+      <span class="app-card__top">${app({ glyph: g })}${tier === "verified" ? badge(icon("check", "icon--sm") + "Verified", "success") : badge("Community")}</span>
+      <span class="row__title">${n}</span><span class="row__sub">${here ? "Set up on this computer" : "Not found here"}</span></button>`).join("")}</div>` }) });
+
+S({ id: "recipe", group: "Apps Carrova knows", title: "App detail (sheet)", phase: "p4", base: "apps:verified",
+  overlay: () => ({ kind: "sheet", title: "SSH",
+    body: `<p class="muted">What Carrova can move for SSH, and where it lives. Sensitive items always start off.</p>
+      ${list([row({ title: "Server list and shortcuts", sub: `<span class="mono" dir="ltr">home/.ssh/config</span>`, trail: badge("Suggested") }),
+              row({ title: "Known servers", sub: `<span class="mono" dir="ltr">home/.ssh/known_hosts</span>`, trail: badge("Suggested") }),
+              row({ title: "SSH keys", sub: "Private keys get permission 600", trail: badge("Sensitive", "warning") }),
+              row({ title: "Agent socket", sub: "Made fresh on each computer", trail: badge("Can't move") })])}
+      ${list([row({ title: "Maintained by", sub: "Carrova team" }), row({ title: "Signature", sub: lockline("Valid") })], "plain")}`,
+    foot: [btn("Close", { go: "apps:verified" })] }) });
+
+S({ id: "settings", group: "Settings", title: "Settings", phase: "p4", layout: "hub", nav: "settings",
+  note: "Every default from the 'user decides everything' list lives here, labelled as a suggestion where it is one.",
+  render: () => {
+    const g = (t, rows) => `<section class="settings-group"><h2>${t}</h2>${list(rows)}</section>`;
+    return { body: `<div class="page__head"><h1 class="title" tabindex="-1">Settings</h1></div>
+      ${g("This computer", [row({ title: "Name others see", sub: `<span class="mono" dir="ltr">${SENDER}</span>`, trail: btn("Change", { kind: "quiet", size: "sm" }) }), row({ title: "Appearance", trail: `<select class="input" aria-label="Appearance"><option>Match system</option><option>Light</option><option>Dark</option></select>` })])}
+      ${g("Moving", [row({ title: "When a file already exists", sub: "Suggested: back up and replace", trail: `<select class="input" aria-label="When a file exists"><option>Back up and replace</option><option>Keep both</option><option>Skip</option></select>` }), row({ title: "Keep undo points for", trail: `<select class="input" aria-label="Keep undo points"><option>30 days</option><option>90 days</option><option>Forever</option></select>` }), row({ title: "Include caches and logs", sub: "Usually rebuilt by apps", trail: toggle("Include caches", false) })])}
+      ${g("Privacy", [row({ title: "Send error reports if Carrova crashes", sub: "No file names, contents or keys", trail: toggle("Error reports", false) })])}
+      ${g("More", [row({ lead: icon("plug"), title: "Plugins", trail: icon("chev", "icon--dir"), go: "plugins" }), row({ lead: icon("spark"), title: "Updates", sub: "Carrova 0.2.0 is ready", trail: icon("chev", "icon--dir"), go: "update" }), row({ lead: icon("info"), title: "About and licences", trail: icon("chev", "icon--dir"), go: "about" })])}` };
+  } });
+
+S({ id: "plugins", group: "Settings", title: "Plugins", phase: "p5", layout: "hub", nav: "settings",
+  render: () => ({ body: `<div class="page__head"><h1 class="title" tabindex="-1">Plugins</h1></div>
+    <p class="muted">Plugins teach Carrova apps that need more than a recipe. They run sandboxed with only the permissions they list.</p>
+    ${list([row({ lead: icon("plug"), title: "Firefox profiles", sub: "Reads your Firefox profile folder", trail: `${badge("Signed", "success")}${toggle("Firefox profiles", true)}` }),
+            row({ lead: icon("plug"), title: "Obsidian vaults", sub: "From a community author", trail: `${badge("Unsigned", "danger")}${toggle("Obsidian vaults", false)}` })])}
+    <div>${btn("Review permissions", { go: "plugin-perms" })}</div>` }) });
+
+S({ id: "plugin-perms", group: "Settings", title: "Plugin permissions (dialog)", phase: "p5", base: "plugins",
+  overlay: () => ({ kind: "dialog", icon: "plug", title: "Firefox profiles wants to",
+    body: list([row({ lead: icon("folder"), title: "Read your Firefox folder", sub: `<span class="mono" dir="ltr">home/.mozilla/firefox</span>` }), row({ lead: icon("close"), title: "No network", sub: "It can't send anything anywhere" })], "plain"),
+    foot: [btn("Not now", { go: "plugins" }), btn("Allow and turn on", { kind: "primary", go: "plugins" })] }) });
+
+S({ id: "override", group: "Overrides", title: "Override warning (dialog)",
+  states: [["unmovable", "Unmovable item"], ["running", "App is running"], ["space", "Free space"], ["elsewhere", "Somewhere else"], ["unsigned", "Unsigned plugin"]],
+  base: st => OVERRIDES[st || "unmovable"].base,
+  note: "Every override uses this one dialog: what happens, what's still safe, and a button that names the exact risk. The safe choice is the default focus.",
+  overlay: st => { const o = OVERRIDES[st]; return { kind: "dialog", tone: o.tone || "warning", icon: "warn", title: o.title,
+    body: o.body.map(p => `<p>${p}</p>`).join(""), foot: [btn("Keep it safe", { kind: "primary", go: o.base }), btn(o.go, { kind: "danger", go: o.base })] }; } });
+
+S({ id: "update", group: "Settings", title: "Update ready (dialog)", phase: "p4", base: "settings",
+  overlay: () => ({ kind: "dialog", icon: "spark", title: "Carrova 0.2.0 is ready",
+    body: `<p>Faster moves on busy networks, and 4 new apps.</p>${lockline("Signature verified")}`,
+    foot: [btn("Later", { go: "settings" }), btn("Restart to update", { kind: "primary", go: "settings" })] }) });
+
+S({ id: "crash", group: "Settings", title: "Error report (dialog)", phase: "p4", base: "home:returning",
+  note: "Shown once after a crash, only if reports are off. No guilt wording, no re-asking.",
+  overlay: () => ({ kind: "dialog", tone: "danger", icon: "warn", title: "Carrova closed unexpectedly",
+    body: `<p>Your files are safe: any unfinished move was undone. Sending a report helps us fix this.</p>
+      ${disclose("What's in the report", `<pre class="log">carrova 0.1.0, Ubuntu 24.04\npanic in apply::rename (stack trace)\nno file names, contents, keys or codes</pre>`)}`,
+    foot: [btn("Don't send", { go: "home:returning" }), btn("Send report", { kind: "primary", go: "home:returning" })] }) });
+
+S({ id: "about", group: "Settings", title: "About and licences (sheet)", phase: "p4", base: "settings",
+  overlay: () => ({ kind: "sheet", title: "About Carrova",
+    body: `${list([row({ title: "Version", trail: "0.1.0" }), row({ title: "Licence", trail: "Apache-2.0" }), row({ title: "Source code", trail: btn("Open", { kind: "quiet", size: "sm" }) })])}
+      <p class="small muted">Pairing words come from the EFF short wordlist, used under CC BY 3.0. Full third-party licences are listed below.</p>
+      ${btn("Third-party licences")}`,
+    foot: [btn("Close", { go: "settings" })] }) });
+
+S({ id: "design", group: "Design system", title: "Design system", layout: "doc",
+  note: "New screens are composed from these, not invented. If a screen needs something new, it's added here first.",
+  render: () => ({ raw: designSystem() }) });
+
+/* =====================================================================
+   Design system document (reads the live tokens, so it never drifts)
+   ===================================================================== */
+function designSystem() {
+  const roles = ["surface-0", "surface-1", "surface-2", "surface-3", "text-primary", "text-secondary", "text-muted", "border", "border-strong", "control", "accent", "accent-on", "accent-soft", "warning", "warning-soft", "danger", "danger-soft", "success", "success-soft", "focus"];
+  const sw = roles.map(r => `<div class="swatch"><div class="swatch__chip" style="background:var(--${r})"></div><div class="swatch__meta"><b>--${r}</b><code data-token="--${r}"></code></div></div>`).join("");
+  const type = [["--t-3xl", "Hero 36"], ["--t-2xl", "Title 28"], ["--t-xl", "Heading 22"], ["--t-lg", "Lede 18"], ["--t-md", "Body 15"], ["--t-sm", "Small 13"]].map(([v, l]) => `<p style="font-size:var(${v});font-weight:${/Body|Small|Lede/.test(l) ? 400 : 700}">${l}: Bring your setup along</p>`).join("");
+  const sp = [4, 8, 16, 24, 32, 40, 48, 64].map((n, i) => `<span><i style="--h:${n}px"></i>${["sp-0", "sp-1", "sp-2", "sp-3", "sp-4", "sp-5", "sp-6", "sp-8"][i]} ${n}</span>`).join("");
+  const mini = (cap, parts) => `<div><div class="mini" aria-hidden="true">${parts}</div><p class="mini-cap"><b>${cap[0]}</b> <span class="muted">${cap[1]}</span></p></div>`;
+  return `<article class="doc" aria-labelledby="dsH">
+  <header><h1 class="title" id="dsH" tabindex="-1">Carrova design system</h1><p class="lede">One accent that means "act". Status colours that never mean "act". 8-point spacing, a 1.25 type scale and four layouts.</p></header>
+  <section><h2>Colour roles</h2><p class="muted small">Switch the theme in the bar above; values update live. All text pairs meet WCAG AA.</p><div class="swatches">${sw}</div></section>
+  <section><h2>Type</h2><p class="muted small">Atkinson Hyperlegible (falls back to the system font), chosen so codes can't be misread. Monospace only for paths, codes and logs.</p>${type}</section>
+  <section><h2>Spacing, radius and depth</h2><div class="spacing">${sp}</div>
+    <div class="specimen"><div class="card card--pad" style="border-radius:var(--r-ctl)">control 8</div><div class="card card--pad">card 14</div><div class="card card--pad" style="border-radius:var(--r-sheet);box-shadow:var(--e-3)">sheet 20, elevation 3</div></div></section>
+  <section><h2>Layouts</h2><div class="layouts">
+    ${mini(["Hub", "quiet top bar, page"], '<b style="inset:6px 6px auto;block-size:10px"></b><b style="inset:26px 22% auto;block-size:40%"></b>')}
+    ${mini(["Flow", "close, dots, column, action bar"], '<b style="inset:6px auto auto 6px;inline-size:10px;block-size:10px"></b><b style="inset:28px 28% auto;block-size:44%"></b><b class="a" style="inset:auto 6px 6px auto;inline-size:28%;block-size:12px"></b>')}
+    ${mini(["Sheet", "drill-down from the end"], '<b style="inset:20px 30% auto 6px;block-size:50%"></b><b class="a" style="inset:4px 4px 4px 55%;opacity:.25"></b>')}
+    ${mini(["Dialog", "warnings, confirmations"], '<b style="inset:30% 22%;opacity:.4"></b><b class="a" style="inset:auto 26% 34% auto;inline-size:20%;block-size:10px"></b>')}</div></section>
+  <section><h2>Components</h2>
+    <h3>Buttons. One primary per screen.</h3><div class="specimen">${btn("Approve and move", { kind: "primary" })}${btn("Customize")}${btn("Show a new code", { kind: "quiet" })}${btn("Cancel", { kind: "danger" })}${btn("Copy", { size: "sm", icon: "copy" })}</div>
+    <h3>Controls</h3><div class="specimen">${toggle("Example on", true)}${toggle("Example off", false)}${check("Checked", true)}${check("Mixed", "mixed")}${check("Unchecked", false)}${seg("Example", ["Leave behind", "Bring them"], "Leave behind")}</div>
+    <h3>Badges (status only)</h3><div class="specimen">${badge("Suggested")}${badge("Undo until 8 Dec", "accent")}${badge("Sensitive", "warning")}${badge("Unsigned", "danger")}${badge("Enough", "success")}</div>
+    <h3>Banners. One message, one action.</h3>${banner("accent", "The other computer can't find this one", "Type the address instead.")}${banner("warning", "A wrong code was typed, so we made a new one")}${banner("danger", "400 MB more space needed", "", btn("Open Files", { size: "sm" }))}${banner("success", "Signature verified")}
+    <h3>List rows and decisions</h3>${list([row({ lead: app(APPS[1]), title: "SSH", sub: "Server list and shortcuts", trail: `<span>14 KB</span>${toggle("SSH", true)}` }), row({ lead: icon("swap"), title: "Drill-down row", sub: "Opens a sheet", trail: icon("chev", "icon--dir"), go: "review-details" })])}${decision(ASKS[0], "Leave behind")}
+    <h3>Code tag, progress, chips, trust</h3>${code(CODE, { sm: true })}<div>${progress(.6)}<div class="progress-meta"><span>720 MB of 1.2 GB</span><span>About a minute left</span></div></div><ul class="chips">${chip(APPS[0], "done", "Arrived")}${chip(APPS[4], "moving", "612 MB of 1.2 GB")}</ul>${lockline("Encrypted. Only ezio-thinkpad-new can read this.")}${status("Waiting for ezio-thinkpad-new…")}
+    <h3>Empty and error states</h3><div class="card">${empty({ art: "history", title: "No moves yet", body: "When you send or receive, it shows up here.", action: btn("Receive", { kind: "primary" }) })}</div>
+    <h3>Key hints</h3><p>${kbd("Tab")} next ${kbd("Enter")} primary action ${kbd("Esc")} close sheet ${kbd("Space")} toggle</p></section>
+  <section><h2>Motion</h2><ul class="rules">
+    <li>120 ms for presses, 220 ms for state changes, 420 ms for sheets and progress. Spring easing only where something lands (toggle, stamp, lock).</li>
+    <li>Three signature moments, one per flow: the split-flap code, the handshake lock, the arrival stamp. Nothing else animates on its own.</li>
+    <li>Reduced motion: every animation stops; progress numbers still update, instantly.</li></ul></section>
+  <section><h2>Rules for new screens</h2><ul class="rules">
+    <li>Pick a layout. Hub for places, Flow for tasks, Sheet for detail, Dialog for a risk or confirmation.</li>
+    <li>One primary button, at the end of the action bar. Its label says what happens ("Approve and move", not "Next").</li>
+    <li>Hide controls, never consequences. Defaults are written out in words with a way to change them.</li>
+    <li>Amber means sensitive, red means destructive or failed, the accent means act. Nothing else gets colour.</li>
+    <li>Logical properties only (inline/block), so right-to-left mirrors for free. Paths and codes stay left-to-right.</li></ul></section>
+  </article>`;
+}
+
+/* =====================================================================
+   Renderer + router
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const byId = id => SCREENS.find(s => s.id === id);
+const firstState = s => (s.states[0] || [])[0] || "";
+const NAV = [["home", "Home", "swap", "home:returning"], ["history", "History", "history", "history:list"], ["apps", "Apps", "apps", "apps:verified"], ["settings", "Settings", "settings", "settings"]];
+
+function renderView(scr, st) {
+  if (scr.base) {
+    const ref = typeof scr.base === "function" ? scr.base(st) : scr.base;
+    const [bid, bst] = ref.split(":");
+    const base = byId(bid);
+    return renderView(base, bst || firstState(base)) + overlay(scr.overlay(st), ref);
+  }
+  const v = scr.render(st);
+  if (scr.layout === "bare") return `<div class="bare">${v.body}</div>`;
+  if (scr.layout === "hub") {
+    const nav = NAV.map(([id, l, ic, go]) => `<button class="nav__link" type="button" data-go="${go}"${id === scr.nav ? ' aria-current="page"' : ""}>${icon(ic, "icon--sm")}<span>${l}</span></button>`).join("");
+    return `<header class="topbar"><button class="wordmark" type="button" data-go="home:returning"><span class="wordmark__mark">${icon("swap")}</span>Carrova</button><nav class="nav" aria-label="Main">${nav}</nav></header>
+      ${v.raw || `<div class="page"><div class="page__inner">${v.body}</div></div>`}<span></span>`;
+  }
+  const [name, n] = FLOWS[scr.flow];
+  const dots = Array.from({ length: n }, (_, i) => `<i class="${i + 1 < scr.step ? "is-done" : i + 1 === scr.step ? "is-now" : ""}"></i>`).join("");
+  const f = v.foot || {};
+  const foot = `<footer class="actions">${(f.start || []).join("")}${f.note ? `<span class="actions__note" aria-live="polite">${f.note}</span>` : ""}<span class="actions__end">${(f.end || []).join("")}</span></footer>`;
+  return `<header class="flowbar"><span class="flowbar__close">${btn("", { kind: "quiet", icon: "close", go: "home:returning", label: "Close and go home" })}</span>
+    <span class="flowbar__name">${name}</span><span class="dots" role="img" aria-label="Step ${scr.step} of ${n}">${dots}</span></header>
+    <div class="flow"><div class="flow__col">${v.body}</div></div>${foot}`;
+}
+
+function overlay(o, back) {
+  if (o.kind === "dialog") return `<div class="scrim" data-go="${back}"></div><section class="dialog dialog--${o.tone || "accent"}" role="dialog" aria-modal="true" aria-labelledby="ovH">
+    <span class="dialog__icon">${icon(o.icon || "info")}</span><h2 id="ovH" tabindex="-1">${o.title}</h2>${o.body}<div class="dialog__foot">${o.foot.join("")}</div></section>`;
+  return `<div class="scrim" data-go="${back}"></div><section class="sheet" role="dialog" aria-modal="true" aria-labelledby="ovH">
+    <header class="sheet__head"><h2 id="ovH" tabindex="-1">${o.title}</h2>${btn("", { kind: "quiet", icon: "close", go: back, label: "Close" })}</header>
+    <div class="sheet__body">${o.body}</div><footer class="sheet__foot">${o.foot.join("")}</footer></section>`;
+}
+
+let cur = { id: "", st: "" }, timers = [];
+const reduced = () => document.documentElement.classList.contains("rm");
+
+function go(ref, { focus = true } = {}) {
+  const [id, st0] = ref.split(":");
+  const scr = byId(id) || SCREENS.find(s => s.id === "home");
+  const st = scr.states.some(([k]) => k === st0) ? st0 : firstState(scr);
+  cur = { id: scr.id, st };
+  timers.forEach(clearInterval); timers = [];
+  const frame = $("#frame");
+  frame.innerHTML = scr.layout === "doc" ? scr.render(st).raw
+    : `<div class="window view-enter" id="win" dir="${$("#tRtl").getAttribute("aria-pressed") === "true" ? "rtl" : "ltr"}">${renderView(scr, st)}</div>`;
+  $("#states").innerHTML = scr.states.map(([k, l]) => `<button class="btn btn--sm" type="button" data-go="${scr.id}:${k}" aria-current="${k === st}">${l}</button>`).join("");
+  $("#note").textContent = scr.note || "";
+  const phase = { ready: "engine ready", p4: "Phase 4", p5: "Phase 5" }[scr.phase];
+  $("#where").innerHTML = `<b>${scr.title}</b><span class="phase phase--${scr.phase}">${phase}</span>`;
+  document.querySelectorAll("#index a").forEach(a => a.dataset.id === scr.id ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+  const want = st && scr.states.length ? `${scr.id}:${st}` : scr.id;
+  if (location.hash.slice(1) !== want) history.replaceState(null, "", "#" + want);
+  mount(frame);
+  if (focus) (frame.querySelector("#ovH") || frame.querySelector("[tabindex='-1']"))?.focus({ preventScroll: true });
+}
+
+/* ---------- Behaviours attached after each render ---------- */
+function mount(root) {
+  root.querySelectorAll(".code[data-reveal]").forEach(revealCode);
+  root.querySelectorAll(".burst").forEach(burst);
+  root.querySelectorAll("[data-sim]").forEach(simulate);
+  const codeIn = root.querySelector("#codeIn");
+  if (codeIn) autocomplete(codeIn);
+  root.querySelectorAll("[data-token]").forEach(el => { el.textContent = getComputedStyle(document.documentElement).getPropertyValue(el.dataset.token).trim(); });
+  updateNeeds(root);
+}
+
+function revealCode(el) {
+  const flaps = [...el.querySelectorAll(".flap")];
+  const set = f => { f.textContent = f.dataset.ch; f.classList.remove("is-spinning"); f.classList.add("is-set"); };
+  if (reduced()) return flaps.forEach(set);
+  const abc = "abcdefghijklmnopqrstuvwxyz";
+  flaps.forEach((f, i) => {
+    f.classList.add("is-spinning");
+    const t = setInterval(() => { f.textContent = /\d/.test(f.dataset.ch) ? String(Math.floor(Math.random() * 10)) : abc[Math.floor(Math.random() * 26)]; }, 60);
+    timers.push(t);
+    setTimeout(() => { clearInterval(t); set(f); }, 350 + i * 70);
+  });
+}
+
+function burst(el) {
+  if (reduced()) return;
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2, r = 90 + (i % 3) * 30;
+    const p = document.createElement("i");
+    p.style.setProperty("--dx", `${Math.cos(a) * r}px`); p.style.setProperty("--dy", `${Math.sin(a) * r * .6}px`); p.style.setProperty("--rot", `${(i * 47) % 360}deg`);
+    el.append(p);
+  }
+}
+
+/* Small-first progress: chips tick off early, the big one carries the bar. */
+function simulate(chips) {
+  const bar = chips.parentElement.querySelector(".progress__fill"), pb = chips.parentElement.querySelector(".progress");
+  const done = chips.parentElement.querySelector("[data-sim-done]"), left = chips.parentElement.querySelector("[data-sim-left]");
+  const marks = [.005, .012, .02, .04, 1];
+  let p = 0;
+  const stepTo = target => {
+    p = target;
+    bar.style.setProperty("--p", p); pb.setAttribute("aria-valuenow", Math.round(p * 100));
+    done.textContent = `${Math.round(p * 1200)} MB of 1.2 GB`;
+    left.textContent = p > .6 ? "About a minute left" : "About 2 minutes left";
+    chips.querySelectorAll(".chip").forEach((c, i) => {
+      const was = c.dataset.state, now = p >= marks[i] ? "done" : (i === 0 || p >= marks[i - 1]) ? "moving" : "waiting";
+      if (was === now) return;
+      c.dataset.state = now;
+      c.querySelector(".chip__state").innerHTML = now === "done" ? `${icon("check", "icon--sm")}Arrived` : now === "moving" ? (i === 4 ? `${Math.round(p * 1200)} MB of 1.2 GB` : "Moving") : "Waiting";
+      if (now === "done") c.querySelector(".app").innerHTML = icon("check");
+    });
+    const vs = chips.querySelector('[data-app="vscode"][data-state="moving"] .chip__state');
+    if (vs) vs.textContent = `${Math.round(p * 1200)} MB of 1.2 GB`;
+  };
+  if (reduced()) return stepTo(.62);
+  const t = setInterval(() => { stepTo(Math.min(.62, p + (p < .05 ? .004 : .02))); if (p >= .62) clearInterval(t); }, 160);
+  timers.push(t);
+}
+
+function autocomplete(input) {
+  const hint = input.parentElement.querySelector(".ghost__hint");
+  const update = () => {
+    const v = input.value, last = v.split(/[-\s]/).pop();
+    const m = last.length >= 3 ? WORDS.find(w => w.startsWith(last.toLowerCase())) : null;
+    hint.innerHTML = m && m !== last ? `<b>${esc(v)}</b>${m.slice(last.length)}` : "";
+  };
+  input.addEventListener("input", update);
+  input.addEventListener("keydown", e => {
+    const v = input.value, last = v.split(/[-\s]/).pop();
+    const m = last.length >= 3 ? WORDS.find(w => w.startsWith(last.toLowerCase())) : null;
+    if ((e.key === "Tab" || e.key === "ArrowRight") && m && m !== last) { e.preventDefault(); input.value = v.slice(0, v.length - last.length) + m + (v.split("-").length < 3 ? "-" : ""); update(); }
+    if (e.key === "Enter") go("recv-code:connecting");
+  });
+  update();
+}
+
+/* Primary actions gated on decisions: enabled when every required choice has an answer */
+function updateNeeds(root) {
+  root.querySelectorAll("[data-needs='decisions']").forEach(b => {
+    const groups = [...root.querySelectorAll(".seg[data-required]")];
+    const left = groups.filter(g => !g.querySelector('[aria-checked="true"]')).length;
+    b.disabled = left > 0;
+    const note = root.querySelector(".actions__note"), tag = root.querySelector("[data-left]");
+    if (note) note.textContent = left ? `Answer ${left} question${left > 1 ? "s" : ""} to continue` : "";
+    if (tag) tag.textContent = left ? `${left} to answer` : "All answered";
+  });
+}
+
+/* ---------- Event wiring ---------- */
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-go], [role=switch], [role=checkbox], [role=radio]");
+  if (!t || t.disabled) return;
+  if (t.matches("[role=switch], [role=checkbox]")) { t.setAttribute("aria-checked", String(t.getAttribute("aria-checked") !== "true")); return; }
+  if (t.matches("[role=radio]")) {
+    t.parentElement.querySelectorAll("[role=radio]").forEach(r => r.setAttribute("aria-checked", String(r === t)));
+    updateNeeds($("#frame")); return;
+  }
+  if (t.closest("#index")) closeIndex();
+  go(t.dataset.go);
+});
+document.addEventListener("keydown", e => {
+  if (e.altKey || e.ctrlKey || e.metaKey || e.target.matches("input, select, textarea")) return;
+  const i = SCREENS.findIndex(s => s.id === cur.id);
+  if (e.key === "]") go(SCREENS[(i + 1) % SCREENS.length].id);
+  if (e.key === "[") go(SCREENS[(i - 1 + SCREENS.length) % SCREENS.length].id);
+  if (e.key === "i") $("#index").hidden ? openIndex() : closeIndex();
+  if (e.key === "Escape") { if (!$("#index").hidden) return closeIndex(); const s = byId(cur.id); if (s.base) go(typeof s.base === "function" ? s.base(cur.st) : s.base); }
+});
+window.addEventListener("hashchange", () => go(location.hash.slice(1)));
+
+function buildIndex() {
+  const groups = [...new Set(SCREENS.map(s => s.group))];
+  $("#index").innerHTML = `<div class="index__head"><b>Screen index</b>${btn("", { kind: "quiet", icon: "close", label: "Close index", id: "closeIdx" })}</div>
+    ${groups.map(g => `<h3>${g}</h3><ul>${SCREENS.filter(s => s.group === g).map(s => `<li><a href="#${s.id}" data-id="${s.id}"><span>${s.title}</span><span class="phase phase--${s.phase}">${{ ready: "ready", p4: "P4", p5: "P5" }[s.phase]}</span></a></li>`).join("")}</ul>`).join("")}
+    <div class="index__legend"><span><span class="phase phase--ready">ready</span> the engine and CLI already do this</span><span><span class="phase phase--p4">P4</span> comes with the desktop app</span><span><span class="phase phase--p5">P5</span> after v0.1</span><span>Phase badges exist only here, never in the product.</span></div>`;
+  $("#closeIdx").addEventListener("click", closeIndex);
+  $("#index").addEventListener("click", e => { if (e.target.closest("a")) closeIndex(); });
+}
+function openIndex() { $("#index").hidden = false; $("#openIndex").setAttribute("aria-expanded", "true"); $("#index a[aria-current='page']")?.focus() || $("#index a")?.focus(); }
+function closeIndex() { $("#index").hidden = true; $("#openIndex").setAttribute("aria-expanded", "false"); $("#openIndex").focus(); }
+
+function toggleBtn(id, fn) {
+  const b = $(id);
+  b.addEventListener("click", () => { const on = b.getAttribute("aria-pressed") !== "true"; b.setAttribute("aria-pressed", String(on)); fn(on); });
+  return b;
+}
+const mq = matchMedia("(prefers-reduced-motion: reduce)");
+const syncMotion = () => document.documentElement.classList.toggle("rm", mq.matches || $("#tMotion").getAttribute("aria-pressed") === "true");
+mq.addEventListener("change", syncMotion);
+
+buildIndex();
+$("#openIndex").addEventListener("click", () => $("#index").hidden ? openIndex() : closeIndex());
+$("#prev").addEventListener("click", () => { const i = SCREENS.findIndex(s => s.id === cur.id); go(SCREENS[(i - 1 + SCREENS.length) % SCREENS.length].id); });
+$("#next").addEventListener("click", () => { const i = SCREENS.findIndex(s => s.id === cur.id); go(SCREENS[(i + 1) % SCREENS.length].id); });
+/* Theme: follows the OS by default (and live), until the toggle is used. */
+const mqDark = matchMedia("(prefers-color-scheme: dark)");
+let themeChosen = false;
+const setTheme = dark => { document.documentElement.dataset.theme = dark ? "dark" : "light"; $("#tTheme").setAttribute("aria-pressed", String(dark)); if (cur.id) go(`${cur.id}:${cur.st}`, { focus: false }); };
+toggleBtn("#tTheme", on => { themeChosen = true; setTheme(on); });
+mqDark.addEventListener("change", () => { if (!themeChosen) setTheme(mqDark.matches); });
+toggleBtn("#tRtl", on => { const w = $("#win"); if (w) w.dir = on ? "rtl" : "ltr"; });
+toggleBtn("#tMotion", () => { syncMotion(); go(`${cur.id}:${cur.st}`, { focus: false }); });
+setTheme(mqDark.matches);
+syncMotion();
+go(location.hash.slice(1) || "home:returning", { focus: false });
+</script>
+</body>
+</html>
