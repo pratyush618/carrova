@@ -10,8 +10,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::{
-    Allocation, DirEntry, FileLock, FileMeta, FsId, LanInterface, OsKind, Platform, PlatformError,
-    ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
+    Allocation, DirEntry, DiskInfo, FileLock, FileMeta, FsId, LanInterface, OsKind, Platform,
+    PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
 };
 
 pub(crate) mod fs;
@@ -23,6 +23,24 @@ mod tests;
 /// Extensions `PATHEXT` has when unset (the Windows default subset that
 /// can start a program directly).
 const DEFAULT_PATHEXT: &str = ".COM;.EXE;.BAT;.CMD";
+
+/// `read` of the volume whose mount point is the longest prefix of `path`.
+///
+/// shortcut: `path` is matched lexically, so a junction or `subst` drive
+/// reports the volume it appears on, not the one it points to; resolve
+/// the path first if staging ever lives behind one.
+fn volume<T>(path: &Path, read: impl FnOnce(&sysinfo::Disk) -> T) -> Result<T, PlatformError> {
+    let disks = sysinfo::Disks::new_with_refreshed_list()
+        .map_err(|e| PlatformError::io(path, io::Error::other(e.to_string())))?;
+    disks
+        .iter()
+        .filter(|d| path.starts_with(d.mount_point()))
+        .max_by_key(|d| d.mount_point().components().count())
+        .map(read)
+        .ok_or_else(|| {
+            PlatformError::io(path, io::Error::new(io::ErrorKind::NotFound, "no volume"))
+        })
+}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct WindowsPlatform;
@@ -107,23 +125,17 @@ impl Platform for WindowsPlatform {
         Ok(out)
     }
 
-    /// Free space of the volume whose mount point is the longest prefix of
-    /// `path`.
-    ///
-    /// shortcut: `path` is matched lexically, so a junction or `subst` drive
-    /// reports the volume it appears on, not the one it points to; resolve
-    /// the path first if staging ever lives behind one.
+    /// Free space of the volume holding `path` (see [`volume`]).
     fn free_space(&self, path: &Path) -> Result<u64, PlatformError> {
-        let disks = sysinfo::Disks::new_with_refreshed_list()
-            .map_err(|e| PlatformError::io(path, io::Error::other(e.to_string())))?;
-        disks
-            .iter()
-            .filter(|d| path.starts_with(d.mount_point()))
-            .max_by_key(|d| d.mount_point().components().count())
-            .map(sysinfo::Disk::available_space)
-            .ok_or_else(|| {
-                PlatformError::io(path, io::Error::new(io::ErrorKind::NotFound, "no volume"))
-            })
+        volume(path, sysinfo::Disk::available_space)
+    }
+
+    /// Capacity and root of the volume holding `path` (see [`volume`]).
+    fn disk(&self, path: &Path) -> Result<DiskInfo, PlatformError> {
+        volume(path, |d| DiskInfo {
+            total: d.total_space(),
+            mount_point: d.mount_point().to_path_buf(),
+        })
     }
 
     fn snapshot_capability(&self, _path: &Path) -> Result<SnapshotCapability, PlatformError> {

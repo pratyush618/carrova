@@ -8,7 +8,7 @@ use rustix::fs::CWD;
 
 use super::dir::open_dir_nofollow;
 use super::errno;
-use crate::{Allocation, FsId, PlatformError};
+use crate::{Allocation, DiskInfo, FsId, PlatformError};
 
 /// See [`crate::Platform::fs_id`].
 pub(crate) fn fs_id(path: &Path) -> Result<FsId, PlatformError> {
@@ -22,6 +22,31 @@ pub(crate) fn fs_id(path: &Path) -> Result<FsId, PlatformError> {
 pub(crate) fn free_space(path: &Path) -> Result<u64, PlatformError> {
     let st = rustix::fs::statvfs(path).map_err(errno(path))?;
     Ok(st.f_bavail.saturating_mul(st.f_frsize))
+}
+
+/// See [`crate::Platform::disk`]: `statvfs(2)` capacity; the mount point
+/// is the highest ancestor of the resolved path still on its device.
+pub(crate) fn disk(path: &Path) -> Result<DiskInfo, PlatformError> {
+    use std::os::unix::fs::MetadataExt;
+    let dev = |p: &Path| {
+        std::fs::metadata(p)
+            .map(|m| m.dev())
+            .map_err(|e| PlatformError::io(p, e))
+    };
+    let st = rustix::fs::statvfs(path).map_err(errno(path))?;
+    let real = std::fs::canonicalize(path).map_err(|e| PlatformError::io(path, e))?;
+    let own = dev(&real)?;
+    let mut mount_point = real.as_path();
+    while let Some(parent) = mount_point.parent() {
+        if dev(parent)? != own {
+            break;
+        }
+        mount_point = parent;
+    }
+    Ok(DiskInfo {
+        total: st.f_blocks.saturating_mul(st.f_frsize),
+        mount_point: mount_point.to_path_buf(),
+    })
 }
 
 /// See [`crate::Platform::sync_fs`]: `syncfs(2)` on an `O_NOFOLLOW` fd of

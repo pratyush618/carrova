@@ -481,6 +481,24 @@ fn free_space_missing_path_is_error() {
 }
 
 #[test]
+fn disk_names_the_mount_holding_a_path_and_its_capacity() {
+    use std::os::unix::fs::MetadataExt;
+    let tmp = TempDir::new().unwrap();
+    let p = LinuxPlatform::new(LinuxEnv::default());
+    let dev = |path: &Path| fs::metadata(path).unwrap().dev();
+    let disk = p.disk(tmp.path()).unwrap();
+    assert!(disk.total >= p.free_space(tmp.path()).unwrap());
+    let real = fs::canonicalize(tmp.path()).unwrap();
+    assert!(real.starts_with(&disk.mount_point), "{disk:?}");
+    assert_eq!(dev(&disk.mount_point), dev(&real));
+    if let Some(parent) = disk.mount_point.parent() {
+        assert_ne!(dev(parent), dev(&disk.mount_point), "{disk:?}");
+    }
+    assert_eq!(p.disk(Path::new("/")).unwrap().mount_point, Path::new("/"));
+    assert!(p.disk(&tmp.path().join("nope")).is_err());
+}
+
+#[test]
 fn device_name_is_the_sanitised_kernel_host_name() {
     let kernel = fs::read_to_string("/proc/sys/kernel/hostname").unwrap();
     let p = LinuxPlatform::new(env_home("/home/u"));

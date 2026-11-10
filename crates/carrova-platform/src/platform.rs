@@ -4,11 +4,11 @@ use std::fs::File;
 use std::io;
 use std::net::UdpSocket;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command};
 
 use crate::{
-    Allocation, DirEntry, FileLock, FileMeta, FsId, LanInterface, OsKind, PermissionModel,
-    PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
+    Allocation, DirEntry, DiskInfo, FileLock, FileMeta, FsId, LanInterface, OsKind,
+    PermissionModel, PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
 };
 
 /// OS abstraction used by every service crate.
@@ -44,6 +44,14 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
 
     /// Bytes available to the current user on the filesystem holding `path`.
     fn free_space(&self, path: &Path) -> Result<u64, PlatformError>;
+
+    /// Size and mount point of the filesystem holding `path` (**follows**
+    /// symlinks, like [`Platform::free_space`]), so a low-space message can
+    /// name the disk and show how full it is.
+    fn disk(&self, path: &Path) -> Result<DiskInfo, PlatformError> {
+        let _ = path;
+        Err(PlatformError::Unsupported("disk"))
+    }
 
     /// Whether the filesystem holding `path` supports cheap snapshots.
     fn snapshot_capability(&self, path: &Path) -> Result<SnapshotCapability, PlatformError>;
