@@ -1,0 +1,79 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Carrova",
+  "mainBinaryName": "carrova-desktop",
+  "identifier": "dev.carrova.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Carrova",
+        "width": 1024,
+        "height": 720,
+        "minWidth": 720,
+        "minHeight": 520
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self'",
+        "img-src": "'self' data:",
+        "font-src": "'self'",
+        "connect-src": "ipc: http://ipc.localhost",
+        "object-src": "'none'",
+        "base-uri": "'none'",
+        "form-action": "'none'",
+        "frame-ancestors": "'none'"
+      },
+      "devCsp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data:",
+        "font-src": "'self'",
+        "connect-src": "ipc: http://ipc.localhost ws://localhost:5173",
+        "object-src": "'none'",
+        "base-uri": "'none'",
+        "form-action": "'none'",
+        "frame-ancestors": "'none'"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["appimage", "deb"],
+    "createUpdaterArtifacts": true,
+    "publisher": "Carrova contributors",
+    "homepage": "https://github.com/pratyush618/carrova",
+    "license": "Apache-2.0",
+    "licenseFile": "../../../LICENSE",
+    "category": "Utility",
+    "shortDescription": "Move app data between computers",
+    "longDescription": "Carrova moves app settings, keys and user data between computers over the local network or as an encrypted file. You pick exactly what moves; apps are reinstalled, never copied.",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/256x256.png", "icons/icon.png"],
+    "linux": {
+      "deb": {
+        "section": "utils",
+        "priority": "optional",
+        "desktopTemplate": "../../../packaging/linux/carrova.desktop"
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkxREFEM0E3QkI5NENEOTAKUldTUXpaUzdwOVBha1N4TVBJb2FrdGRhNHhaRm9ZVjRidHUxUC9xdkI4bXJqNGNPcmhFRTFwMnkK",
+      "endpoints": ["https://github.com/pratyush618/carrova/releases/latest/download/latest.json"]
+    }
+  }
+}
