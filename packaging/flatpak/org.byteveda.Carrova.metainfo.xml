@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>dev.carrova.app</id>
-  <launchable type="desktop-id">dev.carrova.app.desktop</launchable>
+  <id>org.byteveda.Carrova</id>
+  <launchable type="desktop-id">org.byteveda.Carrova.desktop</launchable>
   <name>Carrova</name>
   <summary>Move app data between computers</summary>
-  <developer id="dev.carrova">
+  <developer id="org.byteveda">
     <name>Carrova contributors</name>
   </developer>
   <metadata_license>CC0-1.0</metadata_license>

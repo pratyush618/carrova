@@ -187,9 +187,9 @@ must list `linux-x86_64`, `darwin-aarch64`, `darwin-x86_64` and
 
 ## Flathub
 
-`packaging/flatpak/dev.carrova.app.yml` repackages the release `.deb`
+`packaging/flatpak/org.byteveda.Carrova.yml` repackages the release `.deb`
 (Tauri's documented route) on the GNOME runtime, which provides
-WebKitGTK 4.1. `dev.carrova.app.metainfo.xml` is the AppStream file; the
+WebKitGTK 4.1. `org.byteveda.Carrova.metainfo.xml` is the AppStream file; the
 desktop entry is the one Tauri renders from `packaging/linux/carrova.desktop`
 into the `.deb`, renamed to the app id.
 
@@ -202,10 +202,10 @@ AppImage have none of these limits.
 Local check:
 
 ```sh
-appstreamcli validate packaging/flatpak/dev.carrova.app.metainfo.xml
+appstreamcli validate packaging/flatpak/org.byteveda.Carrova.metainfo.xml
 flatpak install flathub org.gnome.Platform//49 org.gnome.Sdk//49
-flatpak-builder --user --install --force-clean build-dir packaging/flatpak/dev.carrova.app.yml
-flatpak run dev.carrova.app
+flatpak-builder --user --install --force-clean build-dir packaging/flatpak/org.byteveda.Carrova.yml
+flatpak run org.byteveda.Carrova
 ```
 
 Submission (user):
@@ -213,10 +213,10 @@ Submission (user):
 1. Publish a `v*` release; set `url` + `sha256` (`sha256sum Carrova_<ver>_amd64.deb`)
    in the manifest and add a `<release>` entry plus `<screenshots>` to the
    metainfo. Bump `runtime-version` to the current GNOME runtime.
-2. Verify the domain `carrova.dev` (the app id `dev.carrova.app` implies it)
-   or switch to `io.github.pratyush618.carrova` (app id, file names, Tauri
-   `identifier`) if you don't own it.
+2. Verify `byteveda.org` for Flathub (the app id `org.byteveda.Carrova`
+   implies it): serve the token Flathub gives you at
+   `https://byteveda.org/.well-known/org.flathub.VerifiedApps.txt`.
 3. Fork <https://github.com/flathub/flathub>, branch from `new-pr`, add the
    manifest + metainfo, open a PR against `new-pr`, and follow review.
-4. After merge, Flathub creates `flathub/dev.carrova.app`; each release is a
+4. After merge, Flathub creates `flathub/org.byteveda.Carrova`; each release is a
    PR there bumping `url`/`sha256` (or enable `x-checker-data` later).
