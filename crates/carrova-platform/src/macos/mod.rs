@@ -54,7 +54,9 @@ impl MacPlatform {
 /// bytes is granted: the kernel caps buffers at `maxsockbuf * 2048 / 2304`
 /// (mbuf cluster overhead), i.e. `wanted` needs `wanted * 9 / 8`.
 fn maxsockbuf_for(wanted: usize) -> usize {
-    wanted.saturating_mul(9).div_ceil(8)
+    // `wanted + wanted / 8` (rounded up): saturates at the top instead of
+    // overflowing in the multiply.
+    wanted.saturating_add(wanted.div_ceil(8))
 }
 
 impl Platform for MacPlatform {
