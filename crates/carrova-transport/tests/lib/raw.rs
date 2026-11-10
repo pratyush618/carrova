@@ -59,7 +59,10 @@ pub(super) fn dial(source: Ipv4Addr, port: u16, wait: Duration) -> Dial {
     let identity = Identity::generate().unwrap();
     let rt = runtime().unwrap();
     let (ep, cfg) = endpoint::client_on(socket, &identity).unwrap();
-    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port));
+    // Dial the sender at `source` itself, not 127.0.0.1: the reply then
+    // comes from the address dialed on every OS (macOS would answer a
+    // 127.0.0.1 dial from the alias, which QUIC drops as a path change).
+    let addr = SocketAddr::V4(SocketAddrV4::new(source, port));
     let connected = rt.block_on(async {
         let connecting = ep.connect_with(cfg, addr, TLS_SERVER_NAME).unwrap();
         timeout(wait, connecting).await
