@@ -60,6 +60,41 @@ describe('receiving over the LAN', () => {
     expect(Object.values(replanned?.plan.options.path_rules ?? {})).toEqual(['keep-both']);
   });
 
+  it('shows the place just chosen when Put elsewhere is reopened before the plan catches up', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true });
+    await toReview(user);
+    await bringAll(user);
+    const editPlan = port.editPlan.bind(port);
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(port, 'editPlan').mockImplementationOnce(async (...args) => {
+      await held;
+      return editPlan(...args);
+    });
+    await user.click(screen.getByRole('button', { name: /See every change/ }));
+    const [remap] = screen.getAllByRole('button', { name: 'Put elsewhere…' });
+    if (remap === undefined) throw new Error('nothing to put elsewhere in the fixture');
+    await user.click(remap);
+    await user.click(screen.getByRole('button', { name: 'Choose a folder' }));
+    await user.type(screen.getByRole('textbox', { name: 'Inside it (optional)' }), 'old-laptop');
+    await user.click(screen.getByRole('button', { name: 'Use this place' }));
+    await user.click(await screen.findByRole('button', { name: /See every change/ }));
+    const [again] = screen.getAllByRole('button', { name: 'Put elsewhere…' });
+    if (again === undefined) throw new Error('remap row gone');
+    await user.click(again);
+    await user.click(screen.getByRole('button', { name: 'Choose a folder' }));
+    release();
+
+    await vi.waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'Inside it (optional)' })).toHaveValue(
+        'old-laptop',
+      );
+    });
+  });
+
   it('leaves a sensitive item behind when the user says so', async () => {
     const user = userEvent.setup();
     const { port } = await renderApp({ returning: true });

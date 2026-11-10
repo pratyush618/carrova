@@ -36,9 +36,12 @@ export function RemapOverlay({ item }: { readonly item: string }) {
   const nav = useNav();
   const plan = current(receive.state.review);
   const label = plan?.offered.find((o) => o.key === item)?.label ?? item;
+  const remap = plan?.plan.options.remaps[item] ?? null;
   return (
     <RemapDialog
-      model={{ item: label, current: plan?.plan.options.remaps[item] ?? null }}
+      // Reopened while a save is still planning: refill the fields once the plan has it.
+      key={JSON.stringify(remap)}
+      model={{ item: label, current: remap }}
       on={{
         onCancel: nav.close,
         onSave: (remap) => {
