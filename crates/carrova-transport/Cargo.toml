@@ -1,0 +1,26 @@
+[package]
+name = "carrova-transport"
+description = "Carrova LAN transport: discovery, PAKE-authenticated QUIC, chunk transfer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ciborium = { workspace = true }
+mdns-sd = { workspace = true }
+carrova-crypto = { workspace = true }
+carrova-manifest = { workspace = true }
+carrova-platform = { workspace = true }
+quinn = { workspace = true }
+rcgen = { workspace = true }
+rustls = { workspace = true }
+serde = { workspace = true }
+serde_bytes = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true
