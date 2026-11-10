@@ -215,6 +215,25 @@ fn scan_human_output() {
     assert!(stdout.contains("selected by default"), "{stdout}");
 }
 
+#[cfg(feature = "e2e-seams")]
+#[test]
+fn an_unusable_fake_os_fails_instead_of_scanning_the_real_machine() {
+    for (os, home) in [("plan9", true), ("windows", false)] {
+        let Some((_tree, _tmp, mut cmd)) = scan_cmd(&["scan", "--json"]) else {
+            return;
+        };
+        cmd.env("CARROVA_E2E_OS", os);
+        if !home {
+            cmd.env_remove("HOME");
+        }
+        let out = cmd.output().unwrap();
+        let (stdout, stderr) = text(&out);
+        assert!(!out.status.success(), "{os}: {stdout}");
+        assert!(stdout.is_empty(), "{os}: {stdout}");
+        assert!(stderr.contains("CARROVA_E2E_OS"), "{os}: {stderr}");
+    }
+}
+
 #[test]
 fn scan_all_lists_undetected() {
     let Some((tree, _tmp, mut cmd)) = scan_cmd(&["scan", "--json", "--all"]) else {

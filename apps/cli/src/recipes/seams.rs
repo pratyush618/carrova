@@ -19,13 +19,15 @@ use carrova_bundle::{HttpConfig, Result, TrustRoots, release_roots};
 use carrova_platform::Platform;
 
 /// The platform every command runs on: the current OS's adapter.
-#[must_use]
-pub fn platform() -> Box<dyn Platform> {
+///
+/// Fails only in `e2e-seams` builds, when a requested fake OS can't be
+/// created (never falls back to the real machine).
+pub fn platform() -> anyhow::Result<Box<dyn Platform>> {
     #[cfg(feature = "e2e-seams")]
-    if let Some(fake) = enabled::fake_platform() {
-        return fake;
+    if let Some(fake) = enabled::fake_platform()? {
+        return Ok(fake);
     }
-    carrova_platform::current()
+    Ok(carrova_platform::current())
 }
 
 /// Roots every bundle command trusts.
@@ -53,6 +55,7 @@ pub fn http_config(url: &str) -> HttpConfig {
 
 #[cfg(feature = "e2e-seams")]
 mod enabled {
+    use anyhow::Context as _;
     use carrova_bundle::{BundleError, Result, TrustRoots, parse_roots};
     use carrova_platform::fake::FakePlatform;
     use carrova_platform::{OsKind, Platform};
@@ -92,17 +95,20 @@ mod enabled {
         on
     }
 
-    pub fn fake_platform() -> Option<Box<dyn Platform>> {
-        let value = std::env::var(OS_ENV).ok()?;
-        let os = match value.parse::<OsKind>() {
-            Ok(os) => os,
-            Err(e) => {
-                warn(&format!("{OS_ENV} ignored: {e}"));
-                return None;
-            }
+    /// The fake platform `CARROVA_E2E_OS` asks for, if set; an error when
+    /// it can't be built, so a test run never touches the real home.
+    pub fn fake_platform() -> anyhow::Result<Option<Box<dyn Platform>>> {
+        let Some(value) = std::env::var_os(OS_ENV) else {
+            return Ok(None);
         };
-        let home = std::env::var_os("HOME")?;
+        let os = value
+            .to_str()
+            .with_context(|| format!("{OS_ENV} is not valid UTF-8"))?
+            .parse::<OsKind>()
+            .with_context(|| format!("{OS_ENV}={}", value.display()))?;
+        let home = std::env::var_os("HOME")
+            .with_context(|| format!("{OS_ENV} needs $HOME for the fake layout"))?;
         warn(&format!("{OS_ENV} fakes a {os} layout under $HOME"));
-        Some(Box::new(FakePlatform::with_os_layout(home, os)))
+        Ok(Some(Box::new(FakePlatform::with_os_layout(home, os))))
     }
 }

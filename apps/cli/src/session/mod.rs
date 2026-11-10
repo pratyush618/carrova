@@ -42,7 +42,7 @@ use carrova_view::selection::selection_view;
 /// current platform.
 pub fn engine(recipes: &RecipeLocations, sink: Arc<dyn EventSink>) -> Result<Engine> {
     let (recipes, plugins) = recipes.recipes_and_plugins()?;
-    Ok(Engine::new(Arc::from(seams::platform()), recipes, sink).with_plugins(plugins))
+    Ok(Engine::new(Arc::from(seams::platform()?), recipes, sink).with_plugins(plugins))
 }
 
 /// `carrova export`

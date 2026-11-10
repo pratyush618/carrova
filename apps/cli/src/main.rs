@@ -165,7 +165,7 @@ fn run_scan(
     all: bool,
 ) -> Result<ExitCode> {
     let recipes = recipes.recipes()?;
-    let platform = crate::recipes::seams::platform();
+    let platform = crate::recipes::seams::platform()?;
     let opts = ScanOptions {
         include_undetected: all,
         ..ScanOptions::default()
