@@ -15,6 +15,20 @@ pub fn symlink(target: impl AsRef<Path>, link: impl AsRef<Path>) -> std::io::Res
     }
 }
 
+/// Set this process's umask to `mask` (test fixtures only): fixtures whose
+/// modes are compared against goldens must not depend on the host's umask
+/// (directories created implicitly, and symlink modes on macOS, follow it).
+/// Process-wide: call it before creating any fixture, from a test binary that
+/// wants the same mask everywhere.
+#[cfg(unix)]
+#[allow(
+    clippy::useless_conversion,
+    reason = "mode_t is u16 on macOS but u32 on Linux"
+)]
+pub fn pin_umask(mask: u16) {
+    rustix::process::umask(rustix::fs::Mode::from_raw_mode(mask.into()));
+}
+
 /// Write an executable `#!/bin/sh` script `dir/name` with body `sh_body`
 /// (a fake external tool for handler tests). The file is fsynced and closed
 /// before returning; unix only.

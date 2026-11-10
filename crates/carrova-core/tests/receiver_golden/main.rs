@@ -28,7 +28,7 @@ use carrova_manifest::{
     Artifact, Blake3Hash, DEFAULT_CHUNK_PARAMS, Entry, ItemFlags, Manifest, ManifestItem,
     SourceInfo, chunk_reader, entry_from_path,
 };
-use carrova_platform::fake::{FakePlatform, symlink};
+use carrova_platform::fake::{FakePlatform, pin_umask, symlink};
 use carrova_platform::{OsKind, Platform, SemanticRoot};
 use carrova_recipe::Recipe;
 use common::{mkdir, put};
@@ -83,6 +83,9 @@ struct Env {
 }
 
 fn env() -> Env {
+    // Goldens were recorded under umask 002; pin it so implicit dirs and
+    // (on macOS) symlink modes match on any host.
+    pin_umask(0o002);
     let tmp = TempDir::new().unwrap();
     let sender_home = tmp.path().join("sender");
     let recv_home = tmp.path().join("recv");
