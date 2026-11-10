@@ -133,6 +133,16 @@ fn invalid() -> Vec<(&'static str, String)> {
             with_config(&MACOS_OVERRIDE.replacen("rel: .config/git", "rel: /etc/git", 1)),
         ),
         (
+            "os path colon",
+            with_config(&MACOS_OVERRIDE.replacen("rel: .config/git", "rel: a/C:/x", 1)),
+        ),
+        (
+            "windows path drive after first component",
+            with_config(
+                "    os:\n      windows:\n        paths: [{ root: home, rel: .gitconfig }, { root: user_config, rel: 'AppData\\C:\\x' }]\n",
+            ),
+        ),
+        (
             "os empty exclude glob",
             with_config(&format!("{MACOS_OVERRIDE}        exclude: ['']\n")),
         ),

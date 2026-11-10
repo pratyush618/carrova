@@ -1,8 +1,9 @@
 //! Serde types mirroring `recipes/schema/recipe.v{1,2,3}.json`.
 
 use carrova_platform::OsKind;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 
+use crate::os_paths::WindowsPathRef;
 use crate::{HandlerRef, OsOverrides, RelPath, SemanticRoot};
 
 /// One app recipe (schema v1 to v3).
@@ -57,7 +58,13 @@ impl Recipe {
 pub struct Detect {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub linux: Vec<DetectRule>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// Path rules here may also use `\\` separators (normalised to `/`),
+    /// see [`RelPath::new_windows`].
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "windows_rules"
+    )]
     pub windows: Vec<DetectRule>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub macos: Vec<DetectRule>,
@@ -109,6 +116,29 @@ impl TryFrom<RawDetectRule> for DetectRule {
             }
         }
     }
+}
+
+/// Deserialize `detect.windows`, reading `path` rules as [`WindowsPathRef`]s.
+fn windows_rules<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<DetectRule>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct RawWindowsRule {
+        #[serde(default)]
+        binary: Option<String>,
+        #[serde(default)]
+        path: Option<WindowsPathRef>,
+    }
+
+    Vec::<RawWindowsRule>::deserialize(d)?
+        .into_iter()
+        .map(|raw| {
+            DetectRule::try_from(RawDetectRule {
+                binary: raw.binary,
+                path: raw.path.map(|p| p.0),
+            })
+            .map_err(D::Error::custom)
+        })
+        .collect()
 }
 
 impl From<DetectRule> for RawDetectRule {

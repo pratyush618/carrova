@@ -76,7 +76,7 @@ fn plan_raw_item<'a>(
     excluded: Vec<RootedPath<'a>>,
 ) -> Result<Planned<'a>, String> {
     let RootedPath { root, rel } = path;
-    let rel_path = RelPath::new(rel).map_err(|e| format!("invalid raw path: {e}"))?;
+    let rel_path = RelPath::new_raw(rel).map_err(|e| format!("invalid raw path: {e}"))?;
     let id = path.raw_item_id();
     Ok(Planned {
         key,
