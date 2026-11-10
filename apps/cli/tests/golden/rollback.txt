@@ -1,0 +1,45 @@
+Rolled back: 3 restored · 1 removed · 1 moved aside · 1 failed
+  (-v lists every restored and removed path)
+Changed since the import, moved aside instead of deleted (1):
+  - /h/.bashrc -> /s/rollback-trash/0
+Could NOT undo (1; needs manual attention):
+  - /h/x\u{1b}[1A\u{1b}[2K: permission denied
+--
+Rolled back: 3 restored · 1 removed · 1 moved aside · 1 failed
+  restored /h/.config/a/f0
+  restored /h/.config/a/f1
+  restored /h/.config/a/f2
+  removed /h/.gitconfig
+Changed since the import, moved aside instead of deleted (1):
+  - /h/.bashrc -> /s/rollback-trash/0
+Could NOT undo (1; needs manual attention):
+  - /h/x\u{1b}[1A\u{1b}[2K: permission denied
+--
+Rolled back: 0 restored · 0 removed · 0 moved aside · 0 failed
+--
+{
+  "failed": [
+    {
+      "reason": "permission denied",
+      "target": "/h/x\u001b[1A\u001b[2K"
+    }
+  ],
+  "quarantined": [
+    {
+      "moved_to": "/s/rollback-trash/0",
+      "target": "/h/.bashrc"
+    }
+  ],
+  "removed": [
+    "/h/.gitconfig"
+  ],
+  "restored": [
+    "/h/.config/a/f0",
+    "/h/.config/a/f1",
+    "/h/.config/a/f2"
+  ]
+}
+rollback: restored /h/a\u{1b}[1A\u{1b}[2K
+rollback: removed /h/a\u{1b}[1A\u{1b}[2K
+rollback: moved aside (changed since the import) /h/a\u{1b}[1A\u{1b}[2K
+rollback: FAILED, needs attention: /h/a\u{1b}[1A\u{1b}[2K

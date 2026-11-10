@@ -1,0 +1,4 @@
+Import plan (session 20260101-000000-abcdef)
+  nothing to write
+Conflicts: 0 (change with --rule ITEM|ROOT:REL|default=replace|keep-both|skip)
+Space: writes 99 B

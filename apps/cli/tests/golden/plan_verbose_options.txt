@@ -1,0 +1,58 @@
+Items offered ([x] = selected for import):
+  [x] gnupg/keys  GnuPG keys  [sensitive (holds private keys), confirmed]
+  [x] git/config  Git\u{1b}[1A\u{1b}[2Khome:.bashrc
+  [ ] ssh/keys    SSH keys  [sensitive (marked sensitive by the source): needs --confirm-sensitive ssh/keys]
+Import plan (session 20260101-000000-abcdef)
+  option: keep group-write bits from the archive (world-write, setuid, setgid never restored)
+  gnupg/keys  create 32 · replace 2 · keep-both 1 · skip 1 · identical 1       105 B
+    + home:.gnupg/gpg.conf  0600  3 B
+    set mode home:.gnupg/  0600  (existing directory kept)
+    + home:.gnupg/cur  -> keys\u{1b}[1A\u{1b}[2Kv2
+    replace home:x\u{1b}[1A\u{1b}[2K  0600  3 B  (existing backed up)
+    skip home:.gnupg/old  (rule\u{1b}[1A\u{1b}[2K)
+    keep-both home:.gnupg/a.conf  -> home:.gnupg/a.conf.carrova-20260101  0600  3 B  (existing kept)
+    + home:.gnupg/plugins/big/f0  0600  3 B
+    + home:.gnupg/plugins/big/f1  0600  3 B
+    + home:.gnupg/plugins/big/f2  0600  3 B
+    + home:.gnupg/plugins/big/f3  0600  3 B
+    + home:.gnupg/plugins/big/f4  0600  3 B
+    + home:.gnupg/plugins/big/f5  0600  3 B
+    + home:.gnupg/plugins/big/f6  0600  3 B
+    + home:.gnupg/plugins/big/f7  0600  3 B
+    + home:.gnupg/plugins/big/f8  0600  3 B
+    + home:.gnupg/plugins/big/f9  0600  3 B
+    + home:.gnupg/plugins/big/f10  0600  3 B
+    + home:.gnupg/plugins/big/f11  0600  3 B
+    + home:.gnupg/plugins/big/f12  0600  3 B
+    + home:.gnupg/plugins/big/f13  0600  3 B
+    + home:.gnupg/plugins/big/f14  0600  3 B
+    + home:.gnupg/plugins/big/f15  0600  3 B
+    + home:.gnupg/plugins/big/f16  0600  3 B
+    + home:.gnupg/plugins/big/f17  0600  3 B
+    + home:.gnupg/plugins/big/f18  0600  3 B
+    + home:.gnupg/plugins/big/f19  0600  3 B
+    + home:.gnupg/plugins/big/f20  0600  3 B
+    + home:.gnupg/plugins/big/f21  0600  3 B
+    + home:.gnupg/plugins/big/f22  0600  3 B
+    + home:.gnupg/plugins/big/f23  0600  3 B
+    + home:.gnupg/plugins/big/f24  0600  3 B
+    + home:.gnupg/plugins/big/f25  0600  3 B
+    + home:.gnupg/plugins/big/f26  0600  3 B
+    + home:.gnupg/plugins/big/f27  0600  3 B
+    + home:.gnupg/plugins/big/f28  0600  3 B
+    + home:.gnupg/plugins/big/f29  0600  3 B
+  git/config  create 1 · replace 0 · keep-both 0 · skip 0 · identical 0         3 B
+    + home:.gitconfig  0600  3 B
+Conflicts: 4 (change with --rule ITEM|ROOT:REL|default=replace|keep-both|skip)
+Handler: gnupg/keys runs `gpg-keyring` (backs up 1 path(s) first; trust import on)
+Apps not installed here: app\u{1b}[1A\u{1b}[2K, vscode
+Running apps that should be closed: firefox
+Space: writes 99 B
+  on the state dir and home: needs about 500 B, free 10.0 kB
+  on user_data: needs about 5.0 kB, free 200 B  (SHORT by 4.8 kB)
+  on cache: needs about 9 B, free unknown
+Warnings:
+  - i\u{1b}[1A\u{1b}[2K: w\u{1b}[1A\u{1b}[2K
+  - global
+Blocked:
+  - blocked\u{1b}[1A\u{1b}[2K (`blocked\u{1b}[1A\u{1b}[2K`) is running: close it before applying, or override the requires-closed check

@@ -1,0 +1,43 @@
+20261108-120000-aaaaaa  import  done          LAN peer abababababab  [rollback available]
+20261108-110000-bbbbbb  import  failed        LAN (not paired yet)
+20261108-100000-cccccc  export  rolled back   /tmp/a\u{1b}[1A\u{1b}[2K.carrova
+20261108-090000-dddddd  export  scanned       
+No sessions.
+--
+Session 20261108-120000-aaaaaa
+  role      import
+  state     done
+  created   1700000000 (unix)
+  updated   1700000100 (unix)
+  lan peer  abababababababababababababababababababababababababababababababab
+  approved  yes
+Moved (2):
+  + git/config
+  + x\u{1b}[1A\u{1b}[2K
+Not moved (1):
+  - ssh/keys: not selected
+Install these apps to use their data:
+  * vscode (code)
+Rollback point kept: undo with `carrova rollback 20261108-120000-aaaaaa`, discard with `carrova sessions dismiss 20261108-120000-aaaaaa`
+--
+Session 20261108-110000-bbbbbb
+  role      import
+  state     failed
+  created   1700000000 (unix)
+  updated   1700000100 (unix)
+  lan peer  not paired
+  approved  no
+  error     boom\u{1b}[1A\u{1b}[2K
+--
+Session 20261108-100000-cccccc
+  role      export
+  state     rolled back
+  created   1700000000 (unix)
+  updated   1700000100 (unix)
+  archive   /tmp/a\u{1b}[1A\u{1b}[2K.carrova
+--
+Session 20261108-090000-dddddd
+  role      export
+  state     scanned
+  created   1700000000 (unix)
+  updated   1700000100 (unix)

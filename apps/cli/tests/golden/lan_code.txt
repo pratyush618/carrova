@@ -1,0 +1,32 @@
+
+  ┌─────────────────────────────────┐
+  │                                 │
+  │   Pairing code:  7-acid-lemon   │
+  │                                 │
+  └─────────────────────────────────┘
+
+On the other machine run `carrova receive` and type this code.
+If the other machine can't find this one, type: 7-acid-lemon@192.168.1.20:47822
+Waiting for the other machine... (Ctrl-C to cancel)
+--
+{"pairing_code":"7-acid-lemon","renewed":false,"ticket":"7-acid-lemon@192.168.1.20:47822"}
+--
+
+New code (the previous one can no longer be used):
+
+  ┌─────────────────────────────────┐
+  │                                 │
+  │   Pairing code:  7-acid-lemon   │
+  │                                 │
+  └─────────────────────────────────┘
+
+On the other machine run `carrova receive` and type this code.
+Waiting for the other machine... (Ctrl-C to cancel)
+--
+{"pairing_code":"7-acid-lemon","renewed":true,"ticket":null}
+--
+
+!!! WARNING: Someone entered a wrong code. If that wasn't you, stop now. !!!
+Someone nearby may be trying to guess the code. Wrong codes so far: 1; the send stops after 2 more.
+Show a new code?
+Not offering a new code: nobody can confirm it here (no terminal or --json); stopping the send.

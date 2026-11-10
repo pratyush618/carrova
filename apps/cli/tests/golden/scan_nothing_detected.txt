@@ -1,0 +1,11 @@
+macOS · home ? · free unknown · snapshots unknown
+
+No apps detected.
+
+dev-tools / VS Code  (not detected)
+
+Totals
+  selected by default      1.5 kB  (1 file)
+  recognised              10.0 kB
+  unrecognised             2.0 kB
+  free space (home)       unknown

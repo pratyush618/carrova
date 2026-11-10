@@ -1,0 +1,49 @@
+[package]
+name = "carrova-cli"
+description = "Move app configs, keys and user data between computers over the LAN or an encrypted file"
+# Placeholder: replace pratyush618/carrova before release (see packaging/README.md).
+repository = "https://github.com/pratyush618/carrova"
+keywords = ["migration", "dotfiles", "transfer", "backup", "lan"]
+categories = ["command-line-utilities", "filesystem"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "carrova"
+path = "src/main.rs"
+
+[features]
+# Test-only: hidden `carrova import --fail-after N` (fault injection mid-apply).
+failpoints = ["carrova-core/failpoints"]
+# Test-only: bundle e2e seams (CARROVA_BUNDLE_TEST_ROOTS, CARROVA_BUNDLE_ALLOW_HTTP);
+# see src/recipes/seams.rs. Never enabled for release packages.
+e2e-seams = []
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["env"] }
+ctrlc = { workspace = true }
+carrova-bundle = { workspace = true }
+carrova-core = { workspace = true }
+carrova-manifest = { workspace = true }
+carrova-platform = { workspace = true }
+carrova-recipe = { workspace = true }
+carrova-report = { workspace = true }
+carrova-view = { workspace = true }
+rpassword = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+zeroize = { workspace = true }
+
+[dev-dependencies]
+carrova-crypto = { workspace = true }
+carrova-platform = { workspace = true, features = ["fake"] }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

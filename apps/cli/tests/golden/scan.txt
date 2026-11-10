@@ -1,0 +1,27 @@
+Linux · home /home/me · free 3.2 GB · snapshots btrfs
+
+dev-tools / Git  (binary git, config dir)
+  config      Git config      1.5 kB       1 file
+
+dev-tools / OpenSSH  (binary ssh, config dir)
+  keys        SSH keys        4.1 kB      3 files  [sensitive]  [off]
+  machine-id  Machine id        10 B       1 file  [unmovable: bound to this machine]
+
+dev-tools / Firefox  (binary firefox, config dir)
+  profile     Profile         5.2 MB    120 files  [requires-closed]  [1 skipped]
+  ! Firefox is running: close it before moving items marked [requires-closed]
+
+dev-tools / Zsh  (binary zsh, config dir)
+  history     History            0 B      0 files  [not found]
+
+dev-tools / VS Code  (not detected)
+
+Unrecognised data (not selected by default)
+  user_config/oddtool      2.0 kB      2 files
+  user_data/locked            1 B       1 file  [4 unreadable]
+
+Totals
+  selected by default      1.5 kB  (1 file)
+  recognised              10.0 kB
+  unrecognised             2.0 kB
+  free space (home)        3.2 GB

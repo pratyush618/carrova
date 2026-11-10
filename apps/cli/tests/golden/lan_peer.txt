@@ -1,0 +1,32 @@
+Other machine: Linux, Carrova 0.1\u{1b}[1A\u{1b}[2K, 2.0 kB free
+  Apps detected there: git, zsh
+Other machine: macOS, Carrova 0.1\u{1b}[1A\u{1b}[2K, free space unknown
+  No known apps detected there.
+Other machine: Windows, Carrova 0.1\u{1b}[1A\u{1b}[2K, free space unknown
+  No known apps detected there.
+Plan on the other machine (it decides and approves):
+  git/config\u{1b}[1A\u{1b}[2K  create 3 · replace 7 · keep-both 0 · skip 0 · identical 0
+    conflict home:.f0\u{1b}[1A\u{1b}[2K
+    conflict home:.f1\u{1b}[1A\u{1b}[2K
+    conflict home:.f2\u{1b}[1A\u{1b}[2K
+    conflict home:.f3\u{1b}[1A\u{1b}[2K
+    conflict home:.f4\u{1b}[1A\u{1b}[2K
+    ... and 2 more conflict(s)
+  zsh/rc                        create 0 · replace 0 · keep-both 0 · skip 0 · identical 1
+Conflicts: 7 (-v lists every conflict)
+Plan on the other machine (it decides and approves):
+  git/config\u{1b}[1A\u{1b}[2K  create 3 · replace 7 · keep-both 0 · skip 0 · identical 0
+    conflict home:.f0\u{1b}[1A\u{1b}[2K
+    conflict home:.f1\u{1b}[1A\u{1b}[2K
+    conflict home:.f2\u{1b}[1A\u{1b}[2K
+    conflict home:.f3\u{1b}[1A\u{1b}[2K
+    conflict home:.f4\u{1b}[1A\u{1b}[2K
+    conflict home:.f5\u{1b}[1A\u{1b}[2K
+    conflict home:.f6\u{1b}[1A\u{1b}[2K
+  zsh/rc                        create 0 · replace 0 · keep-both 0 · skip 0 · identical 1
+Conflicts: 7
+Plan on the other machine (it decides and approves):
+  nothing selected
+Conflicts: 0
+Paused: need 3.1 MB more free on /st\u{1b}[1A\u{1b}[2K (1.0 kB free). Free up space; transfer resumes automatically. Ctrl-C to stop (resume later with `carrova receive --resume 20261108-101500-a1b2c3`)
+Paused: need 3.1 MB more free on /st\u{1b}[1A\u{1b}[2K (1.0 kB free). Free up space; transfer resumes automatically. Ctrl-C to stop (resume later with `carrova receive --resume`)

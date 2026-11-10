@@ -1,0 +1,28 @@
+Exported (2):
+  + git/config
+  + x\u{1b}[1A\u{1b}[2K
+Not exported (1):
+  - ssh/keys: not selected
+Install these apps to use their data:
+  * vscode (code)
+--
+Moved (2):
+  + git/config
+  + x\u{1b}[1A\u{1b}[2K
+Not moved (1):
+  - ssh/keys: not selected
+Install these apps to use their data:
+  * vscode (code)
+Rollback point kept: undo with `carrova rollback s2`, discard with `carrova sessions dismiss s2`
+--
+Moved (2):
+  + git/config
+  + x\u{1b}[1A\u{1b}[2K
+Not moved (1):
+  - ssh/keys: not selected
+Install these apps on the other machine to use their data:
+  * vscode (code)
+Rollback point kept on the other machine (see `carrova sessions` there)
+--
+Moved (0):
+--

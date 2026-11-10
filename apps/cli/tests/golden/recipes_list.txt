@@ -1,0 +1,9 @@
+git     git     dev-tools  verified
+ssh     ssh     security   verified
+zellij  zellij  shells     community
+3 recipes
+--
+git     git     dev-tools  unverified
+ssh     ssh     security   unverified
+zellij  zellij  shells     unverified
+3 recipes

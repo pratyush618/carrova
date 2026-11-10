@@ -1,0 +1,16 @@
+Report 00000000000000000001 (crash)
+  Carrova 0.4.0 on Linux, 20261108-214455 UTC
+Messages:
+  - index out of bounds\u{1b}[1A\u{1b}[2K
+  - at crates/carrova-core/src/plan/mod.rs:42
+Carrova frames:
+  carrova_core::plan::compute
+  carrova_cli::session::import
+To report it on GitHub, review the text from `carrova report issue 00000000000000000001`.
+--
+Report 00000000000000000002 (error)
+  Carrova 0.4.0 on Linux, 20261108-214555 UTC
+Messages:
+  - cannot open ~/secret-plans.carrova
+  - No such file or directory (os error 2)
+To report it on GitHub, review the text from `carrova report issue 00000000000000000002`.

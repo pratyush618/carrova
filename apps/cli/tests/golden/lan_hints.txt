@@ -1,0 +1,16 @@
+Some("lost the other machine; session 20261108-101500-a1b2c3 is kept: run `carrova send --resume 20261108-101500-a1b2c3` when both machines are back")
+Some("lost the other machine; the session is kept: run `carrova send --resume` when both machines are back")
+Some("lost the other machine; session 20261108-101500-a1b2c3 is kept: run `carrova receive --resume 20261108-101500-a1b2c3` when both machines are back")
+Some("lost the other machine; the session is kept: run `carrova receive --resume` when both machines are back")
+Some("nothing was applied: the sender could not supply git/config, raw:home/x\\u{1b}[1A\\u{1b}[2K; run `carrova receive --resume 20261108-101500-a1b2c3` and deselect them (pass --item for each item you still want), or retry once the files are readable on the sender")
+Some("nothing was applied: the sender could not supply git/config, raw:home/x\\u{1b}[1A\\u{1b}[2K; run `carrova receive --resume` and deselect them (pass --item for each item you still want), or retry once the files are readable on the sender")
+Some("nothing was applied: the sender could not supply git/config, raw:home/x\\u{1b}[1A\\u{1b}[2K; run `carrova receive --resume 20261108-101500-a1b2c3` and deselect them (pass --item for each item you still want), or retry once the files are readable on the sender")
+Some("nothing was applied: the sender could not supply git/config, raw:home/x\\u{1b}[1A\\u{1b}[2K; run `carrova receive --resume` and deselect them (pass --item for each item you still want), or retry once the files are readable on the sender")
+Some("the other machine ended the session")
+Some("the other machine ended the session")
+Some("the other machine ended the session")
+Some("the other machine ended the session")
+None
+None
+None
+None

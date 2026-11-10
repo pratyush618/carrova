@@ -1,0 +1,28 @@
+Items offered ([x] = selected for import):
+  [ ] gnupg/keys  GnuPG keys  [sensitive (holds private keys): needs --confirm-sensitive gnupg/keys]
+  [x] git/config  Git\u{1b}[1A\u{1b}[2Khome:.bashrc
+  [ ] ssh/keys    SSH keys  [sensitive (marked sensitive by the source): needs --confirm-sensitive ssh/keys]
+Import plan (session 20260101-000000-abcdef)
+  gnupg/keys  create 32 · replace 2 · keep-both 1 · skip 1 · identical 1       105 B
+    + home:.gnupg/  (31 files, 93 B)
+    set mode home:.gnupg/  0600  (existing directory kept)
+    + home:.gnupg/cur  -> keys\u{1b}[1A\u{1b}[2Kv2
+    replace home:x\u{1b}[1A\u{1b}[2K  0600  3 B  (existing backed up)
+    skip home:.gnupg/old  (rule\u{1b}[1A\u{1b}[2K)
+    keep-both home:.gnupg/a.conf  -> home:.gnupg/a.conf.carrova-20260101  0600  3 B  (existing kept)
+  git/config  create 1 · replace 0 · keep-both 0 · skip 0 · identical 0         3 B
+    + home:.gitconfig  0600  3 B
+  (creates grouped by directory; -v lists every path)
+Conflicts: 4 (change with --rule ITEM|ROOT:REL|default=replace|keep-both|skip)
+Handler: gnupg/keys runs `gpg-keyring` (backs up 1 path(s) first; trust import off (enable with --import-trust))
+Apps not installed here: app\u{1b}[1A\u{1b}[2K, vscode
+Running apps that should be closed: firefox
+Space: writes 99 B
+  on the state dir and home: needs about 500 B, free 10.0 kB
+  on user_data: needs about 5.0 kB, free 200 B  (SHORT by 4.8 kB)
+  on cache: needs about 9 B, free unknown
+Warnings:
+  - i\u{1b}[1A\u{1b}[2K: w\u{1b}[1A\u{1b}[2K
+  - global
+Blocked:
+  - blocked\u{1b}[1A\u{1b}[2K (`blocked\u{1b}[1A\u{1b}[2K`) is running: close it before applying, or override the requires-closed check

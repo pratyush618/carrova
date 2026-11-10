@@ -1,0 +1,8 @@
+00000000000000000002  20261108-214555 UTC  error  cannot open ~/secret-plans.carrova
+00000000000000000001  20261108-214455 UTC  crash  index out of bounds\u{1b}[1A\u{1b}[2K
+--
+No error reports.
+Error reports are off. Turn them on with `carrova report consent allow`.
+--
+No error reports.
+Error reports are off. Turn them on with `carrova report consent allow`.
