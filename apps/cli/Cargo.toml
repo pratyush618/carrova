@@ -18,9 +18,9 @@ path = "src/main.rs"
 [features]
 # Test-only: hidden `carrova import --fail-after N` (fault injection mid-apply).
 failpoints = ["carrova-core/failpoints"]
-# Test-only: bundle e2e seams (CARROVA_BUNDLE_TEST_ROOTS, CARROVA_BUNDLE_ALLOW_HTTP);
+# Test-only: e2e seams (CARROVA_BUNDLE_TEST_ROOTS, CARROVA_BUNDLE_ALLOW_HTTP, CARROVA_E2E_OS);
 # see src/recipes/seams.rs. Never enabled for release packages.
-e2e-seams = []
+e2e-seams = ["carrova-platform/fake"]
 
 [dependencies]
 anyhow = { workspace = true }

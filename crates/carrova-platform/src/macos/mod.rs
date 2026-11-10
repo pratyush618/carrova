@@ -9,7 +9,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::{
-    DirEntry, FileMeta, OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot,
+    DirEntry, DiskInfo, FileMeta, OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot,
     SnapshotCapability,
 };
 
@@ -107,6 +107,10 @@ impl Platform for MacPlatform {
 
     fn free_space(&self, path: &Path) -> Result<u64, PlatformError> {
         crate::sys::free_space(path)
+    }
+
+    fn disk(&self, path: &Path) -> Result<DiskInfo, PlatformError> {
+        crate::sys::disk(path)
     }
 
     /// APFS snapshots need privileges Carrova does not ask for.

@@ -50,6 +50,22 @@ fn send_resume_with_and_without_session() {
 }
 
 #[test]
+fn send_allow_plugin_becomes_a_selection_edit() {
+    let a = send(&["--allow-plugin", "path-rewrite"]).unwrap();
+    let edits: Vec<_> = a.selection.edits().collect();
+    assert_eq!(
+        edits,
+        [carrova_core::SelectionEdit::AllowPlugin {
+            plugin: carrova_recipe::PluginId::new("path-rewrite").unwrap(),
+            allow: true,
+        }]
+    );
+    assert!(send(&["--allow-plugin", "../x"]).is_err());
+    let e = send(&["--resume", "--allow-plugin", "path-rewrite"]).unwrap_err();
+    assert_eq!(e.kind(), clap::error::ErrorKind::ArgumentConflict);
+}
+
+#[test]
 fn send_resume_rejects_new_selection() {
     let e = send(&["--resume", "--include", "git/config"]).unwrap_err();
     assert_eq!(e.kind(), clap::error::ErrorKind::ArgumentConflict);

@@ -44,6 +44,12 @@ pub enum Retention {
     UntilDismissed,
     /// Discard right after a successful apply.
     DiscardOnSuccess,
+    /// Keep for `days` days after the apply, then prune
+    /// ([`SessionRecord::expires_at`](crate::SessionRecord::expires_at)).
+    KeepFor {
+        /// Days to keep the undo point.
+        days: u32,
+    },
 }
 
 /// Every user decision for an import. Defaults are suggestions only.

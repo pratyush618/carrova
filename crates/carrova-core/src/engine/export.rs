@@ -118,10 +118,14 @@ impl Exporter {
         self.selection.usable()
     }
 
-    /// Suggested selection for `preset`; the user edits it before `select`.
+    /// Suggested selection for `preset`, with the plugins loaded here
+    /// that export its items ([`Selection::mark_exports`]); the user edits
+    /// it before `select`.
     #[must_use]
     pub fn suggest(&self, preset: Preset) -> Selection {
-        Selection::from_scan(&self.scan, preset)
+        let mut selection = Selection::from_scan(&self.scan, preset);
+        selection.mark_exports(self.s.engine.recipes(), self.s.engine.plugins());
+        selection
     }
 
     /// Fix the user's selection (state `Selected`, `selection.json`).
@@ -129,7 +133,9 @@ impl Exporter {
     /// [`Selection::issues`] is refused with [`CoreError::Selection`] and
     /// replaces the earlier one: [`Self::export`] and
     /// [`Self::prepare_send`] refuse until a usable selection is selected.
-    pub fn select(&mut self, selection: Selection) -> Result<()> {
+    /// Which items a plugin exports is the engine's call: it is marked
+    /// afresh ([`Selection::mark_exports`]) before the check.
+    pub fn select(&mut self, mut selection: Selection) -> Result<()> {
         let from = self.s.record.state;
         if !from.can_transition(State::Selected) {
             return Err(CoreError::InvalidTransition {
@@ -137,6 +143,7 @@ impl Exporter {
                 to: State::Selected,
             });
         }
+        selection.mark_exports(self.s.engine.recipes(), self.s.engine.plugins());
         let issues = selection.issues();
         if !issues.is_empty() {
             let refused = select::refusal(&issues);
@@ -197,10 +204,11 @@ fn write_archive(
     cancel: &Cancel,
 ) -> Result<(ArchiveSummary, Checklist)> {
     let platform = s.platform();
-    let cap = capture::capture_with_plugins(
+    let cap = capture::capture_with_consent(
         platform,
         &s.engine.recipes,
         &s.engine.plugins,
+        &selection.confirmed_plugins,
         selection,
         s.sink(),
         cancel,

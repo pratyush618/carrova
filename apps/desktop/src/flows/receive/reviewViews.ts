@@ -1,5 +1,5 @@
 import type { PlannedPlugin } from '../../bindings/PlannedPlugin';
-import type { Checklist, ItemKey, OsKind, PlanOptions, PlanReview } from '../../engine/types';
+import type { Checklist, ItemKey, OsKind, PlanReview } from '../../engine/types';
 import type {
   ArrivedModel,
   ChangeGroup,
@@ -10,6 +10,7 @@ import type {
   ReviewModel,
 } from '../../screens/receive/model';
 import type { Computer, MoveRoute } from '../../screens/shared/model';
+import type { Remote } from '../remote';
 import { appOf } from '../shared/keys';
 import { appRef } from '../shared/paths';
 
@@ -66,14 +67,14 @@ export function rememberAsked(asked: Asked, review: PlanReview): Asked {
 
 /** What the review screens are built from besides the plan. */
 export interface ReviewInputs {
-  readonly options: PlanOptions;
   readonly answers: Answers;
   readonly asked: Asked;
 }
 
 /** Questions the receiver answers before approving: secrets, open apps, other systems, plugins. */
 export function decisions(review: PlanReview, inputs: ReviewInputs): DecisionModel[] {
-  const { options, answers, asked } = inputs;
+  const { answers, asked } = inputs;
+  const { options } = review.plan;
   const picked = (key: string): boolean => review.offered.some((o) => o.key === key && o.picked);
   const secrets: DecisionModel[] = review.offered.flatMap((o) => {
     if (o.sensitive === null) return [];
@@ -121,14 +122,15 @@ export function decisions(review: PlanReview, inputs: ReviewInputs): DecisionMod
 }
 
 /** The filesystem to show: the first one short of space, else the first written to. */
-function spaceOf(review: PlanReview, options: PlanOptions): ReviewModel['space'] {
+function spaceOf(review: PlanReview): ReviewModel['space'] {
   const list = review.space.filesystems;
   const fs = list.find((f) => f.short_by !== null) ?? list[0];
   return {
     needed: fs?.needed ?? review.space.writes,
     free: fs?.available ?? null,
+    total: fs?.total ?? null,
     short: fs?.short_by !== null && fs?.short_by !== undefined,
-    ignored: options.ignore_free_space,
+    ignored: review.plan.options.ignore_free_space,
   };
 }
 
@@ -167,7 +169,7 @@ function railOf(
 export function reviewModel(
   review: PlanReview,
   inputs: ReviewInputs,
-  busy: boolean,
+  remote: Remote<PlanReview>,
   route: MoveRoute,
 ): ReviewModel {
   const asked = decisions(review, inputs);
@@ -177,13 +179,14 @@ export function reviewModel(
       left: review.offered.filter((o) => !o.picked).length,
     },
     decisions: asked,
-    space: spaceOf(review, inputs.options),
+    space: spaceOf(review),
     mapped: mappedOf(review, route.to),
-    rule: inputs.options.default_rule,
-    retention: inputs.options.retention,
+    rule: review.plan.options.default_rule,
+    retention: review.plan.options.retention,
     blocked: review.plan.blockers.length > 0,
     rail: railOf(review, asked, route),
-    busy,
+    busy: remote.status !== 'ready',
+    error: remote.status === 'failed' ? remote.error : null,
   };
 }
 
@@ -205,7 +208,8 @@ export function pluginConsentModel(
 }
 
 /** Every change, per item: clashes with their rule, creates counted, remap offered. */
-export function detailsModel(review: PlanReview, options: PlanOptions): ReviewDetailsModel {
+export function detailsModel(review: PlanReview): ReviewDetailsModel {
+  const { options } = review.plan;
   const label = (key: string): string => itemLabel(review, key);
   const groups: ChangeGroup[] = review.view.items.map((item) => {
     const actions = review.plan.actions.filter((a) => a.item === item.key);

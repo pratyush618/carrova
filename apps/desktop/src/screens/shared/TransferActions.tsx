@@ -8,6 +8,7 @@ const NOTE = {
   paused: null,
   held: null,
   reconnecting: 'transfer.resumesItself',
+  lost: 'transfer.resumeWhenBack',
   applying: 'transfer.applyNote',
 } as const satisfies Record<TransferPhase, string | null>;
 
@@ -19,9 +20,12 @@ const NOTE = {
 export function TransferActions({
   model,
   on,
+  resuming = false,
 }: {
   readonly model: TransferModel;
   readonly on: TransferIntents;
+  /** Resume is reopening the session: it waits. */
+  readonly resuming?: boolean;
 }) {
   const { t } = useTranslation();
   const applying = model.phase === 'applying';
@@ -48,6 +52,14 @@ export function TransferActions({
           {model.phase === 'moving' && on.onPause && (
             <Button icon="pause" onClick={on.onPause}>
               {t('transfer.pause')}
+            </Button>
+          )}
+          {model.phase === 'reconnecting' && on.onTryNow && (
+            <Button onClick={on.onTryNow}>{t('transfer.tryNow')}</Button>
+          )}
+          {model.phase === 'lost' && on.onResumeSession && (
+            <Button kind="primary" icon="play" disabled={resuming} onClick={on.onResumeSession}>
+              {t('transfer.resume')}
             </Button>
           )}
           {model.phase === 'held' && on.onResume && (

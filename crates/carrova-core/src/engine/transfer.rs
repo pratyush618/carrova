@@ -3,7 +3,6 @@
 
 use std::collections::{BTreeSet, HashSet};
 use std::path::Path;
-use std::time::Duration;
 
 use carrova_manifest::{ChunkHash, ChunkRef, Manifest};
 use carrova_platform::Platform;
@@ -212,7 +211,7 @@ impl<'a> Disk<'a> {
     }
 
     /// Run `op` until it does not fail with [`CoreError::DiskFull`].
-    fn wait<T>(&self, mut op: impl FnMut() -> Result<T>) -> Result<T> {
+    pub(super) fn wait<T>(&self, mut op: impl FnMut() -> Result<T>) -> Result<T> {
         let mut paused = false;
         loop {
             match op() {
@@ -225,6 +224,7 @@ impl<'a> Disk<'a> {
                                 fs: self.label.clone(),
                                 available,
                                 needed,
+                                disk: self.mount_point(),
                             },
                         });
                     }
@@ -241,10 +241,22 @@ impl<'a> Disk<'a> {
         }
     }
 
+    /// Mount point of the waited-on filesystem, if the platform knows it.
+    /// Asks about the nearest existing ancestor: staging may not exist yet
+    /// (first transfer) or was wiped after a failed preallocation.
+    fn mount_point(&self) -> Option<String> {
+        let existing = crate::space::nearest_existing(self.platform, self.dir)?;
+        let disk = self.platform.disk(&existing).ok()?;
+        Some(disk.mount_point.display().to_string())
+    }
+
     /// Wait [`SPACE_POLL_INTERVAL`] before the next retry, ending early
     /// once the user lifts the free-space guard.
     fn idle(&self) -> Result<()> {
-        let mut waited = Duration::ZERO;
+        // At least one slice: with the guard lifted, a really full disk
+        // would otherwise retry in a hot loop.
+        self.cancel.sleep(IDLE_SLICE)?;
+        let mut waited = IDLE_SLICE;
         while waited < SPACE_POLL_INTERVAL && !self.control.ignores_free_space() {
             self.cancel.sleep(IDLE_SLICE)?;
             waited += IDLE_SLICE;
@@ -270,3 +282,7 @@ impl<'a> Disk<'a> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/engine/transfer/unit.rs"]
+mod tests;

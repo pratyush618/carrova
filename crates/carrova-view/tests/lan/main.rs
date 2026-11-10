@@ -15,6 +15,7 @@ fn a_low_disk_space_pause_shows_the_shortfall() {
         fs: "/state".into(),
         available: 10,
         needed: 25,
+        disk: None,
     };
     assert_eq!(pause_view(&reason, None).unwrap().shortfall, 15);
 }

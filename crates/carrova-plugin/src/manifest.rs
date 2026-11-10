@@ -16,6 +16,8 @@ pub const MAX_FUEL: u64 = 1_000_000_000;
 pub const MAX_MEMORY_MIB: u32 = 256;
 /// Longest accepted `version` / `description`, in bytes.
 const MAX_TEXT: usize = 300;
+/// Longest accepted [`PluginManifest::run_tools`] name, in bytes.
+pub(crate) const MAX_TOOL_NAME: usize = 64;
 
 /// Contents of `plugin.yaml`. Parsed with [`Self::parse`], which also
 /// validates it; shown to the user as [`Self::permissions`].
@@ -35,6 +37,20 @@ pub struct PluginManifest {
     pub context: Vec<ContextField>,
     /// Per-file resource limits.
     pub limits: Limits,
+    /// External programs (bare executable names: an ASCII letter or digit,
+    /// then letters, digits, `.`, `_`, `+`, `-`; at most 64 bytes) the
+    /// plugin may ask the host to run (`carrova.run_tool`); none by
+    /// default. Each is shown to the user as a permission.
+    #[serde(default)]
+    pub run_tools: Vec<String>,
+    /// The plugin may write diagnostic lines to Carrova's log
+    /// (`carrova.log`, capped and sanitised by the host); off by default.
+    #[serde(default)]
+    pub log: bool,
+    /// The plugin also transforms its items' files on the sending computer
+    /// before they are sent (`export_transform`); off by default.
+    #[serde(default)]
+    pub export: bool,
 }
 
 /// A fact a plugin may be told about the transfer.
@@ -94,7 +110,7 @@ impl PluginManifest {
     }
 
     /// The rules a schema cannot express: schema, one-line text, unique
-    /// context fields, limits within the hard caps.
+    /// context fields, limits within the hard caps, bare unique tool names.
     pub fn validate(&self) -> Result<(), PluginError> {
         let bad = |why: String| Err(PluginError::Manifest(why));
         if self.schema != MANIFEST_SCHEMA {
@@ -122,6 +138,16 @@ impl PluginManifest {
         if !(1..=MAX_MEMORY_MIB).contains(&self.limits.memory_mib) {
             return bad(format!("limits.memory_mib must be 1 to {MAX_MEMORY_MIB}"));
         }
+        if let Some(tool) = self.run_tools.iter().find(|t| !is_tool_name(t)) {
+            return bad(format!(
+                "run_tools: {tool:?} is not a bare program name (a letter or digit, then \
+                 letters, digits, `._+-`; at most {MAX_TOOL_NAME} bytes)"
+            ));
+        }
+        let mut seen = HashSet::new();
+        if let Some(dup) = self.run_tools.iter().find(|t| !seen.insert(*t)) {
+            return bad(format!("run_tools lists {dup} twice"));
+        }
         Ok(())
     }
 
@@ -129,15 +155,44 @@ impl PluginManifest {
     /// guarantee last.
     #[must_use]
     pub fn permissions(&self) -> Vec<String> {
-        std::iter::once(
+        let mut out = vec![
             "It may change the content of the files of the items that use it, before they are \
              restored."
                 .to_owned(),
-        )
-        .chain(self.context.iter().map(|f| f.permission().to_owned()))
-        .chain(std::iter::once(
-            "It cannot read or write other files, use the network or run programs.".to_owned(),
-        ))
-        .collect()
+        ];
+        if self.export {
+            out.push(
+                "On the old computer, it may change the content of these files before they are \
+                 sent."
+                    .to_owned(),
+            );
+        }
+        out.extend(self.context.iter().map(|f| f.permission().to_owned()));
+        out.extend(self.run_tools.iter().map(|t| {
+            format!(
+                "It may run the program `{t}` installed on the computer it runs on, giving it \
+                 data and reading its answer; that program is not sandboxed."
+            )
+        }));
+        if self.log {
+            out.push("It may write diagnostic notes to Carrova's log.".to_owned());
+        }
+        out.push(if self.run_tools.is_empty() {
+            "It cannot read or write other files, use the network or run programs.".to_owned()
+        } else {
+            "It cannot read or write other files, use the network or run any other program."
+                .to_owned()
+        });
+        out
     }
+}
+
+/// A bare program name: no path, no spaces or shell syntax, no leading
+/// `-` or `.` (see [`PluginManifest::run_tools`]).
+fn is_tool_name(name: &str) -> bool {
+    name.len() <= MAX_TOOL_NAME
+        && name.starts_with(|c: char| c.is_ascii_alphanumeric())
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '+' | '-'))
 }

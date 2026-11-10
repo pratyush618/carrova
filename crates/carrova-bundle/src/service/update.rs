@@ -5,7 +5,7 @@ use carrova_platform::Platform;
 
 use crate::{
     BundleError, BundleStore, BundleVersion, FetchError, Fetcher, HttpConfig, HttpFetcher,
-    InstallOutcome, Result, UpdateOutcome, Updater, now_unix,
+    InstallOutcome, Result, UpdateCheck, UpdateOutcome, Updater, now_unix,
 };
 
 /// How an update attempt ended, when it did not fail.
@@ -19,21 +19,34 @@ pub enum UpdateAttempt {
     RetryLater,
 }
 
-impl UpdateAttempt {
-    /// The retry policy, in one place: a missing asset means "being
-    /// published", every other failure is an error.
-    fn judge(result: Result<UpdateOutcome>) -> Result<Self> {
-        match result {
-            Ok(outcome) => Ok(Self::Done(outcome)),
-            Err(BundleError::Fetch {
-                source: FetchError::NotFound,
-                ..
-            }) => {
-                tracing::info!("recipe bundle not published (yet); retry later");
-                Ok(Self::RetryLater)
-            }
-            Err(e) => Err(e),
+/// How an update check ([`check`]) ended, when it did not fail.
+#[derive(Debug, Clone)]
+pub enum CheckAttempt {
+    /// The feed answered: see the check.
+    Done(UpdateCheck),
+    /// The bundle is not published (yet): see [`UpdateAttempt::RetryLater`].
+    RetryLater,
+}
+
+/// The retry policy, in one place: a missing asset (`Ok(None)`) means
+/// "being published", every other failure is an error.
+fn judge<T>(result: Result<T>) -> Result<Option<T>> {
+    match result {
+        Ok(done) => Ok(Some(done)),
+        Err(BundleError::Fetch {
+            source: FetchError::NotFound,
+            ..
+        }) => {
+            tracing::info!("recipe bundle not published (yet); retry later");
+            Ok(None)
         }
+        Err(e) => Err(e),
+    }
+}
+
+impl UpdateAttempt {
+    fn judge(result: Result<UpdateOutcome>) -> Result<Self> {
+        Ok(judge(result)?.map_or(Self::RetryLater, Self::Done))
     }
 }
 
@@ -76,6 +89,24 @@ pub fn update(
         Ok(fetcher) => update_with(fetcher, roots, &store, now),
         Err(e) => UpdateAttempt::judge(Err(e)),
     }
+}
+
+/// Whether the release feed at `http` offers a bundle newer than the one
+/// in `platform`'s store, verified against `roots` now; installs nothing.
+///
+/// # Errors
+///
+/// As [`update`], minus the install.
+pub fn check(
+    platform: &dyn Platform,
+    roots: TrustRoots,
+    http: &HttpConfig,
+) -> Result<CheckAttempt> {
+    let store = BundleStore::open(platform, roots.clone())?;
+    let now = now_unix()?;
+    let checked = HttpFetcher::latest(http)
+        .and_then(|fetcher| Updater::new(fetcher, roots).check(&store, now));
+    Ok(judge(checked)?.map_or(CheckAttempt::RetryLater, CheckAttempt::Done))
 }
 
 /// [`update`] from any `fetcher` into `store`, verified at `now` (unix

@@ -4,6 +4,7 @@
 
 use carrova_core::ItemKey;
 use carrova_core::select::{Preset, Selection, SelectionEdit};
+use carrova_recipe::PluginId;
 use clap::{Args, ValueEnum};
 
 use crate::args::{PathExclusion, parse_exclude_path};
@@ -53,6 +54,11 @@ pub struct SelectionArgs {
     /// Include an item the recipe marks unmovable (its reason is shown).
     #[arg(long, value_name = "ITEM")]
     force_unmovable: Vec<ItemKey>,
+    /// Allow plugin ID to change the files of the items that use it on
+    /// this computer before they leave, after reviewing its permissions in
+    /// the selection (repeatable).
+    #[arg(long, value_name = "ID")]
+    allow_plugin: Vec<PluginId>,
 }
 
 impl SelectionArgs {
@@ -63,7 +69,7 @@ impl SelectionArgs {
 
     /// The user's edits as engine [`SelectionEdit`]s, in flag order:
     /// `--include`, `--exclude`, `--exclude-path`, `--confirm-sensitive`,
-    /// `--force-unmovable`.
+    /// `--force-unmovable`, `--allow-plugin`.
     pub fn edits(&self) -> impl Iterator<Item = SelectionEdit> + '_ {
         let tick = |included| {
             move |item: &ItemKey| SelectionEdit::Item {
@@ -92,6 +98,14 @@ impl SelectionArgs {
                 self.force_unmovable
                     .iter()
                     .map(|item| SelectionEdit::ForceUnmovable { item: item.clone() }),
+            )
+            .chain(
+                self.allow_plugin
+                    .iter()
+                    .map(|plugin| SelectionEdit::AllowPlugin {
+                        plugin: plugin.clone(),
+                        allow: true,
+                    }),
             )
     }
 

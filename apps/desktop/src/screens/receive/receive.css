@@ -35,15 +35,13 @@
 }
 
 .s-space__bar {
-  display: block;
+  display: flex;
   block-size: 6px;
   border-radius: 3px;
   background: var(--surface-0);
   overflow: hidden;
 }
 
-/* shortcut: the engine reports free space but not the disk's size, so the track is the free space
-   and there is no grey "used" segment; add it once FsSpace carries the filesystem total. */
 .s-space__bar i {
   display: block;
   block-size: 100%;
@@ -52,8 +50,15 @@
   background: var(--accent-fill);
 }
 
-.s-space--short .s-space__bar i {
+.s-space--short .s-space__bar i:not(.s-space__used) {
   background: var(--danger);
+}
+
+/* What the disk already holds, before the part this move needs. */
+.s-space__bar .s-space__used {
+  min-inline-size: 0;
+  background: var(--text-muted);
+  opacity: 0.45;
 }
 
 /* Arrived: the seal beside the headline, then receipt and checklist side by side. */

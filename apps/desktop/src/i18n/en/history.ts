@@ -47,6 +47,7 @@ export const history = {
   log: 'Show the log',
   undoPoint: 'Undo point kept',
   undoPointSub: 'Until you remove it',
+  undoUntil: 'Undo available until {{date}}',
   resume: 'Pick up where it stopped',
   undo: 'Undo this move…',
   forgetAction: 'Forget this move…',

@@ -4,12 +4,18 @@
 //! words) or a resume tag that rotates with every advertisement:
 //!
 //! - mDNS: service [`SERVICE_TYPE`], TXT [`TXT_VERSION`] plus
-//!   [`TXT_NAMEPLATE`](crate::TXT_NAMEPLATE) or
+//!   [`TXT_NAMEPLATE`](crate::TXT_NAMEPLATE) (and
+//!   [`TXT_DEVICE_NAME`], if known) or
 //!   [`TXT_RESUME_TAG`](crate::TXT_RESUME_TAG), the QUIC port in SRV. The
 //!   mdns-sd daemon runs on its own thread.
 //! - Broadcast: the receiver sends `BROADCAST_QUERY ‖ key=value` to
 //!   [`BROADCAST_PORT`]; a sender with that offer answers
-//!   `BROADCAST_REPLY ‖ <quic port>`.
+//!   `BROADCAST_REPLY ‖ <quic port>`. A sender offering a code answers
+//!   [`BROADCAST_BROWSE`] with `BROADCAST_REPLY ‖ <quic port> ‖ ' ' ‖
+//!   <device name>` ([`browse`]).
+//!
+//! Older peers ignore what they do not know: an unknown TXT key, a browse
+//! query (no `key=value`), a reply they never asked for.
 //!
 //! A resume value is `<nonce hex><tag hex>` with `tag =
 //! ResumeSecret::tag_for(TagPurpose::Discovery, nonce)` and a fresh random nonce per sender
@@ -21,6 +27,7 @@
 //! ([`interfaces::plausible_sender`]) and races full handshakes to the
 //! rest, so a spoofed answer can at worst cost one failed dial.
 
+mod browse;
 mod interfaces;
 mod seek;
 
@@ -34,6 +41,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 
+pub use self::browse::{Nearby, browse};
 pub(crate) use self::interfaces::primary_lan_ipv4;
 use self::interfaces::{broadcast_targets, plausible_sender};
 use self::seek::Seek;
@@ -41,7 +49,14 @@ pub(crate) use self::seek::{Offer, Subject, TagProof};
 use crate::error::Result;
 use crate::runtime::runtime;
 use crate::tuning::{BROADCAST_MAX_DATAGRAM, BROADCAST_RETRY, MDNS_POLL};
-use crate::{BROADCAST_PORT, BROADCAST_REPLY, PROTOCOL_VERSION, SERVICE_TYPE, TXT_VERSION};
+use crate::{
+    BROADCAST_BROWSE, BROADCAST_PORT, BROADCAST_REPLY, PROTOCOL_VERSION, SERVICE_TYPE,
+    TXT_DEVICE_NAME, TXT_VERSION,
+};
+
+/// What a discovery answer yields, from a plausible sender `addr` that
+/// announced `name` (or none).
+type Make<T> = fn(SocketAddrV4, Option<String>) -> T;
 
 fn broadcast_socket(platform: &dyn Platform, port: u16) -> Result<tokio::net::UdpSocket> {
     let socket = platform.bind_broadcast_udp(port)?;
@@ -58,6 +73,8 @@ pub(crate) struct Advertiser {
     port: u16,
     /// mDNS instance and host label (unique per listener).
     instance: String,
+    /// Device name announced while a code is offered ([`txt_fit`]).
+    name: Option<String>,
     current: Arc<Mutex<Option<Offer>>>,
     mdns: Option<ServiceDaemon>,
     registered: Option<String>,
@@ -65,11 +82,20 @@ pub(crate) struct Advertiser {
 }
 
 impl Advertiser {
-    /// Start the responders for a QUIC endpoint on `port`.
-    pub(crate) fn start(platform: &dyn Platform, port: u16, instance: String) -> Result<Self> {
+    /// Start the responders for a QUIC endpoint on `port`, naming the
+    /// sender `name` while it offers a code.
+    pub(crate) fn start(
+        platform: &dyn Platform,
+        port: u16,
+        instance: String,
+        name: Option<String>,
+    ) -> Result<Self> {
+        let name = name.map(|n| txt_fit(&n).to_owned());
         let current = Arc::new(Mutex::new(None));
         let responder = match broadcast_socket(platform, BROADCAST_PORT) {
-            Ok(socket) => Some(runtime()?.spawn(respond(socket, Arc::clone(&current), port))),
+            Ok(socket) => {
+                Some(runtime()?.spawn(respond(socket, Arc::clone(&current), port, name.clone())))
+            }
             Err(e) => {
                 tracing::warn!(error = %e, port = BROADCAST_PORT, "broadcast discovery unavailable");
                 None
@@ -81,6 +107,7 @@ impl Advertiser {
         Ok(Self {
             port,
             instance,
+            name,
             current,
             mdns,
             registered: None,
@@ -92,6 +119,7 @@ impl Advertiser {
     pub(crate) fn set(&mut self, offer: Offer) {
         let key = offer.advert().key().as_str();
         let value = offer.advert().value();
+        let name = self.name.as_deref().filter(|_| offer.is_pairing());
         *self.current.lock().unwrap_or_else(PoisonError::into_inner) = Some(offer);
         let Some(daemon) = &self.mdns else { return };
         if let Some(old) = self.registered.take() {
@@ -99,13 +127,15 @@ impl Advertiser {
             let _ = daemon.unregister(&old);
         }
         let version = PROTOCOL_VERSION.to_string();
+        let mut txt = vec![(TXT_VERSION, version.as_str()), (key, value.as_str())];
+        txt.extend(name.map(|n| (TXT_DEVICE_NAME, n)));
         let info = ServiceInfo::new(
             SERVICE_TYPE,
             &self.instance,
             &format!("{}.local.", self.instance),
             "",
             self.port,
-            &[(TXT_VERSION, version.as_str()), (key, value.as_str())][..],
+            &txt[..],
         )
         .map(ServiceInfo::enable_addr_auto);
         match info.and_then(|info| {
@@ -143,10 +173,41 @@ impl Drop for Advertiser {
     }
 }
 
-/// Answer broadcast queries that ask for the current offer.
-async fn respond(socket: tokio::net::UdpSocket, current: Arc<Mutex<Option<Offer>>>, port: u16) {
+/// Longest device name in one TXT entry (`dn=<name>`, at most 255 bytes),
+/// cut on a char boundary.
+fn txt_fit(name: &str) -> &str {
+    let mut end = name
+        .len()
+        .min(usize::from(u8::MAX) - TXT_DEVICE_NAME.len() - 1);
+    while !name.is_char_boundary(end) {
+        end -= 1;
+    }
+    &name[..end]
+}
+
+/// The reply to broadcast `query` while `offer` is current: the port for
+/// a query naming the offer; port and `name` for a browse query while a
+/// code is offered; else none.
+fn reply(offer: &Offer, query: &[u8], port: u16, name: Option<&str>) -> Option<Vec<u8>> {
     let mut reply = BROADCAST_REPLY.to_vec();
     reply.extend_from_slice(port.to_string().as_bytes());
+    if offer.answers(query) {
+        return Some(reply);
+    }
+    let name = name.filter(|_| query == BROADCAST_BROWSE && offer.is_pairing())?;
+    reply.push(b' ');
+    reply.extend_from_slice(name.as_bytes());
+    Some(reply)
+}
+
+/// Answer broadcast queries that ask for the current offer, and browse
+/// queries while a code is offered.
+async fn respond(
+    socket: tokio::net::UdpSocket,
+    current: Arc<Mutex<Option<Offer>>>,
+    port: u16,
+    name: Option<String>,
+) {
     let mut buf = [0u8; BROADCAST_MAX_DATAGRAM];
     loop {
         let (n, from) = match socket.recv_from(&mut buf).await {
@@ -156,12 +217,14 @@ async fn respond(socket: tokio::net::UdpSocket, current: Arc<Mutex<Option<Offer>
                 continue;
             }
         };
-        let answers = current
+        let answer = current
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .as_ref()
-            .is_some_and(|offer| offer.answers(&buf[..n]));
-        if answers && let Err(e) = socket.send_to(&reply, from).await {
+            .and_then(|offer| reply(offer, &buf[..n], port, name.as_deref()));
+        if let Some(answer) = answer
+            && let Err(e) = socket.send_to(&answer, from).await
+        {
             tracing::debug!(error = %e, "broadcast reply failed");
         }
     }
@@ -179,36 +242,46 @@ pub(crate) fn discover(
 ) -> Result<mpsc::Receiver<SocketAddrV4>> {
     let rt = runtime()?;
     let (tx, rx) = mpsc::channel(16);
-    rt.spawn(broadcast_query(
-        Arc::clone(platform),
-        wanted.fresh_seek()?.to_query(),
-        tx.clone(),
-        deadline,
-    ));
-    rt.spawn_blocking(move || mdns_browse(&wanted, &tx, deadline.into_std()));
+    let platform = Arc::clone(platform);
+    let query = wanted.fresh_seek()?.to_query();
+    let broadcast_tx = tx.clone();
+    rt.spawn(async move {
+        broadcast_query(platform.as_ref(), &query, &broadcast_tx, deadline, |a, _| a).await;
+    });
+    rt.spawn_blocking(move || {
+        mdns_browse(
+            |s| advertises(s, &wanted),
+            &tx,
+            deadline.into_std(),
+            |a, _| a,
+        );
+    });
     Ok(rx)
 }
 
-async fn broadcast_query(
-    platform: Arc<dyn Platform>,
-    query: Vec<u8>,
-    tx: mpsc::Sender<SocketAddrV4>,
+/// Send `query` to every broadcast target each [`BROADCAST_RETRY`] until
+/// `deadline` (or `tx` closes), yielding each plausible answer.
+async fn broadcast_query<T>(
+    platform: &dyn Platform,
+    query: &[u8],
+    tx: &mpsc::Sender<T>,
     deadline: Instant,
+    make: Make<T>,
 ) {
-    let socket = match broadcast_socket(platform.as_ref(), 0) {
+    let socket = match broadcast_socket(platform, 0) {
         Ok(s) => s,
         Err(e) => {
             tracing::debug!(error = %e, "broadcast discovery unavailable");
             return;
         }
     };
-    let targets = broadcast_targets(platform.as_ref());
+    let targets = broadcast_targets(platform);
     let loopback_queried = targets.iter().any(Ipv4Addr::is_loopback);
     let mut buf = [0u8; BROADCAST_MAX_DATAGRAM];
     while Instant::now() < deadline && !tx.is_closed() {
         for ip in &targets {
             let target = SocketAddrV4::new(*ip, BROADCAST_PORT);
-            if let Err(e) = socket.send_to(&query, target).await {
+            if let Err(e) = socket.send_to(query, target).await {
                 tracing::debug!(error = %e, %target, "broadcast query failed");
             }
         }
@@ -216,7 +289,7 @@ async fn broadcast_query(
         while let Ok(Ok((n, from))) =
             tokio::time::timeout_at(round_end, socket.recv_from(&mut buf)).await
         {
-            let (SocketAddr::V4(from), Some(port)) = (from, parse_reply(&buf[..n])) else {
+            let (SocketAddr::V4(from), Some((port, name))) = (from, parse_reply(&buf[..n])) else {
                 continue;
             };
             let candidate = SocketAddrV4::new(*from.ip(), port);
@@ -224,16 +297,21 @@ async fn broadcast_query(
                 tracing::debug!(%candidate, "implausible broadcast answer ignored");
                 continue;
             }
-            if tx.send(candidate).await.is_err() {
+            if tx.send(make(candidate, name)).await.is_err() {
                 return;
             }
         }
     }
 }
 
-fn parse_reply(datagram: &[u8]) -> Option<u16> {
-    let port = datagram.strip_prefix(BROADCAST_REPLY)?;
-    std::str::from_utf8(port).ok()?.parse().ok()
+/// A broadcast reply's port and, answering a browse, device name.
+fn parse_reply(datagram: &[u8]) -> Option<(u16, Option<String>)> {
+    let body = std::str::from_utf8(datagram.strip_prefix(BROADCAST_REPLY)?).ok()?;
+    let (port, name) = match body.split_once(' ') {
+        Some((port, name)) => (port, Some(name.to_owned())),
+        None => (body, None),
+    };
+    Some((port.parse().ok()?, name))
 }
 
 /// Does a resolved mDNS service advertise `wanted` (current protocol
@@ -247,7 +325,14 @@ fn advertises(service: &mdns_sd::ResolvedService, wanted: &Subject) -> bool {
             .is_some_and(|seek| wanted.recognises(&seek))
 }
 
-fn mdns_browse(wanted: &Subject, tx: &mpsc::Sender<SocketAddrV4>, deadline: std::time::Instant) {
+/// Browse mDNS until `deadline` (or `tx` closes), yielding each plausible
+/// address of every service `matches` accepts, with its device name.
+fn mdns_browse<T>(
+    matches: impl Fn(&mdns_sd::ResolvedService) -> bool,
+    tx: &mpsc::Sender<T>,
+    deadline: std::time::Instant,
+    make: Make<T>,
+) {
     let daemon = match ServiceDaemon::new() {
         Ok(d) => d,
         Err(e) => {
@@ -268,13 +353,18 @@ fn mdns_browse(wanted: &Subject, tx: &mpsc::Sender<SocketAddrV4>, deadline: std:
         let Ok(ServiceEvent::ServiceResolved(service)) = events.recv_timeout(MDNS_POLL) else {
             continue;
         };
-        if !advertises(&service, wanted) {
+        if !matches(&service) {
             continue;
         }
+        let name = service
+            .get_property_val_str(TXT_DEVICE_NAME)
+            .map(str::to_owned);
         for ip in service.get_addresses_v4() {
             let addr = SocketAddrV4::new(ip, service.get_port());
             // mDNS queries go to multicast, never to loopback.
-            if plausible_sender(addr, false) && seen.insert(addr) && tx.blocking_send(addr).is_err()
+            if plausible_sender(addr, false)
+                && seen.insert(addr)
+                && tx.blocking_send(make(addr, name.clone())).is_err()
             {
                 break 'browse;
             }

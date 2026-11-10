@@ -340,3 +340,13 @@ pub(crate) fn tool_command(bin: &Path, home: &Path, path: Option<&OsStr>) -> std
     }
     cmd
 }
+
+/// shortcut: no process tree on Windows (a job object needs `unsafe` or a
+/// new crate), so [`kill_tool`] ends only the tool itself; add a job object
+/// once Windows plugins run tools that spawn helpers.
+pub(crate) fn isolate_tool(_cmd: &mut std::process::Command) {}
+
+/// Kill the tool (not its children, see [`isolate_tool`]).
+pub(crate) fn kill_tool(child: &mut std::process::Child) -> std::io::Result<()> {
+    child.kill()
+}

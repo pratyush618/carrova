@@ -20,6 +20,9 @@ pub struct SpaceNeed {
     pub needed: u64,
     /// Free bytes, if they could be determined.
     pub available: Option<u64>,
+    /// Capacity of the filesystem, if it could be determined.
+    #[serde(default)]
+    pub total: Option<u64>,
 }
 
 impl SpaceNeed {

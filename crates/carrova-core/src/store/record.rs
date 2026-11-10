@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use carrova_crypto::pairing::CertHash;
 use carrova_manifest::Blake3Hash;
+use carrova_platform::OsKind;
 use serde::{Deserialize, Serialize};
 
 use crate::checklist::Checklist;
@@ -37,6 +38,15 @@ pub struct SessionRecord {
     /// records written before Carrova tracked it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bytes_moved: Option<u64>,
+    /// OS family of the other machine, once known (LAN peer or the
+    /// archive's source). `None` for records written before Carrova
+    /// tracked it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peer_os: Option<OsKind>,
+    /// Unix seconds after which this session's undo point may be pruned
+    /// ([`crate::Retention::KeepFor`]); `None` = kept until dismissed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<u64>,
 }
 
 impl SessionRecord {
@@ -116,6 +126,10 @@ struct RecordOnDisk {
     error: Option<String>,
     #[serde(default)]
     bytes_moved: Option<u64>,
+    #[serde(default)]
+    peer_os: Option<OsKind>,
+    #[serde(default)]
+    expires_at: Option<u64>,
 }
 
 impl From<RecordOnDisk> for SessionRecord {
@@ -135,6 +149,8 @@ impl From<RecordOnDisk> for SessionRecord {
             checklist: r.checklist,
             error: r.error,
             bytes_moved: r.bytes_moved,
+            peer_os: r.peer_os,
+            expires_at: r.expires_at,
         }
     }
 }

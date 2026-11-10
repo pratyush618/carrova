@@ -1,6 +1,7 @@
 //! `carrova send`'s terminal side of the engine's pairing prompts.
 
 use std::io::Write;
+use std::time::Duration;
 
 use anyhow::Result;
 use carrova_core::{CodeOffer, SendPrompt, Ticket};
@@ -38,8 +39,13 @@ impl<O, E, A> SendUi<O, E, A> {
 }
 
 impl<O: Write, E: Write, A: FnMut(&str) -> Result<bool>> SendUi<O, E, A> {
-    fn try_show(&mut self, ticket: &Ticket, offer: CodeOffer) -> std::io::Result<()> {
-        let view = code_view(ticket, offer);
+    fn try_show(
+        &mut self,
+        ticket: &Ticket,
+        offer: CodeOffer,
+        expires_in: Duration,
+    ) -> std::io::Result<()> {
+        let view = code_view(ticket, offer, expires_in);
         match self.format {
             OutputFormat::Json => {
                 serde_json::to_writer(&mut self.out, &pairing_record(&view))?;
@@ -47,7 +53,7 @@ impl<O: Write, E: Write, A: FnMut(&str) -> Result<bool>> SendUi<O, E, A> {
                 self.out.flush()
             }
             OutputFormat::Human => {
-                writeln!(self.err, "{}", code_banner(&view))?;
+                writeln!(self.err, "{}", code_banner(&view, offer))?;
                 self.err.flush()
             }
         }
@@ -55,9 +61,9 @@ impl<O: Write, E: Write, A: FnMut(&str) -> Result<bool>> SendUi<O, E, A> {
 }
 
 impl<O: Write, E: Write, A: FnMut(&str) -> Result<bool>> SendPrompt for SendUi<O, E, A> {
-    fn show_code(&mut self, ticket: &Ticket, offer: CodeOffer) {
+    fn show_code(&mut self, ticket: &Ticket, offer: CodeOffer, expires_in: Duration) {
         // Best effort: a closed terminal must not end the session.
-        let _ = self.try_show(ticket, offer);
+        let _ = self.try_show(ticket, offer, expires_in);
     }
 
     fn confirm_new_code(&mut self, failures: u32, remaining: u32) -> bool {

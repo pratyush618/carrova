@@ -2,8 +2,9 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '../support/render';
+import { ChoicesCard } from '@/screens/receive/ChoicesCard';
 import { RecvCodeScreen } from '@/screens/receive/RecvCodeScreen';
-import { codeConnecting } from '@/screens/receive/fixtures';
+import { codeConnecting, codeTyping, reviewDetails } from '@/screens/receive/fixtures';
 import { RecvReviewScreen } from '@/screens/receive/RecvReviewScreen';
 import { PluginConsentDialog } from '@/screens/receive/PluginConsentDialog';
 import { RecvProgressScreen } from '@/screens/receive/RecvProgressScreen';
@@ -93,6 +94,43 @@ describe('Here is what will change', () => {
   });
 });
 
+describe('Review space and undo', () => {
+  it('shows what the disk already holds when its size is known, and only then', () => {
+    const { container, unmount } = renderScreen(
+      <RecvReviewScreen model={reviewReady} on={reviewOn()} />,
+    );
+    expect(container.querySelector('.s-space__used')).not.toBeNull();
+    unmount();
+    const unsized = { ...reviewReady, space: { ...reviewReady.space, total: null } };
+    const again = renderScreen(<RecvReviewScreen model={unsized} on={reviewOn()} />);
+    expect(again.container.querySelector('.s-space__used')).toBeNull();
+  });
+
+  it('says how long undo is kept', () => {
+    renderScreen(<RecvReviewScreen model={reviewReady} on={reviewOn()} />);
+    expect(screen.getByText('Undo kept for 30 days')).toBeInTheDocument();
+  });
+
+  it('lets the user keep undo for a number of days or until removed', async () => {
+    const onChange = vi.fn();
+    renderScreen(<ChoicesCard choices={reviewDetails.choices} onChange={onChange} />);
+    const select = screen.getByRole('combobox', { name: 'Keep the undo point' });
+    expect(
+      within(select)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual([
+      'Until I remove it (suggested)',
+      'For 7 days',
+      'For 30 days',
+      'For 90 days',
+      'Only until the move succeeds',
+    ]);
+    await userEvent.selectOptions(select, 'For 7 days');
+    expect(onChange).toHaveBeenCalledWith({ retention: { keep_for: { days: 7 } } });
+  });
+});
+
 describe('Plugin consent', () => {
   it('lists what the plugin may do and allows it for this move only', async () => {
     const on = { onAllow: vi.fn(), onDecline: vi.fn(), onClose: vi.fn() };
@@ -110,6 +148,7 @@ describe("Here's what we found", () => {
     onToggleApp: vi.fn(),
     onConfirmKey: vi.fn(),
     onLeaveKey: vi.fn(),
+    onReviewPlugin: vi.fn(),
     onFilter: vi.fn(),
     onPreset: vi.fn(),
     onCustomize: vi.fn(),
@@ -160,7 +199,28 @@ describe('Key confirm', () => {
     renderScreen(<KeyConfirmDialog secret={secret} on={{ onBring: vi.fn(), onLeave: vi.fn() }} />);
     const dialog = screen.getByRole('alertdialog', { name: 'Bring SSH key pairs (private keys)?' });
     expect(within(dialog).getByText('~/.ssh/id_ed25519_work')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('SHA256:qX3fT0dVb8yZ1kJm4pR7sWc2eHn5uLa9gQ6iO3xY9LmA'),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(/Ed25519 · ana@ana-laptop/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/log you in to servers and GitHub/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/marked sensitive/)).not.toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Leave behind' })).toHaveFocus();
+  });
+
+  it('lists declared paths beside the key files, each path once', () => {
+    const [secret] = SECRETS;
+    if (secret === undefined) throw new Error('fixture');
+    const paths = [...secret.paths, '~/.ssh/id_ed25519'];
+    renderScreen(
+      <KeyConfirmDialog
+        secret={{ ...secret, paths }}
+        on={{ onBring: vi.fn(), onLeave: vi.fn() }}
+      />,
+    );
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText('~/.ssh')).toBeInTheDocument();
+    expect(within(dialog).getAllByText('~/.ssh/id_ed25519')).toHaveLength(1);
   });
 });
 
@@ -194,12 +254,43 @@ describe('Receiver handshake', () => {
       onBack: vi.fn(),
     };
     renderScreen(
-      <RecvCodeScreen model={codeConnecting} here={{ name: 'ana-laptop', os: 'linux' }} on={on} />,
+      <RecvCodeScreen
+        model={codeConnecting}
+        here={{ name: 'ana-laptop', os: 'linux' }}
+        nearby={[]}
+        on={on}
+      />,
       { reduceMotion: true },
     );
     expect(screen.getByRole('img', { name: 'Pairing code: 7 zebra lemon' })).toBeInTheDocument();
     expect(screen.getByText('The code both sides typed')).toBeInTheDocument();
     expect(screen.getAllByText('Linux').length).toBeGreaterThan(0);
+  });
+});
+
+describe('Receive code', () => {
+  const on = {
+    onChange: vi.fn(),
+    onAddress: vi.fn(),
+    onConnect: vi.fn(),
+    onCancel: vi.fn(),
+    onBack: vi.fn(),
+  };
+  const here = { name: 'ana-laptop', os: 'linux' } as const;
+
+  it('lists the computers nearby offering a code, by name', () => {
+    renderScreen(
+      <RecvCodeScreen model={codeTyping} here={here} nearby={['ana-desktop']} on={on} />,
+    );
+    const nearby = screen.getByRole('region', { name: 'Nearby computers offering a code' });
+    expect(within(nearby).getByText('ana-desktop')).toBeInTheDocument();
+  });
+
+  it('says what to do on the other computer while none offers a code', () => {
+    renderScreen(<RecvCodeScreen model={codeTyping} here={here} nearby={[]} on={on} />);
+    expect(
+      screen.getByText('None yet. On the other computer, open Carrova and choose Send.'),
+    ).toBeInTheDocument();
   });
 });
 
@@ -240,6 +331,44 @@ describe('Transfer', () => {
     renderScreen(<RecvProgressScreen model={progressAt('reconnecting')} on={on()} />);
     expect(screen.getByText("Will resume on its own when it's back")).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Resume' })).not.toBeInTheDocument();
+  });
+
+  it('lets the user try a lost link again now', async () => {
+    const intents = { ...on(), onTryNow: vi.fn() };
+    renderScreen(<RecvProgressScreen model={progressAt('reconnecting')} on={intents} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Try now' }));
+    expect(intents.onTryNow).toHaveBeenCalledOnce();
+  });
+
+  it('offers Resume once the other computer stayed unreachable', async () => {
+    const intents = { ...on(), onResumeSession: vi.fn() };
+    renderScreen(<RecvProgressScreen model={progressAt('lost')} on={intents} />);
+    expect(screen.getByRole('heading', { name: "Can't reach the other computer" })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Resume' }));
+    expect(intents.onResumeSession).toHaveBeenCalledOnce();
+  });
+
+  it('holds Resume while it reopens and says why the last one failed', () => {
+    const error = { code: 'network', message: 'the sender went away', hint: null } as const;
+    const resuming = { ...progressAt('lost'), resuming: true, resumeError: error };
+    renderScreen(
+      <RecvProgressScreen model={resuming} on={{ ...on(), onResumeSession: vi.fn() }} />,
+    );
+    expect(screen.getByRole('button', { name: 'Resume' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent('the sender went away');
+  });
+
+  it('names the full disk by where it is mounted, when known', () => {
+    const paused = progressAt('paused');
+    if (paused.status !== 'transfer') throw new Error('fixture is not a transfer');
+    const { unmount } = renderScreen(<RecvProgressScreen model={paused} on={on()} />);
+    expect(
+      screen.getByRole('heading', { name: 'Paused — the disk at /home is full' }),
+    ).toBeVisible();
+    unmount();
+    const unknown = { ...paused, transfer: { ...paused.transfer, disk: null } };
+    renderScreen(<RecvProgressScreen model={unknown} on={on()} />);
+    expect(screen.getByRole('heading', { name: 'Paused: this disk is full' })).toBeVisible();
   });
 
   it('offers Resume as the primary action once the user paused', async () => {

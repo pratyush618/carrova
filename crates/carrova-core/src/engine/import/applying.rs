@@ -5,12 +5,14 @@ use super::{Approval, ImportFrom, Importer};
 use crate::apply;
 use crate::checklist::Checklist;
 use crate::engine::checklist::import_checklist;
+use crate::engine::transfer::Disk;
 use crate::error::{CoreError, Result};
 use crate::lan::{LanMsg, ReceiverFailure};
 use crate::plan::{Plan, Retention};
 use crate::rollback;
 use crate::session::{Event, State};
 use crate::stage::{self, Staged};
+use crate::time;
 
 /// What a failed staging run leaves behind.
 enum StageFailure {
@@ -29,7 +31,8 @@ impl Importer {
     /// Stage + verify + apply (states `Transferring` → `Staged` → `Applying`
     /// → `Done`, or `RolledBack` on failure). Staging is always wiped; with
     /// [`Retention::DiscardOnSuccess`] the rollback point is dismissed after
-    /// success.
+    /// success; with [`Retention::KeepFor`] it expires that many days later
+    /// ([`crate::engine::sessions::prune_expired`]).
     ///
     /// A cancel ([`Self::canceller`]) before `Applying` ends the call with
     /// [`CoreError::Cancelled`] and nothing written to the user's roots
@@ -38,6 +41,11 @@ impl Importer {
     /// [`CoreError::PeerCancelled`], with the same outcome.
     pub fn apply(&mut self) -> Result<Checklist> {
         let plan = self.approved_plan()?;
+        // The approved plan's override lifts every runtime free-space guard
+        // (chunk staging and plugin output) via the one live control.
+        if plan.options.ignore_free_space {
+            self.control.ignore_free_space();
+        }
         self.cancel.check()?;
         self.s.transition(State::Transferring)?;
         let staged = match self.stage(&plan) {
@@ -96,7 +104,7 @@ impl Importer {
     }
 
     fn stage(&mut self, plan: &Plan) -> Result<Staged> {
-        let mut staged = match &self.from {
+        let staged = match &self.from {
             ImportFrom::Archive(archive) => {
                 let platform = self.s.platform();
                 let mut reader = archive.reopen(platform, self.s.record.archive_fingerprint())?;
@@ -111,18 +119,47 @@ impl Importer {
             }
             ImportFrom::Lan(_) => self.stage_lan(plan)?,
         };
-        stage::run_plugins(
-            self.s.platform(),
-            plan,
-            self.open_manifest(State::Staged)?,
-            self.s.engine.plugins(),
-            &mut staged,
-        )?;
+        let staged = self.run_plugins(plan, &staged)?;
         // Last chance to stop: from `Applying` on, apply runs to the end.
         self.cancel.check()?;
         self.s.transition(State::Staged)?;
         self.s.transition(State::Applying)?;
         Ok(staged)
+    }
+
+    /// `staged` with the plan's plugins run over it. On a LAN import a full
+    /// disk pauses like the chunk transfer does (the user's free-space
+    /// override lifts the plugin guard too); an archive import fails.
+    fn run_plugins(&self, plan: &Plan, staged: &Staged) -> Result<Staged> {
+        let run = || {
+            // Each attempt starts from the verified staging, so a retry
+            // after a full disk redoes the same outputs.
+            let mut out = staged.clone();
+            stage::run_plugins(
+                self.s.platform(),
+                plan,
+                self.open_manifest(State::Staged)?,
+                self.s.engine.plugins(),
+                &mut out,
+                !self.control.ignores_free_space(),
+            )?;
+            Ok(out)
+        };
+        match self.from {
+            ImportFrom::Archive(_) => run(),
+            ImportFrom::Lan(_) => {
+                let staging = self.s.staging();
+                let disk = Disk::new(
+                    self.s.platform(),
+                    &staging,
+                    self.s.sink(),
+                    self.s.store.root(),
+                    &self.cancel,
+                    &self.control,
+                );
+                disk.wait(run)
+            }
+        }
     }
 
     /// Staging failed with `e`; see [`Self::stage_failure`] for what is
@@ -207,6 +244,12 @@ impl Importer {
         );
         self.s.record.checklist = Some(checklist.clone());
         self.s.record.bytes_moved = Some(plan.bytes_to_write);
+        self.s.record.expires_at = match plan.options.retention {
+            Retention::KeepFor { days } => {
+                Some(time::now_unix().saturating_add(u64::from(days) * time::SECS_PER_DAY))
+            }
+            Retention::UntilDismissed | Retention::DiscardOnSuccess => None,
+        };
         self.s.record.error = None;
         self.s.transition(State::Done)?;
         self.s.emit(Event::Finished {

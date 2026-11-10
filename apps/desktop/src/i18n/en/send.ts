@@ -44,12 +44,15 @@ export const send = {
     noteWithKeys_other: '{{apps}} · {{size}} · {{count}} secrets',
     toPairing: 'Get pairing code',
     issue: "This can't move as chosen",
-    secretWhy: 'They prove who you are: servers, sites or mail. Anyone with a copy can act as you.',
+    plugin: 'The {{plugin}} plugin changes {{what}} here before it leaves',
+    pluginReview: 'Review…',
+    pluginReviewFor: 'Review… ({{plugin}} plugin)',
   },
   keys: {
     title: 'Bring {{item}}?',
     travel: 'They travel encrypted and land with the same permissions they have now.',
     files: 'Key files',
+    kind: { ed25519: 'Ed25519', ecdsa: 'ECDSA', rsa: 'RSA', other: 'Other key type' },
     asksAgain: 'The other computer asks again before placing them.',
   },
   rail: {
@@ -123,6 +126,14 @@ export const send = {
     startAgain: 'Start again',
     preparingTitle: 'Getting ready to send',
     preparing: 'Packing up what you chose. The code shows in a moment…',
+    newCodeIn: 'New code in {{time}}',
+    changesIn_one: 'This code changes in {{count}} minute',
+    changesIn_other: 'This code changes in {{count}} minutes',
+    changesSoon: 'This code changes in under a minute',
+    expired: 'The previous code expired, so here is a new one.',
+    checkingTitle: 'Checking the code…',
+    checking:
+      'Someone typed the code. Both computers are proving they know the same three words. It takes a second.',
   },
   live: {
     connected: 'Connected to {{peer}}',

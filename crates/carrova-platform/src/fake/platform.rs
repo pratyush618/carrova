@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 
 use super::FakePlatform;
 use crate::{
-    FileMeta, FsId, OsKind, PermissionModel, Platform, PlatformError, ProcessInfo, SemanticRoot,
-    SnapshotCapability,
+    DiskInfo, FileMeta, FsId, OsKind, PermissionModel, Platform, PlatformError, ProcessInfo,
+    SemanticRoot, SnapshotCapability,
 };
 
 impl Platform for FakePlatform {
@@ -54,6 +54,19 @@ impl Platform for FakePlatform {
             return Ok(bytes);
         }
         Ok(self.fake_fs(path).map_or(self.free_space, |f| f.free))
+    }
+
+    /// Mount point: the longest matching [`FakePlatform::filesystem`],
+    /// else the root of `path`.
+    fn disk(&self, path: &Path) -> Result<DiskInfo, PlatformError> {
+        let mount_point = self.fake_fs(path).map_or_else(
+            || path.ancestors().last().unwrap_or(path).to_path_buf(),
+            |f| f.mount.clone(),
+        );
+        Ok(DiskInfo {
+            total: self.disk_total,
+            mount_point,
+        })
     }
 
     fn snapshot_capability(&self, _path: &Path) -> Result<SnapshotCapability, PlatformError> {

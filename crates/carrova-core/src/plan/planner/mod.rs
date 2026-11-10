@@ -137,7 +137,7 @@ impl<'a> Planner<'a> {
         // Space: exactly what staging will write (one source of truth).
         let layout = StageLayout::new(&plan, self.manifest)?;
         plan.bytes_to_write = layout.total_bytes();
-        self.check_space(&crate::space::needs(self.platform, &layout));
+        self.check_space(&crate::space::needs(self.platform, &plan, &layout));
         plan.blockers = self.blockers;
         plan.warnings = self.warnings;
         Ok(plan)

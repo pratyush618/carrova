@@ -11,6 +11,7 @@ export interface SizedApp extends AppRef {
 export function transferPhase(progress: SessionProgress): TransferPhase {
   if (progress.paused !== null) return progress.paused.kind === 'by_user' ? 'held' : 'paused';
   if (progress.link === 'retrying') return 'reconnecting';
+  if (progress.link === 'lost') return 'lost';
   return progress.phase === 'apply' ? 'applying' : 'moving';
 }
 
@@ -90,5 +91,6 @@ export function transferModel(
     apps: chipStates(apps, total === 0 ? 0 : done / total),
     shortfall:
       paused?.kind === 'low_disk_space' ? Math.max(0, paused.needed - paused.available) : 0,
+    disk: paused?.kind === 'low_disk_space' ? paused.disk : null,
   };
 }

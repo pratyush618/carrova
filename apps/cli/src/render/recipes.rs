@@ -7,6 +7,7 @@ use carrova_bundle::{
     UpdateOutcome,
 };
 use carrova_core::time::utc_date;
+use carrova_view::ipc::RecipesCheck;
 
 use super::text::{files, human_size, safe};
 use crate::recipes::status::{SourceView, StatusView};
@@ -120,6 +121,33 @@ pub fn update_outcome(out: &mut impl Write, outcome: &UpdateOutcome) -> io::Resu
             )?;
             skipped_lines(out, skipped)
         }
+    }
+}
+
+/// What `carrova recipes update --check` found (the desktop's
+/// [`RecipesCheck`], worded for the terminal).
+pub fn check_outcome(out: &mut impl Write, check: &RecipesCheck) -> io::Result<()> {
+    match *check {
+        RecipesCheck::UpToDate { version } => writeln!(
+            out,
+            "Recipes are already up to date ({}).",
+            BundleVersion(version)
+        ),
+        RecipesCheck::Available { version } => writeln!(
+            out,
+            "Recipe bundle {} is available; `carrova recipes update` installs it.",
+            BundleVersion(version)
+        ),
+        RecipesCheck::Refused { version } => writeln!(
+            out,
+            "Recipe bundle {} was rolled back earlier and is not offered again; \
+             the current recipes stay.",
+            BundleVersion(version)
+        ),
+        RecipesCheck::RetryLater => writeln!(
+            out,
+            "No recipe bundle is published right now; try again in a minute."
+        ),
     }
 }
 

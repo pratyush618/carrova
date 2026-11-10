@@ -18,6 +18,8 @@ export const SCENARIOS = [
   'plugin',
   /** No recipes are available. */
   'no-recipes',
+  /** "Check now" finds a newer recipe list; it installs when asked. */
+  'recipes-update',
 ] as const;
 
 export type Scenario = (typeof SCENARIOS)[number];

@@ -1,6 +1,19 @@
 /** Shared strings: brand, chrome, generic actions, units. */
 export const common = {
   brand: { name: 'Carrova' },
+  /** Why a key or secret is asked about one by one (`SensitiveWhy`). */
+  sensitive: {
+    login: 'They log you in to servers and GitHub. Anyone with a copy can do the same, as you.',
+    authorized:
+      'They decide which keys can log in to this computer. Bringing them lets the same keys into the new one.',
+    signing:
+      'They sign and decrypt as you. Anyone with a copy can read your encrypted mail and sign in your name.',
+    token: 'They keep you signed in to your accounts. Anyone with a copy can use them as you.',
+    remote: 'They let you control remote Docker engines. Anyone with a copy can do the same.',
+    variables: 'They can hold tokens or API keys you set in the shell.',
+    history: 'Commands you typed can include passwords and tokens.',
+    secret: 'They prove who you are: servers, sites or mail. Anyone with a copy can act as you.',
+  },
   nav: {
     label: 'Main',
     home: 'Home',

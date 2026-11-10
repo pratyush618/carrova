@@ -14,6 +14,7 @@ const PHASE_APPS: Record<TransferPhase, TransferApp[]> = {
   paused: apps(['done', 'done', 'done', 'done', 'waiting']),
   held: apps(['done', 'done', 'moving', 'waiting', 'waiting'], 40 * MB),
   reconnecting: apps(['done', 'done', 'done', 'done', 'waiting']),
+  lost: apps(['done', 'done', 'done', 'done', 'waiting']),
   applying: apps(['done', 'done', 'done', 'moving', 'moving']),
 };
 
@@ -22,6 +23,7 @@ const PHASE_DONE: Record<TransferPhase, number> = {
   paused: 612 * MB,
   held: 300 * MB,
   reconnecting: 612 * MB,
+  lost: 612 * MB,
   applying: TOTAL_BYTES,
 };
 
@@ -41,6 +43,7 @@ export function transferAt(phase: TransferPhase, side: TransferModel['side']): T
     },
     apps: PHASE_APPS[phase],
     shortfall: 0.4 * GB,
+    disk: phase === 'paused' ? '/home' : null,
   };
 }
 

@@ -3,4 +3,4 @@
 /**
  * Which pairing code [`SendPrompt::show_code`] shows.
  */
-export type CodeOffer = "first" | "renewed";
+export type CodeOffer = "first" | "renewed" | "expired";

@@ -41,6 +41,8 @@ pub struct FakePlatform {
     binaries: HashMap<String, PathBuf>,
     processes: Vec<ProcessInfo>,
     free_space: u64,
+    /// Capacity reported by [`Platform::disk`].
+    disk_total: u64,
     state_dir: PathBuf,
     /// Raw device name, sanitised like a native one when read.
     device_name: Option<String>,
@@ -81,11 +83,34 @@ impl FakePlatform {
             binaries: HashMap::new(),
             processes: Vec::new(),
             free_space: u64::MAX,
+            disk_total: u64::MAX,
             state_dir: home.join(".local/state/carrova"),
             device_name: None,
             filesystems: Vec::new(),
             hooks: Arc::default(),
         }
+    }
+
+    /// A `os` machine whose roots sit under `home` where that OS puts
+    /// them: Linux as [`Self::with_home`]; macOS `Library/Application
+    /// Support` (config and data) and `Library/Caches`; Windows
+    /// `AppData/Roaming` (config) and `AppData/Local` (data and cache).
+    #[must_use]
+    pub fn with_os_layout(home: impl AsRef<Path>, os: OsKind) -> Self {
+        let home = home.as_ref();
+        let p = Self::with_home(home).with_os(os);
+        let (config, data, cache) = match os {
+            OsKind::Linux => return p,
+            OsKind::MacOs => (
+                "Library/Application Support",
+                "Library/Application Support",
+                "Library/Caches",
+            ),
+            OsKind::Windows => ("AppData/Roaming", "AppData/Local", "AppData/Local"),
+        };
+        p.root(SemanticRoot::UserConfig, home.join(config))
+            .root(SemanticRoot::UserData, home.join(data))
+            .root(SemanticRoot::Cache, home.join(cache))
     }
 
     /// Pretend to be a `os` machine (default [`OsKind::Linux`]), e.g. a
@@ -149,6 +174,14 @@ impl FakePlatform {
     #[must_use]
     pub fn free_space_bytes(mut self, bytes: u64) -> Self {
         self.free_space = bytes;
+        self
+    }
+
+    /// Set the capacity [`Platform::disk`] reports for every path
+    /// (default `u64::MAX`).
+    #[must_use]
+    pub fn disk_total_bytes(mut self, bytes: u64) -> Self {
+        self.disk_total = bytes;
         self
     }
 

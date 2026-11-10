@@ -2,13 +2,16 @@
 //! for a passed-over installed bundle. Bundles are signed by test roots.
 
 use anyhow::Result;
-use carrova_bundle::{BundleStore, BundleVersion, RecipeSource, UpdateOutcome};
+use carrova_bundle::{
+    BundleStore, BundleVersion, CheckAttempt, DirFetcher, RecipeSource, UpdateOutcome, Updater,
+};
+use carrova_view::ipc::RecipesCheck;
 
-use super::{Fixture, Signer, resolve_recipes};
+use super::{Fixture, NOW, Signer, URL, resolve_recipes};
 use crate::recipes::RecipeLocations;
 use crate::recipes::source::rejected_warning;
-use crate::recipes::update::{ResetResult, reset_store};
-use crate::render::recipes::{reset_outcome, update_outcome};
+use crate::recipes::update::{ResetResult, checked, reset_store};
+use crate::render::recipes::{check_outcome, reset_outcome, update_outcome};
 
 fn shipped(f: &Fixture) -> RecipeLocations {
     RecipeLocations {
@@ -32,6 +35,28 @@ fn a_rolled_back_bundle_is_reported_as_not_reinstalled() -> Result<()> {
         String::from_utf8(text)?,
         "Recipe bundle v5 was rolled back earlier and is not installed again; \
          keeping the current recipes.\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_rolled_back_bundle_is_reported_as_not_offered_by_check() -> Result<()> {
+    let f = Fixture::new()?;
+    f.install(4)?;
+    let v5 = f.release(5)?;
+    f.update(&v5)?;
+    f.store()?.rollback()?;
+    let attempt = Updater::new(DirFetcher::new(&v5), f.signer.roots.clone())
+        .check(&f.store()?, NOW)
+        .map(CheckAttempt::Done);
+    let check = checked(attempt, URL)?;
+    assert_eq!(check, RecipesCheck::Refused { version: 5 });
+    let mut text = Vec::new();
+    check_outcome(&mut text, &check)?;
+    assert_eq!(
+        String::from_utf8(text)?,
+        "Recipe bundle v5 was rolled back earlier and is not offered again; \
+         the current recipes stay.\n"
     );
     Ok(())
 }

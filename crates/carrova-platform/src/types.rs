@@ -22,6 +22,15 @@ pub struct DirEntry {
     pub kind: FileKind,
 }
 
+/// A filesystem as the user knows it ([`crate::Platform::disk`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DiskInfo {
+    /// Capacity of the filesystem in bytes.
+    pub total: u64,
+    /// Where the filesystem is mounted (Windows: the volume root, e.g. `C:\`).
+    pub mount_point: PathBuf,
+}
+
 /// Portable subset of file metadata Carrova cares about.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileMeta {

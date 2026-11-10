@@ -56,4 +56,12 @@ item: ItemKey, } | { "kind": "caches",
 /**
  * Tick (`true`) or untick.
  */
-included: boolean, };
+included: boolean, } | { "kind": "allow_plugin", 
+/**
+ * Plugin id.
+ */
+plugin: string, 
+/**
+ * Allowed (`true`) or withdrawn.
+ */
+allow: boolean, };

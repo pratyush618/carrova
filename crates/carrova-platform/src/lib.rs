@@ -39,8 +39,8 @@ pub use os::{OsKind, PermissionModel, UnknownOsKind};
 pub use platform::Platform;
 pub use root::SemanticRoot;
 pub use types::{
-    Allocation, DirEntry, FileKind, FileMeta, FsId, LanInterface, ProcessInfo, SnapshotCapability,
-    SocketBuffers,
+    Allocation, DirEntry, DiskInfo, FileKind, FileMeta, FsId, LanInterface, ProcessInfo,
+    SnapshotCapability, SocketBuffers,
 };
 
 /// Platform adapter for the OS this binary was compiled for.

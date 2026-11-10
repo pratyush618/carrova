@@ -12,7 +12,7 @@
 //! ```
 //!
 //! The fake home lays the semantic roots out like the real OS
-//! ([`fake_platform`]): Linux `.config`, `.local/share`, `.cache`;
+//! ([`FakePlatform::with_os_layout`]): Linux `.config`, `.local/share`, `.cache`;
 //! macOS `Library/Application Support` (config + data), `Library/Caches`;
 //! Windows `AppData/Roaming` (config), `AppData/Local` (data + cache);
 //! `Documents` everywhere.
@@ -42,7 +42,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use carrova_platform::fake::FakePlatform;
-use carrova_platform::{FileKind, OsKind, Platform, SemanticRoot};
+use carrova_platform::{FileKind, OsKind, Platform};
 use carrova_recipe::{LoadedRecipe, detect, load_tree, resolve_item, validate_tree};
 use serde::Deserialize;
 use walkdir::WalkDir;
@@ -170,24 +170,6 @@ fn os_fixture(loaded: &LoadedRecipe, os: OsKind) -> Option<PathBuf> {
     (os != OsKind::Linux && dir.exists()).then_some(dir)
 }
 
-/// A fake `os` machine whose semantic roots sit under `home` where that OS
-/// puts them.
-fn fake_platform(home: &Path, os: OsKind) -> FakePlatform {
-    let p = FakePlatform::with_home(home).with_os(os);
-    let (config, data, cache) = match os {
-        OsKind::Linux => return p,
-        OsKind::MacOs => (
-            "Library/Application Support",
-            "Library/Application Support",
-            "Library/Caches",
-        ),
-        OsKind::Windows => ("AppData/Roaming", "AppData/Local", "AppData/Local"),
-    };
-    p.root(SemanticRoot::UserConfig, home.join(config))
-        .root(SemanticRoot::UserData, home.join(data))
-        .root(SemanticRoot::Cache, home.join(cache))
-}
-
 /// Check one recipe against its `os` fixture. Returns failure messages.
 fn check(loaded: &LoadedRecipe, os: OsKind) -> (Vec<String>, usize) {
     let mut errs = Vec::new();
@@ -211,7 +193,7 @@ fn check(loaded: &LoadedRecipe, os: OsKind) -> (Vec<String>, usize) {
         }
     };
 
-    let mut platform = fake_platform(&home, os);
+    let mut platform = FakePlatform::with_os_layout(&home, os);
     for bin in &expected.binaries {
         platform = platform.binary(bin.as_str(), Path::new("/fake/bin").join(bin));
     }
@@ -366,7 +348,7 @@ fn empty_home_detects_nothing() {
     let hits: Vec<String> = OsKind::ALL
         .into_iter()
         .flat_map(|os| {
-            let platform = fake_platform(home.path(), os);
+            let platform = FakePlatform::with_os_layout(home.path(), os);
             recipes
                 .iter()
                 .filter_map(|l| {

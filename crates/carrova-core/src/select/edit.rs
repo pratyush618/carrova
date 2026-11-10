@@ -1,6 +1,7 @@
 //! [`SelectionEdit`]: the one way front-ends change a [`Selection`], and
 //! the per-item primitives it is made of.
 
+use carrova_recipe::PluginId;
 use serde::{Deserialize, Serialize};
 
 use super::{ItemChoice, Preset, Selection, SelectionIssue};
@@ -62,6 +63,15 @@ pub enum SelectionEdit {
         /// Tick (`true`) or untick.
         included: bool,
     },
+    /// The user's answer for an exporting plugin
+    /// ([`Selection::confirmed_plugins`]), after seeing what it may do.
+    AllowPlugin {
+        /// Plugin id.
+        #[cfg_attr(feature = "ts", ts(as = "String"))]
+        plugin: PluginId,
+        /// Allowed (`true`) or withdrawn.
+        allow: bool,
+    },
 }
 
 impl Selection {
@@ -103,6 +113,13 @@ impl Selection {
                     c.included = included;
                 }
             }
+            SelectionEdit::AllowPlugin { plugin, allow } => {
+                let list = &mut self.confirmed_plugins;
+                list.retain(|p| *p != plugin);
+                if allow {
+                    list.push(plugin);
+                }
+            }
         }
         Ok(())
     }
@@ -123,6 +140,7 @@ impl Selection {
         self.items.get_mut(item).ok_or_else(|| SelectionIssue {
             item: item.into(),
             problem: format!("unknown item `{item}`"),
+            plugin: None,
         })
     }
 

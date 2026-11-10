@@ -101,7 +101,8 @@ pub use policy::MAX_VERSION_JUMP;
 pub use resolve::{InstalledRejected, RecipeSource, RecipeSources, ResolvedRecipes, resolve};
 pub use roots::{parse_roots, release_roots};
 pub use service::{
-    EffectiveTier, KnownApp, RecipesInUse, TierCounts, UpdateAttempt, update, update_with,
+    CheckAttempt, EffectiveTier, KnownApp, RecipesInUse, TierCounts, UpdateAttempt, check, update,
+    update_with,
 };
 pub use shipped::{SHIPPED_INDEX_HASH_ENV, shipped_index_pin};
 pub use signed::{IndexSignature, SignedIndex, VerifyTime};

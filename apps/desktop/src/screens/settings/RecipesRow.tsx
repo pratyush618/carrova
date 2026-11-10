@@ -16,6 +16,12 @@ function useCheckText(check: RecipeCheck): string | null {
       return t('settings.recipes.upToDate');
     case 'retry_later':
       return t('settings.recipes.retryLater');
+    case 'available':
+      return t('settings.recipes.available', { version: check.version });
+    case 'refused':
+      return t('settings.recipes.refused', { version: check.version });
+    case 'installing':
+      return t('settings.recipes.installing', { version: check.version });
     case 'updated':
       return t('settings.recipes.updated', { version: check.version });
     case 'failed':
@@ -23,16 +29,20 @@ function useCheckText(check: RecipeCheck): string | null {
   }
 }
 
-/** Which recipes are in use, and "Check now" with its outcome in words. */
+/** Which recipes are in use, "Check now" with its outcome in words, and "Install update" once offered. */
 export function RecipesRow({
   recipes,
   onCheck,
+  onInstall,
 }: {
   readonly recipes: Recipes;
   readonly onCheck: () => void;
+  readonly onInstall: () => void;
 }) {
   const { t } = useTranslation();
   const outcome = useCheckText(recipes.check);
+  const installing = recipes.check.status === 'installing';
+  const offer = installing || recipes.check.status === 'available';
   const counts = {
     verified: recipes.verified,
     community: recipes.community,
@@ -66,14 +76,26 @@ export function RecipesRow({
         </>
       }
       trail={
-        <Button
-          size="sm"
-          busy={recipes.check.status === 'checking'}
-          disabled={recipes.check.status === 'checking'}
-          onClick={onCheck}
-        >
-          {t('settings.recipes.check')}
-        </Button>
+        offer ? (
+          <Button
+            kind="primary"
+            size="sm"
+            busy={installing}
+            disabled={installing}
+            onClick={onInstall}
+          >
+            {t('settings.recipes.install')}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            busy={recipes.check.status === 'checking'}
+            disabled={recipes.check.status === 'checking'}
+            onClick={onCheck}
+          >
+            {t('settings.recipes.check')}
+          </Button>
+        )
       }
     />
   );

@@ -21,6 +21,7 @@ export const foundOn = noops(
   'onToggleApp',
   'onConfirmKey',
   'onLeaveKey',
+  'onReviewPlugin',
   'onFilter',
   'onPreset',
   'onCustomize',
@@ -60,6 +61,8 @@ const PAIRING: Record<string, PairingModel> = {
   waiting: fx.pairingWaiting,
   'cant-connect': fx.pairingCantConnect,
   'new-code': fx.pairingRenewed,
+  expired: fx.pairingExpired,
+  checking: fx.pairingChecking,
   locked: fx.pairingLocked,
 };
 const LIVE: Record<string, typeof fx.liveMoving> = {
@@ -133,6 +136,8 @@ export const sendScreens: readonly GalleryScreen[] = [
       ['linked-same-os', 'Linked (same OS)'],
       ['cant-connect', "Can't connect"],
       ['new-code', 'Wrong code tried'],
+      ['expired', 'Code expired'],
+      ['checking', 'Checking the code'],
       ['locked', '3 wrong codes'],
     ),
     render: (s) =>

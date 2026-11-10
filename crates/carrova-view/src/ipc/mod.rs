@@ -22,7 +22,7 @@ mod settings;
 pub use about::{About, UpdateInfo, UpdateStatus};
 pub use defaults::EngineDefaults;
 pub use recipes::{
-    CatalogEntry, CatalogItem, RecipeOrigin, RecipeTier, RecipesStatus, RecipesUpdate,
+    CatalogEntry, CatalogItem, RecipeOrigin, RecipeTier, RecipesCheck, RecipesStatus, RecipesUpdate,
 };
 pub use reply::{PlanReply, ScanReply};
 pub use settings::{MoveDefaults, Settings, Theme};

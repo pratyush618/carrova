@@ -18,7 +18,7 @@ use carrova_bundle::{
 use carrova_core::{Plugin, Recipe};
 use carrova_platform::Platform;
 use carrova_view::ipc::{
-    CatalogEntry, CatalogItem, RecipeOrigin, RecipeTier, RecipesStatus, RecipesUpdate,
+    CatalogEntry, CatalogItem, RecipeOrigin, RecipeTier, RecipesCheck, RecipesStatus, RecipesUpdate,
 };
 
 use crate::command_error::CommandError;
@@ -139,6 +139,20 @@ impl RecipeService {
                 None => RecipesUpdate::UpToDate,
             },
         })
+    }
+
+    /// Whether a newer bundle is offered; installs nothing. Blocking.
+    ///
+    /// # Errors
+    ///
+    /// Download or verification failure.
+    pub fn check(&self) -> Result<RecipesCheck, CommandError> {
+        let attempt = carrova_bundle::check(
+            self.platform.as_ref(),
+            release_roots()?,
+            &HttpConfig::new(carrova_bundle::DEFAULT_BASE_URL),
+        )?;
+        Ok(attempt.into())
     }
 
     /// Remove the installed bundle so the shipped recipes are used again,

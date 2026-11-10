@@ -8,7 +8,7 @@ import type {
   SessionId,
 } from '../../engine/types';
 import type { DecisionAnswer } from '../../screens/receive/model';
-import { current, idle, remoteReducer, type Remote, type RemoteAction } from '../remote';
+import { idle, remoteReducer, type Remote, type RemoteAction } from '../remote';
 import {
   codeFailure,
   fileFailure,
@@ -17,13 +17,7 @@ import {
   type CodeEntry,
   type FileEntry,
 } from './entry';
-import {
-  answerSensitive,
-  applyOverride,
-  skipApp,
-  suggestedPlanOptions,
-  type PlanOverride,
-} from './planOptions';
+import { suggestedPlanOptions } from './planOptions';
 import { nothingAsked, rememberAsked, type Answers, type Asked } from './reviewViews';
 
 /** Receiving over the LAN or from a file: entry → review → apply → arrived. */
@@ -32,7 +26,10 @@ export interface ReceiveFlowState {
   readonly code: CodeEntry;
   readonly file: FileEntry;
   readonly session: SessionId | null;
-  /** Every user decision for the import; the plan is rebuilt from it after each change. */
+  /**
+   * Options of the session's first plan (the suggestions, or a resumed session's
+   * own). Later changes go to the engine as edits; the plan carries the result.
+   */
   readonly options: PlanOptions;
   readonly answers: Answers;
   /** Questions the engine raised during this review (rows stay after they're answered). */
@@ -59,9 +56,8 @@ export type ReceiveFlowAction =
   /** A session picked up again, with the options it last planned with (if any). */
   | { readonly type: 'resumed'; readonly session: SessionId; readonly options: PlanOptions | null }
   | { readonly type: 'plan'; readonly action: RemoteAction<PlanReview> }
-  | { readonly type: 'options'; readonly options: PlanOptions }
-  | { readonly type: 'answer'; readonly key: string; readonly answer: DecisionAnswer }
-  | { readonly type: 'override'; readonly override: PlanOverride; readonly app: string | null }
+  /** `null` takes the answer back (its edit failed). */
+  | { readonly type: 'answer'; readonly key: string; readonly answer: DecisionAnswer | null }
   | { readonly type: 'apply'; readonly action: RemoteAction<Checklist> };
 
 export const initialReceiveFlow: ReceiveFlowState = {
@@ -75,19 +71,6 @@ export const initialReceiveFlow: ReceiveFlowState = {
   review: idle,
   apply: idle,
 };
-
-/** Folds an answer into the options: secrets confirm or drop; open apps skip or stay. */
-function answered(state: ReceiveFlowState, key: string, answer: DecisionAnswer): PlanOptions {
-  const offered = current(state.review)?.offered ?? [];
-  switch (answer) {
-    case 'bring':
-    case 'leave':
-      return answerSensitive(state.options, offered, key, answer === 'bring');
-    case 'skip':
-    case 'closed':
-      return skipApp(state.options, offered, key, answer === 'skip');
-  }
-}
 
 export function receiveFlowReducer(
   state: ReceiveFlowState,
@@ -137,20 +120,11 @@ export function receiveFlowReducer(
             ? rememberAsked(state.asked, action.action.value)
             : state.asked,
       };
-    case 'options':
-      return { ...state, options: action.options };
-    case 'answer':
-      return {
-        ...state,
-        options: answered(state, action.key, action.answer),
-        answers: { ...state.answers, [action.key]: action.answer },
-      };
-    case 'override':
-      return {
-        ...state,
-        options: applyOverride(state.options, action.override),
-        answers: action.app === null ? state.answers : { ...state.answers, [action.app]: 'closed' },
-      };
+    case 'answer': {
+      const { key, answer } = action;
+      const rest = Object.fromEntries(Object.entries(state.answers).filter(([k]) => k !== key));
+      return { ...state, answers: answer === null ? rest : { ...rest, [key]: answer } };
+    }
     case 'apply':
       return { ...state, apply: remoteReducer(state.apply, action.action) };
   }

@@ -119,11 +119,16 @@ pub fn archive() -> &'static Exported {
 /// A receiver whose `settings.json` the import replaces (backed up) and
 /// next to which it creates `new.txt`; returns it with the importer.
 pub fn applied() -> (Side, Importer) {
+    applied_with(&PlanOptions::default())
+}
+
+/// [`applied`] with `options`.
+pub fn applied_with(options: &PlanOptions) -> (Side, Importer) {
     let r = Side::new();
     common::mkdir(&*r.platform, &r.home, ".config/app", 0o755);
     r.put(".config/app/settings.json", b"receiver settings");
     let mut imp = Importer::open(r.engine.clone(), &archive().path, &pass()).unwrap();
-    imp.plan(&PlanOptions::default()).unwrap();
+    imp.plan(options).unwrap();
     imp.approve().unwrap();
     imp.apply().unwrap();
     (r, imp)

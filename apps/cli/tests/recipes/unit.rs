@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use carrova_bundle::{
-    BundleStore, BundleVersion, DirFetcher, RecipeSource, RecipeSources, ResolvedRecipes,
-    TrustRoots, UpdateOutcome, build_bundle, sign_bundle,
+    BundleStore, BundleVersion, CheckAttempt, DirFetcher, RecipeSource, RecipeSources,
+    ResolvedRecipes, TrustRoots, UpdateOutcome, Updater, build_bundle, sign_bundle,
 };
 use carrova_crypto::sign::{KeyCert, KeyRole, SigningKey};
 use carrova_platform::fake::FakePlatform;
@@ -18,8 +18,8 @@ use tempfile::TempDir;
 use super::RecipeLocations;
 use super::error::{Action, explain};
 use super::source::{shipped_dir_for, unverified_warning};
-use super::update::outcome;
-use crate::render::recipes::update_outcome;
+use super::update::{checked, outcome};
+use crate::render::recipes::{check_outcome, update_outcome};
 
 pub(super) const NOW: u64 = 1_800_000_000;
 const DAY: u64 = 86_400;
@@ -280,5 +280,34 @@ fn update_refuses_a_bundle_from_an_untrusted_root() -> Result<()> {
         "{err}"
     );
     assert_eq!(f.store()?.installed()?, None);
+    Ok(())
+}
+
+#[test]
+fn update_check_reports_available_then_up_to_date_and_installs_nothing() -> Result<()> {
+    let f = Fixture::new()?;
+    let check = |release: &Path| -> Result<String> {
+        let attempt = Updater::new(DirFetcher::new(release), f.signer.roots.clone())
+            .check(&f.store()?, NOW)
+            .map(CheckAttempt::Done);
+        let mut text = Vec::new();
+        check_outcome(&mut text, &checked(attempt, URL)?)?;
+        Ok(String::from_utf8(text)?)
+    };
+    let release = f.release(4)?;
+    assert_eq!(
+        check(&release)?,
+        "Recipe bundle v4 is available; `carrova recipes update` installs it.\n"
+    );
+    assert!(
+        f.store()?.installed()?.is_none(),
+        "check installed a bundle"
+    );
+    f.update(&release)?;
+    assert_eq!(check(&release)?, "Recipes are already up to date (v4).\n");
+    let Err(err) = checked(Ok(CheckAttempt::RetryLater), URL) else {
+        anyhow::bail!("retry-later check succeeded");
+    };
+    assert!(err.to_string().contains("try again in a minute"), "{err}");
     Ok(())
 }

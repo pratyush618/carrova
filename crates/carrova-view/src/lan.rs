@@ -4,9 +4,12 @@
 //! front-end renderers escape every peer-provided string (the CLI uses
 //! `render::text::safe`).
 
+use std::time::Duration;
+
 use carrova_core::lan::{ActionCounts, ConflictTarget, Inventory, PlanSummary};
 use carrova_core::session::{PauseReason, SessionId};
-use carrova_core::{CodeOffer, ItemKey, Ticket};
+use carrova_core::{CodeOffer, ItemKey, Nearby, Ticket};
+
 use carrova_platform::OsKind;
 use serde::Serialize;
 
@@ -30,14 +33,35 @@ pub struct CodeView {
     pub fallback: Option<String>,
     /// A previous code was burned by a failed pairing attempt.
     pub renewed: bool,
+    /// The previous code outlived its lifetime and this one replaced it.
+    pub expired: bool,
+    /// Seconds until the code stops working (a fresh one replaces it).
+    pub expires_in_secs: u32,
 }
 
-/// The view of `ticket`, offered as `offer`.
-pub fn code_view(ticket: &Ticket, offer: CodeOffer) -> CodeView {
+/// The view of `ticket`, offered as `offer`, valid for `expires_in`.
+pub fn code_view(ticket: &Ticket, offer: CodeOffer, expires_in: Duration) -> CodeView {
     CodeView {
         code: ticket.code.to_string(),
         fallback: ticket.addr.is_some().then(|| ticket.to_string()),
         renewed: offer == CodeOffer::Renewed,
+        expired: offer == CodeOffer::Expired,
+        expires_in_secs: u32::try_from(expires_in.as_secs()).unwrap_or(u32::MAX),
+    }
+}
+
+/// A sender nearby offering a pairing code, as the receiver lists it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct NearbyPeer {
+    /// The sender's device name (peer-provided).
+    pub device_name: String,
+}
+
+/// View of a sender found nearby.
+pub fn nearby_peer(nearby: &Nearby) -> NearbyPeer {
+    NearbyPeer {
+        device_name: nearby.device_name.clone(),
     }
 }
 
@@ -133,6 +157,8 @@ pub struct PauseView<'a> {
     pub shortfall: u64,
     /// Free bytes now.
     pub available: u64,
+    /// Mount point of the short filesystem, if known.
+    pub disk: Option<&'a str>,
     /// The session to resume after Ctrl-C, once known.
     pub session: Option<&'a SessionId>,
 }
@@ -148,8 +174,10 @@ pub fn pause_view<'a>(
             fs,
             available,
             needed,
+            disk,
         } => Some(PauseView {
             fs,
+            disk: disk.as_deref(),
             shortfall: needed.saturating_sub(*available),
             available: *available,
             session,

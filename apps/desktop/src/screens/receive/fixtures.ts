@@ -85,10 +85,10 @@ const decisions = (answered: boolean): DecisionModel[] => [
 const review = (answered: boolean): ReviewModel => ({
   counts: { added: 412, replaced: 3, identical: 28, left: 1 },
   decisions: decisions(answered),
-  space: { needed: 1.2 * GB, free: 112 * GB, short: false, ignored: false },
+  space: { needed: 1.2 * GB, free: 112 * GB, total: 256 * GB, short: false, ignored: false },
   mapped: null,
   rule: 'replace',
-  retention: 'until_dismissed',
+  retention: { keep_for: { days: 30 } },
   blocked: !answered,
   rail: {
     route: ROUTE,
@@ -97,6 +97,7 @@ const review = (answered: boolean): ReviewModel => ({
     keys: answered ? ['Your SSH keys'] : null,
   },
   busy: false,
+  error: null,
 });
 
 export const reviewDecide = review(false);
@@ -200,6 +201,8 @@ export const reviewDetails: ReviewDetailsModel = {
 export const progressAt = (phase: Parameters<typeof transferAt>[0]): ReceiveProgressModel => ({
   status: 'transfer',
   transfer: transferAt(phase, 'receive'),
+  resuming: false,
+  resumeError: null,
 });
 
 export const progressFailed: ReceiveProgressModel = {

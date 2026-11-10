@@ -105,6 +105,8 @@ impl Store {
                 checklist: None,
                 error: None,
                 bytes_moved: None,
+                peer_os: None,
+                expires_at: None,
             };
             self.save(platform, &record)?;
             return Ok(record);

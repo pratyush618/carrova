@@ -1,7 +1,11 @@
 //! The pairing side of a LAN send: what the front-end shows and answers
 //! ([`SendPrompt`]), and accepting a receiver — pairing with a code (a
 //! fresh one after each failed attempt, at most
-//! [`MAX_PAIRING_FAILURES`]) or the paired receiver reconnecting.
+//! [`MAX_PAIRING_FAILURES`], and after each
+//! [`CODE_LIFETIME`](crate::lan::CODE_LIFETIME)) or the
+//! paired receiver reconnecting.
+
+use std::time::{Duration, Instant};
 
 use carrova_crypto::pairing::PairingCode;
 use carrova_transport::{Connection, Listener, Ticket, TransportError};
@@ -19,9 +23,10 @@ use crate::store::{self, Source};
 pub trait SendPrompt {
     /// Show `ticket` (pairing code + fallback address) to the user. Called
     /// once for the first code ([`CodeOffer::First`]) and again for each
-    /// code offered after a failed attempt ([`CodeOffer::Renewed`]).
-    /// Display it; never log it.
-    fn show_code(&mut self, ticket: &Ticket, offer: CodeOffer);
+    /// code offered after a failed attempt ([`CodeOffer::Renewed`]) or
+    /// after the previous one expired ([`CodeOffer::Expired`]). The code
+    /// stops working `expires_in` from now. Display it; never log it.
+    fn show_code(&mut self, ticket: &Ticket, offer: CodeOffer, expires_in: Duration);
 
     /// A pairing attempt failed: someone entered a wrong code, which is
     /// now burned. Warn the user loudly that, if it wasn't them, someone
@@ -42,12 +47,21 @@ pub enum CodeOffer {
     First,
     /// A fresh code after a failed pairing attempt burned the previous one.
     Renewed,
+    /// A fresh code after the previous one outlived
+    /// [`CODE_LIFETIME`](crate::lan::CODE_LIFETIME).
+    Expired,
 }
 
 impl SendHandle {
     /// The next authenticated connection: a pairing receiver (a new code
-    /// after a failed attempt, see [`Self::pairing_failed`]) or the paired
-    /// receiver reconnecting.
+    /// after a failed attempt, see [`Self::pairing_failed`], or once the
+    /// code outlived its lifetime) or the paired receiver reconnecting.
+    ///
+    /// An expired code is replaced only after the wait for it timed out,
+    /// which the transport reports only when no attempt holds the code
+    /// (one that does is waited for and decides its fate), so a late guess
+    /// at the old nameplate is turned away unclaimed and never counts as a
+    /// failure.
     pub(super) fn accept(&mut self, prompt: &mut dyn SendPrompt) -> Result<(Connection, SendStep)> {
         loop {
             match &self.peer {
@@ -65,8 +79,21 @@ impl SendHandle {
                     self.connected(&conn)?;
                     return Ok((conn, SendStep::AwaitResume));
                 }
-                Peer::Offered(ticket) => {
-                    match self.listener.accept_pairing(&ticket.code, IDLE_POLL) {
+                Peer::Offered(ticket, at) => {
+                    let left = self.code_lifetime.saturating_sub(at.elapsed());
+                    if left.is_zero() {
+                        tracing::info!("pairing code expired; offering a fresh one");
+                        let fresh = offer(&mut self.listener)?;
+                        prompt.show_code(&fresh, CodeOffer::Expired, self.code_lifetime);
+                        self.peer = Peer::Offered(fresh, Instant::now());
+                        continue;
+                    }
+                    let sink = &self.s;
+                    let staked = || sink.emit(Event::PairingInProgress);
+                    match self
+                        .listener
+                        .accept_pairing(&ticket.code, IDLE_POLL.min(left), staked)
+                    {
                         Ok(conn) => {
                             let secret = conn.resume_secret().clone();
                             store::write_resume_secret(self.s.platform(), &self.s.dir, &secret)?;
@@ -79,8 +106,8 @@ impl SendHandle {
                         }
                         Err(TransportError::PairingFailed) => {
                             let fresh = self.pairing_failed(prompt)?;
-                            prompt.show_code(&fresh, CodeOffer::Renewed);
-                            self.peer = Peer::Offered(fresh);
+                            prompt.show_code(&fresh, CodeOffer::Renewed, self.code_lifetime);
+                            self.peer = Peer::Offered(fresh, Instant::now());
                         }
                         Err(TransportError::Timeout) => {}
                         Err(e) => return Err(e.into()),
@@ -121,13 +148,13 @@ impl SendHandle {
         Ok(())
     }
 
-    /// Record the receiver's device name from its `inventory` (sanitised;
-    /// kept when it announces none).
-    pub(super) fn record_peer_name(&mut self, inventory: &Inventory) -> Result<()> {
-        let Some(name) = inventory.device_name() else {
-            return Ok(());
-        };
-        if let Some(Source::Lan { peer_name, .. }) = &mut self.s.record.source {
+    /// Record the receiver's OS and device name from its `inventory`
+    /// (name sanitised; kept when it announces none).
+    pub(super) fn record_peer(&mut self, inventory: &Inventory) -> Result<()> {
+        self.s.record.peer_os = Some(inventory.os);
+        if let (Some(name), Some(Source::Lan { peer_name, .. })) =
+            (inventory.device_name(), &mut self.s.record.source)
+        {
             *peer_name = Some(name);
         }
         self.s.save()

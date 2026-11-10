@@ -57,21 +57,10 @@ impl Planner<'_> {
     /// One entry per plugin in use, in order of first use; items in
     /// manifest order.
     pub(super) fn planned_plugins(&self) -> Vec<PlannedPlugin> {
-        let mut out: Vec<PlannedPlugin> = Vec::new();
+        let mut out = Vec::new();
         for key in self.selected.iter().map(|&i| &self.keys[i]) {
-            let Some(plugin) = self.plugin_items.get(key) else {
-                continue;
-            };
-            let m = plugin.manifest();
-            match out.iter_mut().find(|p| p.plugin == m.id) {
-                Some(planned) => planned.items.push(key.clone()),
-                None => out.push(PlannedPlugin {
-                    plugin: m.id.clone(),
-                    version: m.version.clone(),
-                    description: m.description.clone(),
-                    permissions: m.permissions(),
-                    items: vec![key.clone()],
-                }),
+            if let Some(plugin) = self.plugin_items.get(key) {
+                PlannedPlugin::add(&mut out, plugin.manifest(), key.clone());
             }
         }
         out

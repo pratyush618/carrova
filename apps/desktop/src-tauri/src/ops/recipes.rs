@@ -1,7 +1,7 @@
 //! Recipes: the catalogue, which recipes are in use, bundle updates and
 //! reset.
 
-use carrova_view::ipc::{CatalogEntry, RecipesStatus, RecipesUpdate};
+use carrova_view::ipc::{CatalogEntry, RecipesCheck, RecipesStatus, RecipesUpdate};
 
 use crate::command_error::CommandError;
 use crate::state::AppState;
@@ -37,6 +37,16 @@ pub async fn status(state: &AppState) -> Result<RecipesStatus, CommandError> {
 pub async fn update(state: &AppState) -> Result<RecipesUpdate, CommandError> {
     let recipes = state.recipes.clone();
     blocking(move || recipes.update()).await
+}
+
+/// Whether a newer recipe bundle is offered, without installing it.
+///
+/// # Errors
+///
+/// Download or verification failure.
+pub async fn check(state: &AppState) -> Result<RecipesCheck, CommandError> {
+    let recipes = state.recipes.clone();
+    blocking(move || recipes.check()).await
 }
 
 /// Remove the installed recipe bundle and go back to the recipes shipped

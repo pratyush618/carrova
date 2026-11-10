@@ -1,9 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import type { Retention } from '../../engine/types';
 import { Card, Input, List, Row, Select, Toggle, type SelectOption } from '../../ui';
+import { retentionChoices, retentionOf, retentionValue } from '../shared/retention';
 import type { ImportChoices } from './model';
-
-const RETENTIONS: readonly Retention[] = ['until_dismissed', 'discard_on_success'];
 
 /** Import-wide choices, each on its suggestion and each the user's to change. */
 export function ChoicesCard({
@@ -14,9 +12,12 @@ export function ChoicesCard({
   readonly onChange: (patch: Partial<ImportChoices>) => void;
 }) {
   const { t } = useTranslation();
-  const retentions: SelectOption<Retention>[] = RETENTIONS.map((value) => ({
-    value,
-    label: t(`receive.choices.retentions.${value}`),
+  const options: SelectOption<string>[] = retentionChoices(choices.retention).map((r) => ({
+    value: retentionValue(r),
+    label:
+      typeof r === 'string'
+        ? t(`receive.choices.retentions.${r}`)
+        : t('receive.choices.retentions.keep_for', { count: r.keep_for.days }),
   }));
   return (
     <Card title={t('receive.choices.title')}>
@@ -40,10 +41,10 @@ export function ChoicesCard({
           trail={
             <Select
               label={t('receive.choices.retention')}
-              options={retentions}
-              value={choices.retention}
-              onChange={(retention) => {
-                onChange({ retention });
+              options={options}
+              value={retentionValue(choices.retention)}
+              onChange={(value) => {
+                onChange({ retention: retentionOf(value) });
               }}
             />
           }

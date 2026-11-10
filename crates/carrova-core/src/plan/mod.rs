@@ -33,6 +33,7 @@
 mod blocker;
 mod confine;
 mod dangerous;
+mod edit;
 mod model;
 mod options;
 mod planner;
@@ -51,6 +52,7 @@ pub use crate::space::{
 };
 pub use blocker::Blocker;
 pub use dangerous::{DANGEROUS_PATHS, DangerousPath};
+pub use edit::{Offered, PlanEdit, PlanEditIssue, PlanOverride};
 pub use model::{
     Action, Handler, ObjectKind, PathMapping, Plan, PlanWarning, PlannedAction, PlannedHandler,
     PlannedPlugin, SOURCE_SENSITIVE, recipe_sensitive,

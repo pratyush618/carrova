@@ -31,7 +31,7 @@ fn stalled_connections_do_not_block_a_legitimate_pairing() {
         code: code.clone(),
         addr: Some(SocketAddrV4::new(Ipv4Addr::LOCALHOST, listener.port())),
     };
-    let sender = thread::spawn(move || listener.accept_pairing(&code, T));
+    let sender = thread::spawn(move || listener.accept_pairing(&code, T, || {}));
     // Fill every handshake slot (one per source address).
     let stalled = raw::stalled(ticket.addr.unwrap().port(), 60, MAX_PENDING_HANDSHAKES);
     let started = Instant::now();
@@ -56,7 +56,7 @@ fn stalled_connections_do_not_burn_the_code() {
     let sender_code = code.clone();
     // Only stalled peers: the wait ends as a timeout, the code survives.
     let sender = thread::spawn(move || {
-        let first = listener.accept_pairing(&sender_code, 2 * PRE_PAKE_TIMEOUT);
+        let first = listener.accept_pairing(&sender_code, 2 * PRE_PAKE_TIMEOUT, || {});
         (first, listener)
     });
     let stalled = raw::stalled(port, 70, 2);
@@ -67,7 +67,7 @@ fn stalled_connections_do_not_burn_the_code() {
         code: code.clone(),
         addr: Some(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)),
     };
-    let sender = thread::spawn(move || listener.accept_pairing(&code, T));
+    let sender = thread::spawn(move || listener.accept_pairing(&code, T, || {}));
     assert!(connect(Target::Pairing(&ticket), T, &ConnectOptions::default()).is_ok());
     assert!(sender.join().unwrap().is_ok());
 }

@@ -28,6 +28,10 @@ pub struct ListenOptions {
     /// Advertise over mDNS and answer broadcast queries. Off, only a
     /// [`crate::Ticket`] with an address reaches the sender.
     pub discovery: bool,
+    /// Device name advertised while a code is offered, so receivers can
+    /// list this sender ([`crate::browse`]); `None` advertises none. Pass
+    /// a sanitised name: it is shown on other machines.
+    pub device_name: Option<String>,
     /// OS access for sockets and interface listing (pass the engine's).
     pub platform: Arc<dyn Platform>,
     /// Stops accepting and every call on accepted connections
@@ -41,6 +45,7 @@ impl Default for ListenOptions {
         Self {
             port: 0,
             discovery: true,
+            device_name: None,
             platform: Arc::from(carrova_platform::current()),
             cancel: None,
         }
@@ -79,6 +84,7 @@ impl Listener {
                 opts.platform.as_ref(),
                 port,
                 format!("carrova-{}", &hash[..12]),
+                opts.device_name,
             )?)
         } else {
             None
@@ -127,7 +133,16 @@ impl Listener {
     /// whose PAKE message arrives takes the code. If `timeout` passes while
     /// that receiver's handshake runs, the call waits for it (bounded), so
     /// a real receiver is never cut off and reported as a wrong code.
-    pub fn accept_pairing(&mut self, code: &PairingCode, timeout: Duration) -> Result<Connection> {
+    ///
+    /// `on_pake` runs once, on the caller's thread, when a receiver's PAKE
+    /// message claims the code (the code is being checked); success or
+    /// [`TransportError::PairingFailed`] follows.
+    pub fn accept_pairing(
+        &mut self,
+        code: &PairingCode,
+        timeout: Duration,
+        mut on_pake: impl FnMut(),
+    ) -> Result<Connection> {
         let claim = self.codes.claim(code);
         if claim.is_taken() {
             return Err(TransportError::PairingFailed);
@@ -138,6 +153,7 @@ impl Listener {
                 claim,
             },
             timeout,
+            &mut on_pake,
         )
     }
 
@@ -153,17 +169,24 @@ impl Listener {
                 nonces: Arc::clone(&self.nonces),
             },
             timeout,
+            &mut || {},
         )
     }
 
     /// Handshakes still running when the caller cancels are dropped.
-    fn accept(&self, expected: &Expected, timeout: Duration) -> Result<Connection> {
+    fn accept(
+        &self,
+        expected: &Expected,
+        timeout: Duration,
+        on_staked: &mut dyn FnMut(),
+    ) -> Result<Connection> {
         let deadline = Instant::now() + timeout;
         let auth = self.cancel.block_on(accept::accept(
             &self.endpoint,
             &self.identity,
             expected,
             deadline,
+            on_staked,
         ))?;
         Ok(Connection::new(
             self.endpoint.clone(),

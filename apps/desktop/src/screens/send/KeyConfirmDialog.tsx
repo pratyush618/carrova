@@ -1,11 +1,29 @@
 import { useTranslation } from 'react-i18next';
 import { Button, Dialog, Icon, List, Note, Path, Row } from '../../ui';
-import type { KeyConfirmIntents, SecretItem } from './model';
+import type { KeyConfirmIntents, KeyFile, SecretItem } from './model';
+
+/** One key file: its path, then fingerprint · type · comment to tell it apart. */
+function KeyRow({ file }: { readonly file: KeyFile }) {
+  const { t } = useTranslation();
+  return (
+    <Row
+      lead={<Icon name="key" size="sm" />}
+      title={<Path>{file.path}</Path>}
+      sub={
+        <span className="s-send__fp">
+          <Path>{file.fingerprint}</Path>
+          {` · ${t(`send.keys.kind.${file.kind}`)}`}
+          {file.comment !== null && ` · ${file.comment}`}
+        </span>
+      }
+    />
+  );
+}
 
 /**
- * "Bring your SSH keys?": one secret, its key files and what a copy lets
- * someone do. Leaving it behind is the safe choice and has focus.
- * Fingerprints are left out until the engine supplies them.
+ * "Bring your SSH keys?": one secret, its key files (with fingerprints when
+ * recognised) and what a copy lets someone do. Leaving it behind is the safe
+ * choice and has focus.
  */
 export function KeyConfirmDialog({
   secret,
@@ -32,12 +50,17 @@ export function KeyConfirmDialog({
         </>
       }
     >
-      <p>{secret.why ?? t('send.found.secretWhy')}</p>
+      <p>{t(`sensitive.${secret.why}`)}</p>
       <p>{t('send.keys.travel')}</p>
       <List label={t('send.keys.files')}>
-        {secret.paths.map((path) => (
-          <Row key={path} lead={<Icon name="key" size="sm" />} title={<Path>{path}</Path>} />
+        {secret.keys.map((file) => (
+          <KeyRow key={file.path} file={file} />
         ))}
+        {secret.paths
+          .filter((path) => !secret.keys.some((file) => file.path === path))
+          .map((path) => (
+            <Row key={path} lead={<Icon name="key" size="sm" />} title={<Path>{path}</Path>} />
+          ))}
       </List>
       <Note>{t('send.keys.asksAgain')}</Note>
     </Dialog>

@@ -108,6 +108,40 @@ fn fake_tool_script_and_env() {
 
 #[cfg(unix)]
 #[test]
+fn fake_os_layout_puts_roots_where_each_os_does() {
+    let config = |os| {
+        FakePlatform::with_os_layout("/h", os)
+            .resolve_root(SemanticRoot::UserConfig)
+            .unwrap()
+    };
+    assert_eq!(config(OsKind::Linux), PathBuf::from("/h/.config"));
+    assert_eq!(
+        config(OsKind::MacOs),
+        PathBuf::from("/h/Library/Application Support")
+    );
+    let win = FakePlatform::with_os_layout("/h", OsKind::Windows);
+    assert_eq!(win.os(), OsKind::Windows);
+    assert_eq!(
+        win.resolve_root(SemanticRoot::Cache).unwrap(),
+        PathBuf::from("/h/AppData/Local")
+    );
+}
+
+#[test]
+fn fake_disk_names_the_matching_mount_and_configured_total() {
+    let p = FakePlatform::with_home("/h")
+        .disk_total_bytes(1000)
+        .filesystem("/h/disk", 1, 500);
+    let inside = p.disk(Path::new("/h/disk/x")).unwrap();
+    assert_eq!(inside.total, 1000);
+    assert_eq!(inside.mount_point, PathBuf::from("/h/disk"));
+    assert_eq!(
+        p.disk(Path::new("/h/other")).unwrap().mount_point,
+        PathBuf::from("/")
+    );
+}
+
+#[test]
 fn fake_filesystems_override_fs_id_and_free_space() {
     let tmp = tempfile::TempDir::new().unwrap();
     let disk = tmp.path().join("disk");

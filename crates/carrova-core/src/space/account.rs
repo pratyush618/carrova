@@ -57,6 +57,7 @@ impl<'a> SpaceAccount<'a> {
                         bytes: 0,
                         needed: 0,
                         available: None,
+                        total: None,
                     },
                 )
             })
@@ -94,7 +95,8 @@ impl<'a> SpaceAccount<'a> {
         }
     }
 
-    /// Final needs with margins and free space, state-dir filesystem first.
+    /// Final needs with margins, free space and capacity, state-dir
+    /// filesystem first.
     pub(super) fn finish(self) -> Vec<SpaceNeed> {
         let platform = self.platform;
         let mut out: Vec<SpaceNeed> = self
@@ -104,6 +106,7 @@ impl<'a> SpaceAccount<'a> {
             .map(|(path, mut n)| {
                 n.needed = required_space(n.bytes);
                 n.available = platform.free_space(&path).ok();
+                n.total = platform.disk(&path).ok().map(|d| d.total);
                 n.roots.sort_unstable();
                 n
             })

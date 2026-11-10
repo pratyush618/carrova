@@ -89,19 +89,13 @@ describe('receive flow', () => {
     ).toBe('progress');
   });
 
-  it('turns answers into options and records the open-app override', () => {
+  it('records answers for their rows; the options stay those of the first plan', () => {
     const skipped = receiveFlowReducer(reviewing, {
       type: 'answer',
       key: 'neovim',
       answer: 'skip',
     });
-    expect(skipped.options.items).not.toContain('neovim/config');
-    const overridden = receiveFlowReducer(reviewing, {
-      type: 'override',
-      override: 'running',
-      app: 'neovim',
-    });
-    expect(overridden.options.ignore_requires_closed).toBe(true);
-    expect(overridden.answers['neovim']).toBe('closed');
+    expect(skipped.answers['neovim']).toBe('skip');
+    expect(skipped.options).toBe(reviewing.options);
   });
 });

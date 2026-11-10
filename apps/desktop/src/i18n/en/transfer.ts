@@ -5,14 +5,17 @@ export const transfer = {
     paused: 'Paused: this disk is full',
     held: 'Paused',
     reconnecting: 'Lost the connection',
+    lost: "Can't reach the other computer",
     applying: 'Putting things in place',
   },
+  pausedDisk: 'Paused — the disk at {{disk}} is full',
   lede: {
     moving: 'Small settings go first, so most apps are done in seconds.',
     paused:
       'Carrova kept everything that arrived. Free up {{size}} and it picks up where it stopped.',
     held: 'Everything that arrived is kept. Resume whenever you like.',
     reconnecting: "Trying again. It'll pick up where it left off, even after sleep or a restart.",
+    lost: 'Everything that arrived is kept. Resume once both computers are awake and on the same network.',
     applying:
       'Replaced files are backed up first. If anything goes wrong, Carrova undoes it automatically.',
   },
@@ -20,6 +23,7 @@ export const transfer = {
     paused: 'Waiting for space',
     held: 'Paused by you',
     reconnecting: 'Retrying for up to 10 minutes',
+    lost: 'Stopped trying',
     applying: 'Almost done',
   },
   spaceTitle: '{{size}} more space needed',
@@ -75,6 +79,8 @@ export const transfer = {
   pause: 'Pause',
   resume: 'Resume',
   resumesItself: "Will resume on its own when it's back",
+  resumeWhenBack: 'Resume when both computers are ready',
+  tryNow: 'Try now',
   seeArrived: 'See what arrived',
   applyNote: "Can't stop now: this finishes, or undoes itself if anything fails.",
 } as const;

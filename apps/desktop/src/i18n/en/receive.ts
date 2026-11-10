@@ -19,6 +19,8 @@ export const receive = {
     connectingLede: "Both computers are checking the code. It's never sent over the network.",
     checking: 'Found {{peer}}. Checking the code…',
     typed: 'The code both sides typed',
+    nearby: 'Nearby computers offering a code',
+    nearbyEmpty: 'None yet. On the other computer, open Carrova and choose Send.',
     promise:
       'The code never crosses the network. Nothing on this computer changes until you see the plan and approve it.',
   },
@@ -29,6 +31,10 @@ export const receive = {
         'Nothing on this computer changes until you approve. You can undo the whole move until you remove its undo point.',
       discard_on_success:
         "Nothing on this computer changes until you approve. If anything fails, it's undone automatically.",
+      keep_for_one:
+        'Nothing on this computer changes until you approve. You can undo the whole move for {{count}} day.',
+      keep_for_other:
+        'Nothing on this computer changes until you approve. You can undo the whole move for {{count}} days.',
     },
     planning: 'Working out what would change. Nothing is written yet…',
     counts: 'What changes',
@@ -85,6 +91,8 @@ export const receive = {
     undoKept: {
       until_dismissed: 'Undo kept until you remove it',
       discard_on_success: 'Undo kept until the move succeeds',
+      keep_for_one: 'Undo kept for {{count}} day',
+      keep_for_other: 'Undo kept for {{count}} days',
     },
     undoSub: "Backups stay in Carrova's folder until then",
     changeUndo: 'Change how long undo is kept',
@@ -194,6 +202,8 @@ export const receive = {
     retentions: {
       until_dismissed: 'Until I remove it (suggested)',
       discard_on_success: 'Only until the move succeeds',
+      keep_for_one: 'For {{count}} day',
+      keep_for_other: 'For {{count}} days',
     },
     trust: 'Also bring GnuPG trust settings',
     trustSub: "Off by default: trust from another computer could mark a stranger's key as yours.",

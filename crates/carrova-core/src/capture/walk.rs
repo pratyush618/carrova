@@ -13,6 +13,7 @@ use carrova_recipe::{FileEntry, resolve_item};
 use tracing::debug;
 
 use super::MAX_RECAPTURE;
+use super::export::ExportHook;
 use super::items::Planned;
 use super::source::CaptureSource;
 use crate::checklist::Skipped;
@@ -113,10 +114,17 @@ impl<'a> Capturer<'a> {
         Ok(p)
     }
 
-    /// Build entries for one item; the item's chunks are registered only if
-    /// every entry succeeded.
-    pub(super) fn capture_entries(&mut self, resolved: &[FileEntry]) -> Result<Captured> {
+    /// Build entries for one item, its files passed through `export` if
+    /// given; the item's chunks are registered only if every entry
+    /// succeeded.
+    pub(super) fn capture_entries(
+        &mut self,
+        resolved: &[FileEntry],
+        mut export: Option<&mut ExportHook<'_>>,
+    ) -> Result<Captured> {
         let mut out = Vec::with_capacity(resolved.len());
+        // Exported file contents, in file-entry order.
+        let mut exported = Vec::new();
         let mut skipped_dirs: Vec<(SemanticRoot, String)> = Vec::new();
         for fe in resolved {
             // Resolved entries are sorted, so a skipped dir precedes its contents:
@@ -137,17 +145,26 @@ impl<'a> Capturer<'a> {
             }
             let mut abs = self.root(fe.root)?;
             abs.extend(fe.rel.split('/'));
-            let entry = self.snapshot_file(fe.root, &fe.rel, &abs)?;
+            let mut entry = self.snapshot_file(fe.root, &fe.rel, &abs)?;
             if let EntryKind::File { size, .. } = &entry.kind {
                 self.progress.add(*size);
+                if let Some(hook) = export.as_deref_mut() {
+                    exported.push(hook.apply(self.platform, &abs, &mut entry)?);
+                }
             }
             out.push(entry);
         }
-        for e in out
+        let files = out
             .iter()
-            .filter(|e| matches!(e.kind, EntryKind::File { .. }))
-        {
-            self.source.add_file(e.root, e.rel.clone(), e.chunks());
+            .filter(|e| matches!(e.kind, EntryKind::File { .. }));
+        if export.is_some() {
+            for (e, bytes) in files.zip(exported) {
+                self.source.add_blob(bytes, e.chunks());
+            }
+        } else {
+            for e in files {
+                self.source.add_file(e.root, e.rel.clone(), e.chunks());
+            }
         }
         Ok(Captured::Entries(out))
     }

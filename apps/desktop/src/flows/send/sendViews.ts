@@ -15,6 +15,8 @@ import {
   type TreeApp,
   type TreeItem,
 } from '../../screens/send/model';
+import type { PluginConsentModel } from '../../screens/receive/model';
+import { sensitiveWhy } from '../../screens/shared/sensitiveWhy';
 import { appRef, displayPath, type RootDirs } from '../shared/paths';
 
 type AppReport = ScanResult['report']['apps'][number];
@@ -100,8 +102,9 @@ export function secretItems(result: ScanResult): SecretItem[] {
         key: e.key,
         app: appRef(app.id, app.name),
         label: e.item.label,
-        why: e.item.sensitive_reason,
+        why: sensitiveWhy(e.key),
         paths: e.item.paths.map((p) => displayPath(p, dirs)),
+        keys: e.item.keys.map((k) => ({ ...k, path: displayPath(k.path, dirs) })),
         bytes: e.item.size,
         brought: e.choice.included && e.choice.confirmed_sensitive,
       })),
@@ -163,8 +166,24 @@ export function moveFacts(result: ScanResult): MoveFacts {
   };
 }
 
-/** Why the selection can't be used yet, from the engine's view of it. */
-export const selectionIssues = (view: SelectionView): string[] => view.issues.map((i) => i.problem);
+/** Why the selection can't be used yet, from the engine's view of it (plugins are asked apart). */
+export const selectionIssues = (view: SelectionView): string[] =>
+  view.issues.filter((i) => i.plugin === null).map((i) => i.problem);
+
+/** Plugins that change files here before they leave and still wait for the user's answer. */
+export function pluginAsks(view: SelectionView): PluginConsentModel[] {
+  const waiting = new Set(view.issues.flatMap((i) => (i.plugin === null ? [] : [i.plugin])));
+  const label = (key: string): string => view.rows.find((r) => r.key === key)?.facts?.label ?? key;
+  return view.plugins
+    .filter((p) => waiting.has(p.plugin))
+    .map(({ plugin, version, description, permissions, items }) => ({
+      plugin,
+      version,
+      description,
+      permissions,
+      items: items.map(label),
+    }));
+}
 
 function treeItem(e: Entry, dirs: RootDirs): TreeItem {
   const { paths, excluded_paths: excluded } = e.choice;

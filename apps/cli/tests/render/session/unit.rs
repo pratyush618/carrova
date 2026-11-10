@@ -137,6 +137,8 @@ fn record(id: &str, source: Option<Source>) -> SessionRecord {
         checklist: None,
         error: None,
         bytes_moved: None,
+        peer_os: None,
+        expires_at: None,
     }
 }
 
@@ -175,4 +177,26 @@ fn session_list_shows_lan_peer_short_hash_next_to_archives() {
     assert!(!lines[0].contains("abababababababab"), "{out}");
     assert!(lines[1].contains("LAN (not paired yet)"), "{out}");
     assert!(lines[2].contains("/tmp/a.carrova"), "{out}");
+}
+
+#[test]
+fn session_list_names_the_peer_with_its_os_and_the_undo_expiry() {
+    let mut lan = record(
+        "20261108-120000-aaaaaa",
+        Some(Source::Lan {
+            peer_cert_hash: Some("ab".repeat(32).parse::<CertHash>().unwrap()),
+            manifest_fingerprint: Blake3Hash([0; 32]),
+            peer_name: Some(format!("laptop{ESC}")),
+        }),
+    );
+    lan.peer_os = Some(carrova_platform::OsKind::Windows);
+    lan.expires_at = Some(1_700_000_000);
+    let mut out = Vec::new();
+    super::session_list(&mut out, &[lan]).unwrap();
+    let out = String::from_utf8(out).unwrap();
+    assert!(
+        out.contains("LAN peer laptop\\u{1b}[1A\\u{1b}[2K (abababababab) · Windows"),
+        "{out}"
+    );
+    assert!(out.contains("[undo until 2023-11-14]"), "{out}");
 }

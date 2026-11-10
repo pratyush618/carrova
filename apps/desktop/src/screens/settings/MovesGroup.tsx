@@ -1,11 +1,11 @@
 import { useTranslation } from 'react-i18next';
-import type { ConflictRule, Retention } from '../../engine/types';
+import type { ConflictRule } from '../../engine/types';
 import { Row, Segmented, Toggle, type SegmentOption } from '../../ui';
+import { retentionChoices, retentionOf, retentionValue } from '../shared/retention';
 import { Group } from './Group';
 import type { SettingsIntents, SettingsModel } from './model';
 
 const RULES: readonly ConflictRule[] = ['replace', 'keep-both', 'skip'];
-const RETENTIONS: readonly Retention[] = ['until_dismissed', 'discard_on_success'];
 
 /** Suggested defaults every new move starts from; each move can change them. */
 export function MovesGroup({
@@ -21,9 +21,12 @@ export function MovesGroup({
     value,
     label: t(`receive.details.rule.${value}`),
   }));
-  const retentions: SegmentOption<Retention>[] = RETENTIONS.map((value) => ({
-    value,
-    label: t(`settings.moves.retentions.${value}`),
+  const retentions: SegmentOption<string>[] = retentionChoices(defaults.retention).map((r) => ({
+    value: retentionValue(r),
+    label:
+      typeof r === 'string'
+        ? t(`settings.moves.retentions.${r}`)
+        : t('settings.moves.retentions.keep_for', { count: r.keep_for.days }),
   }));
   return (
     <Group title={t('settings.moves.group')} sub={t('settings.moves.sub')}>
@@ -46,9 +49,9 @@ export function MovesGroup({
           <Segmented
             label={t('settings.moves.retention')}
             options={retentions}
-            value={defaults.retention}
-            onChange={(retention) => {
-              on.onMoveDefaults({ retention });
+            value={retentionValue(defaults.retention)}
+            onChange={(value) => {
+              on.onMoveDefaults({ retention: retentionOf(value) });
             }}
           />
         }

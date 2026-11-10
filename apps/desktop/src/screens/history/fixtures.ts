@@ -8,6 +8,7 @@ const RECEIVED: HistoryEntry = {
   kind: 'received',
   state: 'done',
   peer: SENDER,
+  peerOs: 'linux',
   when: at(8, 9, 32),
   moved: { apps: 5, bytes: 1.2 * GB },
   undoable: true,
@@ -19,6 +20,7 @@ const SAVED: HistoryEntry = {
   kind: 'saved',
   state: 'done',
   peer: 'carrova-2026-11-02.carrova',
+  peerOs: null,
   when: at(2, 9, 15),
   moved: { apps: 3, bytes: 40 * MB },
   undoable: false,
@@ -30,6 +32,7 @@ const UNDONE: HistoryEntry = {
   kind: 'undone',
   state: 'rolled_back',
   peer: 'lab-desktop',
+  peerOs: 'windows',
   when: new Date(2026, 9, 28, 18, 40),
   moved: { apps: 2, bytes: null },
   undoable: false,
@@ -46,6 +49,7 @@ const session = (entry: HistoryEntry, started: Date): SessionModel => ({
     { kind: 'state', at: entry.when, state: entry.state },
   ],
   log: LOG,
+  undoUntil: null,
 });
 
 const ENTRIES = [RECEIVED, SAVED, UNDONE];

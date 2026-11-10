@@ -69,6 +69,20 @@ describe('History', () => {
     expect(on.onSelect).toHaveBeenCalledWith('s-1102');
   });
 
+  it("badges the other computer's OS and dates an expiring undo point", () => {
+    const selected = historyTimeline.selected;
+    if (selected === null) throw new Error('fixture');
+    const model = {
+      ...historyTimeline,
+      selected: { ...selected, undoUntil: new Date(2026, 10, 22, 12, 0) },
+    };
+    renderScreen(<HistoryScreen model={model} on={historyOn()} />);
+    const current = screen.getByRole('button', { name: /Received from ezio-desktop/ });
+    expect(within(current).getByText('Linux')).toBeInTheDocument();
+    const detail = screen.getByRole('complementary', { name: 'This move' });
+    expect(within(detail).getByText('Undo available until Nov 22')).toBeInTheDocument();
+  });
+
   it('shows an undone move rewound, newest step first, with nothing left to undo', () => {
     renderScreen(<HistoryScreen model={historyUndone} on={historyOn()} />);
     const detail = screen.getByRole('complementary', { name: 'This move' });

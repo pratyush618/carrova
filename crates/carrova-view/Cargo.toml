@@ -8,6 +8,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+carrova-bundle = { workspace = true }
 carrova-core = { workspace = true }
 carrova-platform = { workspace = true }
 # Only for the TS export of error-report types (desktop IPC contract).

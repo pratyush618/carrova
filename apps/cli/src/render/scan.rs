@@ -6,11 +6,11 @@ use std::io::{self, Write};
 use carrova_core::RootedPath;
 use carrova_core::catalog::ValidationReport;
 use carrova_core::scan::{
-    AppReport, ItemReport, PlatformReport, RawItem, ScanReport, Snapshot, Totals,
+    AppReport, ItemReport, KeyInfo, KeyKind, PlatformReport, RawItem, ScanReport, Snapshot, Totals,
 };
 use carrova_platform::SemanticRoot;
 
-use super::text::{files, human_size};
+use super::text::{files, human_size, safe};
 
 /// One line per load error and issue, then a summary line.
 pub fn validation_report(out: &mut impl Write, r: &ValidationReport) -> io::Result<()> {
@@ -95,6 +95,9 @@ fn render_app(
             files(item.file_count),
             tags(item)
         )?;
+        for key in &item.keys {
+            writeln!(out, "    key {}", key_line(key))?;
+        }
     }
     if app.items.iter().any(|i| i.app_running) {
         writeln!(
@@ -104,6 +107,22 @@ fn render_app(
         )?;
     }
     Ok(())
+}
+
+/// `home:.ssh/id_ed25519  SHA256:… (ed25519, me@host)`: tells keys apart
+/// without showing them.
+fn key_line(k: &KeyInfo) -> String {
+    let kind = match k.kind {
+        KeyKind::Ed25519 => "ed25519",
+        KeyKind::Ecdsa => "ecdsa",
+        KeyKind::Rsa => "rsa",
+        KeyKind::Other => "other",
+    };
+    let comment = k
+        .comment
+        .as_deref()
+        .map_or_else(String::new, |c| format!(", {}", safe(c)));
+    format!("{}  {} ({kind}{comment})", safe(&k.path), k.fingerprint)
 }
 
 fn tags(i: &ItemReport) -> String {

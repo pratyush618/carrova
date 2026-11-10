@@ -66,6 +66,8 @@ fn lan_source_round_trips() {
         checklist: None,
         error: None,
         bytes_moved: None,
+        peer_os: None,
+        expires_at: None,
     };
     let json = serde_json::to_string(&r).unwrap();
     assert!(!json.contains("\"archive\""), "{json}");

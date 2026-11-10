@@ -1,4 +1,4 @@
-import type { SessionState } from '../../engine/types';
+import type { OsKind, SessionState } from '../../engine/types';
 import type { Bytes } from '../shared/model';
 import type { UndoCounts } from '../undo/model';
 
@@ -13,6 +13,8 @@ export interface HistoryEntry {
   readonly state: SessionState;
   /** The other computer's name or the file's name; `null` when not recorded. */
   readonly peer: string | null;
+  /** The other computer's OS; `null` when not recorded (older moves, saved files). */
+  readonly peerOs: OsKind | null;
   readonly when: Date;
   /** Apps (and size, when recorded) the session moved. */
   readonly moved: { readonly apps: number; readonly bytes: Bytes | null } | null;
@@ -50,4 +52,6 @@ export interface SessionModel {
   readonly log: readonly string[];
   /** What Undo would do now; `null` while it can't be undone or the engine hasn't answered. */
   readonly undoCounts: UndoCounts | null;
+  /** When the undo point may be pruned; `null` = kept until the user removes it. */
+  readonly undoUntil: Date | null;
 }

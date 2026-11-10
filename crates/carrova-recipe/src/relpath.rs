@@ -12,14 +12,20 @@ pub enum RelPathError {
     Empty,
     #[error("relative path contains a NUL byte")]
     Nul,
-    #[error("relative path must not be absolute (leading `/`): {0:?}")]
+    #[error(
+        "relative path must not be absolute (leading separator): {0:?}; use a semantic root, e.g. `root: user_config` with a relative path"
+    )]
     Absolute(String),
     #[error("relative path must not start with `~`: {0:?}")]
     Tilde(String),
     #[error("relative path must use `/`, not `\\`: {0:?}")]
     Backslash(String),
-    #[error("relative path must not start with a drive letter: {0:?}")]
-    DriveLetter(String),
+    /// A `:` anywhere: a drive letter (`C:`, also mid-path, where Windows
+    /// `PathBuf::push` would replace the base) or an NTFS stream.
+    #[error(
+        "relative path must not contain `:` (drive letter): {0:?}; use a semantic root, e.g. `root: user_config` with a relative path"
+    )]
+    Colon(String),
     #[error("relative path must not contain `..`: {0:?}")]
     ParentComponent(String),
 }
@@ -27,37 +33,57 @@ pub enum RelPathError {
 /// Normalised, confined path relative to a [`crate::SemanticRoot`].
 ///
 /// Invariants (checked on construction and on deserialize):
-/// non-empty, `/`-separated, no leading `/` or `~`, no `\`, no NUL, no drive
-/// letter, no `..` component. `.` components and repeated `/` are dropped, so
-/// `./git//config` becomes `git/config`.
+/// non-empty, `/`-separated, no leading `/` or `~`, no `\`, no NUL, no `:`
+/// (drive letter) in any component, no `..` component. `.` components and
+/// repeated `/` are dropped, so `./git//config` becomes `git/config`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct RelPath(String);
 
 impl RelPath {
-    /// Validate and normalise `raw`.
+    /// Validate and normalise `raw` (`/`-separated; `\` is rejected because
+    /// it is a valid filename character on Linux and macOS).
     pub fn new(raw: &str) -> Result<Self, RelPathError> {
+        Self::parse(raw, &['/'], false)
+    }
+
+    /// Like [`RelPath::new`], but allows `:` in names. Only for paths read
+    /// from the sending computer's own disk (raw items), where `:` is a
+    /// valid Linux/macOS name character and can't occur on Windows; the
+    /// receiver still refuses names its OS can't hold.
+    pub fn new_raw(raw: &str) -> Result<Self, RelPathError> {
+        Self::parse(raw, &['/'], true)
+    }
+
+    /// Like [`RelPath::new`], but also accepts Windows-native `\` separators,
+    /// normalised to `/`. Only for paths that exist solely on Windows (a
+    /// recipe's `os.windows` block). Drive letters (anywhere), UNC and rooted
+    /// paths stay rejected.
+    pub fn new_windows(raw: &str) -> Result<Self, RelPathError> {
+        Self::parse(raw, &['/', '\\'], false)
+    }
+
+    fn parse(raw: &str, seps: &[char], allow_colon: bool) -> Result<Self, RelPathError> {
         if raw.is_empty() {
             return Err(RelPathError::Empty);
         }
         if raw.contains('\0') {
             return Err(RelPathError::Nul);
         }
-        if raw.starts_with('/') {
+        if raw.starts_with(seps) {
             return Err(RelPathError::Absolute(raw.to_owned()));
         }
         if raw.starts_with('~') {
             return Err(RelPathError::Tilde(raw.to_owned()));
         }
-        if raw.contains('\\') {
+        if !seps.contains(&'\\') && raw.contains('\\') {
             return Err(RelPathError::Backslash(raw.to_owned()));
         }
-        let b = raw.as_bytes();
-        if b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':' {
-            return Err(RelPathError::DriveLetter(raw.to_owned()));
+        if !allow_colon && raw.contains(':') {
+            return Err(RelPathError::Colon(raw.to_owned()));
         }
         let mut parts = Vec::new();
-        for comp in raw.split('/') {
+        for comp in raw.split(seps) {
             match comp {
                 "" | "." => {}
                 ".." => return Err(RelPathError::ParentComponent(raw.to_owned())),

@@ -34,7 +34,7 @@ fn pair_across_the_deadline(
     let started = Instant::now();
     let sender_code = code.clone();
     let sender = thread::spawn(move || {
-        let result = listener.accept_pairing(&sender_code, WINDOW);
+        let result = listener.accept_pairing(&sender_code, WINDOW, || {});
         (result, listener)
     });
     let mut peer = dial(loopback(1), port, WINDOW).connected();
@@ -71,7 +71,7 @@ fn failed_pairing_finishing_after_the_deadline_burns_the_code() {
         "{sent:?}"
     );
     assert!(received.is_err());
-    let again = listener.accept_pairing(&code, WINDOW);
+    let again = listener.accept_pairing(&code, WINDOW, || {});
     assert!(
         matches!(again, Err(TransportError::PairingFailed)),
         "{again:?}"

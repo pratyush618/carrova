@@ -140,6 +140,13 @@ fn system_answers() {
     let tmp = TempDir::new().unwrap();
     let p = MacPlatform::from_env();
     assert!(p.free_space(tmp.path()).unwrap() > 0);
+    let disk = p.disk(tmp.path()).unwrap();
+    assert!(disk.total >= p.free_space(tmp.path()).unwrap());
+    assert!(
+        std::fs::canonicalize(tmp.path())
+            .unwrap()
+            .starts_with(&disk.mount_point)
+    );
     assert_eq!(
         p.snapshot_capability(tmp.path()).unwrap(),
         SnapshotCapability::None

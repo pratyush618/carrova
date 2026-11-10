@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EngineEvent } from '@/engine/types';
-import { appReducer, initialAppState, type AppState } from '@/app/state/appState';
+import { appReducer, bridgeAction, initialAppState, type AppState } from '@/app/state/appState';
 
 const feed = (session: string, ...events: EngineEvent[]): AppState =>
   events.reduce<AppState>(
@@ -25,7 +25,13 @@ describe('appReducer', () => {
   });
 
   it('pauses on low disk space and clears the pause on resume', () => {
-    const reason = { kind: 'low_disk_space', fs: '/home', available: 1, needed: 400 } as const;
+    const reason = {
+      kind: 'low_disk_space',
+      fs: '/home',
+      available: 1,
+      needed: 400,
+      disk: null,
+    } as const;
     const paused = feed('s1', { event: 'transfer_paused', reason });
     expect(paused.sessions['s1']?.paused).toEqual(reason);
     const resumed = appReducer(paused, {
@@ -61,6 +67,34 @@ describe('appReducer', () => {
       moved_aside: 1,
       failed: 0,
     });
+  });
+
+  it('times a pairing code from its arrival and shows "checking" until the outcome', () => {
+    const view = {
+      code: '7-acid-lemon',
+      fallback: null,
+      renewed: false,
+      expired: false,
+      expires_in_secs: 300,
+    };
+    const shown = appReducer(
+      initialAppState,
+      bridgeAction({ kind: 'pairing_code', session: 's1', code: view }, 1_000),
+    );
+    expect(shown.sessions['s1']?.code).toEqual({ view, expiresAt: 301_000 });
+    const engine = (state: AppState, event: EngineEvent) =>
+      appReducer(state, { type: 'engine', session: 's1', event });
+    const checking = engine(shown, { event: 'pairing_in_progress' });
+    expect(checking.sessions['s1']?.checking).toBe(true);
+    expect(engine(checking, { event: 'pairing_failed' }).sessions['s1']?.checking).toBe(false);
+    const renewed = appReducer(
+      checking,
+      bridgeAction(
+        { kind: 'pairing_code', session: 's1', code: { ...view, renewed: true } },
+        2_000,
+      ),
+    );
+    expect(renewed.sessions['s1']?.checking).toBe(false);
   });
 
   it('keeps captured items in engine order', () => {

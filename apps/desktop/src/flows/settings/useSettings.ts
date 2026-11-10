@@ -25,6 +25,7 @@ export interface SettingsController {
   readonly save: (patch: Partial<Settings>) => void;
   readonly setConsent: (allowed: boolean) => void;
   readonly checkRecipes: () => void;
+  readonly installRecipes: () => void;
   readonly clearReports: () => void;
   readonly reloadReports: () => void;
 }
@@ -36,15 +37,16 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
   const reports = useRemote(useCallback(() => port.errorReports(), [port]));
   const recipes = useRemote(useCallback(() => port.recipesStatus(), [port]));
   const about = useRemote(useCallback(() => port.about(), [port]));
-  const check = useCommand(useCallback(() => port.recipesUpdate(), [port]));
+  const check = useCommand(useCallback(() => port.recipesCheck(), [port]));
+  const install = useCommand(useCallback(() => port.recipesUpdate(), [port]));
   const [edited, setEdited] = useState<Settings | null>(null);
   const settings = edited ?? current(loaded.state);
 
   const reloadRecipes = recipes.run;
   useEffect(() => {
-    if (check.state.status === 'ready' && check.state.value.kind === 'updated')
+    if (install.state.status === 'ready' && install.state.value.kind === 'updated')
       void reloadRecipes();
-  }, [check.state, reloadRecipes]);
+  }, [install.state, reloadRecipes]);
 
   const save = useCallback(
     (patch: Partial<Settings>) => {
@@ -81,15 +83,21 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
               reports: current(reports.state) ?? [],
               recipes: current(recipes.state),
               check: check.state,
+              install: install.state,
               update,
             },
             new Date(),
           ),
-    [settings, consentValue, reports.state, recipes.state, check.state, update],
+    [settings, consentValue, reports.state, recipes.state, check.state, install.state, update],
   );
 
   const runCheck = check.run;
-  const checkRecipes = useCallback(() => void runCheck(), [runCheck]);
+  const { run: runInstall, reset: resetInstall } = install;
+  const checkRecipes = useCallback(() => {
+    resetInstall();
+    void runCheck();
+  }, [runCheck, resetInstall]);
+  const installRecipes = useCallback(() => void runInstall(), [runInstall]);
   const reloadAll = useCallback(() => void reloadReports(), [reloadReports]);
   return useMemo(
     () => ({
@@ -101,6 +109,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       save,
       setConsent,
       checkRecipes,
+      installRecipes,
       clearReports,
       reloadReports: reloadAll,
     }),
@@ -113,6 +122,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       save,
       setConsent,
       checkRecipes,
+      installRecipes,
       clearReports,
       reloadAll,
     ],

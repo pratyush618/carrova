@@ -4,30 +4,38 @@
 use std::fmt::Write as _;
 
 use carrova_core::session::{Role, SessionId};
-use carrova_core::{CoreError, Hint};
+use carrova_core::{CodeOffer, CoreError, Hint};
 use serde_json::json;
 
-use carrova_view::lan::{CodeView, InventoryView, PauseView, SummaryView};
+use carrova_view::lan::{CodeView, InventoryView, NearbyPeer, PauseView, SummaryView};
 
 use super::text::{action_counts, human_size, safe};
 
-/// The pairing code, framed so it stands out, with what to do with it.
-/// Written to the terminal only (stderr), once per code.
-pub fn code_banner(v: &CodeView) -> String {
+/// The pairing code (offered as `offer`), framed so it stands out, with
+/// what to do with it and when it expires. Written to the terminal only
+/// (stderr), once per code.
+pub fn code_banner(v: &CodeView, offer: CodeOffer) -> String {
     let label = "Pairing code:";
     let inner = format!("   {label}  {}   ", v.code);
     let width = inner.chars().count();
     let bar = "\u{2500}".repeat(width);
     let blank = " ".repeat(width);
     let mut s = String::new();
-    if v.renewed {
-        s.push_str("\nNew code (the previous one can no longer be used):\n");
+    match offer {
+        CodeOffer::First => {}
+        CodeOffer::Renewed => s.push_str("\nNew code (the previous one can no longer be used):\n"),
+        CodeOffer::Expired => s.push_str("\nThe previous code expired. New code:\n"),
     }
     let _ = write!(
         s,
         "\n  \u{250c}{bar}\u{2510}\n  \u{2502}{blank}\u{2502}\n  \u{2502}{inner}\u{2502}\n  \u{2502}{blank}\u{2502}\n  \u{2514}{bar}\u{2518}\n\n"
     );
     s.push_str("On the other machine run `carrova receive` and type this code.\n");
+    let _ = writeln!(
+        s,
+        "The code expires in {}; a new one is shown then.",
+        countdown(v.expires_in_secs)
+    );
     if let Some(ticket) = &v.fallback {
         let _ = writeln!(
             s,
@@ -36,6 +44,30 @@ pub fn code_banner(v: &CodeView) -> String {
     }
     s.push_str("Waiting for the other machine... (Ctrl-C to cancel)");
     s
+}
+
+/// `5 min` (whole minutes, rounded up), or `45 s` under a minute.
+fn countdown(secs: u32) -> String {
+    if secs < 60 {
+        format!("{secs} s")
+    } else {
+        format!("{} min", secs.div_ceil(60))
+    }
+}
+
+/// The sender's line while it checks a code a receiver typed.
+pub const PAIRING_IN_PROGRESS: &str = "Someone typed the code; checking it...";
+
+/// Senders nearby offering a code, for the receiver's code prompt.
+pub fn nearby(peers: &[NearbyPeer]) -> String {
+    if peers.is_empty() {
+        return "No machine nearby is offering a code yet.".to_owned();
+    }
+    let names: Vec<_> = peers.iter().map(|p| safe(&p.device_name)).collect();
+    format!(
+        "Sending nearby: {} (type the code shown there)",
+        names.join(", ")
+    )
 }
 
 /// The loud warning after a failed pairing attempt (`failures` so far,
@@ -124,8 +156,11 @@ pub fn pause(v: &PauseView<'_>) -> String {
         || "carrova receive --resume".to_owned(),
         |id| format!("carrova receive --resume {}", safe(&id.0)),
     );
+    let full = v.disk.map_or_else(String::new, |d| {
+        format!("the disk at {} is full; ", safe(d))
+    });
     format!(
-        "Paused: need {} more free on {} ({} free). Free up space; transfer resumes \
+        "Paused: {full}need {} more free on {} ({} free). Free up space; transfer resumes \
          automatically. Ctrl-C to stop (resume later with `{resume}`)",
         human_size(v.shortfall),
         safe(v.fs),

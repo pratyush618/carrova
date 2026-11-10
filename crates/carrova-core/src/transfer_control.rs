@@ -18,6 +18,8 @@
 //!   pause within [`IDLE_SLICE`]. A disk that is really full still stops
 //!   the transfer: the safety margin is advisory, a failed write is not.
 //!   Sticky for the importer's lifetime.
+//! - **Retry now** asks a waiting reconnect loop to try at once instead
+//!   of after its back-off; consumed by the next check.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -34,6 +36,7 @@ pub const IDLE_SLICE: Duration = Duration::from_millis(100);
 struct Flags {
     paused: AtomicBool,
     ignore_free_space: AtomicBool,
+    retry_now: AtomicBool,
 }
 
 /// Live controls of one import's LAN transfer. Cheap to clone; every
@@ -68,6 +71,20 @@ impl TransferControl {
     #[must_use]
     pub fn ignores_free_space(&self) -> bool {
         self.0.ignore_free_space.load(Ordering::Acquire)
+    }
+
+    /// Reconnect now instead of after the back-off (the user's "Try now"
+    /// while the connection is lost). Consumed by
+    /// [`Self::take_retry_now`].
+    pub fn retry_now(&self) {
+        self.0.retry_now.store(true, Ordering::Release);
+    }
+
+    /// Whether the user asked to reconnect now since the last call;
+    /// clears the request. For the reconnect loop.
+    #[must_use]
+    pub fn take_retry_now(&self) -> bool {
+        self.0.retry_now.swap(false, Ordering::AcqRel)
     }
 
     /// Block while the user holds the transfer, announcing the pause and

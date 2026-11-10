@@ -10,8 +10,8 @@ use carrova_core::plan::{
     PlannedHandler, SpaceNeed,
 };
 use carrova_core::scan::{
-    AppReport, ItemFlags, ItemPortability, ItemReport, PlatformReport, RawItem, ScanReport,
-    SkippedPath, Snapshot, Totals,
+    AppReport, ItemFlags, ItemPortability, ItemReport, KeyInfo, KeyKind, PlatformReport, RawItem,
+    ScanReport, SkippedPath, Snapshot, Totals,
 };
 use carrova_core::select::ItemChoice;
 use carrova_core::session::{Role, SessionId, State};
@@ -146,6 +146,7 @@ pub(super) fn needs() -> Vec<SpaceNeed> {
             bytes: 99,
             needed: 500,
             available: Some(10_000),
+            total: Some(64_000_000_000),
         },
         SpaceNeed {
             state_dir: false,
@@ -153,6 +154,7 @@ pub(super) fn needs() -> Vec<SpaceNeed> {
             bytes: 100,
             needed: 5000,
             available: Some(200),
+            total: None,
         },
         SpaceNeed {
             state_dir: false,
@@ -160,6 +162,7 @@ pub(super) fn needs() -> Vec<SpaceNeed> {
             bytes: 1,
             needed: 9,
             available: None,
+            total: None,
         },
     ]
 }
@@ -195,6 +198,7 @@ pub(super) fn item_report(id: &str, label: &str, size: u64, files: u64) -> ItemR
         missing: Vec::new(),
         skipped: Vec::new(),
         app_running: false,
+        keys: Vec::new(),
     }
 }
 
@@ -214,6 +218,20 @@ pub(super) fn scan_fixture() -> ScanReport {
     let mut sensitive = item_report("keys", "SSH keys", 4096, 3);
     sensitive.flags.sensitive = true;
     sensitive.flags.default_selected = false;
+    sensitive.keys = vec![
+        KeyInfo {
+            path: "home:.ssh/id_ed25519".into(),
+            kind: KeyKind::Ed25519,
+            fingerprint: "SHA256:uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s".into(),
+            comment: Some(format!("me@host{ESC}")),
+        },
+        KeyInfo {
+            path: "home:.ssh/id_rsa".into(),
+            kind: KeyKind::Rsa,
+            fingerprint: "SHA256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU".into(),
+            comment: None,
+        },
+    ];
     let mut closed = item_report("profile", "Profile", 5 * 1024 * 1024, 120);
     closed.flags.requires_closed = true;
     closed.app_running = true;
@@ -314,6 +332,8 @@ pub(super) fn record(id: &str, role: Role, state: State, source: Option<Source>)
         checklist: None,
         error: None,
         bytes_moved: None,
+        peer_os: None,
+        expires_at: None,
     }
 }
 
@@ -329,10 +349,12 @@ pub(super) fn sessions_fixture() -> Vec<SessionRecord> {
         Some(Source::Lan {
             peer_cert_hash: Some(cert()),
             manifest_fingerprint: Blake3Hash([0; 32]),
-            peer_name: None,
+            peer_name: Some(format!("studio{ESC}")),
         }),
     );
     lan.checklist = Some(sample_checklist(true));
+    lan.peer_os = Some(OsKind::MacOs);
+    lan.expires_at = Some(1_700_000_000 + 14 * 86_400);
     let mut failed = record(
         "20261108-110000-bbbbbb",
         Role::Import,

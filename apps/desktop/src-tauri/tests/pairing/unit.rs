@@ -33,11 +33,16 @@ fn codes_are_emitted_for_display() {
     let recorder = Arc::new(Recorder::default());
     let answers = Arc::new(PairingAnswers::default());
     let ticket: Ticket = "7-acid-lemon".parse().unwrap();
-    prompt(&recorder, &answers, ANSWER_TIMEOUT).show_code(&ticket, CodeOffer::Renewed);
+    prompt(&recorder, &answers, ANSWER_TIMEOUT).show_code(
+        &ticket,
+        CodeOffer::Renewed,
+        Duration::from_secs(300),
+    );
     let shown = recorder.of_kind("pairing_code");
     assert_eq!(shown.len(), 1);
     assert_eq!(shown[0]["code"]["code"], "7-acid-lemon");
     assert_eq!(shown[0]["code"]["renewed"], true);
+    assert_eq!(shown[0]["code"]["expires_in_secs"], 300);
 }
 
 #[test]

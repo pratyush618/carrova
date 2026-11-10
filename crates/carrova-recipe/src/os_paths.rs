@@ -1,9 +1,9 @@
 //! Schema v3 per-OS path overrides of an item ([`OsOverrides`]).
 
 use carrova_platform::OsKind;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::PathRef;
+use crate::{PathRef, RelPath, RelPathError, SemanticRoot};
 
 /// Per-OS replacements for an item's `paths` / `exclude` (schema 3+).
 ///
@@ -20,8 +20,13 @@ pub struct OsOverrides {
     /// Paths on macOS.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub macos: Option<OsPaths>,
-    /// Paths on Windows.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Paths on Windows. Its `rel` values may also use `\\` separators
+    /// (normalised to `/`), see [`RelPath::new_windows`].
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "windows_paths"
+    )]
     pub windows: Option<OsPaths>,
 }
 
@@ -54,4 +59,45 @@ pub struct OsPaths {
     /// OS); absent = inherit the base globs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exclude: Option<Vec<String>>,
+}
+
+/// A [`PathRef`] read from a Windows-only block: `rel` is parsed with
+/// [`RelPath::new_windows`] (`\\` is only a separator on Windows).
+#[derive(Deserialize)]
+#[serde(try_from = "RawPathRef")]
+pub(crate) struct WindowsPathRef(pub(crate) PathRef);
+
+/// Wire form of [`WindowsPathRef`].
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPathRef {
+    root: SemanticRoot,
+    rel: String,
+}
+
+impl TryFrom<RawPathRef> for WindowsPathRef {
+    type Error = RelPathError;
+    fn try_from(raw: RawPathRef) -> Result<Self, Self::Error> {
+        let rel = RelPath::new_windows(&raw.rel)?;
+        Ok(Self(PathRef {
+            root: raw.root,
+            rel,
+        }))
+    }
+}
+
+/// Deserialize an `os.windows` block, its paths as [`WindowsPathRef`]s.
+fn windows_paths<'de, D: Deserializer<'de>>(d: D) -> Result<Option<OsPaths>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct RawOsPaths {
+        paths: Vec<WindowsPathRef>,
+        #[serde(default)]
+        exclude: Option<Vec<String>>,
+    }
+
+    Ok(Option::<RawOsPaths>::deserialize(d)?.map(|raw| OsPaths {
+        paths: raw.paths.into_iter().map(|p| p.0).collect(),
+        exclude: raw.exclude,
+    }))
 }

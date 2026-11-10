@@ -237,6 +237,21 @@ fn raw_dir_is_captured() {
     );
 }
 
+/// `:` is a valid Linux/macOS name character; only recipe-authored paths
+/// reject it (drive letters), not folders the user picks from disk.
+#[cfg(unix)]
+#[test]
+fn raw_dir_with_colon_in_its_name_is_captured() {
+    let env = env();
+    write(&env.home.join(".config/a:b/x.txt"), b"x");
+    let cap = env.capture(&env.only(&["raw:user_config/a:b"]));
+    assert_eq!(cap.manifest.items[0].item_id, "user_config/a:b");
+    assert_eq!(
+        paths(&cap.manifest),
+        ["user_config:a:b", "user_config:a:b/x.txt"]
+    );
+}
+
 #[test]
 fn symlink_is_captured_not_followed() {
     let env = env();

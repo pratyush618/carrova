@@ -13,10 +13,19 @@ use crate::rollback::{self, RollbackPreview, RollbackReport};
 use crate::session::log::{Redaction, redact_log};
 use crate::session::{Event, Role, SessionId, State};
 use crate::store::{self, LOG_FILE, SessionRecord, Source, Store, read_file};
+use crate::time;
 
-/// All persisted sessions, newest first. Unreadable records are
-/// reported as [`Event::Warning`]s on the engine sink and skipped.
+/// All persisted sessions, newest first, after pruning expired undo
+/// points ([`prune_expired`]; a failure there is a warning). Unreadable
+/// records are reported as [`Event::Warning`]s on the engine sink and
+/// skipped.
 pub fn list(engine: &Engine) -> Result<Vec<SessionRecord>> {
+    if let Err(e) = prune_expired(engine, time::now_unix()) {
+        tracing::warn!(error = %e, "could not prune expired undo points");
+        engine.sink().emit(Event::Warning {
+            message: format!("could not remove expired undo points: {e}"),
+        });
+    }
     let platform = &**engine.platform();
     let (records, corrupt) = Store::open(platform)?.list_detailed(platform)?;
     for c in corrupt {
@@ -26,6 +35,54 @@ pub fn list(engine: &Engine) -> Result<Vec<SessionRecord>> {
         });
     }
     Ok(records)
+}
+
+/// [`dismiss`] every session whose undo point expired at `now` (Unix
+/// seconds; [`SessionRecord::expires_at`]) and that records no error;
+/// returns their ids. Each session is re-checked under its lock, so one
+/// whose rollback started meanwhile (which clears its expiry) is kept. A
+/// session that cannot be dismissed is a warning (log + [`Event::Warning`])
+/// and the others are still pruned.
+///
+/// # Errors
+///
+/// The store cannot be listed.
+pub fn prune_expired(engine: &Engine, now: u64) -> Result<Vec<SessionId>> {
+    let platform = &**engine.platform();
+    let (records, _corrupt) = Store::open(platform)?.list_detailed(platform)?;
+    let mut pruned = Vec::new();
+    for r in records.into_iter().filter(|r| is_expired(r, now)) {
+        match prune_one(engine, &r.id, now) {
+            Ok(true) => pruned.push(r.id),
+            Ok(false) => {}
+            Err(e) => {
+                tracing::warn!(session = %r.id, error = %e, "could not remove expired undo point");
+                engine.sink().emit(Event::Warning {
+                    message: format!("could not remove the expired undo point of `{}`: {e}", r.id),
+                });
+            }
+        }
+    }
+    Ok(pruned)
+}
+
+/// Whether `r`'s undo point may be pruned at `now`: past its expiry and
+/// with no error recorded (e.g. an incomplete rollback, whose backup may
+/// hold the only copy of what it could not restore).
+fn is_expired(r: &SessionRecord, now: u64) -> bool {
+    r.error.is_none() && r.expires_at.is_some_and(|at| at <= now)
+}
+
+/// Dismiss `id` if, re-read under its lock, it is still expired at `now`;
+/// whether it was.
+fn prune_one(engine: &Engine, id: &SessionId, now: u64) -> Result<bool> {
+    let (mut s, _lock) = Session::load_locked(engine.clone(), id)?;
+    if !is_expired(&s.record, now) {
+        return Ok(false);
+    }
+    tracing::info!(session = %id, "undo point expired");
+    dismiss_session(&mut s)?;
+    Ok(true)
 }
 
 /// One session.
@@ -41,8 +98,21 @@ pub fn show(engine: &Engine, id: &SessionId) -> Result<SessionRecord> {
 /// journal (e.g. an incomplete automatic rollback: retried, state stays
 /// `Failed`). Steps that still fail are returned in
 /// [`RollbackReport::failed`] and the state is left unchanged.
+///
+/// Before any step the session's undo point stops expiring
+/// ([`SessionRecord::expires_at`] cleared and saved under the session
+/// lock): from then on its backup may hold the only copy of what is not
+/// yet restored, so only an explicit [`dismiss`] removes it.
 pub fn rollback(engine: &Engine, id: Option<&SessionId>) -> Result<RollbackReport> {
-    let mut s = rollback_target(engine, id)?;
+    let id = rollback_id(engine, id)?;
+    let mut s = {
+        let (mut s, _lock) = Session::load_locked(engine.clone(), &id)?;
+        check_rollbackable(&s)?;
+        if s.record.expires_at.take().is_some() {
+            s.save()?;
+        }
+        s
+    };
     let from = s.record.state;
     let report = rollback::rollback(s.platform(), &s.dir, s.sink())?;
     s.wipe_staging();
@@ -73,15 +143,26 @@ pub fn rollback_preview(engine: &Engine, id: Option<&SessionId>) -> Result<Rollb
 /// The import [`rollback`] works on (`id`, else the latest `Done`
 /// import), checked to be in a state that can be rolled back.
 fn rollback_target(engine: &Engine, id: Option<&SessionId>) -> Result<Session> {
-    let id = match id {
-        Some(id) => id.clone(),
+    let s = Session::load(engine.clone(), &rollback_id(engine, id)?)?;
+    check_rollbackable(&s)?;
+    Ok(s)
+}
+
+/// `id`, else the latest `Done` import.
+fn rollback_id(engine: &Engine, id: Option<&SessionId>) -> Result<SessionId> {
+    match id {
+        Some(id) => Ok(id.clone()),
         None => list(engine)?
             .into_iter()
             .find(|r| r.role == Role::Import && r.state == State::Done)
             .map(|r| r.id)
-            .ok_or(CoreError::NothingToRollBack)?,
-    };
-    let s = Session::load(engine.clone(), &id)?;
+            .ok_or(CoreError::NothingToRollBack),
+    }
+}
+
+/// Refuse a session [`rollback`] cannot work on: an export, or an
+/// import in a state with nothing to undo.
+fn check_rollbackable(s: &Session) -> Result<()> {
     if s.record.role != Role::Import {
         return Err(s.problem(SessionProblem::ExportNotRollbackable));
     }
@@ -97,7 +178,7 @@ fn rollback_target(engine: &Engine, id: Option<&SessionId>) -> Result<Session> {
             to: State::RolledBack,
         });
     }
-    Ok(s)
+    Ok(())
 }
 
 /// The LAN session `--resume` continues: `given`, else the newest
@@ -133,7 +214,12 @@ fn is_resumable_lan(r: &SessionRecord) -> bool {
 /// Irreversible.
 /// Refused while the session is `Applying`.
 pub fn dismiss(engine: &Engine, id: &SessionId) -> Result<()> {
-    let mut s = Session::load(engine.clone(), id)?;
+    let (mut s, _lock) = Session::load_locked(engine.clone(), id)?;
+    dismiss_session(&mut s)
+}
+
+/// [`dismiss`] the loaded `s` (its lock held by the caller).
+fn dismiss_session(s: &mut Session) -> Result<()> {
     if s.record.state == State::Applying {
         return Err(s.problem(SessionProblem::Applying));
     }
@@ -143,6 +229,7 @@ pub fn dismiss(engine: &Engine, id: &SessionId) -> Result<()> {
     if let Some(c) = s.record.checklist.as_mut() {
         c.rollback_available = false;
     }
+    s.record.expires_at = None;
     s.save()
 }
 

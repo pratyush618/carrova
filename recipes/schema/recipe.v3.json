@@ -33,7 +33,10 @@
       "additionalProperties": false,
       "properties": {
         "linux": { "$ref": "#/$defs/detectRulesOptional" },
-        "windows": { "$ref": "#/$defs/detectRulesOptional" },
+        "windows": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/windowsDetectRule" }
+        },
         "macos": { "$ref": "#/$defs/detectRulesOptional" }
       },
       "anyOf": [
@@ -98,7 +101,7 @@
       "enum": ["user_config", "user_data", "cache", "home", "documents"]
     },
     "relPath": {
-      "description": "Path relative to a semantic root. `/` separators; no leading `/` or `~`, no backslash, no NUL, no drive letter, no `..` component, not empty (after dropping `.` components).",
+      "description": "Path relative to a semantic root. `/` separators; no leading `/` or `~`, no backslash, no NUL, no `:` (drive letter) anywhere, no `..` component, not empty (after dropping `.` components).",
       "type": "string",
       "minLength": 1,
       "allOf": [
@@ -106,7 +109,7 @@
         { "pattern": "^[^\\\\\\u0000]*$" },
         { "not": { "pattern": "(^|/)\\.\\.(/|$)" } },
         { "not": { "pattern": "^(\\.?/)*\\.?$" } },
-        { "not": { "pattern": "^[A-Za-z]:" } }
+        { "pattern": "^[^:]*$" }
       ]
     },
     "pathRef": {
@@ -134,6 +137,44 @@
         }
       }
     },
+    "windowsRelPath": {
+      "description": "`relPath` inside a `windows` block (`os.windows`, `detect.windows`): `\\` is also a separator (normalised to `/`). Still no leading separator or `~`, no `:` anywhere (drive letter `C:`, even after the first component), no UNC, no NUL, no `..` component, not empty; use a semantic root instead of an absolute path.",
+      "type": "string",
+      "minLength": 1,
+      "allOf": [
+        { "pattern": "^[^/\\\\~]" },
+        { "pattern": "^[^\\u0000]*$" },
+        { "not": { "pattern": "(^|[/\\\\])\\.\\.([/\\\\]|$)" } },
+        { "not": { "pattern": "^(\\.?[/\\\\])*\\.?$" } },
+        { "pattern": "^[^:]*$" }
+      ]
+    },
+    "windowsPathRef": {
+      "description": "`pathRef` inside a `windows` block (`os.windows`, `detect.windows`).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "rel"],
+      "properties": {
+        "root": { "$ref": "#/$defs/semanticRoot" },
+        "rel": { "$ref": "#/$defs/windowsRelPath" }
+      }
+    },
+    "windowsOsPaths": {
+      "description": "`osPaths` for the `windows` block, whose `rel` values may use `\\` separators.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paths"],
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/windowsPathRef" }
+        },
+        "exclude": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmpty" }
+        }
+      }
+    },
     "detectRule": {
       "description": "Exactly one of `binary` (bare executable name looked up on the search path) or `path` (exists, any kind, symlinks not followed).",
       "type": "object",
@@ -143,6 +184,17 @@
       "properties": {
         "binary": { "$ref": "#/$defs/bareName" },
         "path": { "$ref": "#/$defs/pathRef" }
+      }
+    },
+    "windowsDetectRule": {
+      "description": "`detectRule` for `detect.windows`, whose `path.rel` may use `\\` separators.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "maxProperties": 1,
+      "properties": {
+        "binary": { "$ref": "#/$defs/bareName" },
+        "path": { "$ref": "#/$defs/windowsPathRef" }
       }
     },
     "detectRules": {
@@ -218,7 +270,7 @@
           "properties": {
             "linux": { "$ref": "#/$defs/osPaths" },
             "macos": { "$ref": "#/$defs/osPaths" },
-            "windows": { "$ref": "#/$defs/osPaths" }
+            "windows": { "$ref": "#/$defs/windowsOsPaths" }
           }
         }
       },

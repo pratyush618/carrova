@@ -19,7 +19,7 @@ Handler: gnupg/keys runs `gpg-keyring` (backs up 1 path(s) first; trust import o
 Apps not installed here: app\u{1b}[1A\u{1b}[2K, vscode
 Running apps that should be closed: firefox
 Space: writes 99 B
-  on the state dir and home: needs about 500 B, free 10.0 kB
+  on the state dir and home: needs about 500 B, free 10.0 kB of 64.0 GB
   on user_data: needs about 5.0 kB, free 200 B  (SHORT by 4.8 kB)
   on cache: needs about 9 B, free unknown
 Warnings:

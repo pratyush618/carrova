@@ -4,11 +4,11 @@ use std::fs::File;
 use std::io;
 use std::net::UdpSocket;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command};
 
 use crate::{
-    Allocation, DirEntry, FileLock, FileMeta, FsId, LanInterface, OsKind, PermissionModel,
-    PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
+    Allocation, DirEntry, DiskInfo, FileLock, FileMeta, FsId, LanInterface, OsKind,
+    PermissionModel, PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
 };
 
 /// OS abstraction used by every service crate.
@@ -44,6 +44,14 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
 
     /// Bytes available to the current user on the filesystem holding `path`.
     fn free_space(&self, path: &Path) -> Result<u64, PlatformError>;
+
+    /// Size and mount point of the filesystem holding `path` (**follows**
+    /// symlinks, like [`Platform::free_space`]), so a low-space message can
+    /// name the disk and show how full it is.
+    fn disk(&self, path: &Path) -> Result<DiskInfo, PlatformError> {
+        let _ = path;
+        Err(PlatformError::Unsupported("disk"))
+    }
 
     /// Whether the filesystem holding `path` supports cheap snapshots.
     fn snapshot_capability(&self, path: &Path) -> Result<SnapshotCapability, PlatformError>;
@@ -290,5 +298,19 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     fn tool_command(&self, bin: &Path) -> Result<Command, PlatformError> {
         let _ = bin;
         Err(PlatformError::Unsupported("tool_command"))
+    }
+
+    /// Make the tool `cmd` starts the head of its own process tree (Unix:
+    /// a new process group), so [`Platform::kill_tool`] also ends whatever
+    /// it spawned. Only for tools that never read the terminal.
+    fn isolate_tool(&self, cmd: &mut Command) {
+        crate::sys::isolate_tool(cmd);
+    }
+
+    /// Kill `child`, started from an [`isolated`](Platform::isolate_tool)
+    /// command, with every process still in its tree. Call before reaping
+    /// `child`, while its id cannot be reused.
+    fn kill_tool(&self, child: &mut Child) -> io::Result<()> {
+        crate::sys::kill_tool(child)
     }
 }

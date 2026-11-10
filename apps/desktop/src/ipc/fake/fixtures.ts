@@ -5,6 +5,7 @@
  */
 import type { CodeView } from '../../bindings/CodeView';
 import type { Inventory } from '../../bindings/Inventory';
+import type { PlannedPlugin } from '../../bindings/PlannedPlugin';
 import type { PlanSummary } from '../../bindings/PlanSummary';
 import type { SessionId } from '../../bindings/SessionId';
 import { plan } from '../fixtures/plan';
@@ -31,7 +32,13 @@ export const importSession: SessionId = plan.plan.session;
 /** The code a fake send shows (first, then after a wrong attempt). */
 export function codeView(renewed: boolean): CodeView {
   const code = renewed ? '4-violet-harbor' : '7-acid-lemon';
-  return { code, fallback: `${code}@192.168.1.20:47822`, renewed };
+  return {
+    code,
+    fallback: `${code}@192.168.1.20:47822`,
+    renewed,
+    expired: false,
+    expires_in_secs: 300,
+  };
 }
 
 /** The fake receiver's machine. */
@@ -59,3 +66,18 @@ export const planSummary: PlanSummary = {
 
 /** Where a fake receiver connects from / to. */
 export const peerAddress = '192.168.1.20:47822';
+
+/**
+ * The `plugin` scenario's plugin, over the Starship config: the sender is
+ * asked to allow its export, the receiver its transform.
+ */
+export const PATH_REWRITE = {
+  plugin: 'path-rewrite',
+  version: '1.0.0',
+  description: 'Rewrites home folder paths in the config for this computer.',
+  permissions: [
+    'It sees the path of your home folder on this computer.',
+    'It cannot use the network.',
+  ],
+  items: ['starship/config'],
+} satisfies PlannedPlugin;

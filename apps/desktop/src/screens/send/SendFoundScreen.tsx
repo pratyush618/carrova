@@ -110,7 +110,11 @@ export function SendFoundScreen({ model, purpose, here = null, on }: SendFoundSc
                   : t('send.found.noteWithKeys', { ...note, count: facts.keys })
               }
               end={
-                <Button kind="primary" disabled={model.issues.length > 0} onClick={on.onContinue}>
+                <Button
+                  kind="primary"
+                  disabled={model.issues.length > 0 || model.plugins.length > 0}
+                  onClick={on.onContinue}
+                >
                   {purpose === 'save' ? t('action.continue') : t('send.found.toPairing')}
                 </Button>
               }
@@ -126,6 +130,25 @@ export function SendFoundScreen({ model, purpose, here = null, on }: SendFoundSc
           />
           {model.issues.map((issue) => (
             <Banner key={issue} tone="danger" title={t('send.found.issue')} body={issue} />
+          ))}
+          {model.plugins.map(({ plugin, items }) => (
+            <Banner
+              key={plugin}
+              tone="warning"
+              icon="plug"
+              title={t('send.found.plugin', { plugin, what: items.join(', ') })}
+              action={
+                <Button
+                  size="sm"
+                  aria-label={t('send.found.pluginReviewFor', { plugin })}
+                  onClick={() => {
+                    on.onReviewPlugin(plugin);
+                  }}
+                >
+                  {t('send.found.pluginReview')}
+                </Button>
+              }
+            />
           ))}
           <div className="s-found-tools">
             <Search

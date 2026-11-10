@@ -1,8 +1,11 @@
 import type { BridgeError } from '../../engine/types';
+import type { KeyKind } from '../../bindings/KeyKind';
 import type { OsKind } from '../../bindings/OsKind';
 import type { Preset } from '../../bindings/Preset';
 import type { RouteEnd } from '../../ui';
+import type { PluginConsentModel } from '../receive/model';
 import type { AppRef, Bytes, ItemKey } from '../shared/model';
+import type { SensitiveWhy } from '../shared/sensitiveWhy';
 import type { TransferModel } from '../shared/transfer';
 
 /** One app found on this computer (`carrova-view` selection row, app level). */
@@ -25,12 +28,24 @@ export interface SecretItem {
   readonly key: ItemKey;
   readonly app: AppRef;
   readonly label: string;
-  /** The recipe's reason, literal; `null` uses the general wording for secrets. */
-  readonly why: string | null;
-  /** Its declared paths as the user knows them (the key files). */
+  /** What a copy lets someone do, in the user's words. */
+  readonly why: SensitiveWhy;
+  /** Its declared paths as the user knows them. */
   readonly paths: readonly string[];
+  /** The key files found in it, to tell keys apart; empty when none were recognised. */
+  readonly keys: readonly KeyFile[];
   readonly bytes: Bytes;
   readonly brought: boolean;
+}
+
+/** A key file of a secret (`carrova-core` `KeyInfo`); never the key itself. */
+export interface KeyFile {
+  /** As the user knows it (`~/.ssh/id_ed25519`). */
+  readonly path: string;
+  readonly kind: KeyKind;
+  /** `SHA256:…`, as `ssh-keygen -l` prints it. */
+  readonly fingerprint: string;
+  readonly comment: string | null;
 }
 
 /** The move so far, in the rail's words ("11 of 15 apps", "Keys left behind"). */
@@ -75,6 +90,8 @@ export type FoundModel =
       readonly facts: MoveFacts;
       /** Why the selection can't be used yet (engine wording); Continue waits for none. */
       readonly issues: readonly string[];
+      /** Plugins to allow (or leave their items) before anything leaves; Continue waits for none. */
+      readonly plugins: readonly PluginConsentModel[];
     };
 
 /** Whether the selection leads to pairing (send) or a file (save). */
@@ -85,6 +102,8 @@ export interface FoundIntents {
   /** Asks to bring a secret: opens its confirm. */
   readonly onConfirmKey: (key: ItemKey) => void;
   readonly onLeaveKey: (key: ItemKey) => void;
+  /** Opens a plugin's consent: what it may do, allow it or leave its items. */
+  readonly onReviewPlugin: (plugin: string) => void;
   readonly onFilter: (text: string) => void;
   /** Start over from a preset (keys keep their own answers). */
   readonly onPreset: (preset: FoundPreset) => void;
@@ -200,11 +219,16 @@ export type PairingModel =
   /** Capturing and starting to listen; the code follows in a moment. */
   | { readonly status: 'preparing' }
   | {
-      readonly status: 'waiting' | 'cant-connect' | 'renewed';
+      /** `renewed`: after a wrong code; `expired`: the previous code outlived its lifetime. */
+      readonly status: 'waiting' | 'cant-connect' | 'renewed' | 'expired';
       readonly code: readonly string[];
       /** Fallback address, typed on the other computer when discovery is blocked; `null` if none. */
       readonly address: string | null;
+      /** When the engine replaces the code (ms since epoch). */
+      readonly expiresAt: number;
     }
+  /** The receiver typed the code; both sides are proving they know it. */
+  | { readonly status: 'checking' }
   | { readonly status: 'locked' }
   /** Pairing or the send ended with an error other than wrong codes. */
   | { readonly status: 'failed'; readonly error: BridgeError };

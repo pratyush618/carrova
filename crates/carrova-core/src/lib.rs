@@ -78,8 +78,9 @@ pub use carrova_manifest::Manifest;
 pub use carrova_plugin::{Plugin, PluginPackage};
 /// Recipe model, re-exported so front-ends need not depend on `carrova-recipe`.
 pub use carrova_recipe::Recipe;
-/// LAN ticket (code + optional address) front-ends parse from user input.
-pub use carrova_transport::Ticket;
+/// LAN ticket (code + optional address) front-ends parse from user input,
+/// and a sender found nearby ([`lan::browse_nearby`]).
+pub use carrova_transport::{Nearby, Ticket};
 pub use catalog::{Catalog, CatalogError, ValidationReport, load_catalog, validate_targets};
 pub use checklist::{Checklist, Skipped};
 pub use engine::{
@@ -93,8 +94,8 @@ pub use error::{
 pub use kdf::KdfStrength;
 pub use key::{ArtifactId, ItemKey, ItemTarget, RootedPath};
 pub use plan::{
-    Action, ConflictRule, ObjectKind, Plan, PlanOptions, PlanWarning, PlannedAction, PlannedPlugin,
-    Remap, Retention,
+    Action, ConflictRule, ObjectKind, Plan, PlanEdit, PlanOptions, PlanOverride, PlanWarning,
+    PlannedAction, PlannedPlugin, Remap, Retention,
 };
 pub use rollback::{Quarantined, RollbackFailure, RollbackPreview, RollbackReport};
 pub use scan::{ScanError, ScanOptions, ScanReport, scan};

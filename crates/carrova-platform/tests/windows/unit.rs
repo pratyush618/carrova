@@ -179,3 +179,12 @@ fn process_names_are_exe_stems() {
     assert_eq!(process_name(OsStr::new("Code.exe")), "Code");
     assert_eq!(process_name(OsStr::new("gpg-agent")), "gpg-agent");
 }
+
+#[test]
+fn disk_is_the_volume_holding_a_path() {
+    let tmp = TempDir::new().unwrap();
+    let p = WindowsPlatform;
+    let disk = p.disk(tmp.path()).unwrap();
+    assert!(disk.total >= p.free_space(tmp.path()).unwrap());
+    assert!(tmp.path().starts_with(&disk.mount_point), "{disk:?}");
+}

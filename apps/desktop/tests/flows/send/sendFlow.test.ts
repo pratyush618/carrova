@@ -53,11 +53,24 @@ describe('send flow', () => {
     const session = emptySession(scan.session);
     expect(sendStep(pairing, session)).toBe('code');
     expect(pairingModel(pairing, session).status).toBe('preparing');
-    const code = { code: '7-acid-lemon', fallback: null, renewed: false };
+    const view = {
+      code: '7-acid-lemon',
+      fallback: null,
+      renewed: false,
+      expired: false,
+      expires_in_secs: 300,
+    };
+    const code = { view, expiresAt: 300_000 };
     expect(pairingModel(pairing, { ...session, code })).toEqual({
       status: 'waiting',
       code: ['7', 'acid', 'lemon'],
       address: null,
+      expiresAt: 300_000,
+    });
+    const expired = { ...code, view: { ...view, expired: true } };
+    expect(pairingModel(pairing, { ...session, code: expired }).status).toBe('expired');
+    expect(pairingModel(pairing, { ...session, code, checking: true })).toEqual({
+      status: 'checking',
     });
     expect(sendStep(pairing, { ...session, link: 'connected' })).toBe('live');
     const report = {

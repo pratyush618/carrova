@@ -25,4 +25,8 @@ needed: number,
 /**
  * Free bytes, if they could be determined.
  */
-available: number | null, };
+available: number | null, 
+/**
+ * Capacity of the filesystem, if it could be determined.
+ */
+total: number | null, };

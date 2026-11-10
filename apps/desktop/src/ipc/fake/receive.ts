@@ -2,14 +2,14 @@
 import type { Blocker } from '../../bindings/Blocker';
 import type { Checklist } from '../../bindings/Checklist';
 import type { Event } from '../../bindings/Event';
+import type { PlanEdit } from '../../bindings/PlanEdit';
 import type { PlanOptions } from '../../bindings/PlanOptions';
-import type { PlannedPlugin } from '../../bindings/PlannedPlugin';
 import type { PlanReview } from '../../bindings/PlanReview';
 import type { SessionId } from '../../bindings/SessionId';
 import type { SessionOpened } from '../../bindings/SessionOpened';
 import { bridgeError, raise } from '../reject';
 import * as fx from './fixtures';
-import { planUnder, type CrossOsConditions } from './planner';
+import { editOptions, planUnder, type CrossOsConditions } from './planner';
 import { CANCELLED, later, type Runtime } from './runtime';
 import type { Scenario } from './scenario';
 
@@ -42,23 +42,13 @@ const FROM_A_MAC = {
   ],
 } satisfies CrossOsConditions;
 
-/** The `plugin` scenario's plugin, over the Starship config. */
-const PATH_REWRITE = {
-  plugin: 'path-rewrite',
-  version: '1.0.0',
-  description: 'Rewrites home folder paths in the config for this computer.',
-  permissions: [
-    'It sees the path of your home folder on this computer.',
-    'It cannot use the network.',
-  ],
-  items: ['starship/config'],
-} satisfies PlannedPlugin;
-
 /** Receiving-side flows over `runtime`. */
 export class FakeReceiver {
   private approved = false;
   /** Options of the latest plan, and of the plan last approved (`JSON.stringify`). */
   private planned: PlanOptions | null = null;
+  /** The last plan reviewed (what `editPlan` edits). */
+  private review: PlanReview | null = null;
   private approvedOptions = '';
   private blocked = false;
   /** Whether the user lifted the free-space check of the current pause. */
@@ -136,9 +126,10 @@ export class FakeReceiver {
       const replanned = planUnder(fx.plan, options, {
         runningApp: running ? RUNNING_APP : null,
         ...(this.scenario === 'cross-os' && { crossOs: FROM_A_MAC }),
-        ...(this.scenario === 'plugin' && { plugin: PATH_REWRITE }),
+        ...(this.scenario === 'plugin' && { plugin: fx.PATH_REWRITE }),
       });
       const review: PlanReview = { ...replanned, approval: this.approved ? 'given' : 'needed' };
+      this.review = review;
       this.blocked = review.plan.blockers.length > 0;
       if (!running) return review;
       const plan = {
@@ -148,6 +139,14 @@ export class FakeReceiver {
       };
       return { ...review, plan };
     });
+  }
+
+  /** Re-plan with `edits` applied to the last plan's options (see `editOptions`). */
+  editPlan(session: SessionId, edits: readonly PlanEdit[]): Promise<PlanReview> {
+    return later(() => {
+      if (this.review === null) raise(bridgeError('invalid_selection', 'nothing planned yet'));
+      return editOptions(this.review, edits);
+    }).then((options) => this.plan(session, options));
   }
 
   planOptions(session: SessionId): Promise<PlanOptions | null> {
@@ -220,6 +219,13 @@ export class FakeReceiver {
     });
   }
 
+  /** "Try now": the fake never loses the connection, so there is nothing to hurry. */
+  retryConnection(session: SessionId): Promise<void> {
+    return later(() => {
+      this.runtime.slot(session);
+    });
+  }
+
   endReview(session: SessionId): Promise<void> {
     return later(() => {
       this.runtime.slot(session);
@@ -239,6 +245,7 @@ export class FakeReceiver {
         fs: '/home/ana/.local/state/carrova',
         available: 1_000_000,
         needed: 250_000_000,
+        disk: '/home',
       } as const;
       rt.engine(session, { event: 'transfer_paused', reason });
       const space = { ignored: false };

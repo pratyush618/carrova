@@ -10,6 +10,7 @@ type DetailIntents = Pick<HistoryIntents, 'onUndo' | 'onResume' | 'onForget'>;
 function useSteps(model: SessionModel, now: Date): TimelineEntry[] {
   const { t } = useTranslation();
   const format = useFormat();
+  const until = model.undoUntil;
   const undone = model.entry.kind === 'undone';
   const steps: TimelineEntry[] = model.timeline.map((step) => ({
     id: step.kind,
@@ -25,7 +26,10 @@ function useSteps(model: SessionModel, now: Date): TimelineEntry[] {
     steps.push({
       id: 'undo-point',
       label: t('history.undoPoint'),
-      detail: t('history.undoPointSub'),
+      detail:
+        until === null
+          ? t('history.undoPointSub')
+          : t('history.undoUntil', { date: format.date(until) }),
       tone: 'accent',
     });
   // A rewind reads newest first.

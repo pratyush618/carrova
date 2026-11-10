@@ -25,10 +25,11 @@ impl Exporter {
         let cancel = self.cancel.clone();
         self.s.failing(|s| {
             let platform = s.platform();
-            let cap = capture::capture_with_plugins(
+            let cap = capture::capture_with_consent(
                 platform,
                 s.engine.recipes(),
                 s.engine.plugins(),
+                &selection.confirmed_plugins,
                 &selection,
                 s.sink(),
                 &cancel,

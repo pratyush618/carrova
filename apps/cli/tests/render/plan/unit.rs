@@ -315,3 +315,38 @@ fn plugins_show_their_permissions_and_the_allow_hint() {
     );
     assert!(out.contains("(--allow-plugin path-rewrite)"), "{out}");
 }
+
+#[test]
+fn space_line_shows_free_of_total_when_capacity_is_known() {
+    let (plan, manifest) = sample();
+    let need = |total| carrova_core::plan::SpaceNeed {
+        state_dir: true,
+        roots: vec![SemanticRoot::Home],
+        bytes: 99,
+        needed: 500,
+        available: Some(2_000),
+        total,
+    };
+    let mut out = Vec::new();
+    super::plan(
+        &mut out,
+        &plan,
+        Some(&manifest),
+        &[need(Some(8_000))],
+        Detail::Summary,
+    )
+    .unwrap();
+    let s = String::from_utf8(out).unwrap();
+    assert!(s.contains("free 2.0 kB of 8.0 kB"), "{s}");
+    let mut out = Vec::new();
+    super::plan(
+        &mut out,
+        &plan,
+        Some(&manifest),
+        &[need(None)],
+        Detail::Summary,
+    )
+    .unwrap();
+    let s = String::from_utf8(out).unwrap();
+    assert!(s.contains("free 2.0 kB\n"), "{s}");
+}

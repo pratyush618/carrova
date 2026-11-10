@@ -13,6 +13,12 @@ import { later, type Runtime } from './runtime';
 import type { Scenario } from './scenario';
 import { applyEdits, viewOf } from './selection';
 
+/** The recorded suggestion; in the `plugin` scenario a plugin exports the Starship config. */
+function suggested(scenario: Scenario): Selection {
+  const { selection } = fx.scan;
+  return scenario === 'plugin' ? { ...selection, export_plugins: [fx.PATH_REWRITE] } : selection;
+}
+
 /** The recorded scan with `selection` in place of its suggestion. */
 function scanWith(selection: Selection): ScanResult {
   return { ...fx.scan, selection, view: viewOf(selection, fx.scan.view) };
@@ -46,14 +52,18 @@ export class FakeSender {
     }
     this.runtime.open(fx.exportSession);
     await this.runtime.step(fx.exportSession, 2);
-    this.usable = true;
-    return fx.scan;
+    if (this.scenario !== 'plugin') {
+      this.usable = true;
+      return fx.scan;
+    }
+    this.usable = false;
+    return scanWith(suggested(this.scenario));
   }
 
   suggest(session: SessionId, preset: Preset): Promise<ScanResult> {
     return later(() => {
       this.runtime.slot(session);
-      return scanWith(applyEdits(fx.scan.selection, [{ kind: 'preset', preset }]));
+      return scanWith(applyEdits(suggested(this.scenario), [{ kind: 'preset', preset }]));
     });
   }
 

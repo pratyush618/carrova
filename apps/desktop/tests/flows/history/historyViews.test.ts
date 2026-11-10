@@ -71,6 +71,14 @@ describe('history views', () => {
     expect(historyEntry(lan).peer).toBe('ezio-desktop');
   });
 
+  it("carries the peer's OS and when the undo point expires, if recorded", () => {
+    expect(historyEntry(record({})).peerOs).toBeNull();
+    expect(sessionModel(record({}), null).undoUntil).toBeNull();
+    const later = record({ peer_os: 'windows', expires_at: 1_763_000_000 });
+    expect(historyEntry(later).peerOs).toBe('windows');
+    expect(sessionModel(later, null).undoUntil).toEqual(new Date(1_763_000_000_000));
+  });
+
   it('lists the three newest moves on Home and asks for consent only while unanswered', () => {
     const now = new Date();
     const records = ['a', 'b', 'c', 'd'].map((id) => record({ id }));

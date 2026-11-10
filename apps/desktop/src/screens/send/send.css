@@ -9,3 +9,8 @@
 .s-found-tools > .p-search {
   flex: 1 1 14rem;
 }
+
+/* Fingerprints are long unbroken tokens: let them wrap inside the dialog. */
+.s-send__fp {
+  overflow-wrap: anywhere;
+}

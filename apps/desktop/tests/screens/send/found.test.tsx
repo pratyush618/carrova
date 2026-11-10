@@ -10,6 +10,7 @@ const foundOn = () => ({
   onToggleApp: vi.fn(),
   onConfirmKey: vi.fn(),
   onLeaveKey: vi.fn(),
+  onReviewPlugin: vi.fn(),
   onFilter: vi.fn(),
   onPreset: vi.fn(),
   onCustomize: vi.fn(),

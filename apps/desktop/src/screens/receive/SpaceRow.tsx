@@ -26,8 +26,13 @@ export function SpaceRow({
       : space.short
         ? 'short'
         : 'plenty';
-  const share =
-    space.free === null || space.free === 0 ? 1 : Math.min(1, space.needed / space.free);
+  // The track is the disk when its size is known (grey = used), else the free space.
+  const track = space.total ?? space.free;
+  const used =
+    space.total === null || space.free === null || space.total === 0
+      ? 0
+      : Math.max(0, space.total - space.free) / space.total;
+  const share = track === null || track === 0 ? 1 : Math.min(1 - used, space.needed / track);
   return (
     <div className={cx('s-space', `s-space--${state}`)}>
       <p className="s-space__top">
@@ -44,6 +49,7 @@ export function SpaceRow({
       </p>
       {space.free !== null && (
         <span className="s-space__bar" aria-hidden="true">
+          {used > 0 && <i className="s-space__used" style={{ '--p': String(used) }} />}
           <i style={{ '--p': String(share) }} />
         </span>
       )}

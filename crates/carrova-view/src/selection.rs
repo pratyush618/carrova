@@ -5,8 +5,9 @@
 use serde::Serialize;
 use std::collections::HashMap;
 
+use carrova_core::scan::KeyInfo;
 use carrova_core::select::{ItemChoice, Selection, SelectionIssue};
-use carrova_core::{ItemKey, RootedPath, ScanReport};
+use carrova_core::{ItemKey, PlannedPlugin, RootedPath, ScanReport};
 
 /// Label shown for an unrecognised (raw) directory.
 pub const RAW_LABEL: &str = "unrecognised data";
@@ -21,6 +22,8 @@ pub struct ItemFacts<'a> {
     pub size: u64,
     /// Regular files.
     pub files: u64,
+    /// Key files in the item (empty for raw dirs).
+    pub keys: &'a [KeyInfo],
 }
 
 /// Item key → [`ItemFacts`] for every detected recipe item and raw dir of
@@ -32,6 +35,7 @@ pub fn facts_by_key(scan: &ScanReport) -> HashMap<ItemKey, ItemFacts<'_>> {
                 label: &i.label,
                 size: i.size,
                 files: i.file_count,
+                keys: &i.keys,
             };
             (ItemKey::recipe(&app.id, &i.id), facts)
         })
@@ -41,6 +45,7 @@ pub fn facts_by_key(scan: &ScanReport) -> HashMap<ItemKey, ItemFacts<'_>> {
             label: RAW_LABEL,
             size: raw.size,
             files: raw.file_count,
+            keys: &[],
         };
         (ItemKey::raw(RootedPath::new(raw.root, &raw.rel)), facts)
     });
@@ -119,6 +124,10 @@ pub struct SelectionView<'a> {
     pub included_size: u64,
     /// Why the selection cannot be used as is.
     pub issues: Vec<SelectionIssue>,
+    /// Plugins that change the files of some items on this computer
+    /// before sending, with what they may do: the consent an issue's
+    /// [`SelectionIssue::plugin`] asks for.
+    pub plugins: &'a [PlannedPlugin],
 }
 
 /// View of `sel`, with sizes from `scan`.
@@ -150,6 +159,7 @@ pub fn selection_view<'a>(sel: &'a Selection, scan: &'a ScanReport) -> Selection
             .filter_map(|r| r.facts.map(|f| f.size))
             .sum(),
         issues: sel.issues(),
+        plugins: &sel.export_plugins,
         rows,
     }
 }

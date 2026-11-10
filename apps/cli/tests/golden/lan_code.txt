@@ -6,6 +6,7 @@
   └─────────────────────────────────┘
 
 On the other machine run `carrova receive` and type this code.
+The code expires in 5 min; a new one is shown then.
 If the other machine can't find this one, type: 7-acid-lemon@192.168.1.20:47822
 Waiting for the other machine... (Ctrl-C to cancel)
 --
@@ -21,9 +22,25 @@ New code (the previous one can no longer be used):
   └─────────────────────────────────┘
 
 On the other machine run `carrova receive` and type this code.
+The code expires in 5 min; a new one is shown then.
 Waiting for the other machine... (Ctrl-C to cancel)
 --
 {"pairing_code":"7-acid-lemon","renewed":true,"ticket":null}
+--
+
+The previous code expired. New code:
+
+  ┌─────────────────────────────────┐
+  │                                 │
+  │   Pairing code:  7-acid-lemon   │
+  │                                 │
+  └─────────────────────────────────┘
+
+On the other machine run `carrova receive` and type this code.
+The code expires in 5 min; a new one is shown then.
+Waiting for the other machine... (Ctrl-C to cancel)
+--
+{"pairing_code":"7-acid-lemon","renewed":false,"ticket":null}
 --
 
 !!! WARNING: Someone entered a wrong code. If that wasn't you, stop now. !!!

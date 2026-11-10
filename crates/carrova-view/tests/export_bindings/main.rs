@@ -22,16 +22,16 @@ use std::path::{Path, PathBuf};
 use carrova_core::lan::{Inventory, PlanSummary};
 use carrova_core::plan::SpaceNeed;
 use carrova_core::{
-    ArchiveSummary, Checklist, CodeOffer, Event, KdfStrength, Plan, PlanOptions, Preset,
+    ArchiveSummary, Checklist, CodeOffer, Event, KdfStrength, Plan, PlanEdit, PlanOptions, Preset,
     RollbackPreview, RollbackReport, ScanOptions, ScanReport, Selection, SelectionEdit,
     SelectionIssue, SendReport, SessionRecord,
 };
 use carrova_report::{ErrorReport, IssueDraft, ReportConsent, ReportId, ReportSummary};
 use carrova_view::ipc::{
-    About, BridgeError, BridgeEvent, CatalogEntry, EngineDefaults, PlanReview, RecipesStatus,
-    RecipesUpdate, ScanResult, SessionOpened, Settings, UpdateStatus,
+    About, BridgeError, BridgeEvent, CatalogEntry, EngineDefaults, PlanReview, RecipesCheck,
+    RecipesStatus, RecipesUpdate, ScanResult, SessionOpened, Settings, UpdateStatus,
 };
-use carrova_view::lan::{CodeView, InventoryView, PauseView, SummaryView};
+use carrova_view::lan::{CodeView, InventoryView, NearbyPeer, PauseView, SummaryView};
 use carrova_view::offer::OfferedItem;
 use carrova_view::plan::{PlanView, SpaceView};
 use carrova_view::selection::SelectionView;
@@ -86,11 +86,13 @@ fn export_typescript_bindings() {
         SelectionEdit::export_all,
         Preset::export_all,
         PlanOptions::export_all,
+        PlanEdit::export_all,
         KdfStrength::export_all,
         // View-models.
         OfferedItem::<'static>::export_all,
         SelectionView::<'static>::export_all,
         CodeView::export_all,
+        NearbyPeer::export_all,
         InventoryView::<'static>::export_all,
         SummaryView::<'static>::export_all,
         PauseView::<'static>::export_all,
@@ -102,6 +104,7 @@ fn export_typescript_bindings() {
         SessionOpened::export_all,
         RecipesStatus::export_all,
         RecipesUpdate::export_all,
+        RecipesCheck::export_all,
         CatalogEntry::export_all,
         Settings::export_all,
         ScanResult::<'static>::export_all,

@@ -61,3 +61,12 @@ fn ignoring_free_space_is_shared_and_sticky() {
     clone.ignore_free_space();
     assert!(control.ignores_free_space());
 }
+
+#[test]
+fn a_retry_request_is_seen_once_by_any_clone() {
+    let control = TransferControl::default();
+    assert!(!control.take_retry_now());
+    control.clone().retry_now();
+    assert!(control.take_retry_now());
+    assert!(!control.take_retry_now());
+}

@@ -165,6 +165,16 @@ fn send_help_documents_json_pairing_code_record() {
 }
 
 #[test]
+fn export_and_send_take_allow_plugin() {
+    for cmd in ["export", "send"] {
+        let out = carrova(&[cmd, "--help"]);
+        assert!(out.status.success());
+        let help = String::from_utf8_lossy(&out.stdout);
+        assert!(help.contains("--allow-plugin <ID>"), "{cmd}: {help}");
+    }
+}
+
+#[test]
 fn receive_help_shares_import_plan_flags() {
     let out = carrova(&["receive", "--help"]);
     assert!(out.status.success());

@@ -58,7 +58,13 @@ export function UpdatesGroup({ model, on }: Props) {
   const { t } = useTranslation();
   return (
     <Group title={t('settings.updates.group')}>
-      {model.recipes && <RecipesRow recipes={model.recipes} onCheck={on.onCheckRecipes} />}
+      {model.recipes && (
+        <RecipesRow
+          recipes={model.recipes}
+          onCheck={on.onCheckRecipes}
+          onInstall={on.onInstallRecipes}
+        />
+      )}
       <Row
         title={t('settings.updates.autoRecipes')}
         sub={t('settings.updates.autoRecipesSub')}

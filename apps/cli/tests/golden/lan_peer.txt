@@ -30,3 +30,4 @@ Plan on the other machine (it decides and approves):
 Conflicts: 0
 Paused: need 3.1 MB more free on /st\u{1b}[1A\u{1b}[2K (1.0 kB free). Free up space; transfer resumes automatically. Ctrl-C to stop (resume later with `carrova receive --resume 20261108-101500-a1b2c3`)
 Paused: need 3.1 MB more free on /st\u{1b}[1A\u{1b}[2K (1.0 kB free). Free up space; transfer resumes automatically. Ctrl-C to stop (resume later with `carrova receive --resume`)
+Paused: the disk at /mnt\u{1b}[1A\u{1b}[2K is full; need 1.0 kB more free on /st (1.0 kB free). Free up space; transfer resumes automatically. Ctrl-C to stop (resume later with `carrova receive --resume`)

@@ -10,16 +10,21 @@
 //! shares.
 //!
 //! Non-overridable rails: sensitive items start unticked and need an explicit
-//! confirmation; unmovable items need `force_unmovable` (shown with reason).
+//! confirmation; unmovable items need `force_unmovable` (shown with reason);
+//! an item a plugin exports needs that plugin allowed
+//! ([`Selection::confirmed_plugins`]).
 
 use std::collections::BTreeMap;
 
 use carrova_platform::SemanticRoot;
+use carrova_plugin::Plugin;
+use carrova_recipe::{HandlerRef, PluginId, Recipe};
 use serde::{Deserialize, Serialize};
 
 use crate::ScanReport;
 use crate::error::{CoreError, Result};
-use crate::key::{ItemKey, RootedPath};
+use crate::key::{ItemKey, ItemTarget, RootedPath};
+use crate::plan::PlannedPlugin;
 
 mod edit;
 
@@ -74,6 +79,12 @@ pub struct SelectionIssue {
     pub item: ItemKey,
     /// What is wrong, user-presentable.
     pub problem: String,
+    /// The plugin the user has to allow for the item to move
+    /// ([`Selection::export_plugins`] says what it may do); `None` for
+    /// every other problem.
+    #[serde(default)]
+    #[cfg_attr(feature = "ts", ts(as = "Option<String>"))]
+    pub plugin: Option<PluginId>,
 }
 
 impl std::fmt::Display for SelectionIssue {
@@ -113,6 +124,17 @@ impl ItemChoice {
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct Selection {
     pub items: BTreeMap<ItemKey, ItemChoice>,
+    /// Plugins loaded here that change the files of some of these items
+    /// on this computer before they are sent, with their permissions
+    /// ([`Self::mark_exports`]).
+    #[serde(default)]
+    pub export_plugins: Vec<PlannedPlugin>,
+    /// Exporting plugins the user allowed to run on this computer, after
+    /// seeing their permissions; an included item of any other one is a
+    /// [`SelectionIssue`].
+    #[serde(default)]
+    #[cfg_attr(feature = "ts", ts(as = "Vec<String>"))]
+    pub confirmed_plugins: Vec<PluginId>,
 }
 
 /// Root of every parseable path key in `paths`.
@@ -148,9 +170,39 @@ impl Selection {
                 },
             );
         }
-        let mut sel = Self { items };
+        let mut sel = Self {
+            items,
+            ..Self::default()
+        };
         sel.apply_preset(preset);
         sel
+    }
+
+    /// Record which plugins of `plugins` export the files of which recipe
+    /// items ([`Self::export_plugins`]), replacing what was recorded.
+    pub fn mark_exports(&mut self, recipes: &[Recipe], plugins: &[Plugin]) {
+        let mut out = Vec::new();
+        for key in self.items.keys() {
+            let Some(ItemTarget::Recipe { recipe, item }) = key.target() else {
+                continue;
+            };
+            let Some(HandlerRef::Plugin(id)) = recipes
+                .iter()
+                .find(|r| r.id == recipe)
+                .and_then(|r| r.items.iter().find(|i| i.id == item))
+                .and_then(|i| i.handler.as_ref())
+            else {
+                continue;
+            };
+            if let Some(m) = plugins
+                .iter()
+                .map(Plugin::manifest)
+                .find(|m| m.export && m.id == *id)
+            {
+                PlannedPlugin::add(&mut out, m, key.clone());
+            }
+        }
+        self.export_plugins = out;
     }
 
     /// Re-apply a preset to `included` (keeps confirmations/exclusions).
@@ -180,6 +232,7 @@ impl Selection {
                 out.push(SelectionIssue {
                     item: key.clone(),
                     problem,
+                    plugin: None,
                 });
             };
             if c.included && c.sensitive && !c.confirmed_sensitive {
@@ -206,6 +259,24 @@ impl Selection {
                     }
                 }
             }
+        }
+        for p in &self.export_plugins {
+            if self.confirmed_plugins.contains(&p.plugin) {
+                continue;
+            }
+            let included = p
+                .items
+                .iter()
+                .filter(|k| self.items.get(*k).is_some_and(|c| c.included));
+            out.extend(included.map(|item| SelectionIssue {
+                item: item.clone(),
+                problem: format!(
+                    "plugin `{}` must change its files on this computer before sending: \
+                     review what it may do and allow it, or deselect the item",
+                    p.plugin
+                ),
+                plugin: Some(p.plugin.clone()),
+            }));
         }
         out
     }

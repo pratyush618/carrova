@@ -99,3 +99,52 @@ fn permissions_name_every_declared_context_field_and_the_sandbox() {
     assert!(!text.contains("operating system"), "{text}");
     assert!(text.contains("cannot read or write other files"), "{text}");
 }
+
+#[test]
+fn run_tools_are_bare_unique_program_names() {
+    let m = parse(&format!(
+        "{GOOD}run_tools: [sqlite3, jq, python3.12, g++]\n"
+    ))
+    .unwrap();
+    assert_eq!(m.run_tools, ["sqlite3", "jq", "python3.12", "g++"]);
+    for bad in [
+        "/usr/bin/sqlite3",
+        "../sqlite3",
+        "bin\\\\tool",
+        "'sqlite3 -cmd x'",
+        "-rf",
+        ".hidden",
+        "''",
+        "'tool;rm'",
+        "'t\\u00e9'",
+    ] {
+        let why = invalid(&format!("{GOOD}run_tools: [{bad}]\n"));
+        assert!(why.contains("run_tools"), "{bad}: {why}");
+    }
+    let long = "a".repeat(65);
+    assert!(invalid(&format!("{GOOD}run_tools: [{long}]\n")).contains("run_tools"));
+    assert!(invalid(&format!("{GOOD}run_tools: [jq, jq]\n")).contains("jq"));
+}
+
+#[test]
+fn permissions_name_each_tool_the_log_and_the_export() {
+    let plain = parse(GOOD).unwrap().permissions().join("\n");
+    assert!(plain.contains("or run programs"), "{plain}");
+    assert!(!plain.contains("log"), "{plain}");
+
+    let text = format!("{GOOD}run_tools: [sqlite3, jq]\nlog: true\nexport: true\n");
+    let lines = parse(&text).unwrap().permissions();
+    let all = lines.join("\n");
+    for tool in ["`sqlite3`", "`jq`"] {
+        let line = lines.iter().find(|l| l.contains(tool)).unwrap();
+        assert!(line.contains("not sandboxed"), "{line}");
+    }
+    assert!(
+        all.contains("may write diagnostic notes to Carrova's log"),
+        "{all}"
+    );
+    assert!(all.contains("on the old computer"), "{all}");
+    assert!(all.contains("before they are sent"), "{all}");
+    assert!(all.contains("run any other program"), "{all}");
+    assert!(!all.contains("or run programs"), "{all}");
+}

@@ -6,10 +6,12 @@ use carrova_core::ItemKey;
 
 use carrova_view::selection::{SelectionRow, SelectionTag, SelectionView};
 
+use super::plan::planned_plugin;
 use super::text::{human_size, safe};
 
 /// The export selection: every recipe item (ticked or not) with its marks,
-/// ticked raw dirs, and a hint about the rest.
+/// ticked raw dirs, a hint about the rest, the exporting plugins with
+/// their permissions, and the problems.
 pub fn selection(out: &mut impl Write, v: &SelectionView<'_>) -> io::Result<()> {
     let w = v
         .rows
@@ -34,10 +36,17 @@ pub fn selection(out: &mut impl Write, v: &SelectionView<'_>) -> io::Result<()> 
         v.included,
         human_size(v.included_size)
     )?;
+    for plugin in v.plugins {
+        planned_plugin(out, plugin)?;
+    }
     if !v.issues.is_empty() {
         writeln!(out, "Problems:")?;
         for i in &v.issues {
-            writeln!(out, "  - {}: {}", safe(&i.item), safe(&i.problem))?;
+            write!(out, "  - {}: {}", safe(&i.item), safe(&i.problem))?;
+            if let Some(plugin) = &i.plugin {
+                write!(out, " (--allow-plugin {plugin})")?;
+            }
+            writeln!(out)?;
         }
     }
     Ok(())

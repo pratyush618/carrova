@@ -60,6 +60,49 @@ describe('sending over the LAN', () => {
     ).toBeInTheDocument();
   });
 
+  it('asks to allow a plugin that changes files before they leave, then sends', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true, scenario: 'plugin' });
+    const select = vi.spyOn(port, 'select');
+    const runSend = vi.spyOn(port, 'runSend');
+    await home();
+    await user.click(screen.getByRole('button', { name: /^Send from this computer/ }));
+    const go = await screen.findByRole('button', { name: 'Get pairing code' });
+    expect(go).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Review… (path-rewrite plugin)' }));
+    const dialog = screen.getByRole('dialog', { name: 'Allow “path-rewrite”?' });
+    expect(within(dialog).getByText('It cannot use the network.')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Allow for this move' }));
+
+    expect(select.mock.calls.at(-1)?.[2]).toEqual([
+      { kind: 'allow_plugin', plugin: 'path-rewrite', allow: true },
+    ]);
+    await vi.waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Get pairing code' })).toBeEnabled();
+    });
+    await user.click(screen.getByRole('button', { name: 'Get pairing code' }));
+    expect(runSend).toHaveBeenCalledOnce();
+  });
+
+  it("leaves a plugin's items behind when the user doesn't allow it", async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true, scenario: 'plugin' });
+    const select = vi.spyOn(port, 'select');
+    await home();
+    await user.click(screen.getByRole('button', { name: /^Send from this computer/ }));
+    await user.click(await screen.findByRole('button', { name: 'Review… (path-rewrite plugin)' }));
+    await user.click(screen.getByRole('button', { name: "Don't allow" }));
+
+    expect(select.mock.calls.at(-1)?.[2]).toEqual([
+      { kind: 'allow_plugin', plugin: 'path-rewrite', allow: false },
+      { kind: 'item', item: 'starship/config', included: false },
+    ]);
+    await vi.waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Get pairing code' })).toBeEnabled();
+    });
+  });
+
   it('keeps the selection when saving to a file instead', async () => {
     const user = userEvent.setup();
     const { port } = await renderApp({ returning: true });

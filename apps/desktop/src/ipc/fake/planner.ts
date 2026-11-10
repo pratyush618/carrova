@@ -6,7 +6,8 @@
  * (`PlanOptions::picks`, rule precedence path > item > default); it does
  * not re-run the engine's checks, nor re-judge the sensitivity of a remapped
  * item at its new target. `tests/ipc/fake/planner.test.ts` holds it to plans
- * the engine recorded for the same options.
+ * the engine recorded for the same options. `editOptions` applies plan
+ * edits by the engine's rules (`PlanOptions::apply_all`).
  */
 import type { Action } from '../../bindings/Action';
 import type { ActionCounts } from '../../bindings/ActionCounts';
@@ -19,8 +20,10 @@ import type { OsKind } from '../../bindings/OsKind';
 import type { PathMapping } from '../../bindings/PathMapping';
 import type { PlannedAction } from '../../bindings/PlannedAction';
 import type { PlannedPlugin } from '../../bindings/PlannedPlugin';
+import type { PlanEdit } from '../../bindings/PlanEdit';
 import type { PlanOptions } from '../../bindings/PlanOptions';
 import type { PlanReview } from '../../bindings/PlanReview';
+import { bridgeError, raise } from '../reject';
 
 /** An archive from another system: its OS, its same-system items, and where paths land. */
 export interface CrossOsConditions {
@@ -176,4 +179,108 @@ export function planUnder(
     },
     view: { ...base.view, items },
   };
+}
+
+const without = <T>(list: readonly T[], value: T): T[] => list.filter((v) => v !== value);
+/** Add `value` to `list` once (`on`) or remove it — the engine's set toggle. */
+const toggle = <T>(list: readonly T[], value: T, on: boolean): T[] =>
+  !on ? without(list, value) : list.includes(value) ? [...list] : [...list, value];
+const withoutKey = <V>(map: Partial<Record<string, V>>, key: string) =>
+  Object.fromEntries(Object.entries(map).filter(([k]) => k !== key)) as Record<string, V>;
+
+/** The fake's stand-in for an item's recipe id: the key before its `/`. */
+const appOf = (key: ItemKey): string => key.slice(0, key.indexOf('/'));
+
+/** `PlanOptions::picked`: the offered items `options` picks, as an explicit list. */
+const pickedKeys = (options: PlanOptions, offered: readonly OfferedItem[]): ItemKey[] =>
+  offered.filter((o) => picks(options, o)).map((o) => o.key);
+
+/** `PlanOptions::apply`: one edit against `review`'s offered items and plugins. */
+function applyEdit(options: PlanOptions, edit: PlanEdit, review: PlanReview): PlanOptions {
+  const offered = review.offered;
+  const known = (item: ItemKey) => {
+    if (!offered.some((o) => o.key === item)) {
+      raise(bridgeError('invalid_selection', `unknown item \`${item}\``));
+    }
+  };
+  switch (edit.kind) {
+    case 'answer_sensitive': {
+      known(edit.item);
+      const list =
+        options.items === null && !edit.bring ? pickedKeys(options, offered) : options.items;
+      return {
+        ...options,
+        items: list === null ? null : toggle(list, edit.item, edit.bring),
+        confirmed_sensitive: toggle(options.confirmed_sensitive, edit.item, edit.bring),
+      };
+    }
+    case 'skip_app': {
+      const base = pickedKeys(options, offered).filter((k) => appOf(k) !== edit.app);
+      const back = offered
+        .filter((o) => appOf(o.key) === edit.app)
+        .filter((o) => o.sensitive === null || options.confirmed_sensitive.includes(o.key))
+        .map((o) => o.key);
+      return { ...options, items: edit.skip ? base : [...base, ...back] };
+    }
+    case 'allow_cross_os':
+      known(edit.item);
+      return {
+        ...options,
+        items:
+          edit.allow && options.items !== null
+            ? toggle(options.items, edit.item, true)
+            : options.items,
+        allow_cross_os: toggle(options.allow_cross_os, edit.item, edit.allow),
+      };
+    case 'allow_plugin': {
+      const inUse = review.plan.plugins.some((p) => p.plugin === edit.plugin);
+      if (!inUse && !options.confirmed_plugins.includes(edit.plugin)) {
+        raise(bridgeError('invalid_selection', `unknown plugin \`${edit.plugin}\``));
+      }
+      return {
+        ...options,
+        confirmed_plugins: toggle(options.confirmed_plugins, edit.plugin, edit.allow),
+      };
+    }
+    case 'item_rule':
+      known(edit.item);
+      return { ...options, item_rules: { ...options.item_rules, [edit.item]: edit.rule } };
+    case 'path_rule': {
+      const rest = withoutKey(options.path_rules, edit.path);
+      return {
+        ...options,
+        path_rules: edit.rule === null ? rest : { ...rest, [edit.path]: edit.rule },
+      };
+    }
+    case 'remap': {
+      known(edit.item);
+      const rest = withoutKey(options.remaps, edit.item);
+      return {
+        ...options,
+        remaps: edit.remap === null ? rest : { ...rest, [edit.item]: edit.remap },
+      };
+    }
+    case 'keep_both_suffix': {
+      const suffix = edit.suffix.trim();
+      return { ...options, keep_both_suffix: suffix === '' ? options.keep_both_suffix : suffix };
+    }
+    case 'retention':
+      return { ...options, retention: edit.retention };
+    case 'import_trust':
+      return { ...options, import_trust: edit.allow };
+    case 'keep_group_write':
+      return { ...options, keep_group_write: edit.keep };
+    case 'override':
+      return edit.check === 'running'
+        ? { ...options, ignore_requires_closed: true }
+        : { ...options, ignore_free_space: true };
+  }
+}
+
+/**
+ * `PlanOptions::apply_all`: `review`'s options with `edits` applied in order;
+ * an unknown item or plugin raises `invalid_selection`.
+ */
+export function editOptions(review: PlanReview, edits: readonly PlanEdit[]): PlanOptions {
+  return edits.reduce((options, edit) => applyEdit(options, edit, review), review.plan.options);
 }

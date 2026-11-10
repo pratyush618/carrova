@@ -33,7 +33,7 @@ fn pairing_listener() -> (u16, thread::JoinHandle<crate::Result<crate::Connectio
     let code = PairingCode::generate().unwrap();
     (
         port,
-        thread::spawn(move || listener.accept_pairing(&code, WAIT)),
+        thread::spawn(move || listener.accept_pairing(&code, WAIT, || {})),
     )
 }
 

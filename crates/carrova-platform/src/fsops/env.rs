@@ -93,3 +93,21 @@ pub(crate) fn tool_command(bin: &Path, home: &Path, path: Option<&OsStr>) -> std
     }
     cmd
 }
+
+/// Start the tool in a new process group led by itself.
+pub(crate) fn isolate_tool(cmd: &mut std::process::Command) {
+    use std::os::unix::process::CommandExt;
+    cmd.process_group(0);
+}
+
+/// `SIGKILL` the tool's process group (its id is the tool's pid), then the
+/// tool itself in case it left the group.
+pub(crate) fn kill_tool(child: &mut std::process::Child) -> std::io::Result<()> {
+    use rustix::process::{Pid, Signal, kill_process_group};
+    match kill_process_group(Pid::from_child(child), Signal::KILL) {
+        // The whole group is already gone.
+        Ok(()) | Err(rustix::io::Errno::SRCH) => {}
+        Err(e) => return Err(e.into()),
+    }
+    child.kill()
+}

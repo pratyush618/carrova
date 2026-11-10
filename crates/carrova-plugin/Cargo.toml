@@ -1,6 +1,6 @@
 [package]
 name = "carrova-plugin"
-description = "Carrova WASM plugin runtime: sandboxed receiver-side content transforms"
+description = "Carrova WASM plugin runtime: sandboxed content transforms"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,14 +8,19 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+carrova-manifest = { workspace = true }
 carrova-platform = { workspace = true }
 carrova-recipe = { workspace = true }
 serde = { workspace = true }
 serde_yaml_ng = { workspace = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 wasmi = { workspace = true }
 
 [dev-dependencies]
+carrova-platform = { workspace = true, features = ["fake"] }
+tempfile = { workspace = true }
+tracing-subscriber = { workspace = true }
 wat = { workspace = true }
 
 [lints]

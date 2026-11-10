@@ -142,7 +142,7 @@ fn cancel_stops_waiting_for_a_receiver_promptly() {
     set_later(&cancel, Duration::from_millis(100));
     let started = Instant::now();
 
-    let accepted = listener.accept_pairing(&code, Duration::from_secs(30));
+    let accepted = listener.accept_pairing(&code, Duration::from_secs(30), || {});
 
     assert!(
         matches!(accepted, Err(TransportError::Cancelled)),

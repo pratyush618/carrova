@@ -12,4 +12,10 @@ item: ItemKey,
 /**
  * What is wrong, user-presentable.
  */
-problem: string, };
+problem: string, 
+/**
+ * The plugin the user has to allow for the item to move
+ * ([`Selection::export_plugins`] says what it may do); `None` for
+ * every other problem.
+ */
+plugin: string | null, };

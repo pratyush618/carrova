@@ -12,6 +12,7 @@
 //! One item failing (unstable file, unreadable path, handler error) never
 //! stops the others: it lands in [`Capture::failed`] with its reason.
 
+mod export;
 mod items;
 mod persist;
 mod source;
@@ -20,9 +21,10 @@ mod walk;
 use carrova_manifest::{ChunkSource, Entry, Manifest, ManifestItem, SourceInfo};
 use carrova_platform::{Platform, SemanticRoot};
 use carrova_plugin::{ContextField, Plugin};
-use carrova_recipe::{FileEntry, HandlerRef, Recipe};
+use carrova_recipe::{FileEntry, HandlerRef, PluginId, Recipe};
 use tracing::{debug, warn};
 
+use self::export::Exports;
 use self::items::{Planned, plan_items, warn_running};
 use self::source::{CaptureReader, CaptureSource};
 use self::walk::{Captured, Capturer, file_bytes, walk_items};
@@ -80,11 +82,31 @@ pub fn capture(
 
 /// [`capture`] with the `plugins` loaded here: the sender's home is
 /// recorded ([`Manifest::source_home`]) only when a captured item's plugin
-/// declares [`ContextField::SourceHome`].
+/// declares [`ContextField::SourceHome`]. No plugin runs here: an item
+/// whose plugin declares `export` is left out (see
+/// [`capture_with_consent`]).
 pub fn capture_with_plugins(
     platform: &dyn Platform,
     recipes: &[Recipe],
     plugins: &[Plugin],
+    selection: &Selection,
+    sink: &dyn EventSink,
+    cancel: &Cancel,
+) -> Result<Capture> {
+    capture_with_consent(platform, recipes, plugins, &[], selection, sink, cancel)
+}
+
+/// [`capture_with_plugins`], also running the sender-side export
+/// (`export_transform`) of the plugins in `allowed_exports` — those the
+/// user allowed, after seeing their
+/// [`permissions`](carrova_plugin::PluginManifest::permissions), to run on
+/// this computer. An item whose plugin exports but is not allowed is left
+/// out with the reason ([`Capture::failed`]).
+pub fn capture_with_consent(
+    platform: &dyn Platform,
+    recipes: &[Recipe],
+    plugins: &[Plugin],
+    allowed_exports: &[PluginId],
     selection: &Selection,
     sink: &dyn EventSink,
     cancel: &Cancel,
@@ -113,10 +135,18 @@ pub fn capture_with_plugins(
             m.id == *id && m.context.contains(&ContextField::SourceHome)
         })
     });
+    let mut exports = Exports::new(plugins, allowed_exports);
     let mut items = Vec::with_capacity(planned.len());
     for (p, entries) in planned.into_iter().zip(resolved) {
         cancel.check()?;
-        items.extend(capture_item(&mut capturer, p, &entries, &mut failed, sink));
+        items.extend(capture_item(
+            &mut capturer,
+            &mut exports,
+            p,
+            &entries,
+            &mut failed,
+            sink,
+        ));
     }
     let mut manifest = Manifest::new(
         i64::try_from(time::now_unix()).unwrap_or(i64::MAX),
@@ -150,15 +180,19 @@ pub fn capture_with_plugins(
 /// pushed to `failed`.
 fn capture_item(
     capturer: &mut Capturer<'_>,
+    exports: &mut Exports<'_>,
     p: Planned<'_>,
     entries: &[FileEntry],
     failed: &mut Vec<Skipped>,
     sink: &dyn EventSink,
 ) -> Option<ManifestItem> {
-    // Plugin items move their files; the receiver runs the plugin.
+    // Plugin items move their files (exported first if the plugin
+    // exports); the receiver runs the plugin's transform.
     let result = match p.item.builtin_handler() {
         Some(h) => capturer.run_handler(h.as_str()),
-        None => capturer.capture_entries(entries),
+        None => exports
+            .hook_for(&p.item)
+            .and_then(|hook| capturer.capture_entries(entries, hook)),
     };
     let mut mi = p.manifest_item;
     let (files, bytes) = match result {

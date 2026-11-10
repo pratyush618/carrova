@@ -8,8 +8,12 @@
 
 use std::path::PathBuf;
 
-use carrova_core::{Cancel, Checklist, Importer, PlanOptions, SessionId, Ticket, TransferControl};
+use carrova_core::lan::browse_nearby;
+use carrova_core::{
+    Cancel, Checklist, Importer, PlanEdit, PlanOptions, SessionId, Ticket, TransferControl,
+};
 use carrova_view::ipc::{ErrorCode, PlanReply, SessionOpened};
+use carrova_view::lan::{NearbyPeer, nearby_peer};
 use carrova_view::passphrase::{PassphraseUse, archive_passphrase};
 use carrova_view::review;
 use zeroize::Zeroizing;
@@ -18,7 +22,7 @@ use super::task_ended;
 use crate::command_error::CommandError;
 use crate::registry::Live;
 use crate::state::AppState;
-use crate::worker::Worker;
+use crate::worker::{Worker, blocking};
 
 /// Track the import session `importer` opened on `worker`.
 fn opened(
@@ -123,6 +127,30 @@ pub async fn plan(
         .await?
 }
 
+/// The current plan with the user's `edits` applied to its options
+/// ([`carrova_core::Importer::edited_options`]), reviewed like [`plan`].
+///
+/// # Errors
+///
+/// Nothing planned yet, an edit names an unknown item or plugin, or as
+/// [`plan`].
+pub async fn edit_plan(
+    state: &AppState,
+    id: &SessionId,
+    edits: Vec<PlanEdit>,
+) -> Result<PlanReply, CommandError> {
+    let platform = state.platform.clone();
+    state
+        .sessions
+        .importing(id)?
+        .call(move |importer| {
+            let options = importer.edited_options(edits)?;
+            let prepared = review::prepare(importer, platform.as_ref(), &options)?;
+            Ok(PlanReply::new(prepared, importer.manifest().cloned()))
+        })
+        .await?
+}
+
 /// The options the session last planned with (`None` before its first
 /// plan). A resumed session continues from them, so the user's earlier
 /// choices (confirmed items, rules) and its approval carry over; new moves
@@ -188,6 +216,33 @@ pub fn set_transfer_paused(
         control.resume();
     }
     Ok(())
+}
+
+/// Reconnect the LAN transfer of import `id` now instead of after the
+/// back-off (the user's "Try now" while the sender is unreachable).
+///
+/// # Errors
+///
+/// No such live import session.
+pub fn retry_connection(state: &AppState, id: &SessionId) -> Result<(), CommandError> {
+    state.sessions.transfer(id)?.retry_now();
+    Ok(())
+}
+
+/// Senders nearby offering a pairing code (device names only).
+///
+/// # Errors
+///
+/// Discovery could not start.
+pub async fn nearby(state: &AppState) -> Result<Vec<NearbyPeer>, CommandError> {
+    let platform = state.platform.clone();
+    blocking(move || {
+        Ok(browse_nearby(platform.as_ref())?
+            .iter()
+            .map(nearby_peer)
+            .collect())
+    })
+    .await
 }
 
 /// Continue the LAN transfer of import `id` despite low free space (the

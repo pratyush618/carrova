@@ -52,7 +52,7 @@ fn paired() -> (Connection, Connection) {
     };
     let sender = thread::spawn(move || {
         let conn = listener
-            .accept_pairing(&code, Duration::from_secs(30))
+            .accept_pairing(&code, Duration::from_secs(30), || {})
             .unwrap();
         (listener, conn)
     });
@@ -79,7 +79,12 @@ fn dial_errors_before_authentication_are_retried_until_the_sender_answers() {
         then: Some(receiver),
         dials: dials.clone(),
     };
-    let mut link = Link::detached(secret, Box::new(flaky), Cancel::default());
+    let mut link = Link::detached(
+        secret,
+        Box::new(flaky),
+        Cancel::default(),
+        TransferControl::default(),
+    );
     let events = Events::default();
 
     link.reconnect(
@@ -113,6 +118,7 @@ fn a_sender_never_reached_is_unreachable_not_a_session_failure() {
         receiver.resume_secret().clone(),
         Box::new(flaky),
         Cancel::default(),
+        TransferControl::default(),
     );
     let err = link
         .reconnect(
@@ -137,6 +143,7 @@ fn a_cancel_stops_reconnecting_at_once() {
         receiver.resume_secret().clone(),
         Box::new(flaky),
         cancel.clone(),
+        TransferControl::default(),
     );
     cancel.cancel();
     let started = Instant::now();
@@ -149,4 +156,36 @@ fn a_cancel_stops_reconnecting_at_once() {
         .unwrap_err();
     assert!(matches!(err, CoreError::Cancelled), "{err}");
     assert!(started.elapsed() < Duration::from_secs(5));
+}
+
+#[test]
+fn try_now_ends_the_reconnect_back_off_at_once() {
+    let (_sender, receiver) = paired();
+    let secret = receiver.resume_secret().clone();
+    let flaky = Flaky {
+        failures: vec![TransportError::NotFound],
+        then: Some(receiver),
+        dials: Arc::default(),
+    };
+    let control = TransferControl::default();
+    let mut link = Link::detached(secret, Box::new(flaky), Cancel::default(), control.clone());
+    let started = Instant::now();
+    let user = thread::spawn(move || {
+        thread::sleep(Duration::from_millis(100));
+        control.retry_now();
+    });
+
+    link.reconnect(
+        ReceiverStage::Transferring,
+        Duration::from_secs(60),
+        &Events::default(),
+    )
+    .unwrap();
+
+    user.join().unwrap();
+    assert!(
+        started.elapsed() < RECONNECT_BACKOFF_MIN,
+        "{:?}",
+        started.elapsed()
+    );
 }

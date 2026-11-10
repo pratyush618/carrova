@@ -2,11 +2,15 @@ Selection ([x] = exported):
   [x] git/config                   1.5 kB    1 files  Git config  [suggested]
         excluded: home:.gitconfig\u{1b}[1A\u{1b}[2K
   [x] gnupg/keys                                        [sensitive, confirmed]
+  [x] obsidian/vaults                                 
   [x] raw:user_config/oddtool      2.0 kB    2 files  unrecognised data
   [ ] ssh/keys                     4.1 kB    3 files  SSH keys  [sensitive: needs --confirm-sensitive ssh/keys]
   [x] ssh/machine-id                 10 B    1 files  Machine id  [unmovable (bound\u{1b}[1A\u{1b}[2K), FORCED]
   [x] zsh/history                     0 B    0 files  History  [unmovable: bound]
   (1 unrecognised dirs not selected; see `carrova scan`, add with --include raw:<root>/<rel>)
-5 items, about 3.6 kB before exclusions
+6 items, about 3.6 kB before exclusions
+Plugin: path-rewrite 1.0.0 changes obsidian/vaults: Rewrites paths\u{1b}[1A\u{1b}[2K.
+    - It sees the path of your home folder on this computer.
 Problems:
   - zsh/history: item is unmovable (bound); force it to include
+  - obsidian/vaults: plugin `path-rewrite` must change its files on this computer before sending: review what it may do and allow it, or deselect the item (--allow-plugin path-rewrite)

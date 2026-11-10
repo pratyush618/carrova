@@ -22,6 +22,7 @@ use crate::plan::Plan;
 use crate::session::{Event, Role, SessionId, State};
 use crate::stage::Staged;
 use crate::store::{self, PLAN_FILE, Source, read_file, write_atomic};
+use crate::transfer_control::TransferControl;
 
 impl Importer {
     /// Pair with the sender named by `ticket`, send this machine's
@@ -85,8 +86,11 @@ impl Importer {
             peer: conn.peer_addr(),
         });
         let dialer = TransportDialer::boxed(s.engine.platform().clone(), &cancel);
-        let link = Link::paired(conn, dialer, cancel.clone());
-        Self::started(s, ImportFrom::Lan(Some(Box::new(link))), manifest, cancel)
+        let control = TransferControl::default();
+        let link = Link::paired(conn, dialer, cancel.clone(), control.clone());
+        let mut imp = Self::started(s, ImportFrom::Lan(Some(Box::new(link))), manifest, cancel)?;
+        imp.control = control;
+        Ok(imp)
     }
 
     /// Resume an interrupted LAN import (`id`, or the newest resumable
@@ -176,7 +180,7 @@ impl Importer {
     /// engine's platform, stopped by this session's cancel.
     fn link(&self, secret: ResumeSecret) -> Link {
         let dialer = TransportDialer::boxed(self.s.engine.platform().clone(), &self.cancel);
-        Link::detached(secret, dialer, self.cancel.clone())
+        Link::detached(secret, dialer, self.cancel.clone(), self.control.clone())
     }
 
     /// Stage at which the sender resumes with us.

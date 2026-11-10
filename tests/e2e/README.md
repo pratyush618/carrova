@@ -3,12 +3,36 @@
 | Suite | Entry point | What it proves |
 |---|---|---|
 | Archive migration (Docker) | `just e2e` → `run.sh` | export → import between clean Ubuntu containers, rollback, forced mid-apply failure |
+| Cross-OS restore (Docker) | `just e2e --cross-os` → `cross-os.sh` | Linux archive restored onto fake Windows/macOS layouts: paths, dry run, rollback, same-OS block |
 | LAN migration (Docker) | `just e2e --lan` → `lan.sh` | pairing, interruption + resume, rollback over a Docker network |
 | Real desktop app | `just e2e-app` → `apps/desktop/e2e-app/run.sh` | the built app starts and its bridge answers |
 | Recipe bundle update | `just e2e-bundle` → `bundle/run.sh` | a new recipe reaches an installed `carrova` without rebuilding it |
 
 Browser flow tests over the fake engine port live in `apps/desktop/e2e/`
 (`just e2e-ui`).
+
+## Cross-OS restore (`cross-os.sh`)
+
+A seeded Linux sender exports the usual selection; receivers then run with
+`CARROVA_E2E_OS=windows`, then `macos`. That env var is a CLI test seam
+(cargo feature `e2e-seams`, which `e2e_setup` enables; never in release
+builds): the CLI runs on `FakePlatform::with_os_layout($HOME, os)`, which
+reports that OS and its permission model and puts the semantic roots where
+that OS keeps them (`AppData/Roaming`, `Library/Application Support`, …).
+Per OS it asserts:
+
+- a dry run writes nothing;
+- `vscode/settings` lands at `~/AppData/Roaming/Code/User/settings.json`
+  (Windows) / `~/Library/Application Support/Code/User/settings.json`
+  (macOS), byte-identical to the sender's, and nothing at the Linux path;
+- `carrova rollback` restores the home byte-identical;
+- the `same_os` item `bash/config` is blocked (nothing written) and only
+  applies with `--allow-cross-os bash/config`.
+
+**Limit:** a Linux container stands in for Windows/macOS. Layouts and the
+permission model are faked; the files land on the container's Linux
+filesystem, not NTFS/APFS (no ACLs, case-insensitivity, reserved names,
+path-length limits). The real-hardware gate is still required.
 
 ## Real desktop app (`apps/desktop/e2e-app/`)
 

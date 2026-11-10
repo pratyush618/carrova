@@ -4,8 +4,8 @@
 use serde::{Deserialize, Serialize};
 
 use super::Importer;
-use crate::error::Result;
-use crate::plan::{Plan, PlanOptions};
+use crate::error::{CoreError, Result};
+use crate::plan::{Plan, PlanEdit, PlanOptions};
 use crate::session::State;
 
 /// Whether the plan under review still needs the user's approval
@@ -30,6 +30,25 @@ impl Importer {
     #[must_use]
     pub fn plan_options(&self) -> Option<&PlanOptions> {
         self.plan.as_ref().map(|p| &p.options)
+    }
+
+    /// The current plan's options with `edits` applied
+    /// ([`PlanOptions::apply_all`] against the offered items), for
+    /// [`Self::plan_for_review`].
+    ///
+    /// # Errors
+    ///
+    /// Nothing planned yet ([`CoreError::Selection`]), or an edit names an
+    /// unknown item or plugin.
+    pub fn edited_options(&self, edits: Vec<PlanEdit>) -> Result<PlanOptions> {
+        let plan = self
+            .plan
+            .as_ref()
+            .ok_or_else(|| CoreError::Selection("nothing planned yet".into()))?;
+        let offered = self.manifest().map(|m| plan.offered(m)).unwrap_or_default();
+        let mut options = plan.options.clone();
+        options.apply_all(edits, &offered)?;
+        Ok(options)
     }
 
     /// The plan to review for `options` — the one resume policy every

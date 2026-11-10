@@ -18,6 +18,10 @@ shortfall: number,
  */
 available: number, 
 /**
+ * Mount point of the short filesystem, if known.
+ */
+disk: string | null, 
+/**
  * The session to resume after Ctrl-C, once known.
  */
 session: SessionId | null, };

@@ -382,3 +382,56 @@ fn report_names_the_os_by_its_stable_id() {
     let json = serde_json::to_value(&r.platform).unwrap();
     assert_eq!(json["os"], "macos");
 }
+
+/// Generated with `ssh-keygen -t ed25519 -C ana@laptop`; `ssh-keygen -lf`
+/// prints [`ED25519_FP`].
+pub(super) const ED25519_PUB: &str =
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFZVp4ziVb/+9tuxkhHytN+Z0kgP9ajEs/3ysSv72WPC ana@laptop\n";
+pub(super) const ED25519_FP: &str = "SHA256:fVb7l1Ke96LBlZi2zJ5vklRHjGz+xa3+7rFwneVdgU4";
+
+const SSH: &str = r"
+schema: 1
+id: ssh
+name: SSH
+category: dev
+detect:
+  linux:
+    - path: { root: home, rel: .ssh }
+items:
+  - id: keys
+    label: SSH keys
+    paths:
+      - { root: home, rel: .ssh }
+    flags: { sensitive: true }
+";
+
+#[test]
+fn ssh_key_files_report_their_fingerprints_paired_with_the_private_key() {
+    let tmp = TempDir::new().unwrap();
+    let ssh = tmp.path().join(".ssh");
+    write(ssh.join("id_ed25519"), 400);
+    fs::write(ssh.join("id_ed25519.pub"), ED25519_PUB).unwrap();
+    fs::write(
+        ssh.join("lonely.pub"),
+        "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC7 me\n",
+    )
+    .unwrap();
+    fs::write(ssh.join("broken.pub"), "not a key").unwrap();
+    write(ssh.join("config"), 3);
+
+    let r = scan(&[recipe(SSH)], &fake(tmp.path()), ScanOptions::default()).unwrap();
+    let found: Vec<(&str, KeyKind, Option<&str>)> = item(app(&r, "ssh"), "keys")
+        .keys
+        .iter()
+        .map(|k| (k.path.as_str(), k.kind, k.comment.as_deref()))
+        .collect();
+    assert_eq!(
+        found,
+        [
+            ("home:.ssh/id_ed25519", KeyKind::Ed25519, Some("ana@laptop")),
+            ("home:.ssh/lonely.pub", KeyKind::Rsa, Some("me")),
+        ]
+    );
+    let first = &item(app(&r, "ssh"), "keys").keys[0];
+    assert_eq!(first.fingerprint, ED25519_FP);
+}

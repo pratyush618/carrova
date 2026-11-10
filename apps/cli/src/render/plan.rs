@@ -7,7 +7,7 @@ use std::io::{self, Write};
 use carrova_core::plan::{
     Action, Blocker, ObjectKind, PathMapping, Plan, PlannedAction, SpaceNeed,
 };
-use carrova_core::{ItemKey, Manifest};
+use carrova_core::{ItemKey, Manifest, PlannedPlugin};
 
 use carrova_view::Detail;
 use carrova_view::offer::{OfferedItem, offered_items};
@@ -212,18 +212,7 @@ fn side_effects(out: &mut impl Write, p: &Plan) -> io::Result<()> {
         )?;
     }
     for plugin in &p.plugins {
-        let items: Vec<&str> = plugin.items.iter().map(ItemKey::as_str).collect();
-        writeln!(
-            out,
-            "Plugin: {} {} changes {}: {}",
-            plugin.plugin,
-            safe(&plugin.version),
-            safe(&items.join(", ")),
-            safe(&plugin.description)
-        )?;
-        for line in &plugin.permissions {
-            writeln!(out, "    - {}", safe(line))?;
-        }
+        planned_plugin(out, plugin)?;
     }
     if !p.missing_apps.is_empty() {
         writeln!(
@@ -247,9 +236,11 @@ fn space(out: &mut impl Write, p: &Plan, needs: &[SpaceNeed]) -> io::Result<()> 
     let v = space_view(p, needs);
     writeln!(out, "Space: writes {}", human_size(v.writes))?;
     for fs in &v.filesystems {
-        let free = fs
-            .available
-            .map_or_else(|| "unknown".to_owned(), human_size);
+        let free = match (fs.available, fs.total) {
+            (Some(free), Some(total)) => format!("{} of {}", human_size(free), human_size(total)),
+            (Some(free), None) => human_size(free),
+            (None, _) => "unknown".to_owned(),
+        };
         write!(
             out,
             "  on {}: needs about {}, free {free}",
@@ -290,6 +281,25 @@ fn problems(out: &mut impl Write, p: &Plan) -> io::Result<()> {
             }
             writeln!(out)?;
         }
+    }
+    Ok(())
+}
+
+/// `Plugin: <id> <version> changes <items>: <description>`, then one line
+/// per permission: what the user is asked to allow (`--allow-plugin`), on
+/// either side.
+pub fn planned_plugin(out: &mut impl Write, plugin: &PlannedPlugin) -> io::Result<()> {
+    let items: Vec<&str> = plugin.items.iter().map(ItemKey::as_str).collect();
+    writeln!(
+        out,
+        "Plugin: {} {} changes {}: {}",
+        plugin.plugin,
+        safe(&plugin.version),
+        safe(&items.join(", ")),
+        safe(&plugin.description)
+    )?;
+    for line in &plugin.permissions {
+        writeln!(out, "    - {}", safe(line))?;
     }
     Ok(())
 }

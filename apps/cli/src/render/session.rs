@@ -7,6 +7,7 @@ use carrova_core::RollbackReport;
 use carrova_core::checklist::Checklist;
 use carrova_core::session::{Role, RollbackOutcome};
 use carrova_core::store::{SessionRecord, Source};
+use carrova_core::time::utc_date;
 
 use carrova_view::Detail;
 
@@ -140,7 +141,8 @@ pub fn rollback(out: &mut impl Write, r: &RollbackReport, detail: Detail) -> io:
     Ok(())
 }
 
-/// One line per session: id, role, state, source, rollback mark.
+/// One line per session: id, role, state, source (with the peer's OS),
+/// rollback mark and when the undo point expires.
 pub fn session_list(out: &mut impl Write, list: &[SessionRecord]) -> io::Result<()> {
     if list.is_empty() {
         return writeln!(out, "No sessions.");
@@ -153,9 +155,15 @@ pub fn session_list(out: &mut impl Write, list: &[SessionRecord]) -> io::Result<
             ""
         };
         let source = s.source.as_ref().map_or_else(String::new, source_label);
+        let os = s
+            .peer_os
+            .map_or_else(String::new, |os| format!(" \u{b7} {os}"));
+        let expires = s
+            .expires_at
+            .map_or_else(String::new, |t| format!("  [undo until {}]", utc_date(t)));
         writeln!(
             out,
-            "{:<w$}  {:<6}  {:<12}  {source}{rb}",
+            "{:<w$}  {:<6}  {:<12}  {source}{os}{rb}{expires}",
             s.id.0, s.role, s.state
         )?;
     }
@@ -166,16 +174,21 @@ pub fn session_list(out: &mut impl Write, list: &[SessionRecord]) -> io::Result<
 const SHORT_HASH: usize = 12;
 
 /// One-line description of a session's source for listings: the archive
-/// path, or `LAN peer <short cert hash>`.
+/// path, or `LAN peer [<name> (]<short cert hash>[)]`.
 fn source_label(source: &Source) -> String {
     match source {
         Source::Archive { path, .. } => safe(&path.display().to_string()).into_owned(),
         Source::Lan {
             peer_cert_hash: Some(h),
+            peer_name,
             ..
         } => {
             let hex = h.to_string();
-            format!("LAN peer {}", hex.get(..SHORT_HASH).unwrap_or(&hex))
+            let short = hex.get(..SHORT_HASH).unwrap_or(&hex);
+            match peer_name {
+                Some(name) => format!("LAN peer {} ({short})", safe(name)),
+                None => format!("LAN peer {short}"),
+            }
         }
         Source::Lan {
             peer_cert_hash: None,

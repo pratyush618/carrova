@@ -12,7 +12,7 @@ use std::io::Write;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use carrova_core::{
     CodeOffer, Engine, Exporter, Importer, NullSink, PlanOptions, Preset, ScanOptions, SendPrompt,
@@ -24,7 +24,7 @@ use carrova_platform::fake::FakePlatform;
 struct Silent;
 
 impl SendPrompt for Silent {
-    fn show_code(&mut self, _: &Ticket, _: CodeOffer) {}
+    fn show_code(&mut self, _: &Ticket, _: CodeOffer, _: Duration) {}
 
     fn confirm_new_code(&mut self, _: u32, _: u32) -> bool {
         false

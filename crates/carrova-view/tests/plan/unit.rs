@@ -205,6 +205,7 @@ fn space_view_lists_each_filesystem_and_shortfall() {
             bytes: 100,
             needed: 500,
             available: Some(1000),
+            total: Some(4000),
         },
         SpaceNeed {
             state_dir: false,
@@ -212,6 +213,7 @@ fn space_view_lists_each_filesystem_and_shortfall() {
             bytes: 100,
             needed: 500,
             available: Some(200),
+            total: None,
         },
         SpaceNeed {
             state_dir: false,
@@ -219,6 +221,7 @@ fn space_view_lists_each_filesystem_and_shortfall() {
             bytes: 1,
             needed: 9,
             available: None,
+            total: None,
         },
     ];
     let v = space_view(&p, &needs);
@@ -230,18 +233,21 @@ fn space_view_lists_each_filesystem_and_shortfall() {
                 what: "the state dir and home".into(),
                 needed: 500,
                 available: Some(1000),
+                total: Some(4000),
                 short_by: None,
             },
             FsSpace {
                 what: "user_data".into(),
                 needed: 500,
                 available: Some(200),
+                total: None,
                 short_by: Some(300),
             },
             FsSpace {
                 what: "cache".into(),
                 needed: 9,
                 available: None,
+                total: None,
                 short_by: None,
             },
         ]

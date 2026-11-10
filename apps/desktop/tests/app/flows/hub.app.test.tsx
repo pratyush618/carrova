@@ -85,6 +85,19 @@ describe('apps and settings', () => {
     expect(await screen.findByText('You have the newest list.')).toBeInTheDocument();
   });
 
+  it('offers a newer recipe list after a check and installs it on request', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true, scenario: 'recipes-update' });
+    const install = vi.spyOn(port, 'recipesUpdate');
+    await openHub(user, 'Settings');
+    await user.click(await screen.findByRole('button', { name: 'Check now' }));
+    expect(await screen.findByText('List 2 is ready.')).toBeInTheDocument();
+    expect(install).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Install update' }));
+    expect(await screen.findByText('Updated to list 2.')).toBeInTheDocument();
+    expect(install).toHaveBeenCalledOnce();
+  });
+
   it('checks for a Carrova update only when asked', async () => {
     const user = userEvent.setup();
     const { port } = await renderApp({ returning: true });

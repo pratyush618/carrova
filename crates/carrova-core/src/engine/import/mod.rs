@@ -80,15 +80,18 @@ impl Importer {
         Self::started(s, ImportFrom::Archive(source), manifest, Cancel::default())
     }
 
-    /// A new import session with its manifest: records the manifest's
-    /// sensitive paths for log redaction. Shared by archive and LAN;
-    /// `cancel` is the one its LAN link (if any) already watches.
+    /// A new import session with its manifest: records the source's OS
+    /// family and the manifest's sensitive paths for log redaction. Shared
+    /// by archive and LAN; `cancel` is the one its LAN link (if any)
+    /// already watches.
     pub(super) fn started(
-        s: Session,
+        mut s: Session,
         from: ImportFrom,
         manifest: Manifest,
         cancel: Cancel,
     ) -> Result<Self> {
+        s.record.peer_os = Some(manifest.source.os);
+        s.save()?;
         s.add_redactions(Patterns::new(s.platform()).manifest(&manifest))?;
         Ok(Self::resumed(s, from, manifest, cancel))
     }

@@ -99,6 +99,13 @@ location. Check the app's own docs or source; don't guess.
   whose paths are all under `home` (ssh, cargo, npm) usually needs none.
 - A recipe for one OS only (Windows Terminal) puts that OS's paths in the
   base `paths` and has only that OS's `detect` rules.
+- **Windows separators.** Inside an `os.windows` block and in
+  `detect.windows` path rules `rel` may use `\` (`rel: 'Code\User'`,
+  normalised to `Code/User`). Base, `linux` and `macos` paths (items and
+  detect rules) must use `/`: there `\` is a filename character
+  and is rejected. Drive letters (`C:\…`), UNC (`\\server\…`) and any other
+  absolute form are rejected everywhere: pick the semantic root instead
+  (`root: user_config` for `%APPDATA%`).
 - `binary` detect rules double as process names for `requires_closed`.
   On Windows a process name is the exe file stem with its exact case
   (`Code`, not `Code.exe` or `code`), and a `binary` rule is looked up on
@@ -118,8 +125,9 @@ item across OSes behind a warning.
 ### Paths: semantic roots only
 
 Every path is a `(root, rel)` pair. Roots: `user_config`, `user_data`, `cache`,
-`home`, `documents`. `rel` uses `/`, never starts with `/` or `~`, and never
-contains `..`. The receiver re-checks confinement, so an escaping path is a
+`home`, `documents`. `rel` uses `/` (also `\` inside `os.windows`), never
+starts with a separator, `~` or a drive letter, and never contains `..`.
+The receiver re-checks confinement, so an escaping path is a
 load error, not a silent skip.
 
 ### Flags and safe defaults

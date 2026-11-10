@@ -1,11 +1,12 @@
 mod device_name;
 
+use carrova_core::CodeOffer;
 use carrova_core::lan::{ActionCounts, ConflictTarget};
 use carrova_core::session::SessionId;
 use carrova_platform::{OsKind, SemanticRoot};
 
 use super::*;
-use carrova_view::lan::SummaryItemView;
+use carrova_view::lan::{NearbyPeer, SummaryItemView};
 
 const ESC: &str = "\x1b[2K";
 
@@ -14,21 +15,60 @@ fn code(renewed: bool, fallback: bool) -> CodeView {
         code: "7-acid-lemon".into(),
         fallback: fallback.then(|| "7-acid-lemon@10.0.0.2:47822".into()),
         renewed,
+        expired: false,
+        expires_in_secs: 300,
     }
 }
 
 #[test]
 fn banner_shows_code_once_plus_fallback_ticket() {
-    let b = code_banner(&code(false, true));
+    let b = code_banner(&code(false, true), CodeOffer::First);
     assert_eq!(b.matches("7-acid-lemon").count(), 2, "{b}");
     assert!(
         b.contains("If the other machine can't find this one, type: 7-acid-lemon@10.0.0.2:47822"),
         "{b}"
     );
     assert!(!b.contains("Wrong code"), "{b}");
-    let b = code_banner(&code(true, false));
+    let b = code_banner(&code(true, false), CodeOffer::Renewed);
     assert_eq!(b.matches("7-acid-lemon").count(), 1, "{b}");
     assert!(b.contains("New code"), "{b}");
+}
+
+#[test]
+fn banner_says_when_the_code_expires() {
+    let b = code_banner(&code(false, false), CodeOffer::First);
+    assert!(b.contains("The code expires in 5 min"), "{b}");
+    let mut short = code(false, false);
+    short.expires_in_secs = 61;
+    let b = code_banner(&short, CodeOffer::First);
+    assert!(b.contains("The code expires in 2 min"), "{b}");
+    short.expires_in_secs = 45;
+    let b = code_banner(&short, CodeOffer::First);
+    assert!(b.contains("The code expires in 45 s"), "{b}");
+}
+
+#[test]
+fn banner_after_expiry_says_the_previous_code_expired() {
+    let b = code_banner(&code(false, false), CodeOffer::Expired);
+    assert!(b.contains("The previous code expired. New code:"), "{b}");
+    assert!(!b.contains("can no longer be used"), "{b}");
+}
+
+#[test]
+fn nearby_senders_are_listed_by_name_escaped() {
+    let peers = [
+        NearbyPeer {
+            device_name: "laptop".into(),
+        },
+        NearbyPeer {
+            device_name: format!("desk{ESC}"),
+        },
+    ];
+    assert_eq!(
+        nearby(&peers),
+        "Sending nearby: laptop, desk\\u{1b}[2K (type the code shown there)"
+    );
+    assert_eq!(nearby(&[]), "No machine nearby is offering a code yet.");
 }
 
 #[test]
@@ -110,6 +150,7 @@ fn pause_names_shortfall_and_resume_command() {
         fs: "/st\x1b",
         shortfall: 3_000_000,
         available: 1000,
+        disk: None,
         session: Some(&id),
     });
     assert!(
@@ -119,6 +160,21 @@ fn pause_names_shortfall_and_resume_command() {
     assert!(s.contains("transfer resumes automatically"), "{s}");
     assert!(
         s.contains("`carrova receive --resume 20261108-101500-a1b2c3`"),
+        "{s}"
+    );
+}
+
+#[test]
+fn pause_names_the_full_disk_when_known() {
+    let s = pause(&PauseView {
+        fs: "/st",
+        shortfall: 3_000_000,
+        available: 1000,
+        disk: Some("/mnt/data"),
+        session: None,
+    });
+    assert!(
+        s.starts_with("Paused: the disk at /mnt/data is full; need 3.0 MB more free on /st"),
         "{s}"
     );
 }

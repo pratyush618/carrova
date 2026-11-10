@@ -82,6 +82,15 @@ impl Expected {
         }
     }
 
+    /// Resolves once an attempt put the secret at stake: pairing with the
+    /// code claimed (never for resume, whose tag is public).
+    pub(crate) async fn staked(&self) {
+        match self {
+            Self::Pair { claim, .. } => claim.taken().await,
+            Self::Resume { .. } => std::future::pending().await,
+        }
+    }
+
     /// Whether an attempt has put the secret at stake and not finished:
     /// pairing with the code claimed (the accept loop is never left
     /// before such an attempt ends).

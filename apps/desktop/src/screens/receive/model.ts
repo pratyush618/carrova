@@ -97,6 +97,8 @@ export interface ReviewModel {
     readonly needed: Bytes;
     /** `null` when the free space couldn't be measured. */
     readonly free: Bytes | null;
+    /** The disk's size; `null` when unknown (the bar then has no "used" part). */
+    readonly total: Bytes | null;
     readonly short: boolean;
     /** The user chose to ignore the space check. */
     readonly ignored: boolean;
@@ -109,8 +111,10 @@ export interface ReviewModel {
   /** The engine still blocks the plan; Approve waits. */
   readonly blocked: boolean;
   readonly rail: ReviewRail;
-  /** A change is being re-planned; Approve waits. */
+  /** The latest change isn't planned yet (or failed); Approve waits. */
   readonly busy: boolean;
+  /** Why the latest change could not be planned; the plan shown is the engine's last one. */
+  readonly error: BridgeError | null;
 }
 
 /** The review's "This move" rail. */
@@ -229,7 +233,14 @@ export interface ReviewDetailsIntents {
 
 /** Transfer + apply, or a failed apply that was rolled back. */
 export type ReceiveProgressModel =
-  | { readonly status: 'transfer'; readonly transfer: TransferModel }
+  | {
+      readonly status: 'transfer';
+      readonly transfer: TransferModel;
+      /** Resume is reopening the session; it can't be pressed again. */
+      readonly resuming: boolean;
+      /** Why the last Resume failed. */
+      readonly resumeError: BridgeError | null;
+    }
   /** Apply failed and was undone automatically; the engine says why. */
   | { readonly status: 'failed'; readonly error: BridgeError };
 

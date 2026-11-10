@@ -14,7 +14,8 @@ use std::path::Path;
 use carrova_core::RollbackReport;
 use carrova_core::checklist::Checklist;
 use carrova_core::lan::{
-    ActionCounts, ConflictTarget, Inventory, InventoryApp, ItemPlanSummary, PlanSummary,
+    ActionCounts, CODE_LIFETIME, ConflictTarget, Inventory, InventoryApp, ItemPlanSummary,
+    PlanSummary,
 };
 use carrova_core::select::Selection;
 use carrova_core::session::{PauseReason, Role, RollbackOutcome, SessionId};
@@ -136,6 +137,14 @@ fn golden_selection() {
         .insert("raw:user_config/oddtool".into(), choice(true));
     sel.items
         .insert("raw:user_data/locked".into(), choice(false));
+    sel.items.insert("obsidian/vaults".into(), choice(true));
+    sel.export_plugins = vec![carrova_core::PlannedPlugin {
+        plugin: carrova_recipe::PluginId::new("path-rewrite").unwrap(),
+        version: "1.0.0".into(),
+        description: format!("Rewrites paths{ESC}."),
+        permissions: vec!["It sees the path of your home folder on this computer.".into()],
+        items: vec!["obsidian/vaults".into()],
+    }];
     golden(
         "selection",
         &text(|o| selection(o, &selection_view(&sel, &scan))),
@@ -224,9 +233,10 @@ fn golden_lan_code_and_warnings() {
     for (t, offer) in [
         ("7-acid-lemon@192.168.1.20:47822", CodeOffer::First),
         ("7-acid-lemon", CodeOffer::Renewed),
+        ("7-acid-lemon", CodeOffer::Expired),
     ] {
-        let v = code_view(&ticket(t), offer);
-        s.push_str(&lan_render::code_banner(&v));
+        let v = code_view(&ticket(t), offer, CODE_LIFETIME);
+        s.push_str(&lan_render::code_banner(&v, offer));
         s.push_str("\n--\n");
         s.push_str(&serde_json::to_string(&lan_render::pairing_record(&v)).unwrap());
         s.push_str("\n--\n");
@@ -306,11 +316,20 @@ fn golden_lan_peer_views() {
         fs: format!("/st{ESC}"),
         available: 1024,
         needed: 3 * 1024 * 1024 + 1024,
+        disk: None,
     };
     let id = SessionId("20261108-101500-a1b2c3".into());
     s.push_str(&lan_render::pause(&pause_view(&reason, Some(&id)).unwrap()));
     s.push('\n');
     s.push_str(&lan_render::pause(&pause_view(&reason, None).unwrap()));
+    s.push('\n');
+    let on_disk = PauseReason::LowDiskSpace {
+        fs: "/st".into(),
+        available: 1024,
+        needed: 2048,
+        disk: Some(format!("/mnt{ESC}")),
+    };
+    s.push_str(&lan_render::pause(&pause_view(&on_disk, None).unwrap()));
     s.push('\n');
     golden("lan_peer", &s);
 }

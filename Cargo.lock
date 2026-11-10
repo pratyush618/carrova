@@ -702,12 +702,14 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
+ "sha2 0.10.9",
  "tempfile",
  "thiserror 2.0.21",
  "tracing",
  "tracing-subscriber",
  "ts-rs",
  "walkdir",
+ "wat",
  "zeroize",
 ]
 
@@ -789,11 +791,15 @@ dependencies = [
 name = "carrova-plugin"
 version = "0.0.1"
 dependencies = [
+ "carrova-manifest",
  "carrova-platform",
  "carrova-recipe",
  "serde",
  "serde_yaml_ng",
+ "tempfile",
  "thiserror 2.0.21",
+ "tracing",
+ "tracing-subscriber",
  "wasmi",
  "wat",
 ]
@@ -848,6 +854,7 @@ dependencies = [
 name = "carrova-view"
 version = "0.0.1"
 dependencies = [
+ "carrova-bundle",
  "carrova-core",
  "carrova-platform",
  "carrova-report",

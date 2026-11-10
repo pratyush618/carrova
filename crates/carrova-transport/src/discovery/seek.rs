@@ -200,6 +200,11 @@ impl Offer {
         &self.advert
     }
 
+    /// Whether this offers a pairing code (not a resumable session).
+    pub(crate) const fn is_pairing(&self) -> bool {
+        matches!(self.subject, Subject::Pair(_))
+    }
+
     /// Does a broadcast query ask for this offer?
     pub(crate) fn answers(&self, query: &[u8]) -> bool {
         Seek::from_query(query).is_some_and(|seek| self.subject.recognises(&seek))

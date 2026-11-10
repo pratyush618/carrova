@@ -5,6 +5,8 @@
 //! in `report`, the sender's way in (prepare / resume a send) in
 //! `prepare`.
 
+use std::time::{Duration, Instant};
+
 use carrova_crypto::pairing::ResumeSecret;
 use carrova_transport::{
     AllowedChunks, Connection, ListenOptions, Listener, ServeEnd, Ticket, TransportError,
@@ -25,7 +27,7 @@ use super::session::Session;
 use crate::cancel::Cancel;
 use crate::capture::Capture;
 use crate::error::{CoreError, Result};
-use crate::lan::{self, IDLE_POLL, LanMsg, SendAction, SendStep};
+use crate::lan::{self, CODE_LIFETIME, IDLE_POLL, LanMsg, SendAction, SendStep};
 use crate::session::progress::PROGRESS_STEP;
 use crate::session::{Event, Metered, Phase, ProgressMeter, SessionId};
 
@@ -40,6 +42,8 @@ pub struct SendHandle {
     allowed: AllowedChunks,
     listener: Listener,
     peer: Peer,
+    /// How long each pairing code stays valid ([`CODE_LIFETIME`]).
+    code_lifetime: Duration,
     /// Failed pairing attempts so far (see [`MAX_PAIRING_FAILURES`](crate::lan::MAX_PAIRING_FAILURES)).
     pairing_failures: u32,
     /// Chunk bytes served in this run (progress).
@@ -51,8 +55,9 @@ pub struct SendHandle {
 /// Who may connect.
 #[derive(Debug)]
 enum Peer {
-    /// Waiting for a receiver to pair with this ticket's code.
-    Offered(Ticket),
+    /// Waiting for a receiver to pair with this ticket's code, offered at
+    /// this instant.
+    Offered(Ticket, Instant),
     /// Paired: only the receiver holding this secret can (re)connect.
     Paired(ResumeSecret),
 }
@@ -68,6 +73,9 @@ impl SendHandle {
         let mut listener = Listener::bind(ListenOptions {
             platform: s.engine.platform.clone(),
             cancel: Some(cancel.signal()),
+            device_name: crate::about::device_name(s.platform())
+                .as_deref()
+                .and_then(crate::lan::clean_device_name),
             ..ListenOptions::default()
         })?;
         let peer = match secret {
@@ -75,7 +83,7 @@ impl SendHandle {
                 listener.advertise_resume(&secret)?;
                 Peer::Paired(secret)
             }
-            None => Peer::Offered(offer(&mut listener)?),
+            None => Peer::Offered(offer(&mut listener)?, Instant::now()),
         };
         Ok(Self {
             allowed: AllowedChunks::from_manifest(&capture.manifest),
@@ -84,6 +92,7 @@ impl SendHandle {
             manifest,
             listener,
             peer,
+            code_lifetime: CODE_LIFETIME,
             pairing_failures: 0,
             sent: 0,
             cancel,
@@ -112,9 +121,16 @@ impl SendHandle {
     #[must_use]
     pub fn ticket(&self) -> Option<&Ticket> {
         match &self.peer {
-            Peer::Offered(t) => Some(t),
+            Peer::Offered(t, _) => Some(t),
             Peer::Paired(_) => None,
         }
+    }
+
+    /// Shorten how long each pairing code stays valid (default
+    /// [`CODE_LIFETIME`]), for tests of code expiry.
+    #[cfg(feature = "test-support")]
+    pub fn set_code_lifetime(&mut self, lifetime: Duration) {
+        self.code_lifetime = lifetime;
     }
 
     /// UDP port the sender listens on (all IPv4 interfaces).
@@ -147,8 +163,9 @@ impl SendHandle {
     /// run [`CoreError::PeerAborted`]. A cancel ([`Self::canceller`]) is
     /// [`CoreError::Cancelled`] (the receiver is told).
     pub fn run(mut self, prompt: &mut dyn SendPrompt) -> Result<SendReport> {
-        if let Peer::Offered(ticket) = &self.peer {
-            prompt.show_code(ticket, CodeOffer::First);
+        if let Peer::Offered(ticket, at) = &self.peer {
+            let left = self.code_lifetime.saturating_sub(at.elapsed());
+            prompt.show_code(ticket, CodeOffer::First, left);
         }
         let result = self.drive(prompt);
         if let Err(e) = &result {
@@ -201,7 +218,7 @@ impl SendHandle {
                 SendAction::SendManifest(mut inventory) => {
                     // Only the sanitised name is stored or shown.
                     inventory.device_name = inventory.device_name();
-                    self.record_peer_name(&inventory)?;
+                    self.record_peer(&inventory)?;
                     self.s.emit(Event::InventoryReceived(inventory));
                     for part in lan::manifest_messages(&self.manifest) {
                         conn.send(&part)?;

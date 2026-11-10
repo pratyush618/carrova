@@ -49,9 +49,11 @@ fixtures app="":
 # Only crates without C build deps: blake3 (manifest) and ring (transport) need
 # a target C toolchain, so everything above them is left to the macOS/Windows CI jobs.
 
-# Cross-OS `cargo check` for macOS (arm64) and Windows from Linux
+# Cross-OS `cargo check` for macOS (arm64) and Windows from Linux.
+# blake3 (via carrova-plugin → carrova-manifest) builds C/asm for the target;
+# its pure-Rust path needs no target C toolchain here (native CI keeps SIMD).
 check-targets:
-    for target in aarch64-apple-darwin x86_64-pc-windows-msvc; do rustup target add "$target" && cargo check --target "$target" --all-targets -p carrova-platform -p carrova-recipe -p carrova-crypto -p carrova-plugin -p carrova-report; done
+    export CARGO_FEATURE_PURE=1; for target in aarch64-apple-darwin x86_64-pc-windows-msvc; do rustup target add "$target" && cargo check --target "$target" --all-targets -p carrova-platform -p carrova-recipe -p carrova-crypto -p carrova-plugin -p carrova-report; done
 
 # macOS only: alias 127.0.0.2–80 on lo0 so transport tests can dial as distinct peers (sudo, until reboot)
 macos-loopback:
@@ -85,6 +87,7 @@ ci-portable: lint build test fixtures
 # `just e2e --archive FILE` imports an existing archive instead of a seeded one.
 # `just e2e --lan [--only A|B1|B2|B3|C]... [--ubuntu-rmem]`: two containers on a
 # Docker network migrate over LAN (pairing, interruption + resume, rollback).
+# `just e2e --cross-os`: restore onto fake Windows/macOS layouts (see tests/e2e/README.md).
 e2e *args:
     tests/e2e/run.sh {{args}}
 
