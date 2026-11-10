@@ -28,6 +28,10 @@ pub struct ListenOptions {
     /// Advertise over mDNS and answer broadcast queries. Off, only a
     /// [`crate::Ticket`] with an address reaches the sender.
     pub discovery: bool,
+    /// Device name advertised while a code is offered, so receivers can
+    /// list this sender ([`crate::browse`]); `None` advertises none. Pass
+    /// a sanitised name: it is shown on other machines.
+    pub device_name: Option<String>,
     /// OS access for sockets and interface listing (pass the engine's).
     pub platform: Arc<dyn Platform>,
     /// Stops accepting and every call on accepted connections
@@ -41,6 +45,7 @@ impl Default for ListenOptions {
         Self {
             port: 0,
             discovery: true,
+            device_name: None,
             platform: Arc::from(carrova_platform::current()),
             cancel: None,
         }
@@ -79,6 +84,7 @@ impl Listener {
                 opts.platform.as_ref(),
                 port,
                 format!("carrova-{}", &hash[..12]),
+                opts.device_name,
             )?)
         } else {
             None

@@ -13,7 +13,8 @@ use carrova_crypto::pairing::{PairingCode, ResumeSecret};
 use carrova_manifest::{ChunkHash, ChunkRef, MAX_CHUNK_LEN};
 use carrova_transport::{
     AllowedChunks, BROADCAST_PORT, BROADCAST_QUERY, BROADCAST_REPLY, ChunkFailure, ConnectOptions,
-    Connection, FetchAbort, MAX_CHUNK_RETRIES, Target, Ticket, TransportError, connect,
+    Connection, FetchAbort, ListenOptions, Listener, MAX_CHUNK_RETRIES, Target, Ticket,
+    TransportError, browse, connect,
 };
 
 #[path = "../support/mod.rs"]
@@ -60,7 +61,7 @@ fn wrong_code_fails_on_both_sides_and_burns_the_code() {
     let t = ticket(&wrong, &listener);
     let sender_code = code.clone();
     let sender = thread::spawn(move || {
-        let first = listener.accept_pairing(&sender_code, T);
+        let first = listener.accept_pairing(&sender_code, T, || {});
         (first, listener)
     });
     let receiver = connect(Target::Pairing(&t), T, &ConnectOptions::default());
@@ -71,7 +72,7 @@ fn wrong_code_fails_on_both_sides_and_burns_the_code() {
     // The burned code is refused outright, without waiting for anyone.
     let started = Instant::now();
     assert!(matches!(
-        listener.accept_pairing(&code, T),
+        listener.accept_pairing(&code, T, || {}),
         Err(TransportError::PairingFailed)
     ));
     assert!(started.elapsed() < Duration::from_secs(1));
@@ -79,7 +80,7 @@ fn wrong_code_fails_on_both_sides_and_burns_the_code() {
     // The sender shows a fresh code; the old (correct) guess no longer works.
     let fresh = other_words(&code);
     let t = ticket(&code, &listener);
-    let sender = thread::spawn(move || listener.accept_pairing(&fresh, T));
+    let sender = thread::spawn(move || listener.accept_pairing(&fresh, T, || {}));
     assert!(matches!(
         connect(Target::Pairing(&t), T, &ConnectOptions::default()),
         Err(TransportError::PairingFailed)
@@ -99,7 +100,7 @@ fn wrong_nameplate_is_turned_away_without_burning_the_code() {
     let elsewhere: PairingCode = format!("{other_plate}-{words}").parse().unwrap();
     let wrong_ticket = ticket(&elsewhere, &listener);
     let right_ticket = ticket(&code, &listener);
-    let sender = thread::spawn(move || listener.accept_pairing(&code, T));
+    let sender = thread::spawn(move || listener.accept_pairing(&code, T, || {}));
     assert!(matches!(
         connect(
             Target::Pairing(&wrong_ticket),
@@ -164,10 +165,93 @@ fn pairing_finds_the_sender_by_discovery() {
         code: code.clone(),
         addr: None,
     };
-    let sender = thread::spawn(move || listener.accept_pairing(&code, T));
+    let sender = thread::spawn(move || listener.accept_pairing(&code, T, || {}));
     let mut receiver = connect(Target::Pairing(&t), T, &ConnectOptions::default()).unwrap();
     let mut sender = sender.join().unwrap().unwrap();
     control_round_trip(&mut receiver, &mut sender);
+}
+
+#[test]
+fn the_pairing_observer_fires_once_when_the_receiver_stakes_the_code() {
+    let mut listener = direct_listener();
+    let code = PairingCode::generate().unwrap();
+    let t = ticket(&code, &listener);
+    let sender = thread::spawn(move || {
+        let mut staked = 0;
+        let conn = listener.accept_pairing(&code, T, || staked += 1);
+        (conn, staked)
+    });
+    let receiver = connect(Target::Pairing(&t), T, &ConnectOptions::default());
+    let (conn, staked) = sender.join().unwrap();
+    assert!(receiver.is_ok() && conn.is_ok());
+    assert_eq!(staked, 1);
+}
+
+#[test]
+fn the_pairing_observer_stays_silent_for_another_nameplate() {
+    let mut listener = direct_listener();
+    let code = PairingCode::generate().unwrap();
+    let other_plate = code.nameplate().get() % 999 + 1;
+    let words = code.to_string().split_once('-').unwrap().1.to_owned();
+    let elsewhere: PairingCode = format!("{other_plate}-{words}").parse().unwrap();
+    let t = ticket(&elsewhere, &listener);
+    let sender = thread::spawn(move || {
+        let mut staked = 0;
+        let result = listener.accept_pairing(&code, Duration::from_secs(2), || staked += 1);
+        (result.err(), staked)
+    });
+    let _ = connect(
+        Target::Pairing(&t),
+        Duration::from_secs(1),
+        &ConnectOptions::default(),
+    );
+    let (err, staked) = sender.join().unwrap();
+    assert!(matches!(err, Some(TransportError::Timeout)), "{err:?}");
+    assert_eq!(staked, 0);
+}
+
+/// A discoverable listener announcing `name` while it offers a code.
+fn named_listener(name: &str) -> Listener {
+    Listener::bind(ListenOptions {
+        device_name: Some(name.to_owned()),
+        ..ListenOptions::default()
+    })
+    .unwrap()
+}
+
+fn browsed_names() -> Vec<String> {
+    browse(&*carrova_platform::current(), Duration::from_secs(2))
+        .unwrap()
+        .into_iter()
+        .map(|n| n.device_name)
+        .collect()
+}
+
+#[test]
+fn browsing_names_senders_only_while_they_offer_a_code() {
+    if !loopback_broadcast_works() {
+        return;
+    }
+    let name = format!("browse-test-{}", unique_code().nameplate());
+    let mut listener = named_listener(&name);
+    assert!(
+        !browsed_names().contains(&name),
+        "nothing offered yet: no name advertised"
+    );
+    listener.advertise_pairing(&unique_code()).unwrap();
+    let found = browsed_names();
+    assert_eq!(
+        found.iter().filter(|n| **n == name).count(),
+        1,
+        "listed once (distinct senders): {found:?}"
+    );
+    listener
+        .advertise_resume(&ResumeSecret::from_bytes([5; 32]))
+        .unwrap();
+    assert!(
+        !browsed_names().contains(&name),
+        "resume adverts never carry the name"
+    );
 }
 
 #[test]
@@ -262,7 +346,7 @@ fn spoofed_responders_do_not_break_pairing_with_the_real_sender() {
     let mut impostor = discoverable_listener();
     let impostor_code = other_words(&code);
     impostor.advertise_pairing(&impostor_code).unwrap();
-    let impostor = thread::spawn(move || impostor.accept_pairing(&impostor_code, T));
+    let impostor = thread::spawn(move || impostor.accept_pairing(&impostor_code, T, || {}));
     // A spoofed answer pointing at a socket that never speaks QUIC.
     let black_hole = UdpSocket::bind((LOOPBACK, 0)).unwrap();
     let spoof = spoofed_broadcast_answer(
@@ -276,7 +360,7 @@ fn spoofed_responders_do_not_break_pairing_with_the_real_sender() {
         code: code.clone(),
         addr: None,
     };
-    let sender = thread::spawn(move || listener.accept_pairing(&code, T));
+    let sender = thread::spawn(move || listener.accept_pairing(&code, T, || {}));
     let started = Instant::now();
     let mut receiver = connect(Target::Pairing(&t), T, &ConnectOptions::default()).unwrap();
     let mut sender = sender.join().unwrap().unwrap();
@@ -302,7 +386,7 @@ fn discovered_sender_with_a_wrong_code_fails_pairing_promptly() {
         code: other_words(&code),
         addr: None,
     };
-    let sender = thread::spawn(move || listener.accept_pairing(&code, T));
+    let sender = thread::spawn(move || listener.accept_pairing(&code, T, || {}));
     let started = Instant::now();
     assert!(matches!(
         connect(Target::Pairing(&t), T, &ConnectOptions::default()),
@@ -330,7 +414,7 @@ fn impostors(
             let mut impostor = discoverable_listener();
             let impostor_code = other_words(code);
             impostor.advertise_pairing(&impostor_code).unwrap();
-            thread::spawn(move || impostor.accept_pairing(&impostor_code, wait))
+            thread::spawn(move || impostor.accept_pairing(&impostor_code, wait, || {}))
         })
         .collect()
 }
@@ -383,7 +467,7 @@ fn real_sender_among_impostors_pairs_within_the_guess_budget() {
         code: code.clone(),
         addr: None,
     };
-    let sender = thread::spawn(move || listener.accept_pairing(&code, T));
+    let sender = thread::spawn(move || listener.accept_pairing(&code, T, || {}));
     let mut receiver = connect(Target::Pairing(&t), T, &ConnectOptions::default()).unwrap();
     let mut sender = sender.join().unwrap().unwrap();
     control_round_trip(&mut receiver, &mut sender);
