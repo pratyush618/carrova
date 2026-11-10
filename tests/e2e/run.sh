@@ -11,8 +11,11 @@
 #
 #        tests/e2e/run.sh --lan [...]   LAN migration between two containers
 #        (see lan.sh).
+#        tests/e2e/run.sh --cross-os   restore onto fake Windows/macOS layouts
+#        (see cross-os.sh).
 set -euo pipefail
 [ "${1:-}" = --lan ] && exec "$(dirname "$0")/lan.sh" "${@:2}"
+[ "${1:-}" = --cross-os ] && exec "$(dirname "$0")/cross-os.sh" "${@:2}"
 # shellcheck source-path=SCRIPTDIR source=common.sh
 . "$(dirname "$0")/common.sh"
 export CARROVA_PASSPHRASE="${CARROVA_PASSPHRASE:-carrova-e2e-passphrase}"
@@ -20,13 +23,6 @@ archive_in=""
 [ "${1:-}" = --archive ] && archive_in="$2"
 
 e2e_setup; trap 'rm -rf "$work"' EXIT
-
-run() { # run <name> <script...>
-  docker run --rm --name "carrova-e2e-$1-$$" \
-    -e CARROVA_PASSPHRASE -e E2E_KEEP_GROUP_WRITE \
-    -v "$work/bin:/carrova/bin:ro" -v "$repo/recipes:/carrova/recipes:ro" \
-    -v "$here:/e2e:ro" -v "$work/out:/out" "$image" bash -euo pipefail -c "$2"
-}
 
 if [ -z "$archive_in" ]; then
   echo "== sender: seed + export"

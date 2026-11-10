@@ -4,7 +4,7 @@
 //! [`LoadRecipes`]).
 
 mod error;
-mod seams;
+pub mod seams;
 pub mod source;
 pub mod status;
 mod update;
@@ -54,6 +54,9 @@ pub enum RecipesCommand {
         /// names the `recipes-vN` release to install.
         #[arg(long, value_name = "URL", default_value = carrova_bundle::DEFAULT_BASE_URL)]
         url: String,
+        /// Only check whether a newer bundle is available; install nothing.
+        #[arg(long)]
+        check: bool,
     },
     /// Go back to the recipe bundle the last update replaced.
     Rollback {
@@ -92,7 +95,11 @@ pub fn run(
             }
             Ok(ExitCode::SUCCESS)
         }
-        RecipesCommand::Update { url } => {
+        RecipesCommand::Update { url, check: true } => {
+            render::recipes::check_outcome(out, &update::check(&url)?)?;
+            Ok(ExitCode::SUCCESS)
+        }
+        RecipesCommand::Update { url, check: false } => {
             render::recipes::update_outcome(out, &update::update(&url)?)?;
             Ok(ExitCode::SUCCESS)
         }

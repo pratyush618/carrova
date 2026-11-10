@@ -1,5 +1,6 @@
-//! Where the CLI gets its bundle trust roots and HTTP settings, plus the
-//! test seams of the bundle-update e2e (`tests/e2e/bundle/run.sh`).
+//! Where the CLI gets its platform, bundle trust roots and HTTP settings,
+//! plus the test seams of the bundle-update e2e (`tests/e2e/bundle/run.sh`)
+//! and the cross-OS e2e (`tests/e2e/cross-os.sh`).
 //!
 //! The seams exist only in builds with the opt-in cargo feature
 //! `e2e-seams` (never release packages, never the desktop app):
@@ -9,10 +10,23 @@
 //!   (the installed bundle is re-verified on each load).
 //! * `CARROVA_BUNDLE_ALLOW_HTTP=1` accepts plain `http://` (a loopback test
 //!   server).
+//! * `CARROVA_E2E_OS=windows|macos` runs on a fake platform with that OS's
+//!   identity and root layout under `$HOME` (real files, Linux host).
 //!
 //! A build with the seams prints a loud warning whenever one is set.
 
 use carrova_bundle::{HttpConfig, Result, TrustRoots, release_roots};
+use carrova_platform::Platform;
+
+/// The platform every command runs on: the current OS's adapter.
+#[must_use]
+pub fn platform() -> Box<dyn Platform> {
+    #[cfg(feature = "e2e-seams")]
+    if let Some(fake) = enabled::fake_platform() {
+        return fake;
+    }
+    carrova_platform::current()
+}
 
 /// Roots every bundle command trusts.
 pub fn trusted_roots() -> Result<TrustRoots> {
@@ -40,11 +54,15 @@ pub fn http_config(url: &str) -> HttpConfig {
 #[cfg(feature = "e2e-seams")]
 mod enabled {
     use carrova_bundle::{BundleError, Result, TrustRoots, parse_roots};
+    use carrova_platform::fake::FakePlatform;
+    use carrova_platform::{OsKind, Platform};
 
     /// Roots file trusted instead of the release roots.
     pub const TEST_ROOTS_ENV: &str = "CARROVA_BUNDLE_TEST_ROOTS";
     /// `1`: accept plain `http://` bundle URLs.
     pub const ALLOW_HTTP_ENV: &str = "CARROVA_BUNDLE_ALLOW_HTTP";
+    /// `windows|macos|linux`: pretend to be that OS (fake layout under `$HOME`).
+    pub const OS_ENV: &str = "CARROVA_E2E_OS";
 
     fn warn(what: &str) {
         eprintln!("WARNING: TEST BUILD (e2e-seams): {what}. Never use this build for real data.");
@@ -72,5 +90,19 @@ mod enabled {
             ));
         }
         on
+    }
+
+    pub fn fake_platform() -> Option<Box<dyn Platform>> {
+        let value = std::env::var(OS_ENV).ok()?;
+        let os = match value.parse::<OsKind>() {
+            Ok(os) => os,
+            Err(e) => {
+                warn(&format!("{OS_ENV} ignored: {e}"));
+                return None;
+            }
+        };
+        let home = std::env::var_os("HOME")?;
+        warn(&format!("{OS_ENV} fakes a {os} layout under $HOME"));
+        Some(Box::new(FakePlatform::with_os_layout(home, os)))
     }
 }

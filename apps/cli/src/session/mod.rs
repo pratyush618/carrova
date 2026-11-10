@@ -29,7 +29,7 @@ use crate::events::CliSink;
 use crate::interrupt;
 use crate::output::{OutputFormat, print_json};
 use crate::prompt::{Consent, confirm, ensure_can_confirm, passphrase};
-use crate::recipes::{LoadRecipes, RecipeLocations};
+use crate::recipes::{LoadRecipes, RecipeLocations, seams};
 use crate::render::preview;
 use crate::render::selection::selection;
 use crate::render::session::{self as report, ChecklistOf};
@@ -42,7 +42,7 @@ use carrova_view::selection::selection_view;
 /// current platform.
 pub fn engine(recipes: &RecipeLocations, sink: Arc<dyn EventSink>) -> Result<Engine> {
     let (recipes, plugins) = recipes.recipes_and_plugins()?;
-    Ok(Engine::new(Arc::from(carrova_platform::current()), recipes, sink).with_plugins(plugins))
+    Ok(Engine::new(Arc::from(seams::platform()), recipes, sink).with_plugins(plugins))
 }
 
 /// `carrova export`

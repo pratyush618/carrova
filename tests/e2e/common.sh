@@ -1,5 +1,6 @@
-# Shared by run.sh (archive e2e) and lan.sh (LAN e2e): build, work dir and
-# the selection both e2e flavours migrate. Sourced, not executed.
+# Shared by run.sh (archive e2e), cross-os.sh and lan.sh (LAN e2e): build,
+# work dir, the selection the e2e flavours migrate and the container runner.
+# Sourced, not executed.
 # shellcheck shell=bash disable=SC2034 # variables are used by the sourcing scripts
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,13 +18,22 @@ for k in ssh/keys ssh/config git/config bash/config zsh/config gnupg/public-keyr
   receiver_confirm="$receiver_confirm --confirm-sensitive $k"
 done
 
-# Builds the CLI (with failpoints) and the image, creates $work with the
+# Builds the CLI (with failpoints and e2e seams) and the image, creates $work with the
 # binary in $work/bin and a shared $work/out. Caller owns the EXIT trap.
 e2e_setup() {
-  cargo build -q -p carrova-cli --features failpoints --manifest-path "$repo/Cargo.toml"
+  cargo build -q -p carrova-cli --features failpoints,e2e-seams --manifest-path "$repo/Cargo.toml"
   docker build -q -t "$image" "$here" >/dev/null
   work="$(mktemp -d)"
   mkdir -p "$work/bin" "$work/out"
   cp "$repo/target/debug/carrova" "$work/bin/"
   chmod -R a+rwX "$work"
+}
+
+# run <name> <script>: runs script in a fresh receiver/sender container with
+# the binary, recipes, e2e scripts and $work/out mounted.
+run() {
+  docker run --rm --name "carrova-e2e-$1-$$" \
+    -e CARROVA_PASSPHRASE -e E2E_KEEP_GROUP_WRITE -e CARROVA_E2E_OS \
+    -v "$work/bin:/carrova/bin:ro" -v "$repo/recipes:/carrova/recipes:ro" \
+    -v "$here:/e2e:ro" -v "$work/out:/out" "$image" bash -euo pipefail -c "$2"
 }
