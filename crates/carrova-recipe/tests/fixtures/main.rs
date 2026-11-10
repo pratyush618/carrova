@@ -1,18 +1,28 @@
 //! Recipe fixture tests (`just fixtures [app]`).
 //!
-//! Every recipe under `recipes/<category>/<app>/` ships a fixture:
+//! Every recipe under `recipes/<category>/<app>/` is checked on each OS it
+//! supports (has `detect.<os>` rules for) against `fixture.<os>/`
+//! (`fixture.macos/`, `fixture.windows/`), or `fixture/` when that is
+//! absent. `fixture/` is the Linux fixture; a recipe whose files sit at
+//! the same place on every OS (only `home` paths) needs no other.
 //!
 //! ```text
 //! fixture/home/          fake home directory (dummy contents only)
 //! fixture/expected.yaml  what detection and resolution must produce
 //! ```
 //!
+//! The fake home lays the semantic roots out like the real OS
+//! ([`fake_platform`]): Linux `.config`, `.local/share`, `.cache`;
+//! macOS `Library/Application Support` (config + data), `Library/Caches`;
+//! Windows `AppData/Roaming` (config), `AppData/Local` (data + cache);
+//! `Documents` everywhere.
+//!
 //! `expected.yaml`:
 //!
 //! ```yaml
 //! binaries: [git]          # names faked as installed
 //! detected: true
-//! process_names: [git]     # optional: Recipe::process_names(Linux), in order
+//! process_names: [git]     # optional: Recipe::process_names(<fixture OS>), in order
 //! items:                   # EVERY recipe item, unmovable ones with `files: []`
 //!   config:
 //!     handler: gpg-keyring # optional; must equal the item's handler (absent = none)
@@ -32,7 +42,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use carrova_platform::fake::FakePlatform;
-use carrova_platform::{FileKind, OsKind, Platform};
+use carrova_platform::{FileKind, OsKind, Platform, SemanticRoot};
 use carrova_recipe::{LoadedRecipe, detect, load_tree, resolve_item, validate_tree};
 use serde::Deserialize;
 use walkdir::WalkDir;
@@ -154,11 +164,35 @@ fn fixture_files(home: &Path, errs: &mut Vec<String>) -> BTreeSet<String> {
     out
 }
 
-/// Check one recipe against its fixture. Returns failure messages.
-fn check(loaded: &LoadedRecipe) -> (Vec<String>, usize) {
+/// `fixture.<os>/` (non-Linux), if the recipe ships one.
+fn os_fixture(loaded: &LoadedRecipe, os: OsKind) -> Option<PathBuf> {
+    let dir = loaded.dir().join(format!("fixture.{}", os.as_str()));
+    (os != OsKind::Linux && dir.exists()).then_some(dir)
+}
+
+/// A fake `os` machine whose semantic roots sit under `home` where that OS
+/// puts them.
+fn fake_platform(home: &Path, os: OsKind) -> FakePlatform {
+    let p = FakePlatform::with_home(home).with_os(os);
+    let (config, data, cache) = match os {
+        OsKind::Linux => return p,
+        OsKind::MacOs => (
+            "Library/Application Support",
+            "Library/Application Support",
+            "Library/Caches",
+        ),
+        OsKind::Windows => ("AppData/Roaming", "AppData/Local", "AppData/Local"),
+    };
+    p.root(SemanticRoot::UserConfig, home.join(config))
+        .root(SemanticRoot::UserData, home.join(data))
+        .root(SemanticRoot::Cache, home.join(cache))
+}
+
+/// Check one recipe against its `os` fixture. Returns failure messages.
+fn check(loaded: &LoadedRecipe, os: OsKind) -> (Vec<String>, usize) {
     let mut errs = Vec::new();
     let recipe = &loaded.recipe;
-    let fixture = loaded.dir().join("fixture");
+    let fixture = os_fixture(loaded, os).unwrap_or_else(|| loaded.dir().join("fixture"));
     let home = fixture.join("home");
     let expected_path = fixture.join("expected.yaml");
 
@@ -177,7 +211,7 @@ fn check(loaded: &LoadedRecipe) -> (Vec<String>, usize) {
         }
     };
 
-    let mut platform = FakePlatform::with_home(&home);
+    let mut platform = fake_platform(&home, os);
     for bin in &expected.binaries {
         platform = platform.binary(bin.as_str(), Path::new("/fake/bin").join(bin));
     }
@@ -191,7 +225,7 @@ fn check(loaded: &LoadedRecipe) -> (Vec<String>, usize) {
     }
 
     if let Some(want) = &expected.process_names {
-        let got: Vec<&str> = recipe.process_names(OsKind::Linux).collect();
+        let got: Vec<&str> = recipe.process_names(os).collect();
         if got != *want {
             errs.push(format!("process_names = {got:?}, expected {want:?}"));
         }
@@ -232,8 +266,8 @@ fn check(loaded: &LoadedRecipe) -> (Vec<String>, usize) {
         let Some(want) = expected.items.get(&item.id) else {
             continue; // reported by the id diff
         };
-        let got_handler = item.handler.map(carrova_recipe::Handler::as_str);
-        if got_handler != want.handler.as_deref() {
+        let got_handler = item.handler.as_ref().map(ToString::to_string);
+        if got_handler != want.handler {
             errs.push(format!(
                 "item `{}` handler = {got_handler:?}, expected {:?}",
                 item.id, want.handler
@@ -287,16 +321,32 @@ fn recipe_fixtures() {
     let recipes = selected(load_all().unwrap());
     let mut failures: Vec<String> = Vec::new();
     for loaded in &recipes {
-        let id = &loaded.recipe.id;
-        let (errs, files) = check(loaded);
-        if errs.is_empty() {
-            println!(
-                "ok    {id:<12} {} items, {files} files",
-                loaded.recipe.items.len()
-            );
-        } else {
-            println!("FAIL  {id:<12} {} problem(s)", errs.len());
-            failures.push(format!("{id}:\n    {}", errs.join("\n    ")));
+        for os in OsKind::ALL {
+            let id = format!("{} ({})", loaded.recipe.id, os.as_str());
+            let errs_files = if loaded.recipe.supports(os) {
+                Some(check(loaded, os))
+            } else {
+                os_fixture(loaded, os).map(|stale| {
+                    let msg = format!(
+                        "{} exists but the recipe has no detect.{} rules",
+                        stale.display(),
+                        os.as_str()
+                    );
+                    (vec![msg], 0)
+                })
+            };
+            let Some((errs, files)) = errs_files else {
+                continue;
+            };
+            if errs.is_empty() {
+                println!(
+                    "ok    {id:<28} {} items, {files} files",
+                    loaded.recipe.items.len()
+                );
+            } else {
+                println!("FAIL  {id:<28} {} problem(s)", errs.len());
+                failures.push(format!("{id}:\n    {}", errs.join("\n    ")));
+            }
         }
     }
     assert!(
@@ -308,18 +358,23 @@ fn recipe_fixtures() {
     );
 }
 
-/// An empty home with nothing installed must detect nothing.
+/// An empty home with nothing installed must detect nothing, on any OS.
 #[test]
 fn empty_home_detects_nothing() {
     let recipes = selected(load_all().unwrap());
     let home = tempfile::tempdir().expect("tempdir");
-    let platform = FakePlatform::with_home(home.path());
-    let hits: Vec<String> = recipes
-        .iter()
-        .filter_map(|l| {
-            let d = detect(&l.recipe, &platform);
-            d.detected
-                .then(|| format!("{}: {:?}", l.recipe.id, d.evidence))
+    let hits: Vec<String> = OsKind::ALL
+        .into_iter()
+        .flat_map(|os| {
+            let platform = fake_platform(home.path(), os);
+            recipes
+                .iter()
+                .filter_map(|l| {
+                    let d = detect(&l.recipe, &platform);
+                    d.detected
+                        .then(|| format!("{} ({os}): {:?}", l.recipe.id, d.evidence))
+                })
+                .collect::<Vec<_>>()
         })
         .collect();
     assert!(

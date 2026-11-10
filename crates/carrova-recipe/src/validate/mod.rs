@@ -7,10 +7,28 @@ use crate::{LoadedRecipe, Recipe};
 mod identity;
 mod issue;
 mod items;
+mod os_paths;
+mod sensitive;
 
 use identity::{check_detect, check_identity, check_processes};
 pub use issue::{Issue, IssueKind};
-use items::{check_items, check_sensitive_capture};
+use items::check_items;
+use sensitive::check_sensitive_capture;
+
+/// First recipe schema version of each versioned feature (one source of
+/// truth for the validator and its messages).
+mod since {
+    /// Recipe-level `processes`.
+    pub(super) const PROCESSES: u32 = 2;
+    /// Item `handler` naming a built-in.
+    pub(super) const HANDLER: u32 = 2;
+    /// Item `handler: { plugin: <id> }`.
+    pub(super) const PLUGIN_HANDLER: u32 = 3;
+    /// Item per-OS `os` overrides.
+    pub(super) const OS_OVERRIDES: u32 = 3;
+    /// Detection rules for any OS instead of required Linux rules.
+    pub(super) const ANY_OS_DETECT: u32 = 3;
+}
 
 /// `^[a-z0-9]+(-[a-z0-9]+)*$`
 #[must_use]
@@ -35,13 +53,31 @@ struct Sink<'a> {
 }
 
 impl Sink<'_> {
+    /// Record an issue; an identical one is recorded once (checks that run
+    /// once per OS report a path shared by several OSes only once).
     fn push(&mut self, location: impl Into<String>, kind: IssueKind) {
-        self.issues.push(Issue {
+        let issue = Issue {
             file: self.file.map(Path::to_path_buf),
             recipe: self.recipe.to_owned(),
             location: location.into(),
             kind,
-        });
+        };
+        if !self.issues.contains(&issue) {
+            self.issues.push(issue);
+        }
+    }
+
+    /// Report `field` (at `location`) if `schema` predates `min`.
+    fn require_schema(
+        &mut self,
+        schema: u32,
+        location: impl Into<String>,
+        field: &'static str,
+        min: u32,
+    ) {
+        if schema < min {
+            self.push(location, IssueKind::RequiresSchema { field, min });
+        }
     }
 }
 

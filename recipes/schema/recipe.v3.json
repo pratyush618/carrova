@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://carrova.dev/schema/recipe.v3.json",
+  "title": "Carrova recipe (schema v3)",
+  "description": "Declarative description of one app: how to detect it and which items (files/dirs) can move. Data only: no code, no commands, no absolute paths. Paths are (semantic root, relative path) pairs. v3 adds item-level `os` (per-OS replacements for `paths` / `exclude`, slot-aligned with `paths`), plugin handlers (`handler: { plugin: <id> }`) and recipes for any OS (detection rules for at least one OS; `linux` is no longer required). The Rust loader (carrova-recipe) applies additional semantic checks this schema cannot express: unique item ids, unique recipe ids across the tree, category == parent dir name, app dir name == id, exclude globs must compile, each `os.<os>.paths` has as many entries as `paths`, sensitive paths are excluded from non-sensitive items on every OS.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "name", "category", "detect", "items"],
+  "properties": {
+    "schema": {
+      "description": "Recipe schema version. Must be 3 for this schema (older recipes validate against recipe.v1.json / recipe.v2.json).",
+      "const": 3
+    },
+    "id": {
+      "description": "App id, lowercase kebab-case, unique across all recipes. Must equal the app directory name.",
+      "$ref": "#/$defs/kebab"
+    },
+    "name": {
+      "description": "Human-readable app name.",
+      "$ref": "#/$defs/nonEmpty"
+    },
+    "category": {
+      "description": "Category, lowercase kebab-case. Must equal the parent directory name (recipes/<category>/<id>/).",
+      "$ref": "#/$defs/kebab"
+    },
+    "description": {
+      "description": "Optional free-text description.",
+      "type": "string"
+    },
+    "detect": {
+      "description": "Detection rules per OS. The app is detected if ANY rule for the current OS matches; the recipe applies on an OS iff it has rules for it. At least one OS must have rules.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "linux": { "$ref": "#/$defs/detectRulesOptional" },
+        "windows": { "$ref": "#/$defs/detectRulesOptional" },
+        "macos": { "$ref": "#/$defs/detectRulesOptional" }
+      },
+      "anyOf": [
+        {
+          "required": ["linux"],
+          "properties": { "linux": { "minItems": 1 } }
+        },
+        {
+          "required": ["windows"],
+          "properties": { "windows": { "minItems": 1 } }
+        },
+        {
+          "required": ["macos"],
+          "properties": { "macos": { "minItems": 1 } }
+        }
+      ]
+    },
+    "processes": {
+      "description": "Extra process names (daemons, helpers) that count as the app running for `requires_closed` items, in addition to the `binary` detect rules. Bare names, no path separators.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/bareName" }
+    },
+    "items": {
+      "description": "Selectable items. Item ids must be unique within the recipe (checked by the loader).",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/item" }
+    }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "kebab": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "bareName": {
+      "description": "Executable or process name: not empty, no `/`, `\\` or NUL.",
+      "type": "string",
+      "pattern": "^[^/\\\\\\u0000]+$"
+    },
+    "handler": {
+      "description": "A built-in handler by name (gpg-keyring: GnuPG public keys + ownertrust via `gpg --export` / `--import`) or a WASM plugin from the signed recipe bundle (`{ plugin: <id> }`).",
+      "oneOf": [
+        { "$ref": "#/$defs/builtinHandler" },
+        { "$ref": "#/$defs/pluginHandler" }
+      ]
+    },
+    "builtinHandler": {
+      "description": "Built-in handler name.",
+      "enum": ["gpg-keyring"]
+    },
+    "pluginHandler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plugin"],
+      "properties": { "plugin": { "$ref": "#/$defs/pluginId" } }
+    },
+    "pluginId": {
+      "description": "Plugin id: 1 to 64 characters of `a-z`, `0-9` and `-`.",
+      "type": "string",
+      "pattern": "^[a-z0-9-]{1,64}$"
+    },
+    "semanticRoot": {
+      "description": "OS-neutral anchor resolved by the platform adapter.",
+      "enum": ["user_config", "user_data", "cache", "home", "documents"]
+    },
+    "relPath": {
+      "description": "Path relative to a semantic root. `/` separators; no leading `/` or `~`, no backslash, no NUL, no drive letter, no `..` component, not empty (after dropping `.` components).",
+      "type": "string",
+      "minLength": 1,
+      "allOf": [
+        { "pattern": "^[^/~]" },
+        { "pattern": "^[^\\\\\\u0000]*$" },
+        { "not": { "pattern": "(^|/)\\.\\.(/|$)" } },
+        { "not": { "pattern": "^(\\.?/)*\\.?$" } },
+        { "not": { "pattern": "^[A-Za-z]:" } }
+      ]
+    },
+    "pathRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "rel"],
+      "properties": {
+        "root": { "$ref": "#/$defs/semanticRoot" },
+        "rel": { "$ref": "#/$defs/relPath" }
+      }
+    },
+    "osPaths": {
+      "description": "An item's paths on one OS. `paths` replaces the base `paths` slot by slot: entry i is where the data of base `paths[i]` lives on this OS, so both lists have the same length (checked by the loader). `exclude`, when present, replaces the base `exclude` (`[]` = none); absent = inherit.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paths"],
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pathRef" }
+        },
+        "exclude": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmpty" }
+        }
+      }
+    },
+    "detectRule": {
+      "description": "Exactly one of `binary` (bare executable name looked up on the search path) or `path` (exists, any kind, symlinks not followed).",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "maxProperties": 1,
+      "properties": {
+        "binary": { "$ref": "#/$defs/bareName" },
+        "path": { "$ref": "#/$defs/pathRef" }
+      }
+    },
+    "detectRules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/detectRule" }
+    },
+    "detectRulesOptional": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/detectRule" }
+    },
+    "flags": {
+      "description": "All fields optional. Defaults: portability=same_os, sensitive=false, requires_closed=false, default=true — except that sensitive and unmovable items default to OFF, and an explicit `default: true` on them is rejected.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "portability": {
+          "description": "same_os: only restorable on the same OS family. cross_os: OS-neutral content. v1: everything is same_os.",
+          "enum": ["same_os", "cross_os"],
+          "default": "same_os"
+        },
+        "sensitive": {
+          "description": "Secrets (keys, tokens, credential stores). Off by default and needs explicit confirmation.",
+          "type": "boolean",
+          "default": false
+        },
+        "requires_closed": {
+          "description": "The app must not be running while this item is captured/applied (databases, lock files).",
+          "type": "boolean",
+          "default": false
+        },
+        "default": {
+          "description": "Pre-selected in the picker. Effective default: true, or false when sensitive/unmovable.",
+          "type": "boolean"
+        }
+      },
+      "if": {
+        "required": ["sensitive"],
+        "properties": { "sensitive": { "const": true } }
+      },
+      "then": { "properties": { "default": { "const": false } } }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "$ref": "#/$defs/kebab" },
+        "label": { "$ref": "#/$defs/nonEmpty" },
+        "paths": {
+          "description": "Files/dirs that make up the item (for handler items: the files the handler mutates). Required (non-empty) unless the item is unmovable.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/pathRef" }
+        },
+        "exclude": {
+          "description": "Globs (`*` does not cross `/`, `**` does) matched against the path relative to the item path and relative to the semantic root. A matching directory excludes its subtree.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmpty" }
+        },
+        "flags": { "$ref": "#/$defs/flags" },
+        "unmovable": {
+          "description": "Reason the item cannot move (e.g. OS-bound secret). Shown greyed out, never captured.",
+          "$ref": "#/$defs/nonEmpty"
+        },
+        "handler": {
+          "description": "Capture/apply via this handler instead of copying raw files. `paths` then declare the files the handler mutates on the receiver (dry-run plan + rollback backup). Not allowed on unmovable items.",
+          "$ref": "#/$defs/handler"
+        },
+        "os": {
+          "description": "Per-OS replacements for `paths` / `exclude`. An OS without an entry uses the base values.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "linux": { "$ref": "#/$defs/osPaths" },
+            "macos": { "$ref": "#/$defs/osPaths" },
+            "windows": { "$ref": "#/$defs/osPaths" }
+          }
+        }
+      },
+      "if": { "required": ["unmovable"] },
+      "then": {
+        "not": { "required": ["handler"] },
+        "properties": {
+          "flags": { "properties": { "default": { "const": false } } }
+        }
+      },
+      "else": {
+        "required": ["paths"],
+        "properties": { "paths": { "minItems": 1 } }
+      }
+    }
+  }
+}

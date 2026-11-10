@@ -8,10 +8,11 @@ mod support;
 use std::fs;
 use std::path::Path;
 
-use carrova_platform::FileKind;
 use carrova_platform::fake::FakePlatform;
+use carrova_platform::{FileKind, OsKind};
 use carrova_recipe::{
-    Flags, Item, PathRef, RelPath, ResolvedItem, SemanticRoot, SkipReason, Skipped, resolve_item,
+    Flags, Item, OsOverrides, OsPaths, PathRef, RelPath, ResolvedItem, SemanticRoot, SkipReason,
+    Skipped, resolve_item,
 };
 use support::symlink;
 
@@ -31,6 +32,7 @@ fn item(paths: Vec<PathRef>, exclude: &[&str]) -> Item {
         flags: Flags::default(),
         unmovable: None,
         handler: None,
+        os: None,
     }
 }
 
@@ -292,4 +294,39 @@ fn root_unavailable_and_bad_glob_are_skips() {
     let it = item(vec![pr(SemanticRoot::Home, "x")], &["[bad"]);
     let r = resolve_item(&it, &FakePlatform::with_home(tmp.path()));
     assert!(matches!(r.skipped[0].reason, SkipReason::InvalidExclude(_)));
+}
+
+#[test]
+fn resolves_the_paths_and_excludes_of_the_platforms_os() {
+    let tmp = tempfile::tempdir().unwrap();
+    let home = tmp.path();
+    write(&home.join(".config/demo/a"), 1);
+    write(&home.join(".local/share/Demo/b"), 2);
+    write(&home.join(".local/share/Demo/b.log"), 3);
+    let mut it = item(vec![pr(SemanticRoot::UserConfig, "demo")], &["*.log"]);
+    it.os = Some(OsOverrides {
+        macos: Some(OsPaths {
+            paths: vec![pr(SemanticRoot::UserData, "Demo")],
+            exclude: Some(Vec::new()),
+        }),
+        ..OsOverrides::default()
+    });
+
+    let linux = resolve_item(&it, &FakePlatform::with_home(home));
+    assert_eq!(
+        rels(&linux),
+        vec![
+            (SemanticRoot::UserConfig, "demo", FileKind::Dir),
+            (SemanticRoot::UserConfig, "demo/a", FileKind::File),
+        ]
+    );
+    let mac = resolve_item(&it, &FakePlatform::with_home(home).with_os(OsKind::MacOs));
+    assert_eq!(
+        rels(&mac),
+        vec![
+            (SemanticRoot::UserData, "Demo", FileKind::Dir),
+            (SemanticRoot::UserData, "Demo/b", FileKind::File),
+            (SemanticRoot::UserData, "Demo/b.log", FileKind::File),
+        ]
+    );
 }

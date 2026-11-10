@@ -3,6 +3,8 @@
 use std::fmt;
 use std::path::PathBuf;
 
+use carrova_platform::OsKind;
+
 use crate::PathRef;
 
 /// One validation problem. [`fmt::Display`] gives a single human line.
@@ -28,6 +30,8 @@ pub enum IssueKind {
     Empty,
     #[error("no detection rules for linux")]
     NoLinuxDetect,
+    #[error("no detection rules for any OS")]
+    NoDetect,
     #[error("binary name `{name}` must be a bare name (no path separators, not empty)")]
     InvalidBinaryName { name: String },
     #[error("process name `{name}` must be a bare name (no path separators, not empty)")]
@@ -42,6 +46,15 @@ pub enum IssueKind {
     DuplicateItemId { id: String },
     #[error("item has no paths (only unmovable items may omit them)")]
     NoPaths,
+    #[error(
+        "{} override has {found} path(s) but the item has {base}; per-OS paths must match `paths` slot by slot",
+        os.display_name()
+    )]
+    OsPathsMisaligned {
+        os: OsKind,
+        base: usize,
+        found: usize,
+    },
     #[error("invalid exclude glob `{glob}`: {message}")]
     InvalidGlob { glob: String, message: String },
     #[error("sensitive item must not be on by default (`default: true`)")]

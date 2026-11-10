@@ -6,7 +6,10 @@
 //! shape; [`validate`] adds the semantic checks a schema cannot express.
 //!
 //! Schema v2 adds item `handler` (a built-in [`Handler`]) and recipe-level
-//! `processes`; a v1 recipe using either is a validation error.
+//! `processes`; a v1 recipe using either is a validation error. Schema v3
+//! adds per-OS item paths ([`OsOverrides`], read via [`Item::paths_for`]),
+//! plugin handlers ([`HandlerRef::Plugin`]) and recipes for any OS (detect
+//! rules for at least one OS instead of Linux).
 //!
 //! Typical flow:
 //!
@@ -23,8 +26,11 @@
 
 mod detect;
 mod error;
+mod handler;
 mod load;
 mod model;
+mod os_paths;
+mod plugin_id;
 mod relpath;
 mod resolve;
 mod validate;
@@ -34,14 +40,17 @@ use std::ops::RangeInclusive;
 pub use carrova_platform::SemanticRoot;
 pub use detect::{Detection, Evidence, detect};
 pub use error::LoadError;
+pub use handler::{Handler, HandlerRef};
 pub use load::{
     LoadedRecipe, RECIPE_FILE, SCHEMA_DIR, TreeLayout, TreeLoad, load_dir, load_file, load_str,
     load_tree,
 };
-pub use model::{Detect, DetectRule, Flags, Handler, Item, PathRef, Portability, Recipe};
+pub use model::{Detect, DetectRule, Flags, Item, PathRef, Portability, Recipe};
+pub use os_paths::{OsOverrides, OsPaths};
+pub use plugin_id::{PluginId, PluginIdError};
 pub use relpath::{RelPath, RelPathError};
 pub use resolve::{FileEntry, ResolvedItem, SkipReason, Skipped, build_excludes, resolve_item};
 pub use validate::{Issue, IssueKind, is_kebab, validate, validate_loaded, validate_tree};
 
 /// Recipe schema versions this engine understands.
-pub const SUPPORTED_SCHEMA: RangeInclusive<u32> = 1..=2;
+pub const SUPPORTED_SCHEMA: RangeInclusive<u32> = 1..=3;

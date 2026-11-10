@@ -5,9 +5,11 @@
 use std::path::{Path, PathBuf};
 
 use carrova_recipe::{
-    DetectRule, IssueKind, LoadedRecipe, Recipe, TreeLayout, is_kebab, load_str, validate,
-    validate_tree,
+    DetectRule, IssueKind, LoadedRecipe, Recipe, SUPPORTED_SCHEMA, TreeLayout, is_kebab, load_str,
+    validate, validate_tree,
 };
+
+mod v3;
 
 const BASE: &str = r#"
 schema: 1
@@ -45,7 +47,8 @@ fn base_is_clean() {
 #[test]
 fn collects_all_issues() {
     let mut r = recipe(BASE);
-    r.schema = 3;
+    let unsupported = SUPPORTED_SCHEMA.end() + 1;
+    r.schema = unsupported;
     r.id = "Demo_App".into();
     r.category = "Dev Tools".into();
     r.name = " ".into();
@@ -71,7 +74,10 @@ fn collects_all_issues() {
         .map(|i| (i.location, i.kind))
         .collect();
     let expect = [
-        ("schema", IssueKind::UnsupportedSchema { found: 3 }),
+        (
+            "schema",
+            IssueKind::UnsupportedSchema { found: unsupported },
+        ),
         (
             "id",
             IssueKind::NotKebab {
@@ -143,7 +149,7 @@ fn v2_fields() {
     use carrova_recipe::Handler;
     let mut r = recipe(&BASE.replace("schema: 1", "schema: 2"));
     r.processes = vec!["demo-agent".into()];
-    r.items[0].handler = Some(Handler::GpgKeyring);
+    r.items[0].handler = Some(Handler::GpgKeyring.into());
     assert_eq!(validate(&r), vec![]);
 
     r.processes = vec![String::new(), "/usr/bin/x".into(), "ok".into()];
@@ -179,7 +185,7 @@ fn v2_fields() {
 fn v2_fields_rejected_in_v1() {
     let mut r = recipe(BASE);
     r.processes = vec!["demo-agent".into()];
-    r.items[0].handler = Some(carrova_recipe::Handler::GpgKeyring);
+    r.items[0].handler = Some(carrova_recipe::Handler::GpgKeyring.into());
     let kinds: Vec<(String, IssueKind)> = validate(&r)
         .into_iter()
         .map(|i| (i.location, i.kind))

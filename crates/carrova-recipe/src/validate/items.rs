@@ -1,9 +1,10 @@
-//! Item checks, including sensitive-path capture across items.
+//! Item checks: identity, paths, handler, excludes, flags.
 
 use std::collections::HashMap;
 
-use super::{IssueKind, Sink, is_kebab};
-use crate::{Item, Recipe, build_excludes};
+use super::os_paths::check_os_overrides;
+use super::{IssueKind, Sink, is_kebab, since};
+use crate::{HandlerRef, Item, Recipe, build_excludes};
 
 /// At least one item; unique item ids; each item on its own.
 pub(super) fn check_items(r: &Recipe, s: &mut Sink<'_>) {
@@ -49,21 +50,13 @@ fn check_item(schema: u32, i: usize, item: &Item, duplicate: bool, s: &mut Sink<
     {
         s.push(at("unmovable"), IssueKind::Empty);
     }
-    if item.handler.is_some() {
-        if schema < 2 {
-            s.push(
-                at("handler"),
-                IssueKind::RequiresSchema {
-                    field: "handler",
-                    min: 2,
-                },
-            );
-        }
-        if item.unmovable.is_some() {
-            s.push(at("handler"), IssueKind::UnmovableWithHandler);
-        }
+    if let Some(handler) = &item.handler {
+        check_handler(schema, i, item, handler, s);
     }
-    check_excludes(i, item, s);
+    check_excludes(&format!("items[{i}].exclude"), &item.exclude, s);
+    if let Some(overrides) = &item.os {
+        check_os_overrides(schema, i, item, overrides, s);
+    }
     if item.flags.default == Some(true) {
         if item.flags.sensitive {
             s.push(at("flags.default"), IssueKind::SensitiveDefaultOn);
@@ -74,71 +67,33 @@ fn check_item(schema: u32, i: usize, item: &Item, duplicate: bool, s: &mut Sink<
     }
 }
 
-/// Exclude globs of `items[i]`: non-empty and valid.
-fn check_excludes(i: usize, item: &Item, s: &mut Sink<'_>) {
-    for (g, glob) in item.exclude.iter().enumerate() {
+/// `items[i].handler`: built-ins need schema 2, plugins schema 3; never
+/// on an unmovable item.
+fn check_handler(schema: u32, i: usize, item: &Item, handler: &HandlerRef, s: &mut Sink<'_>) {
+    let at = format!("items[{i}].handler");
+    s.require_schema(schema, at.clone(), "handler", since::HANDLER);
+    if matches!(handler, HandlerRef::Plugin(_)) {
+        s.require_schema(schema, at.clone(), "handler.plugin", since::PLUGIN_HANDLER);
+    }
+    if item.unmovable.is_some() {
+        s.push(at, IssueKind::UnmovableWithHandler);
+    }
+}
+
+/// Exclude globs listed at `at` (e.g. `items[0].exclude`): non-empty and
+/// valid.
+pub(super) fn check_excludes(at: &str, globs: &[String], s: &mut Sink<'_>) {
+    for (g, glob) in globs.iter().enumerate() {
         if glob.is_empty() {
-            s.push(format!("items[{i}].exclude[{g}]"), IssueKind::Empty);
+            s.push(format!("{at}[{g}]"), IssueKind::Empty);
         } else if let Err(e) = build_excludes(std::slice::from_ref(glob)) {
             s.push(
-                format!("items[{i}].exclude[{g}]"),
+                format!("{at}[{g}]"),
                 IssueKind::InvalidGlob {
                     glob: glob.clone(),
                     message: e.to_string(),
                 },
             );
-        }
-    }
-}
-
-/// Sensitive data must never be captured by a non-sensitive item.
-///
-/// For every sensitive item path `P` and every path `Q` of a movable,
-/// non-sensitive item with `P` equal to or under `Q`, `Q`'s excludes must
-/// cover `P` — with the matching rules [`crate::resolve_item`] uses: a glob
-/// matches the path relative to `Q` or relative to the root, and an excluded
-/// directory prunes its subtree (so excluding any ancestor of `P` at or
-/// below `Q` also counts).
-///
-/// Limitation: only paths under the *same* semantic root are compared. Roots
-/// may nest on a given machine (e.g. `user_config` is usually `home/.config`),
-/// but that is machine-dependent, so cross-root overlap is not detected here.
-pub(super) fn check_sensitive_capture(r: &Recipe, s: &mut Sink<'_>) {
-    for (qi, q_item) in r.items.iter().enumerate() {
-        if q_item.flags.sensitive || !q_item.is_movable() {
-            continue;
-        }
-        // Invalid globs are reported above; resolve captures nothing then.
-        let Ok(excludes) = build_excludes(&q_item.exclude) else {
-            continue;
-        };
-        for (qj, q) in q_item.paths.iter().enumerate() {
-            let q_comps: Vec<&str> = q.rel.components().collect();
-            for p_item in r.items.iter().filter(|it| it.flags.sensitive) {
-                for p in p_item.paths.iter().filter(|p| p.root == q.root) {
-                    let p_comps: Vec<&str> = p.rel.components().collect();
-                    if !p_comps.starts_with(&q_comps) {
-                        continue;
-                    }
-                    // Walk order: Q itself, then each descendant down to P.
-                    let excluded = (q_comps.len()..=p_comps.len()).any(|n| {
-                        let rel_item = p_comps[q_comps.len()..n].join("/");
-                        let rel_root = p_comps[..n].join("/");
-                        (!rel_item.is_empty() && excludes.is_match(&rel_item))
-                            || excludes.is_match(&rel_root)
-                    });
-                    if !excluded {
-                        s.push(
-                            format!("items[{qi}].paths[{qj}]"),
-                            IssueKind::SensitiveCapturedByNonSensitive {
-                                path: p.clone(),
-                                sensitive_item: p_item.id.clone(),
-                                by_item: q_item.id.clone(),
-                            },
-                        );
-                    }
-                }
-            }
         }
     }
 }

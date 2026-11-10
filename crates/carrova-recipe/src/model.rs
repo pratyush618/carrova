@@ -1,13 +1,11 @@
-//! Serde types mirroring `recipes/schema/recipe.v{1,2}.json`.
-
-use std::fmt;
+//! Serde types mirroring `recipes/schema/recipe.v{1,2,3}.json`.
 
 use carrova_platform::OsKind;
 use serde::{Deserialize, Serialize};
 
-use crate::{RelPath, SemanticRoot};
+use crate::{HandlerRef, OsOverrides, RelPath, SemanticRoot};
 
-/// One app recipe (schema v1 or v2).
+/// One app recipe (schema v1 to v3).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Recipe {
@@ -42,12 +40,22 @@ impl Recipe {
             })
             .chain(self.processes.iter().map(String::as_str))
     }
+
+    /// Whether the recipe applies on `os`: it has detection rules there.
+    #[must_use]
+    pub fn supports(&self, os: OsKind) -> bool {
+        !self.detect.rules(os).is_empty()
+    }
 }
 
 /// Detection rules per OS family. Any one matching rule = detected.
+///
+/// Schemas 1 and 2 require `linux` rules; schema 3 requires rules for at
+/// least one OS (checked by [`crate::validate`]).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Detect {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub linux: Vec<DetectRule>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub windows: Vec<DetectRule>,
@@ -150,44 +158,17 @@ pub struct Item {
     /// Reason this item cannot move. Shown greyed out, never captured.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unmovable: Option<String>,
-    /// Schema v2: capture/apply through this built-in handler instead of
-    /// copying raw files. [`Item::paths`] then declare the files the handler
-    /// mutates on the receiver (plan + rollback backup).
+    /// Capture/apply through this handler instead of copying raw files
+    /// (built-in: schema 2+, plugin: schema 3+). The item's paths then
+    /// declare the files the handler mutates on the receiver (plan +
+    /// rollback backup).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub handler: Option<Handler>,
-}
-
-/// Built-in Rust handlers an item may name (closed set; recipes stay data).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Handler {
-    /// GnuPG public keys + ownertrust via `gpg --export` / `--import`.
-    GpgKeyring,
-}
-
-impl Handler {
-    /// Every handler, in declaration order.
-    pub const ALL: &'static [Self] = &[Self::GpgKeyring];
-
-    /// Stable wire name (same as the YAML spelling), e.g. `gpg-keyring`.
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::GpgKeyring => "gpg-keyring",
-        }
-    }
-
-    /// Inverse of [`Handler::as_str`].
-    #[must_use]
-    pub fn from_name(name: &str) -> Option<Self> {
-        Self::ALL.iter().copied().find(|h| h.as_str() == name)
-    }
-}
-
-impl fmt::Display for Handler {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
-    }
+    pub handler: Option<HandlerRef>,
+    /// Schema v3: per-OS replacements for [`Item::paths`] /
+    /// [`Item::exclude`]; read them through [`Item::paths_for`] and
+    /// [`Item::exclude_for`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os: Option<OsOverrides>,
 }
 
 impl Item {
@@ -204,6 +185,37 @@ impl Item {
     #[must_use]
     pub fn is_movable(&self) -> bool {
         self.unmovable.is_none()
+    }
+
+    /// The built-in handler that captures and applies this item instead
+    /// of its files. A plugin item moves its files like a plain item (the
+    /// receiver runs them through the plugin).
+    #[must_use]
+    pub fn builtin_handler(&self) -> Option<crate::Handler> {
+        match self.handler {
+            Some(crate::HandlerRef::Builtin(h)) => Some(h),
+            Some(crate::HandlerRef::Plugin(_)) | None => None,
+        }
+    }
+
+    /// The item's paths on `os`: its `os.<os>` override, else the base
+    /// [`Item::paths`]. Index `i` is the same data slot on every OS.
+    #[must_use]
+    pub fn paths_for(&self, os: OsKind) -> &[PathRef] {
+        self.os_override(os).map_or(&self.paths, |o| &o.paths)
+    }
+
+    /// The item's exclude globs on `os`: its `os.<os>.exclude` if given,
+    /// else the base [`Item::exclude`].
+    #[must_use]
+    pub fn exclude_for(&self, os: OsKind) -> &[String] {
+        self.os_override(os)
+            .and_then(|o| o.exclude.as_deref())
+            .unwrap_or(&self.exclude)
+    }
+
+    fn os_override(&self, os: OsKind) -> Option<&crate::OsPaths> {
+        self.os.as_ref().and_then(|o| o.get(os))
     }
 }
 
