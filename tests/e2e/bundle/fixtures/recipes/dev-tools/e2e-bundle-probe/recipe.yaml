@@ -1,0 +1,21 @@
+# Throwaway recipe for the bundle-update e2e (tests/e2e/bundle/run.sh): only
+# bundle v2 carries it, so its presence proves the update arrived. Never part
+# of recipes/.
+schema: 1
+id: e2e-bundle-probe
+name: E2E bundle probe
+category: dev-tools
+description: Test-only recipe published by the bundle-update e2e. Not a real app.
+detect:
+  linux:
+    - path: { root: user_config, rel: e2e-bundle-probe }
+items:
+  - id: config
+    label: Probe config
+    paths:
+      - { root: user_config, rel: e2e-bundle-probe }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
