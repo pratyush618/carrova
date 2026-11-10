@@ -54,7 +54,7 @@ packages: macOS needs Xcode command-line tools, Windows the MSVC build tools
 and WebView2 (preinstalled on Windows 10/11).
 
 ```sh
-just package 1 app,dmg     # macOS, host arch (release CI builds universal)
+just package 1 app,dmg     # macOS, host arch (release CI is Linux-only for v0.1)
 just package 1 msi,nsis    # Windows, from Git Bash
 ```
 
