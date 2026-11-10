@@ -6,14 +6,17 @@ export interface UndoPreviewModel {
   /** When the move was applied: the state Undo returns to. */
   readonly pointAt: Date;
   /** What undoing would do now; `null` until the engine has answered. */
-  readonly counts: {
-    readonly restored: number;
-    readonly removed: number;
-    /** Changed since the move: kept in a folder, never deleted. */
-    readonly movedAside: number;
-    /** What undo would have to leave for the user to sort out. */
-    readonly blockers: readonly Failure[];
-  } | null;
+  readonly counts: UndoCounts | null;
+}
+
+/** What undoing a move would do now (the engine's preview). */
+export interface UndoCounts {
+  readonly restored: number;
+  readonly removed: number;
+  /** Changed since the move: kept in a folder, never deleted. */
+  readonly movedAside: number;
+  /** What undo would have to leave for the user to sort out. */
+  readonly blockers: readonly Failure[];
 }
 
 export interface UndoPreviewIntents {

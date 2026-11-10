@@ -9,20 +9,24 @@ General setup and the PR process are in the root [`CONTRIBUTING.md`](../CONTRIBU
 
 ## Steps
 
-1. Pick a category directory (`dev-tools`, `editors`, `security`, `shells`, …).
+1. Pick a category directory (`dev-tools`, `editors`, `security`, `shells`,
+   `terminals`, …).
    The app id is lowercase kebab-case, unique, and equals the directory name.
 2. Write `recipes/<category>/<app>/recipe.yaml`.
 3. Build a fixture: `recipes/<category>/<app>/fixture/home/` is a fake home
    directory with representative files (**dummy contents, never real secrets**),
    and `fixture/expected.yaml` lists what must and must not be captured.
+   Add `fixture.macos/` / `fixture.windows/` where the files sit elsewhere on
+   that OS (see [Fixture](#fixture)).
 4. Validate: `cargo run -p carrova-cli -- recipes validate recipes/<category>/<app>`
 5. Fixture test: `just fixtures <app>`
 6. `just ci` before opening the PR.
 
 ## Schema
 
-`recipes/schema/recipe.v<N>.json` is authoritative. Use `schema: 1` unless you
-need a v2 field.
+`recipes/schema/recipe.v<N>.json` is authoritative. Use the lowest schema
+that has the fields you need: `schema: 1`, `2` for `processes`/`handler`, `3`
+for per-OS `os` overrides, plugin handlers or a recipe without Linux rules.
 
 ```yaml
 schema: 1
@@ -41,7 +45,7 @@ items:
       - { root: user_config, rel: git }
     exclude: ["**/credentials"]
     flags:
-      portability: same_os     # v1 (Ubuntu → Ubuntu): always same_os
+      portability: same_os     # or cross_os (see "Other OSes")
       sensitive: false
       requires_closed: false
       default: true
@@ -55,6 +59,61 @@ items:
   (currently `gpg-keyring`) that captures/applies the item instead of raw file
   copy. `paths` still declare what it touches on the receiver. A new handler is
   an engine change, reviewed separately, never a recipe-only change.
+
+**Schema v3** adds per-OS support (next section).
+
+### Other OSes (schema v3)
+
+A recipe applies on an OS only if it has `detect.<os>` rules (`linux`,
+`macos`, `windows`; at least one). Semantic roots resolve per OS:
+
+| Root | Linux | macOS | Windows |
+|---|---|---|---|
+| `user_config` | `~/.config` | `~/Library/Application Support` | `%APPDATA%` |
+| `user_data` | `~/.local/share` | `~/Library/Application Support` | `%LOCALAPPDATA%` |
+| `cache` | `~/.cache` | `~/Library/Caches` | `%LOCALAPPDATA%` |
+| `home` | `~` | `~` | `%USERPROFILE%` |
+| `documents` | `~/Documents` | `~/Documents` | Documents known folder |
+
+When the app does not follow that convention (git, nvim and most CLI tools
+read `~/.config` on macOS), give the item an `os` override with the real
+location. Check the app's own docs or source; don't guess.
+
+```yaml
+  - id: config
+    paths:
+      - { root: home, rel: .gitconfig }        # slot 0
+      - { root: user_config, rel: git }        # slot 1
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .gitconfig }    # slot 0, same data
+          - { root: home, rel: .config/git }   # slot 1, same data
+        # exclude: [...]   optional; replaces the base exclude ([] = none)
+```
+
+- **Slots line up.** `os.<os>.paths[i]` is where the data of base
+  `paths[i]` lives on that OS; both lists have the same length (the loader
+  checks). Cross-OS restore maps files slot by slot, so never reorder.
+- An OS without an override uses the base `paths` and `exclude`. A recipe
+  whose paths are all under `home` (ssh, cargo, npm) usually needs none.
+- A recipe for one OS only (Windows Terminal) puts that OS's paths in the
+  base `paths` and has only that OS's `detect` rules.
+- `binary` detect rules double as process names for `requires_closed`.
+  On Windows a process name is the exe file stem with its exact case
+  (`Code`, not `Code.exe` or `code`), and a `binary` rule is looked up on
+  `PATH` with `PATHEXT` (`code` finds `code.cmd`). When the CLI shim differs
+  from the running app, list the app in `processes` (schema 2+).
+
+**Portability.** `portability: cross_os` means the item restores on another
+OS, slot by slot. Use it only when the content is genuinely OS-neutral: the
+app reads the same format everywhere and the files normally hold no absolute
+paths or OS-specific settings (VS Code `settings.json`, starship.toml,
+`.gitconfig`, `wezterm.lua`). Keep `same_os` for caches, databases, installed
+plugins and binaries, files whose content is usually OS-specific (shell
+startup files, `gpg-agent.conf` with a pinentry path) and anything whose
+permissions matter (SSH private keys). The user can still force a `same_os`
+item across OSes behind a warning.
 
 ### Paths: semantic roots only
 
@@ -93,6 +152,16 @@ not_captured:             # excluded files that must NOT be captured
 
 Cover every item, every `exclude`, and at least one file per path. Fake keys
 and tokens must be obviously fake (`dummy-…`, zero-filled).
+
+`just fixtures` checks the recipe on every OS it has `detect` rules for, with
+the fake home's roots laid out like that OS (`.config`; `Library/Application
+Support`, `Library/Caches`; `AppData/Roaming`, `AppData/Local`; `Documents`).
+It uses `fixture.macos/` / `fixture.windows/` when present, else `fixture/`.
+So a recipe with only `home` paths reuses `fixture/`; one with `os`
+overrides or `user_*` roots needs its own `fixture.<os>/` (same layout:
+`home/` + `expected.yaml`, `process_names` checked for that OS). A
+Windows-only recipe ships only `fixture.windows/`. A `fixture.<os>/` for an
+OS the recipe has no rules for is an error.
 
 ## Trust tiers
 

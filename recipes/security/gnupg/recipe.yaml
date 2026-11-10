@@ -1,4 +1,4 @@
-schema: 2
+schema: 3
 id: gnupg
 name: GnuPG
 category: security
@@ -7,6 +7,13 @@ detect:
   linux:
     - binary: gpg
     - path: { root: home, rel: .gnupg }
+  macos:
+    - binary: gpg
+    - path: { root: home, rel: .gnupg }
+  windows:
+    - binary: gpg
+    - path: { root: user_config, rel: gnupg }
+# Gpg4win keeps the GnuPG home in %APPDATA%\gnupg instead of ~/.gnupg.
 processes: [gpg-agent, scdaemon, dirmngr, keyboxd]
 items:
   - id: config
@@ -18,6 +25,15 @@ items:
       - { root: home, rel: .gnupg/scdaemon.conf }
       - { root: home, rel: .gnupg/common.conf }
       - { root: home, rel: .gnupg/sshcontrol }
+    os:
+      windows:
+        paths:
+          - { root: user_config, rel: gnupg/gpg.conf }
+          - { root: user_config, rel: gnupg/gpg-agent.conf }
+          - { root: user_config, rel: gnupg/dirmngr.conf }
+          - { root: user_config, rel: gnupg/scdaemon.conf }
+          - { root: user_config, rel: gnupg/common.conf }
+          - { root: user_config, rel: gnupg/sshcontrol }
     flags:
       portability: same_os
       sensitive: false
@@ -32,6 +48,12 @@ items:
       - { root: home, rel: .gnupg/pubring.kbx }
       - { root: home, rel: .gnupg/trustdb.gpg }
       - { root: home, rel: .gnupg/public-keys.d }
+    os:
+      windows:
+        paths:
+          - { root: user_config, rel: gnupg/pubring.kbx }
+          - { root: user_config, rel: gnupg/trustdb.gpg }
+          - { root: user_config, rel: gnupg/public-keys.d }
     exclude: ["**/S.*", "**/*.lock", "**/.#lk*", "**/random_seed"]
     flags:
       portability: same_os
@@ -43,6 +65,11 @@ items:
     paths:
       - { root: home, rel: .gnupg/private-keys-v1.d }
       - { root: home, rel: .gnupg/openpgp-revocs.d }
+    os:
+      windows:
+        paths:
+          - { root: user_config, rel: gnupg/private-keys-v1.d }
+          - { root: user_config, rel: gnupg/openpgp-revocs.d }
     exclude: ["**/S.*", "**/*.lock", "**/.#lk*", "**/random_seed"]
     flags:
       portability: same_os

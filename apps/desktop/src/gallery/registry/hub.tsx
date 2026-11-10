@@ -2,16 +2,18 @@ import { AppsScreen } from '../../screens/apps/AppsScreen';
 import { RecipeSheet } from '../../screens/apps/RecipeSheet';
 import { catalogAll, catalogCommunity, recipeSsh } from '../../screens/apps/fixtures';
 import { HistoryScreen } from '../../screens/history/HistoryScreen';
-import { SessionSheet } from '../../screens/history/SessionSheet';
-import { historyEmpty, historyList, session } from '../../screens/history/fixtures';
+import { historyEmpty, historyTimeline, historyUndone } from '../../screens/history/fixtures';
 import { AboutSheet, CrashDialog, UpdateDialog } from '../../screens/settings/SettingsDialogs';
 import { SettingsScreen } from '../../screens/settings/SettingsScreen';
 import { about, crash, settingsModel, update } from '../../screens/settings/fixtures';
+import { UndoConfirmDialog } from '../../screens/undo/UndoConfirmDialog';
+import { undoPreview } from '../../screens/undo/fixtures';
 import { noops } from '../noops';
 import { homeBase } from './start';
 import { states, type GalleryScreen } from '../types';
 
-const historyOn = noops('onOpen', 'onReceive');
+const historyOn = noops('onSelect', 'onUndo', 'onResume', 'onForget', 'onReceive');
+const HISTORY = { empty: historyEmpty, undone: historyUndone } as const;
 const catalogOn = noops('onFilter', 'onQuery', 'onOpen');
 const settingsOn = noops(
   'onAppearance',
@@ -32,28 +34,26 @@ export const hubScreens: readonly GalleryScreen[] = [
   {
     id: 'history',
     group: 'History',
-    title: 'History',
+    title: 'History · undo timeline',
     view: { kind: 'hub', page: 'history' },
-    states: states(['list', 'With moves'], ['empty', 'Empty']),
+    states: states(
+      ['timeline', 'Timeline'],
+      ['preview', 'Undo preview'],
+      ['undone', 'Undone'],
+      ['empty', 'Empty'],
+    ),
     render: (s) => ({
-      base: <HistoryScreen model={s === 'empty' ? historyEmpty : historyList} on={historyOn} />,
-    }),
-  },
-  {
-    id: 'session',
-    group: 'History',
-    title: 'Move details (sheet)',
-    view: { kind: 'hub', page: 'history' },
-    states: [],
-    render: () => ({
-      base: <HistoryScreen model={historyList} on={historyOn} />,
-      overlays: [
-        <SessionSheet
-          key="s"
-          model={session}
-          on={noops('onRemoveUndoPoint', 'onUndo', 'onResume', 'onClose')}
-        />,
-      ],
+      base: (
+        <HistoryScreen
+          model={s === 'empty' || s === 'undone' ? HISTORY[s] : historyTimeline}
+          on={historyOn}
+        />
+      ),
+      ...(s === 'preview' && {
+        overlays: [
+          <UndoConfirmDialog key="u" model={undoPreview} on={noops('onKeep', 'onUndo')} />,
+        ],
+      }),
     }),
   },
   {

@@ -1,7 +1,6 @@
 use std::io;
 use std::sync::Arc;
 
-use carrova_platform::Platform;
 use carrova_platform::fake::FakePlatform;
 use carrova_report::ReportConsent;
 
@@ -54,7 +53,10 @@ fn a_failure_is_recorded_only_with_consent_and_never_fails_the_caller() {
 }
 
 #[test]
+#[cfg(unix)] // Windows files have no mode bits (profile ACLs keep them private)
 fn reports_and_the_consent_choice_are_private_to_the_user() {
+    use carrova_platform::Platform;
+
     let dir = tempfile::tempdir().unwrap();
     let platform = Arc::new(
         FakePlatform::with_home(dir.path().join("home/ana"))

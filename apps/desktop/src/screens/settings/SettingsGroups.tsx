@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useFormat } from '../../i18n/useFormat';
-import { Button, Icon, LinkRow, Row, Select, Toggle, type SelectOption } from '../../ui';
+import { Button, Icon, LinkRow, Row, Segmented, Toggle, type SegmentOption } from '../../ui';
 import { Group } from './Group';
 import type { Appearance, MotionChoice, SettingsIntents, SettingsModel } from './model';
 import { RecipesRow } from './RecipesRow';
@@ -16,11 +16,11 @@ const MOTIONS: readonly MotionChoice[] = ['system', 'reduce'];
 
 export function LookGroup({ model, on }: Props) {
   const { t } = useTranslation();
-  const themes: SelectOption<Appearance>[] = APPEARANCES.map((v) => ({
+  const themes: SegmentOption<Appearance>[] = APPEARANCES.map((v) => ({
     value: v,
     label: t(`settings.device.themes.${v}`),
   }));
-  const motions: SelectOption<MotionChoice>[] = MOTIONS.map((v) => ({
+  const motions: SegmentOption<MotionChoice>[] = MOTIONS.map((v) => ({
     value: v,
     label: t(`settings.device.motions.${v}`),
   }));
@@ -28,8 +28,9 @@ export function LookGroup({ model, on }: Props) {
     <Group title={t('settings.device.group')}>
       <Row
         title={t('settings.device.appearance')}
+        sub={t('settings.device.appearanceSub')}
         trail={
-          <Select
+          <Segmented
             label={t('settings.device.appearance')}
             options={themes}
             value={model.appearance}
@@ -39,8 +40,9 @@ export function LookGroup({ model, on }: Props) {
       />
       <Row
         title={t('settings.device.motion')}
+        sub={t('settings.device.motionSub')}
         trail={
-          <Select
+          <Segmented
             label={t('settings.device.motion')}
             options={motions}
             value={model.motion}
@@ -80,7 +82,7 @@ export function UpdatesGroup({ model, on }: Props) {
         }
       />
       <LinkRow
-        lead={<Icon name="spark" />}
+        lead={<Icon name="receive" />}
         title={t('settings.more.updates')}
         sub={
           model.update

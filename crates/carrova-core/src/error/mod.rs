@@ -71,6 +71,13 @@ pub enum CoreError {
     /// A built-in handler (e.g. `gpg-keyring`) failed.
     #[error("handler {handler} failed: {reason}")]
     Handler { handler: String, reason: String },
+    /// A plugin failed on (or refused) a staged file; nothing was written.
+    #[error("plugin {plugin} failed on {file}: {reason}")]
+    Plugin {
+        plugin: String,
+        file: String,
+        reason: String,
+    },
     /// A captured file kept changing while being read.
     #[error("{0} kept changing during capture")]
     Unstable(String),

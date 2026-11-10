@@ -292,6 +292,63 @@ export const catalog: CatalogEntry[] = [
     tier: 'unverified',
   },
   {
+    category: 'notes',
+    description:
+      "Obsidian's list of vaults, with home folder paths rewritten for this computer by the path-rewrite plugin. Vaults are ordinary folders and move separately; caches are never captured.",
+    detected: false,
+    id: 'obsidian',
+    items: [
+      {
+        default: true,
+        id: 'vaults',
+        label: 'Vault list',
+        sensitive: false,
+        unmovable: false,
+      },
+      {
+        default: false,
+        id: 'vault-contents',
+        label: 'Vault folders',
+        sensitive: false,
+        unmovable: true,
+      },
+    ],
+    name: 'Obsidian',
+    tier: 'unverified',
+  },
+  {
+    category: 'shells',
+    description:
+      'PowerShell 7 (pwsh) profile scripts for the current user. Modules are reinstalled from the PowerShell Gallery, not copied. Command history (PSReadLine) is a separate, sensitive item. Windows PowerShell 5.1 profiles are not included.',
+    detected: false,
+    id: 'powershell',
+    items: [
+      {
+        default: true,
+        id: 'profiles',
+        label: 'PowerShell profile scripts (current user, all hosts, VS Code host)',
+        sensitive: false,
+        unmovable: false,
+      },
+      {
+        default: false,
+        id: 'history',
+        label: 'PowerShell command history (PSReadLine)',
+        sensitive: true,
+        unmovable: false,
+      },
+      {
+        default: false,
+        id: 'modules',
+        label: 'Modules installed for the current user',
+        sensitive: false,
+        unmovable: true,
+      },
+    ],
+    name: 'PowerShell',
+    tier: 'unverified',
+  },
+  {
     category: 'security',
     description:
       'OpenSSH client configuration, known hosts, authorized keys and key pairs. Private keys are sensitive and off by default; permissions (600) are restored exactly.',
@@ -339,6 +396,38 @@ export const catalog: CatalogEntry[] = [
       },
     ],
     name: 'Starship',
+    tier: 'unverified',
+  },
+  {
+    category: 'editors',
+    description:
+      'Sublime Text 4 user settings, key bindings, snippets and your Package Control package list (Packages/User). Packages are reinstalled by Package Control from that list. The licence key is a separate, sensitive item; session and cache files are never captured.',
+    detected: false,
+    id: 'sublime-text',
+    items: [
+      {
+        default: true,
+        id: 'settings',
+        label: 'Settings, key bindings, snippets and package list (Packages/User)',
+        sensitive: false,
+        unmovable: false,
+      },
+      {
+        default: false,
+        id: 'license',
+        label: 'Licence key',
+        sensitive: true,
+        unmovable: false,
+      },
+      {
+        default: false,
+        id: 'packages',
+        label: 'Installed packages',
+        sensitive: false,
+        unmovable: true,
+      },
+    ],
+    name: 'Sublime Text',
     tier: 'unverified',
   },
   {
@@ -428,6 +517,67 @@ export const catalog: CatalogEntry[] = [
       },
     ],
     name: 'Visual Studio Code',
+    tier: 'unverified',
+  },
+  {
+    category: 'terminals',
+    description:
+      'WezTerm Lua configuration (~/.wezterm.lua or the wezterm config folder with its modules). The same config works on Linux, macOS and Windows.',
+    detected: false,
+    id: 'wezterm',
+    items: [
+      {
+        default: true,
+        id: 'config',
+        label: 'WezTerm config (wezterm.lua and Lua modules)',
+        sensitive: false,
+        unmovable: false,
+      },
+    ],
+    name: 'WezTerm',
+    tier: 'unverified',
+  },
+  {
+    category: 'terminals',
+    description:
+      'Windows Terminal settings (profiles, colour schemes, actions and key bindings in settings.json) for the Store, Preview and unpackaged installs. Window layout state is never captured.',
+    detected: false,
+    id: 'windows-terminal',
+    items: [
+      {
+        default: true,
+        id: 'settings',
+        label: 'Profiles, colour schemes, actions and key bindings (settings.json)',
+        sensitive: false,
+        unmovable: false,
+      },
+    ],
+    name: 'Windows Terminal',
+    tier: 'unverified',
+  },
+  {
+    category: 'editors',
+    description:
+      'Zed settings, key bindings, tasks, snippets and themes. Extensions are reinstalled, not copied. Databases and caches are never captured.',
+    detected: false,
+    id: 'zed',
+    items: [
+      {
+        default: true,
+        id: 'config',
+        label: 'Settings, key bindings, tasks, snippets and themes',
+        sensitive: false,
+        unmovable: false,
+      },
+      {
+        default: false,
+        id: 'extensions',
+        label: 'Installed extensions',
+        sensitive: false,
+        unmovable: true,
+      },
+    ],
+    name: 'Zed',
     tier: 'unverified',
   },
   {

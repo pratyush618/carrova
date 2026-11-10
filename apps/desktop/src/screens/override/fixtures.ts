@@ -10,5 +10,6 @@ export const OVERRIDES = {
   },
   running: { kind: 'running', app: 'VS Code' },
   space: { kind: 'space' },
+  cross_os: { kind: 'cross_os', item: 'GNOME Terminal profile', from: 'linux', to: 'mac_os' },
   elsewhere: { kind: 'elsewhere' },
 } as const satisfies Record<OverrideModel['kind'], OverrideModel>;

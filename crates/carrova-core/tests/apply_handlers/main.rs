@@ -5,6 +5,8 @@
 //! One test function on purpose: scripts are written then executed, and a
 //! concurrent fork in another test thread could hold the write fd and make
 //! exec fail with ETXTBSY.
+// Fake `gpg` is a `#!/bin/sh` script.
+#![cfg(unix)]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 #[expect(dead_code, reason = "shared test helpers; this test uses a subset")]

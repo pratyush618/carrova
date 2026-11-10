@@ -29,10 +29,10 @@ blob-report/
 *.swp
 .DS_Store
 
-# Recipe fixtures are fake home dirs: they intentionally contain dummy
+# Recipe fixtures (fixture/, fixture.<os>/) are fake home dirs: they intentionally contain dummy
 # `*.key`, `.vscode/`, `node_modules/`, etc. Re-include every file and dir
 # under them (last match wins, so this must stay last).
-!recipes/*/*/fixture/**
+!recipes/*/*/fixture*/**
 
 # Misc
 junk/

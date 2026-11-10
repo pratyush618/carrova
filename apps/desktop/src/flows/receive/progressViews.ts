@@ -4,7 +4,7 @@ import type { CodeEntryModel, ReceiveProgressModel } from '../../screens/receive
 import type { OpenFileModel } from '../../screens/file/model';
 import { appOf } from '../shared/keys';
 import { appRef } from '../shared/paths';
-import { transferModel, type SizedApp } from '../shared/transferView';
+import { transferModel, type SizedApp, type TransferLive } from '../shared/transferView';
 import type { CodeEntry, FileEntry } from './entry';
 import type { ReceiveFlowState } from './receiveFlow';
 
@@ -17,7 +17,7 @@ export function codeEntryModel(
 ): CodeEntryModel {
   switch (entry.status) {
     case 'connecting':
-      return { status: 'connecting', here, peer };
+      return { status: 'connecting', here, peer, code: entry.value.split('-') };
     case 'failed':
       return {
         status: 'failed',
@@ -66,10 +66,11 @@ export function receiveProgressModel(
   progress: SessionProgress,
   review: PlanReview | null,
   peer: string,
+  live: TransferLive = {},
 ): ReceiveProgressModel {
   if (state.apply.status === 'failed') return { status: 'failed', error: state.apply.error };
   return {
     status: 'transfer',
-    transfer: transferModel('receive', progress, arrivingApps(review), peer),
+    transfer: transferModel('receive', progress, arrivingApps(review), peer, live),
   };
 }

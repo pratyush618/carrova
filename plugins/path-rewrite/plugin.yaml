@@ -1,0 +1,8 @@
+schema: 1
+id: path-rewrite
+version: 1.0.0
+description: Replaces the old computer's home folder path with this computer's in config files that store absolute paths.
+context: [source_home, target_home, source_os, target_os]
+limits:
+  fuel: 500000000
+  memory_mib: 64

@@ -1,6 +1,8 @@
 //! Recipe-level checks: identity, detection rules, process names.
 
-use super::{IssueKind, Sink, is_bare_name, is_kebab};
+use carrova_platform::OsKind;
+
+use super::{IssueKind, Sink, is_bare_name, is_kebab, since};
 use crate::{DetectRule, Recipe, SUPPORTED_SCHEMA};
 
 /// Schema, id, name, category, and (for a loaded tree) the directory names.
@@ -50,22 +52,24 @@ pub(super) fn check_identity(r: &Recipe, layout: Option<&crate::TreeLayout>, s: 
     }
 }
 
-/// Detection rules: Linux needs at least one; binary names are bare.
+/// Detection rules: before schema 3 Linux needs at least one, from schema
+/// 3 at least one OS does; binary names are bare.
 pub(super) fn check_detect(r: &Recipe, s: &mut Sink<'_>) {
-    if r.detect.linux.is_empty() {
-        s.push("detect.linux", IssueKind::NoLinuxDetect);
+    if r.schema < since::ANY_OS_DETECT {
+        if !r.supports(OsKind::Linux) {
+            s.push("detect.linux", IssueKind::NoLinuxDetect);
+        }
+    } else if !OsKind::ALL.into_iter().any(|os| r.supports(os)) {
+        s.push("detect", IssueKind::NoDetect);
     }
-    for (os, rules) in [
-        ("linux", &r.detect.linux),
-        ("windows", &r.detect.windows),
-        ("macos", &r.detect.macos),
-    ] {
-        for (i, rule) in rules.iter().enumerate() {
+    for os in OsKind::ALL {
+        let os_id = os.as_str();
+        for (i, rule) in r.detect.rules(os).iter().enumerate() {
             if let DetectRule::Binary(name) = rule
                 && !is_bare_name(name)
             {
                 s.push(
-                    format!("detect.{os}[{i}].binary"),
+                    format!("detect.{os_id}[{i}].binary"),
                     IssueKind::InvalidBinaryName { name: name.clone() },
                 );
             }
@@ -75,14 +79,8 @@ pub(super) fn check_detect(r: &Recipe, s: &mut Sink<'_>) {
 
 /// `processes`: schema 2+, bare names.
 pub(super) fn check_processes(r: &Recipe, s: &mut Sink<'_>) {
-    if r.schema < 2 && !r.processes.is_empty() {
-        s.push(
-            "processes",
-            IssueKind::RequiresSchema {
-                field: "processes",
-                min: 2,
-            },
-        );
+    if !r.processes.is_empty() {
+        s.require_schema(r.schema, "processes", "processes", since::PROCESSES);
     }
     for (i, name) in r.processes.iter().enumerate() {
         if !is_bare_name(name) {

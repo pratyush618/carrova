@@ -3,46 +3,6 @@ use std::net::Ipv4Addr;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-/// Operating-system family.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[serde(rename_all = "snake_case")]
-pub enum OsKind {
-    Linux,
-    MacOs,
-    Windows,
-}
-
-impl OsKind {
-    /// Stable lowercase identifier (`linux`, `macos`, `windows`), e.g. the
-    /// source OS recorded in a manifest.
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Linux => "linux",
-            Self::MacOs => "macos",
-            Self::Windows => "windows",
-        }
-    }
-
-    /// Name shown to users (`Linux`, `macOS`, `Windows`).
-    #[must_use]
-    pub const fn display_name(self) -> &'static str {
-        match self {
-            Self::Linux => "Linux",
-            Self::MacOs => "macOS",
-            Self::Windows => "Windows",
-        }
-    }
-}
-
-/// Renders [`OsKind::display_name`].
-impl std::fmt::Display for OsKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.pad(self.display_name())
-    }
-}
-
 /// Kind of filesystem object (as seen by lstat — symlinks are not followed).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FileKind {

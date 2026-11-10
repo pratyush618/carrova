@@ -1,3 +1,4 @@
+import { cx } from '../cx';
 import { Icon } from '../Icon/Icon';
 import './Check.css';
 
@@ -8,22 +9,24 @@ export interface CheckProps {
   readonly value: CheckValue;
   readonly label: string;
   readonly onChange: (picked: boolean) => void;
+  /** A sensitive item (keys, tokens): amber instead of the accent. */
+  readonly warn?: boolean;
 }
 
-/** A checkbox. Clicking a mixed box picks everything under it. */
-export function Check({ value, label, onChange }: CheckProps) {
+/** A tri-state checkbox. Clicking a mixed box picks everything under it. */
+export function Check({ value, label, onChange, warn = false }: CheckProps) {
   return (
     <button
       type="button"
       role="checkbox"
-      className="p-check"
+      className={cx('p-check', warn && 'p-check--warn')}
       aria-checked={value}
       aria-label={label}
       onClick={() => {
         onChange(value !== true);
       }}
     >
-      <Icon name="check" />
+      {value === 'mixed' ? <Icon name="minus" /> : value && <Icon name="check" />}
     </button>
   );
 }

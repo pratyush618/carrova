@@ -1,4 +1,5 @@
 import type { ItemKey, Selection } from '../../engine/types';
+import type { Preset } from '../../bindings/Preset';
 import type { SelectionEdit } from '../../bindings/SelectionEdit';
 
 /**
@@ -6,6 +7,8 @@ import type { SelectionEdit } from '../../bindings/SelectionEdit';
  * (`Selection::apply_all`); this module only spells it as the engine's edits.
  */
 export type SelectionChange =
+  /** Start over from a preset. Keys are asked one by one, so it never touches them. */
+  | { readonly kind: 'preset'; readonly preset: Preset }
   /** The app's row: ticks or unticks its ordinary items. */
   | { readonly kind: 'app'; readonly app: string; readonly included: boolean }
   /** One item in Customize. Ticking a sensitive item there is its explicit confirmation. */
@@ -36,6 +39,14 @@ export function toEdits(change: SelectionChange, selection: Selection): Selectio
         ? [tick, { kind: 'confirm_sensitive', item: change.key, confirmed: change.included }]
         : [tick];
     }
+    case 'preset':
+      // The engine's preset unticks every key; re-tick the ones already confirmed one by one.
+      return [
+        change,
+        ...Object.entries(selection.items)
+          .filter(([, c]) => c.sensitive && c.included && c.confirmed_sensitive)
+          .map(([item]): SelectionEdit => ({ kind: 'item', item, included: true })),
+      ];
     case 'path':
       return [{ kind: 'path', item: change.key, path: change.path, included: change.included }];
     case 'sensitive':

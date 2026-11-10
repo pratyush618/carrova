@@ -12,6 +12,7 @@ mod entry;
 mod error;
 mod hash;
 mod model;
+mod os_id;
 mod path;
 mod source;
 mod text;
@@ -26,8 +27,9 @@ pub use entry::{entry_from_path, time_from_unix_nanos, unix_nanos};
 pub use error::{ChunkFault, InvalidReason, ManifestError, Result};
 pub use hash::{Blake3Hash, ChunkHash};
 pub use model::{
-    Artifact, Entry, EntryKind, FORMAT_VERSION, ItemFlags, MAX_ARTIFACTS_PER_ITEM, MAX_ENTRIES,
-    MAX_ITEMS, Manifest, ManifestItem, Portability, SourceInfo,
+    Artifact, Entry, EntryKind, FORMAT_VERSION, ItemFlags, MAX_ARTIFACTS_PER_ITEM, MAX_DEVICE_NAME,
+    MAX_ENTRIES, MAX_ITEMS, MAX_SOURCE_PATHS_PER_ITEM, Manifest, ManifestItem, Portability,
+    SourceInfo, SourcePath,
 };
 pub use path::RelPath;
 pub use source::{ChunkSource, ChunkSourceError};

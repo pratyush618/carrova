@@ -7,6 +7,8 @@
 
 use std::fmt;
 
+use carrova_platform::OsKind;
+use carrova_recipe::PluginId;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::key::ItemKey;
@@ -38,6 +40,26 @@ pub enum Blocker {
     },
     /// A filesystem the plan writes to is short of free space.
     FreeSpace(SpaceShortfall),
+    /// A selected item whose recipe marks it same-OS was captured on
+    /// another OS family; the user may override it per item
+    /// ([`super::PlanOptions::allow_cross_os`]).
+    CrossOs {
+        /// Item key.
+        item: ItemKey,
+        /// OS family the archive was captured on.
+        from: OsKind,
+        /// OS family of this computer.
+        to: OsKind,
+    },
+    /// A plugin would change the files of selected items and the user has
+    /// not allowed it ([`super::PlanOptions::confirmed_plugins`]).
+    UnconfirmedPlugin {
+        /// Plugin id.
+        #[cfg_attr(feature = "ts", ts(as = "String"))]
+        plugin: PluginId,
+        /// Selected items whose files it would change.
+        items: Vec<ItemKey>,
+    },
 }
 
 impl fmt::Display for Blocker {
@@ -54,6 +76,20 @@ impl fmt::Display for Blocker {
                  requires-closed check"
             ),
             Self::FreeSpace(short) => write!(f, "not enough free space: {short}"),
+            Self::CrossOs { item, from, to } => write!(
+                f,
+                "`{item}` comes from {from} and only works on the same OS ({to} here): \
+                 deselect it, or override the same-OS check"
+            ),
+            Self::UnconfirmedPlugin { plugin, items } => {
+                let items: Vec<String> = items.iter().map(|i| format!("`{i}`")).collect();
+                write!(
+                    f,
+                    "plugin `{plugin}` would change the files of {}: review what it may do and \
+                     allow it, or deselect those items",
+                    items.join(", ")
+                )
+            }
         }
     }
 }

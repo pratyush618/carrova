@@ -1,0 +1,3 @@
+# carrova fixture: dummy XDG git config
+[core]
+	autocrlf = input

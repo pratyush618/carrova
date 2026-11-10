@@ -7,11 +7,14 @@ import {
 } from '../../../flows/receive/progressViews';
 import { arrivedModel, reviewModel } from '../../../flows/receive/reviewViews';
 import { current } from '../../../flows/remote';
+import { sourceComputer, thisComputer } from '../../../flows/shared/manifestViews';
+import { useTransferRate } from '../../../flows/shared/useTransferRate';
 import { OpenFileScreen } from '../../../screens/file/OpenFileScreen';
 import { RecvCodeScreen } from '../../../screens/receive/RecvCodeScreen';
 import { RecvDoneScreen } from '../../../screens/receive/RecvDoneScreen';
 import { RecvProgressScreen } from '../../../screens/receive/RecvProgressScreen';
 import { RecvReviewScreen } from '../../../screens/receive/RecvReviewScreen';
+import type { MoveRoute } from '../../../screens/shared/model';
 import { BusyScreen, FailedScreen } from '../../../screens/shared/StatusScreens';
 import { useControllers } from '../../controllers/Controllers';
 import type { FlowStep } from '../../nav/flows';
@@ -29,11 +32,21 @@ function usePeer(): string {
   return t('history.anotherComputer');
 }
 
+/** The receive's route: the plan's source → this computer. */
+function useRoute(): MoveRoute {
+  const { receive, settings } = useControllers();
+  return {
+    from: sourceComputer(current(receive.state.review)),
+    to: thisComputer(settings.about),
+  };
+}
+
 function ReviewRoute() {
   const { t } = useTranslation();
   const { receive } = useControllers();
   const nav = useNav();
-  const { review, options, answers } = receive.state;
+  const { review } = receive.state;
+  const route = useRoute();
   const home = () => {
     nav.go({ type: 'closeFlow' });
   };
@@ -51,7 +64,7 @@ function ReviewRoute() {
   }
   return (
     <RecvReviewScreen
-      model={reviewModel(plan, options, answers, review.status === 'loading')}
+      model={reviewModel(plan, receive.state, review.status === 'loading', route)}
       on={{
         onAnswer: receive.answer,
         onApplyWhileOpen: (app) => {
@@ -59,6 +72,15 @@ function ReviewRoute() {
         },
         onIgnoreSpace: () => {
           nav.open({ kind: 'override', reason: 'space', subject: null });
+        },
+        onBringAnyway: (item) => {
+          nav.open({ kind: 'override', reason: 'cross_os', subject: item });
+        },
+        onReviewPlugin: (plugin) => {
+          nav.open({ kind: 'plugin-consent', plugin });
+        },
+        onSeeWhere: () => {
+          nav.open({ kind: 'mappings' });
         },
         onSeeEvery: () => {
           nav.open({ kind: 'review-details' });
@@ -79,6 +101,8 @@ function ReceiveTail({ step }: { readonly step: 'review' | 'progress' | 'done' }
   const nav = useNav();
   const progress = useSession(receive.state.session);
   const peer = usePeer();
+  const route = useRoute();
+  const rate = useTransferRate(progress.done, step === 'progress');
   const plan = current(receive.state.review);
   const home = () => {
     nav.go({ type: 'closeFlow' });
@@ -89,7 +113,7 @@ function ReceiveTail({ step }: { readonly step: 'review' | 'progress' | 'done' }
     case 'progress':
       return (
         <RecvProgressScreen
-          model={receiveProgressModel(receive.state, progress, plan, peer)}
+          model={receiveProgressModel(receive.state, progress, plan, peer, { route, rate })}
           on={{
             onCancel: home,
             ...(receive.state.origin === 'lan' && {
@@ -117,11 +141,8 @@ function ReceiveTail({ step }: { readonly step: 'review' | 'progress' | 'done' }
       if (checklist === null || session === null) return null;
       return (
         <RecvDoneScreen
-          model={arrivedModel(checklist, plan, peer)}
+          model={arrivedModel(checklist, plan, route)}
           on={{
-            onCopyCommand: (command) => {
-              void navigator.clipboard.writeText(command);
-            },
             ...(checklist.rollback_available && {
               onUndo: () => {
                 undo.ask(session, new Date());
@@ -139,13 +160,14 @@ function ReceiveTail({ step }: { readonly step: 'review' | 'progress' | 'done' }
 /** The receive flow: code → review → progress → done. */
 export function ReceiveRoute({ step }: { readonly step: FlowStep<'receive'> }) {
   const { t } = useTranslation();
-  const { receive } = useControllers();
+  const { receive, settings } = useControllers();
   const nav = useNav();
   const peer = usePeer();
   if (step !== 'code') return <ReceiveTail step={step} />;
   return (
     <RecvCodeScreen
       model={codeEntryModel(receive.state.code, PAIRING_WORDS, t('send.live.here'), peer)}
+      here={thisComputer(settings.about)}
       on={{
         onChange: receive.setCode,
         onAddress: receive.setAddress,

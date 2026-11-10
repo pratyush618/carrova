@@ -6,10 +6,11 @@ use std::fmt;
 use carrova_recipe::{SUPPORTED_SCHEMA, is_kebab};
 use serde::{Deserialize, Serialize};
 
-use crate::{Asset, BlobHash, BlobKind, BlobRef, BundleError, Result};
+use crate::{Asset, BlobHash, BlobKind, BlobRef, BundleError, PluginEntry, Result};
 
-/// Bundle format this crate reads and writes.
-pub const FORMAT: u32 = 1;
+/// Bundle format this crate reads and writes (2: per-OS detect index;
+/// 3: plugins).
+pub const FORMAT: u32 = 3;
 
 /// Monotonic bundle version; each release must be strictly greater.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -130,6 +131,8 @@ pub struct BundleIndex {
     pub recipes: Vec<RecipeEntry>,
     /// The precompiled detection index blob.
     pub detect: BlobRef,
+    /// Plugins, sorted by id.
+    pub plugins: Vec<PluginEntry>,
 }
 
 impl BundleIndex {
@@ -168,6 +171,23 @@ impl BundleIndex {
                 return invalid(format!("recipe `{}` is {} bytes", entry.id, entry.size));
             }
         }
+        let mut seen = HashSet::new();
+        for entry in &self.plugins {
+            if !seen.insert(&entry.id) {
+                return invalid(format!("duplicate plugin id `{}`", entry.id));
+            }
+            if let Some((asset, blob)) = entry
+                .blobs()
+                .into_iter()
+                .find(|(asset, blob)| blob.size > asset.max_size())
+            {
+                return invalid(format!(
+                    "plugin blob {} is {} bytes",
+                    asset.file_name(),
+                    blob.size
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -193,13 +213,14 @@ impl BundleIndex {
         Asset::Blob(BlobKind::Detect, self.detect.hash)
     }
 
-    /// Every blob a client needs: the detect index plus each supported
-    /// recipe.
+    /// Every blob a client needs: the detect index, each supported
+    /// recipe and every plugin's two blobs.
     #[must_use]
     pub fn required_blobs(&self) -> Vec<(Asset, BlobRef)> {
         let (supported, _) = self.partition();
         std::iter::once((self.detect_asset(), self.detect))
             .chain(supported.into_iter().map(|e| (e.asset(), e.blob())))
+            .chain(self.plugins.iter().flat_map(PluginEntry::blobs))
             .collect()
     }
 }

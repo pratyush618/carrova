@@ -15,7 +15,9 @@ export const ENGINE_DEFAULTS: EngineDefaults = {
     "keep_both_suffix": "carrova-{date}",
     "retention": "until_dismissed",
     "import_trust": false,
-    "keep_group_write": false
+    "keep_group_write": false,
+    "allow_cross_os": [],
+    "confirmed_plugins": []
   },
   "passphrase": {
     "thresholds": [

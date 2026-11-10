@@ -7,6 +7,12 @@ detect:
   linux:
     - binary: docker
     - path: { root: home, rel: .docker }
+  macos:
+    - binary: docker
+    - path: { root: home, rel: .docker }
+  windows:
+    - binary: docker
+    - path: { root: home, rel: .docker }
 items:
   - id: contexts
     label: Docker contexts (remote and alternative engine endpoints)

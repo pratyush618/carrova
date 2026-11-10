@@ -2,11 +2,13 @@
 export const settings = {
   title: 'Settings',
   device: {
-    group: 'Look',
-    appearance: 'Appearance',
-    themes: { system: 'Match system', light: 'Light', dark: 'Dark' },
-    motion: 'Motion',
-    motions: { system: 'Match system', reduce: 'Reduce motion' },
+    group: 'Appearance',
+    appearance: 'Theme',
+    appearanceSub: 'Follows your system until you pick one',
+    themes: { system: 'System', light: 'Light', dark: 'Dark' },
+    motion: 'Reduce motion',
+    motionSub: 'Code flips, the handshake and the arrival seal go still. Progress still updates.',
+    motions: { system: 'Follow system', reduce: 'Always' },
   },
   updates: {
     group: 'Updates',
@@ -48,6 +50,10 @@ export const settings = {
     sub: 'Suggestions only: you can change them on every move.',
     rule: 'When a file already exists',
     retention: 'Keep the undo point',
+    retentions: {
+      until_dismissed: 'Until I remove it',
+      discard_on_success: 'Until the move succeeds',
+    },
     caches: 'Bring caches',
     cachesSub: 'Larger moves; apps rebuild caches on their own.',
   },

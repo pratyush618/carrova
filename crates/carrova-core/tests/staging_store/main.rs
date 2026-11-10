@@ -22,7 +22,7 @@ use carrova_manifest::{
     SourceInfo,
 };
 use carrova_platform::fake::FakePlatform;
-use carrova_platform::{Platform, SemanticRoot};
+use carrova_platform::{OsKind, Platform, SemanticRoot};
 use tempfile::TempDir;
 
 // ---------------------------------------------------------------- fixtures
@@ -106,6 +106,7 @@ fn fixture(home: &Path, specs: &[Spec<'_>]) -> Fixture {
                     entries: Vec::new(),
                     handler: None,
                     artifacts: Vec::new(),
+                    source_paths: Vec::new(),
                 });
                 items.len() - 1
             });
@@ -143,8 +144,9 @@ fn fixture(home: &Path, specs: &[Spec<'_>]) -> Fixture {
     let manifest = Manifest::new(
         0,
         SourceInfo {
-            os: "linux".into(),
+            os: OsKind::Linux,
             carrova_version: "test".into(),
+            device_name: None,
         },
         items,
     );
@@ -159,6 +161,8 @@ fn fixture(home: &Path, specs: &[Spec<'_>]) -> Fixture {
         missing_apps: Vec::new(),
         running_apps: Vec::new(),
         app_names: Default::default(),
+        mappings: Vec::new(),
+        plugins: Vec::new(),
         blockers: Vec::new(),
         warnings: Vec::new(),
         sensitive: BTreeMap::new(),
@@ -252,7 +256,9 @@ fn shared_chunk_is_fetched_once_and_written_to_every_file() {
     read_staged(&fx, &staged);
     for path in staged.files.values() {
         assert!(path.starts_with(e.staging.join(FILES_DIR)));
-        assert_eq!(e.platform.metadata(path).unwrap().mode, Some(0o600));
+        if cfg!(unix) {
+            assert_eq!(e.platform.metadata(path).unwrap().mode, Some(0o600));
+        }
     }
 }
 

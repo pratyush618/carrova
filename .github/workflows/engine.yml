@@ -17,6 +17,7 @@ on:
       - clippy.toml
       - rustfmt.toml
       - justfile
+      - scripts/** # `just ci` runs scripts/check-test-layout.sh
       - .github/actions/setup/**
       - .github/workflows/engine.yml
   pull_request:
@@ -32,9 +33,18 @@ concurrency:
 
 jobs:
   check:
-    name: lint + build + test
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    name: ${{ matrix.just }} (${{ matrix.os }})
+    strategy:
+      fail-fast: false # one OS failing must not hide the others' results
+      matrix:
+        include:
+          # Linux runs everything `just ci` covers (bindings, test layout, UI too).
+          - { os: ubuntu-latest, node: "true", just: ci }
+          # Portable subset; Linux-only recipes (e2e, setup-ubuntu, load-watch) stay out.
+          - { os: macos-latest, node: "false", just: ci-portable } # arm64
+          - { os: windows-latest, node: "false", just: ci-portable }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -42,8 +52,14 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           rust: "true"
-          tauri-deps: "true" # `--workspace` includes carrova-desktop
-      - run: just lint build test
+          tauri-deps: "true" # `--workspace` includes carrova-desktop (apt libs on Linux only)
+          node: ${{ matrix.node }}
+      - if: runner.os == 'macOS'
+        run: just macos-loopback
+      - run: just "$RECIPE" # the justfile runs under Git Bash on Windows
+        shell: bash
+        env:
+          RECIPE: ${{ matrix.just }}
 
   e2e:
     name: container e2e (archive + LAN)

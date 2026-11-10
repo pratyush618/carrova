@@ -4,10 +4,10 @@ use std::fs::File;
 use std::io;
 use std::path::Path;
 
-use rustix::fs::{CWD, FileType, Mode, OFlags};
+use rustix::fs::CWD;
 
 use super::dir::open_dir_nofollow;
-use super::{errno, file_type, invalid};
+use super::errno;
 use crate::{Allocation, FsId, PlatformError};
 
 /// See [`crate::Platform::fs_id`].
@@ -17,9 +17,21 @@ pub(crate) fn fs_id(path: &Path) -> Result<FsId, PlatformError> {
     Ok(FsId::new(meta.dev()))
 }
 
+/// See [`crate::Platform::free_space`]: `statvfs(2)` blocks available to
+/// unprivileged users.
+pub(crate) fn free_space(path: &Path) -> Result<u64, PlatformError> {
+    let st = rustix::fs::statvfs(path).map_err(errno(path))?;
+    Ok(st.f_bavail.saturating_mul(st.f_frsize))
+}
+
 /// See [`crate::Platform::sync_fs`]: `syncfs(2)` on an `O_NOFOLLOW` fd of
 /// `path` (a directory or regular file).
+#[cfg(target_os = "linux")]
 pub(crate) fn sync_fs(path: &Path) -> Result<(), PlatformError> {
+    use rustix::fs::{FileType, Mode, OFlags};
+
+    use super::{file_type, invalid};
+
     let fd = rustix::fs::open(
         path,
         OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC | OFlags::NONBLOCK,
@@ -33,14 +45,22 @@ pub(crate) fn sync_fs(path: &Path) -> Result<(), PlatformError> {
     rustix::fs::syncfs(&fd).map_err(errno(path))
 }
 
+/// See [`crate::Platform::sync_fs`]: there is no `syncfs(2)`, and an
+/// `fsync` would flush one file only, so callers must sync per file.
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn sync_fs(_path: &Path) -> Result<(), PlatformError> {
+    Err(PlatformError::Unsupported("sync_fs"))
+}
+
 /// See [`crate::Platform::write_all_at`].
 pub(crate) fn write_all_at(file: &File, buf: &[u8], offset: u64) -> io::Result<()> {
     std::os::unix::fs::FileExt::write_all_at(file, buf, offset)
 }
 
-/// See [`crate::Platform::preallocate`]: `fallocate(2)` (mode 0) reserves
-/// the blocks, so a full disk fails here (`StorageFull`) instead of
-/// mid-write. Filesystems without `fallocate` get a sparse `ftruncate`.
+/// See [`crate::Platform::preallocate`]: `fallocate(2)` (mode 0; macOS
+/// `F_PREALLOCATE` + `ftruncate`) reserves the blocks, so a full disk fails
+/// here (`StorageFull`) instead of mid-write. Filesystems without it get a
+/// sparse `ftruncate`.
 pub(crate) fn preallocate(file: &File, len: u64) -> io::Result<Allocation> {
     if len == 0 {
         file.set_len(0)?;
@@ -48,7 +68,12 @@ pub(crate) fn preallocate(file: &File, len: u64) -> io::Result<Allocation> {
     }
     match rustix::fs::fallocate(file, rustix::fs::FallocateFlags::empty(), 0, len) {
         Ok(()) => Ok(Allocation::Reserved),
-        Err(e) if e == rustix::io::Errno::OPNOTSUPP || e == rustix::io::Errno::NOSYS => {
+        // macOS reports ENOTSUP, which differs from EOPNOTSUPP there.
+        Err(e)
+            if e == rustix::io::Errno::OPNOTSUPP
+                || e == rustix::io::Errno::NOTSUP
+                || e == rustix::io::Errno::NOSYS =>
+        {
             file.set_len(len)?;
             Ok(Allocation::Sparse)
         }
@@ -59,5 +84,11 @@ pub(crate) fn preallocate(file: &File, len: u64) -> io::Result<Allocation> {
 /// See [`crate::Platform::sync_dir`].
 pub(crate) fn sync_dir(path: &Path) -> Result<(), PlatformError> {
     let fd = open_dir_nofollow(CWD, path, path)?;
-    rustix::fs::fsync(&fd).map_err(errno(path))
+    // macOS `fsync` stops at the drive cache; `F_FULLFSYNC` is what std's
+    // `File::sync_all` uses there.
+    #[cfg(target_os = "macos")]
+    let synced = rustix::fs::fcntl_fullfsync(&fd);
+    #[cfg(not(target_os = "macos"))]
+    let synced = rustix::fs::fsync(&fd);
+    synced.map_err(errno(path))
 }

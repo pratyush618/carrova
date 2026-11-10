@@ -1,0 +1,19 @@
+binaries: [fish]
+detected: true
+items:
+  config:
+    files:
+      - home:.config/fish/completions/mytool.fish
+      - home:.config/fish/conf.d/editor.fish
+      - home:.config/fish/config.fish
+      - home:.config/fish/fish_plugins
+      - home:.config/fish/functions/ll.fish
+  universal-variables:
+    files:
+      - home:.config/fish/fish_variables
+  history:
+    files:
+      - home:.local/share/fish/fish_history
+not_captured:
+  - .config/fish/fishd.oldhost
+  - .local/share/fish/generated_completions/dummy.fish

@@ -87,8 +87,9 @@ pub enum Source {
         #[cfg_attr(feature = "ts", ts(as = "String"))]
         manifest_fingerprint: Blake3Hash,
         /// The peer's device name as it announced it (sanitised), if
-        /// known: the receiver's name on the sender; `None` until it is
-        /// known and on the receiver (senders do not announce one yet).
+        /// known: the receiver's name on the sender (`None` until it is
+        /// known), the sender's manifest `source.device_name` on the
+        /// receiver.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         peer_name: Option<String>,
     },

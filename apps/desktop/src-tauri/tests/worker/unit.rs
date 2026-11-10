@@ -62,3 +62,15 @@ fn busy_while_a_job_runs() {
     assert!(worker.is_busy());
     job.join().unwrap().unwrap();
 }
+
+#[test]
+fn idle_as_soon_as_an_open_or_a_call_has_answered() {
+    // A command right after another (dismiss after scan) must not see the
+    // worker busy; repeated because the old window was microseconds wide.
+    for _ in 0..2000 {
+        let worker = counter();
+        assert!(!worker.is_busy(), "busy after open answered");
+        block_on(worker.call(|n| *n += 1)).unwrap();
+        assert!(!worker.is_busy(), "busy after a call answered");
+    }
+}

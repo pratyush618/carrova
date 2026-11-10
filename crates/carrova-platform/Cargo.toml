@@ -8,14 +8,25 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+# LAN interfaces and UDP sockets: every adapter needs them.
+if-addrs = { workspace = true }
 serde = { workspace = true }
+socket2 = { workspace = true, features = ["all"] }
 thiserror = { workspace = true }
 ts-rs = { workspace = true, optional = true }
 
-[target.'cfg(target_os = "linux")'.dependencies]
-if-addrs = { workspace = true }
+# Safe syscalls for the Linux and macOS adapters (fsops, netops).
+[target.'cfg(unix)'.dependencies]
 rustix = { workspace = true }
-socket2 = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+sysinfo = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+known-folders = { workspace = true }
+# `disk`: free space per volume.
+sysinfo = { workspace = true, features = ["disk"] }
+winapi-util = { workspace = true }
 
 [features]
 # In-memory/tempdir-backed Platform for tests (recipe fixtures, scan tests).

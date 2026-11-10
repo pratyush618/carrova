@@ -12,6 +12,10 @@ export const SCENARIOS = [
   'apply-fails',
   /** The plan has a blocker (an app is running); approve is refused. */
   'blocked',
+  /** The archive comes from a Mac: paths are mapped and one item only works on macOS. */
+  'cross-os',
+  /** A plugin would change an item's files; the receiver is asked to allow it. */
+  'plugin',
   /** No recipes are available. */
   'no-recipes',
 ] as const;

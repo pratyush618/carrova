@@ -7,6 +7,9 @@ detect:
   linux:
     - binary: bash
     - path: { root: home, rel: .bashrc }
+  macos:
+    - binary: bash
+    - path: { root: home, rel: .bashrc }
 items:
   - id: config
     label: Bash startup files, aliases and readline config

@@ -11,6 +11,19 @@ export const common = {
   flow: {
     close: 'Close and go home',
     step: 'Step {{step}} of {{total}}',
+    thisMove: 'This move',
+    steps: {
+      pick: 'Pick',
+      pair: 'Pair',
+      theirReview: 'Their review',
+      move: 'Move',
+      code: 'Code',
+      review: 'Review',
+      done: 'Done',
+      lock: 'Lock',
+      file: 'File',
+      preview: 'Preview',
+    },
     names: {
       send: 'Send',
       receive: 'Receive',
@@ -21,6 +34,10 @@ export const common = {
   },
   ui: {
     close: 'Close',
+    dismiss: 'Dismiss',
+    route: { to: 'to', notPaired: 'Not paired yet' },
+    manifest: { title: 'This move', change: 'Change: {{fact}}' },
+    mapping: { same: 'same place' },
     copy: 'Copy',
     copied: 'Copied',
     code: { label: 'Pairing code: {{code}}' },

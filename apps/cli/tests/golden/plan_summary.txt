@@ -3,6 +3,7 @@ Items offered ([x] = selected for import):
   [x] git/config  Git\u{1b}[1A\u{1b}[2Khome:.bashrc
   [ ] ssh/keys    SSH keys  [sensitive (marked sensitive by the source): needs --confirm-sensitive ssh/keys]
 Import plan (session 20260101-000000-abcdef)
+  from: ezio-thinkpad (Linux)
   gnupg/keys  create 32 · replace 2 · keep-both 1 · skip 1 · identical 1       105 B
     + home:.gnupg/  (31 files, 93 B)
     set mode home:.gnupg/  0600  (existing directory kept)

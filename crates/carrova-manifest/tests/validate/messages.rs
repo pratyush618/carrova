@@ -7,7 +7,7 @@ use carrova_manifest::{
     Artifact, Blake3Hash, ChunkHash, ChunkRef, Entry, EntryKind, ItemFlags, MAX_CHUNK_LEN,
     Manifest, ManifestItem, RelPath, SourceInfo,
 };
-use carrova_platform::SemanticRoot;
+use carrova_platform::{OsKind, SemanticRoot};
 
 fn dir(rel: &str) -> Entry {
     Entry {
@@ -56,13 +56,15 @@ fn item(id: &str) -> ManifestItem {
         entries: Vec::new(),
         handler: None,
         artifacts: Vec::new(),
+        source_paths: Vec::new(),
     }
 }
 
 fn rejection(items: Vec<ManifestItem>) -> String {
     let source = SourceInfo {
-        os: "linux".into(),
+        os: OsKind::Linux,
         carrova_version: "0.0.1".into(),
+        device_name: None,
     };
     Manifest::new(0, source, items)
         .validate()

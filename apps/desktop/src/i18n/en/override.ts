@@ -20,6 +20,14 @@ export const override = {
     safe: 'Carrova itself stays safe: it pauses and keeps what arrived.',
     go: 'Ignore and continue',
   },
+  cross_os: {
+    title: 'Bring {{item}} anyway?',
+    body: 'Its recipe keeps it on the system it came from ({{from}}). Carrova would restore it to the same place as on {{from}}, and apps on {{to}} may never read it.',
+    safe: 'Undo removes it like everything else.',
+    understand: 'I understand apps on {{to}} may not use it',
+    keep: 'Keep it behind',
+    go: 'Bring anyway',
+  },
   elsewhere: {
     title: 'Put this somewhere else?',
     body: 'Pick a folder inside your home, config or data folders. Carrova refuses anywhere outside them.',

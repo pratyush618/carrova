@@ -1,33 +1,22 @@
-/** First run. */
-export interface WelcomeModel {
-  /** Crash-report consent: off until the user turns it on. */
-  readonly errorReports: boolean;
-}
+import type { HistoryEntry } from '../history/model';
 
-export interface WelcomeIntents {
-  readonly onErrorReports: (on: boolean) => void;
-  readonly onStart: () => void;
-}
-
-/** The most recent move, shown on Home with its Undo. */
-export interface LastMove {
-  readonly direction: 'received' | 'sent';
-  readonly peer: string;
-  readonly when: Date;
-  readonly apps: number;
-  readonly undoable: boolean;
-}
-
+/** Home: first run teaches the task; returning users get their recent moves. */
 export interface HomeModel {
   readonly now: Date;
-  readonly last: LastMove | null;
+  /** Newest first; empty on a fresh install (first run). */
+  readonly recent: readonly HistoryEntry[];
+  /** Error-report consent was never answered: ask once, off until answered. */
+  readonly askReports: boolean;
 }
 
 export interface HomeIntents {
   readonly onSend: () => void;
   readonly onReceive: () => void;
   readonly onUseFile: () => void;
-  readonly onUndoLast: () => void;
+  /** Undo one of the recent moves (asks first). */
+  readonly onUndo: (id: string) => void;
+  readonly onHistory: () => void;
+  readonly onErrorReports: (on: boolean) => void;
 }
 
 export interface FileChooseIntents {

@@ -3,9 +3,11 @@
 use std::path::Path;
 
 use carrova_crypto::sign::TrustRoots;
+use carrova_plugin::PluginPackage;
 use carrova_recipe::{Recipe, load_str, validate};
 use serde::Serialize;
 
+use crate::plugins::{bundled_plugin, load_plugin_tree};
 use crate::{
     Asset, BlobRef, BundleError, BundleIndex, Fetcher, RecipeEntry, Result, SignedIndex, SkipCause,
     SkippedRecipe, Tier, VerifyTime,
@@ -21,18 +23,21 @@ pub struct BundledRecipe {
 }
 
 /// Usable recipes plus the ones skipped (unsupported schema, or failing
-/// validation).
+/// validation), and the plugins.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Catalog {
     /// Parsed recipes, sorted by id.
     pub recipes: Vec<BundledRecipe>,
     /// Recipes left out, with the reason.
     pub skipped: Vec<SkippedRecipe>,
+    /// Plugins this build can read, sorted by id (not yet compiled).
+    pub plugins: Vec<PluginPackage>,
 }
 
 impl Catalog {
-    /// Every recipe of an unsigned recipe tree (dev override). Fails on any
-    /// load error or validation issue; tiers come from its `TIERS.yaml`.
+    /// Every recipe of an unsigned recipe tree (dev override) and every
+    /// plugin next to it ([`crate::plugins_dir`]). Fails on any load error
+    /// or validation issue; tiers come from its `TIERS.yaml`.
     pub fn from_tree(dir: &Path) -> Result<Self> {
         let (loaded, tiers) = crate::build::load_tiered_tree(dir)?;
         let mut recipes: Vec<BundledRecipe> = loaded
@@ -46,22 +51,24 @@ impl Catalog {
         Ok(Self {
             recipes,
             skipped: Vec::new(),
+            plugins: load_plugin_tree(dir)?,
         })
     }
 
-    /// Parse the supported recipes of `index`, reading each blob with
-    /// `read` (which must return the blob's bytes; they are verified here).
-    /// A recipe failing [`carrova_recipe::validate`] (the build-time
-    /// policy; a signature proves origin, not correctness) is skipped with
-    /// its issues.
+    /// Parse the supported recipes and the plugins of `index`, reading
+    /// each blob with `read` (which must return the blob's bytes; they are
+    /// verified here). A recipe failing [`carrova_recipe::validate`] (the
+    /// build-time policy; a signature proves origin, not correctness) is
+    /// skipped with its issues; a plugin this build cannot read is left
+    /// out with a log line (recipes naming it then report it missing).
     pub(crate) fn from_index(
         index: &BundleIndex,
-        mut read: impl FnMut(&RecipeEntry) -> Result<Vec<u8>>,
+        mut read: impl FnMut(&Asset, &BlobRef) -> Result<Vec<u8>>,
     ) -> Result<Self> {
         let (supported, mut skipped) = index.partition();
         let mut recipes = Vec::with_capacity(supported.len());
         for entry in supported {
-            let bundled = recipe_from_blob(entry, &read(entry)?)?;
+            let bundled = recipe_from_blob(entry, &read(&entry.asset(), &entry.blob())?)?;
             let issues = validate(&bundled.recipe);
             if issues.is_empty() {
                 recipes.push(bundled);
@@ -75,7 +82,23 @@ impl Catalog {
                 });
             }
         }
-        Ok(Self { recipes, skipped })
+        let mut plugins = Vec::with_capacity(index.plugins.len());
+        for entry in &index.plugins {
+            let [(m_asset, m_blob), (w_asset, w_blob)] = entry.blobs();
+            let manifest = read(&m_asset, &m_blob)?;
+            check_blob(&m_asset, &m_blob, &manifest)?;
+            let wasm = read(&w_asset, &w_blob)?;
+            check_blob(&w_asset, &w_blob, &wasm)?;
+            match bundled_plugin(entry, &manifest, wasm) {
+                Ok(plugin) => plugins.push(plugin),
+                Err(e) => tracing::warn!(id = %entry.id, error = %e, "bundled plugin left out"),
+            }
+        }
+        Ok(Self {
+            recipes,
+            skipped,
+            plugins,
+        })
     }
 }
 
@@ -126,8 +149,8 @@ pub fn open_bundle(
         &signed.index().detect_asset(),
         &signed.index().detect,
     )?;
-    let catalog = Catalog::from_index(signed.index(), |entry| {
-        fetch_blob(fetcher, &entry.asset(), &entry.blob())
+    let catalog = Catalog::from_index(signed.index(), |asset, blob| {
+        fetch_blob(fetcher, asset, blob)
     })?;
     Ok((signed, catalog))
 }

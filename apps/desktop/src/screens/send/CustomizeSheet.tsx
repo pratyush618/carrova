@@ -16,9 +16,13 @@ export function CustomizeSheet({ model, on }: CustomizeSheetProps) {
   return (
     <Sheet
       title={t('send.customize.title')}
+      sub={t('send.customize.sub')}
       onClose={on.onDone}
       foot={
         <>
+          <Button kind="quiet" onClick={on.onReset}>
+            {t('send.customize.reset')}
+          </Button>
           <SheetNote>
             {t('send.customize.picked', {
               picked: format.number(model.picked.files),
@@ -26,9 +30,6 @@ export function CustomizeSheet({ model, on }: CustomizeSheetProps) {
               size: format.bytes(model.picked.bytes),
             })}
           </SheetNote>
-          <Button kind="quiet" onClick={on.onReset}>
-            {t('send.customize.reset')}
-          </Button>
           <Button kind="primary" onClick={on.onDone}>
             {t('action.done')}
           </Button>

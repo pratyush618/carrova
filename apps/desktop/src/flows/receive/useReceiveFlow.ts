@@ -12,7 +12,15 @@ import type {
 import type { DecisionAnswer, ImportChoices } from '../../screens/receive/model';
 import { current } from '../remote';
 import { connectTarget } from './entry';
-import { setChoices, setItemRule, setPathRule, setRemap, type PlanOverride } from './planOptions';
+import {
+  allowCrossOs,
+  allowPlugin,
+  setChoices,
+  setItemRule,
+  setPathRule,
+  setRemap,
+  type PlanOverride,
+} from './planOptions';
 import { initialReceiveFlow, receiveFlowReducer, type ReceiveFlowState } from './receiveFlow';
 
 /** Commands of the receiving side (LAN and file); screens call these, never the port. */
@@ -32,6 +40,10 @@ export interface ReceiveController {
   readonly setFileRule: (path: string, rule: ConflictRule | null) => void;
   readonly setRemap: (item: ItemKey, remap: Remap | null) => void;
   readonly setChoices: (patch: Partial<ImportChoices>) => void;
+  readonly allowCrossOs: (item: ItemKey) => void;
+  readonly allowPlugin: (plugin: string) => void;
+  /** Don't allow a plugin: the items it would change are left behind. */
+  readonly leavePlugin: (plugin: string) => void;
   /** An override the user confirmed in its warning dialog. */
   readonly override: (override: PlanOverride, app: string | null) => void;
   readonly approve: () => void;
@@ -201,6 +213,17 @@ export function useReceiveFlow(
       },
       setChoices: (patch: Partial<ImportChoices>) => {
         dispatch({ type: 'options', options: setChoices(options, patch) });
+      },
+      allowCrossOs: (item: ItemKey) => {
+        dispatch({ type: 'options', options: allowCrossOs(options, item) });
+      },
+      allowPlugin: (plugin: string) => {
+        dispatch({ type: 'options', options: allowPlugin(options, plugin) });
+      },
+      leavePlugin: (plugin: string) => {
+        for (const key of state.asked.plugins[plugin]?.items ?? []) {
+          dispatch({ type: 'answer', key, answer: 'leave' });
+        }
       },
       override: (override: PlanOverride, app: string | null) => {
         dispatch({ type: 'override', override, app });

@@ -6,6 +6,8 @@
 //! Fixtures live in `tests/receiver_golden/golden/`. Regenerate (only for an intended
 //! format change) with `CARROVA_BLESS=1 cargo test -p carrova-core --test
 //! receiver_golden`.
+// Goldens hold Unix modes and `/`-separated absolute paths.
+#![cfg(unix)]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 #[expect(dead_code, reason = "shared test helpers; this test uses a subset")]
@@ -26,8 +28,8 @@ use carrova_manifest::{
     Artifact, Blake3Hash, DEFAULT_CHUNK_PARAMS, Entry, ItemFlags, Manifest, ManifestItem,
     SourceInfo, chunk_reader, entry_from_path,
 };
-use carrova_platform::fake::{FakePlatform, symlink};
-use carrova_platform::{Platform, SemanticRoot};
+use carrova_platform::fake::{FakePlatform, pin_umask, symlink};
+use carrova_platform::{OsKind, Platform, SemanticRoot};
 use carrova_recipe::Recipe;
 use common::{mkdir, put};
 use tempfile::TempDir;
@@ -81,6 +83,9 @@ struct Env {
 }
 
 fn env() -> Env {
+    // Goldens were recorded under umask 002; pin it so implicit dirs and
+    // (on macOS) symlink modes match on any host.
+    pin_umask(0o002);
     let tmp = TempDir::new().unwrap();
     let sender_home = tmp.path().join("sender");
     let recv_home = tmp.path().join("recv");
@@ -117,6 +122,7 @@ fn item(recipe: Option<&str>, id: &str, entries: Vec<Entry>) -> ManifestItem {
         entries,
         handler: None,
         artifacts: Vec::new(),
+        source_paths: Vec::new(),
     }
 }
 
@@ -124,8 +130,9 @@ fn manifest(items: Vec<ManifestItem>) -> Manifest {
     let m = Manifest::new(
         0,
         SourceInfo {
-            os: "linux".into(),
+            os: OsKind::Linux,
             carrova_version: "test".into(),
+            device_name: None,
         },
         items,
     );

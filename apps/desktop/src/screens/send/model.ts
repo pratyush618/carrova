@@ -1,5 +1,8 @@
 import type { BridgeError } from '../../engine/types';
-import type { AppRef, AskAnswer, Bytes, ItemKey } from '../shared/model';
+import type { OsKind } from '../../bindings/OsKind';
+import type { Preset } from '../../bindings/Preset';
+import type { RouteEnd } from '../../ui';
+import type { AppRef, Bytes, ItemKey } from '../shared/model';
 import type { TransferModel } from '../shared/transfer';
 
 /** One app found on this computer (`carrova-view` selection row, app level). */
@@ -11,18 +14,43 @@ export interface FoundApp extends AppRef {
   readonly included: boolean;
 }
 
-/** Why an item needs an explicit OK. */
-export type AskKind = 'secret' | 'runs-code';
+/** Apps of one recipe category (`dev-tools`), in the scan's order. */
+export interface FoundGroup {
+  readonly category: string;
+  readonly apps: readonly FoundApp[];
+}
 
-/** A sensitive item, asked in plain words (`carrova-view` `Sensitivity`). */
-export interface SensitiveAsk {
+/** A key or secret (`carrova-view` sensitive item): starts off, brought only after its own confirm. */
+export interface SecretItem {
   readonly key: ItemKey;
-  readonly title: string;
+  readonly app: AppRef;
+  readonly label: string;
   /** The recipe's reason, literal; `null` uses the general wording for secrets. */
   readonly why: string | null;
-  readonly kind: AskKind;
-  readonly answer: AskAnswer;
+  /** Its declared paths as the user knows them (the key files). */
+  readonly paths: readonly string[];
+  readonly bytes: Bytes;
+  readonly brought: boolean;
 }
+
+/** The move so far, in the rail's words ("11 of 15 apps", "Keys left behind"). */
+export interface MoveFacts {
+  readonly apps: number;
+  readonly totalApps: number;
+  /** Everything ticked: apps, keys and raw folders. */
+  readonly bytes: Bytes;
+  /** Secrets being brought. */
+  readonly keys: number;
+  readonly caches: boolean;
+}
+
+/** The presets the selection screen offers, in order ("Suggested · Everything · Nothing"). */
+export const FOUND_PRESETS = [
+  'suggested',
+  'everything',
+  'none',
+] as const satisfies readonly Preset[];
+export type FoundPreset = (typeof FOUND_PRESETS)[number];
 
 /** "Here's what we found": scanning, nothing, or the suggested selection. */
 export type FoundModel =
@@ -35,8 +63,16 @@ export type FoundModel =
   | { readonly status: 'nothing'; readonly knownApps: number }
   | {
       readonly status: 'found';
-      readonly apps: readonly FoundApp[];
-      readonly asks: readonly SensitiveAsk[];
+      /** Groups and secrets matching `filter` (all of them when it's empty). */
+      readonly groups: readonly FoundGroup[];
+      readonly secrets: readonly SecretItem[];
+      /** The view filter's text: front-end only, the selection ignores it. */
+      readonly filter: string;
+      /** The preset the selection still matches; `null` once edited. */
+      readonly preset: FoundPreset | null;
+      /** Folders no recipe covers (any size): they can come too, as plain files. */
+      readonly unrecognised: number;
+      readonly facts: MoveFacts;
       /** Why the selection can't be used yet (engine wording); Continue waits for none. */
       readonly issues: readonly string[];
     };
@@ -46,12 +82,33 @@ export type FoundPurpose = 'send' | 'save';
 
 export interface FoundIntents {
   readonly onToggleApp: (id: string, included: boolean) => void;
-  readonly onAnswer: (key: ItemKey, answer: AskAnswer) => void;
+  /** Asks to bring a secret: opens its confirm. */
+  readonly onConfirmKey: (key: ItemKey) => void;
+  readonly onLeaveKey: (key: ItemKey) => void;
+  readonly onFilter: (text: string) => void;
+  /** Start over from a preset (keys keep their own answers). */
+  readonly onPreset: (preset: FoundPreset) => void;
   readonly onCustomize: () => void;
   readonly onPickFolders: () => void;
   readonly onSeeKnownApps: () => void;
+  /** Sending only: keep the selection and save it to a file instead. */
+  readonly onSaveInstead?: () => void;
   readonly onContinue: () => void;
   readonly onBack: () => void;
+}
+
+/** The secret's confirm: bring it, or leave it (the safe choice). */
+export interface KeyConfirmIntents {
+  readonly onBring: () => void;
+  readonly onLeave: () => void;
+}
+
+/** This computer and the other one, plus what moves: the rail and the route chip. */
+export interface SendMove {
+  /** `null` until the engine has said which computer this is. */
+  readonly here: RouteEnd | null;
+  /** `null` until the scan is known (a resumed send has none). */
+  readonly facts: MoveFacts | null;
 }
 
 /** A tag on an item (`carrova-view` `SelectionTag`). */
@@ -178,6 +235,18 @@ export type LiveModel =
       readonly replaced: number;
     }
   | { readonly status: 'transfer'; readonly transfer: TransferModel };
+
+/** Paired: the code was proven on both sides; the receiver now reviews the plan. */
+export interface LinkedModel extends SendMove {
+  /** The receiver: its OS once its inventory arrives. */
+  readonly peer: { readonly name: string; readonly os: OsKind | null };
+  /** How many of the receiver's files the plan replaces (0 until they share it). */
+  readonly replaced: number;
+}
+
+export interface LinkedIntents {
+  readonly onCancel: () => void;
+}
 
 export interface DeliveredModel {
   readonly peer: string;

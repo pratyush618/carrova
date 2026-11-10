@@ -1,5 +1,6 @@
 use super::*;
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use tempfile::TempDir;
 
 fn env_home(home: &str) -> LinuxEnv {

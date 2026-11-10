@@ -4,6 +4,7 @@ import {
   ActionBar,
   Banner,
   Button,
+  Card,
   CodeDisplay,
   CopyBox,
   Disclose,
@@ -11,15 +12,17 @@ import {
   FlowCenter,
   FlowLayout,
   Head,
-  LockLine,
+  LinkButton,
   Note,
   Stack,
   Status,
 } from '../../ui';
-import type { PairingIntents, PairingModel } from './model';
+import type { PairingIntents, PairingModel, SendMove } from './model';
+import { RouteChip, SendRail } from './SendRail';
 
 export interface SendCodeScreenProps {
   readonly model: PairingModel;
+  readonly move: SendMove;
   readonly on: PairingIntents;
 }
 
@@ -27,14 +30,22 @@ export interface SendCodeScreenProps {
  * The signature moment: the code flips in like a departure board. Every error
  * state has one action; the fallback address sits behind "Can't connect?".
  */
-export function SendCodeScreen({ model, on }: SendCodeScreenProps) {
+export function SendCodeScreen({ model, move, on }: SendCodeScreenProps) {
   const { t } = useTranslation();
 
   if (model.status === 'failed') {
     const text = errorText(model.error, t);
     return (
       <FlowLayout
-        actions={<ActionBar start={<Button onClick={on.onHome}>{t('action.backHome')}</Button>} />}
+        actions={
+          <ActionBar
+            start={
+              <Button kind="quiet" onClick={on.onHome}>
+                {t('action.backHome')}
+              </Button>
+            }
+          />
+        }
       >
         <Empty
           art="lock"
@@ -54,7 +65,15 @@ export function SendCodeScreen({ model, on }: SendCodeScreenProps) {
   if (model.status === 'locked') {
     return (
       <FlowLayout
-        actions={<ActionBar start={<Button onClick={on.onHome}>{t('action.backHome')}</Button>} />}
+        actions={
+          <ActionBar
+            start={
+              <Button kind="quiet" onClick={on.onHome}>
+                {t('action.backHome')}
+              </Button>
+            }
+          />
+        }
       >
         <Empty
           art="lock"
@@ -77,7 +96,7 @@ export function SendCodeScreen({ model, on }: SendCodeScreenProps) {
         actions={
           <ActionBar
             start={
-              <Button icon="back" onClick={on.onBack}>
+              <Button kind="quiet" icon="back" onClick={on.onBack}>
                 {t('action.back')}
               </Button>
             }
@@ -96,52 +115,55 @@ export function SendCodeScreen({ model, on }: SendCodeScreenProps) {
   const address = model.address;
   return (
     <FlowLayout
+      route={<RouteChip here={move.here} />}
+      {...(move.facts !== null && { rail: <SendRail move={move} purpose="send" /> })}
       actions={
         <ActionBar
           start={
-            <Button icon="back" onClick={on.onBack}>
+            <Button kind="quiet" icon="back" onClick={on.onBack}>
               {t('action.back')}
-            </Button>
-          }
-          end={
-            <Button kind="quiet" onClick={on.onNewCode}>
-              {t('send.code.newCode')}
             </Button>
           }
         />
       }
     >
-      <FlowCenter>
-        <Head center title={t('send.code.title')} />
-        {model.status === 'renewed' && (
-          <Banner
-            tone="warning"
-            title={t('send.code.renewedTitle')}
-            body={t('send.code.renewedBody')}
-          />
-        )}
-        <CodeDisplay words={model.code} reveal />
-        {!cantConnect && <Status>{t('send.code.waiting')}</Status>}
-        <LockLine>{t('send.code.lock')}</LockLine>
-        {address !== null &&
-          (cantConnect ? (
+      <Head title={t('send.code.title')} lede={t('send.code.lede')} />
+      {model.status === 'renewed' && (
+        <Banner
+          tone="warning"
+          title={t('send.code.renewedTitle')}
+          body={t('send.code.renewedBody')}
+        />
+      )}
+      <Card>
+        <FlowCenter>
+          <CodeDisplay words={model.code} reveal />
+          {/* shortcut: no "New code in m:ss" countdown, CodeView has no expiry; add it when the engine sends one. */}
+          {/* No Copy link on purpose: the code stays off the clipboard (and its history). */}
+          <Note center>
+            <LinkButton onClick={on.onNewCode}>{t('send.code.newCode')}</LinkButton>
+          </Note>
+          {!cantConnect && <Status>{t('send.code.waiting')}</Status>}
+        </FlowCenter>
+      </Card>
+      {address !== null &&
+        (cantConnect ? (
+          <Stack>
+            <Banner
+              tone="accent"
+              title={t('send.code.cantFindTitle')}
+              body={t('send.code.cantFindBody')}
+            />
+            <CopyBox text={address} />
+          </Stack>
+        ) : (
+          <Disclose summary={t('send.code.cantConnect')}>
             <Stack>
-              <Banner
-                tone="accent"
-                title={t('send.code.cantFindTitle')}
-                body={t('send.code.cantFindBody')}
-              />
+              <Note>{t('send.code.addressHint')}</Note>
               <CopyBox text={address} />
             </Stack>
-          ) : (
-            <Disclose summary={t('send.code.cantConnect')}>
-              <Stack>
-                <Note>{t('send.code.addressHint')}</Note>
-                <CopyBox text={address} />
-              </Stack>
-            </Disclose>
-          ))}
-      </FlowCenter>
+          </Disclose>
+        ))}
     </FlowLayout>
   );
 }

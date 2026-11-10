@@ -1,0 +1,53 @@
+.p-os {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  block-size: 24px;
+  padding-inline: 6px 9px;
+  border-radius: 7px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  font-size: var(--t-sm);
+  font-weight: 650;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.p-os svg {
+  inline-size: 14px;
+  block-size: 14px;
+  flex: none;
+  fill: none;
+  stroke: var(--text-secondary);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.p-os .p-os__dot {
+  fill: var(--text-secondary);
+  stroke: none;
+}
+
+.p-os--sm {
+  block-size: 20px;
+  padding-inline: 5px 7px;
+  border-radius: 6px;
+  font-size: var(--t-xs);
+}
+
+.p-os--sm svg {
+  inline-size: 12px;
+  block-size: 12px;
+}
+
+/* Two ends of a move: from → to. */
+.p-route {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.p-route > .p-icon {
+  color: var(--text-muted);
+}

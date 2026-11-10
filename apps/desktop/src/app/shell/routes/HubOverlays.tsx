@@ -1,39 +1,12 @@
 import { recipeModel } from '../../../flows/catalog/catalogViews';
-import { historyEntry, sessionModel } from '../../../flows/history/historyViews';
+import { historyEntry } from '../../../flows/history/historyViews';
 import { RecipeSheet } from '../../../screens/apps/RecipeSheet';
 import { ForgetDialog } from '../../../screens/history/ForgetDialog';
-import { SessionSheet } from '../../../screens/history/SessionSheet';
 import { aboutModel } from '../../../flows/settings/settingsViews';
 import { AboutSheet, CrashDialog, UpdateDialog } from '../../../screens/settings/SettingsDialogs';
 import { UndoConfirmDialog } from '../../../screens/undo/UndoConfirmDialog';
 import { useControllers } from '../../controllers/Controllers';
 import { useNav } from '../nav';
-import { useStartFlows } from './useStartFlows';
-
-export function SessionOverlay({ id }: { readonly id: string }) {
-  const { history } = useControllers();
-  const nav = useNav();
-  const start = useStartFlows();
-  const record = history.records.find((r) => r.id === id);
-  if (record === undefined) return null;
-  return (
-    <SessionSheet
-      model={sessionModel(record)}
-      on={{
-        onRemoveUndoPoint: () => {
-          nav.open({ kind: 'forget', id });
-        },
-        onUndo: () => {
-          start.askUndo(record);
-        },
-        onResume: () => {
-          start.resume(record);
-        },
-        onClose: nav.close,
-      }}
-    />
-  );
-}
 
 export function ForgetOverlay({ id }: { readonly id: string }) {
   const { history } = useControllers();
@@ -46,8 +19,6 @@ export function ForgetOverlay({ id }: { readonly id: string }) {
         onKeep: nav.close,
         onForget: () => {
           history.dismiss(id);
-          // Closes this dialog and the move's sheet under it.
-          nav.close();
           nav.close();
         },
       }}

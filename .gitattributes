@@ -1,0 +1,3 @@
+# LF everywhere, also on Windows checkouts (autocrlf): goldens, fixtures
+# and recipe files are compared byte for byte.
+* text=auto eol=lf

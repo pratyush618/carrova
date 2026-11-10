@@ -1,6 +1,8 @@
 [workspace]
 resolver = "3"
 members = ["crates/*", "apps/cli", "apps/desktop/src-tauri", "xtask"]
+# Plugins build for wasm32-unknown-unknown on their own (`just plugins`).
+exclude = ["plugins"]
 
 [workspace.package]
 version = "0.0.1"
@@ -45,6 +47,8 @@ if-addrs = "0.15"
 hkdf = "0.12.4"
 hmac = "0.12.1"
 jsonschema = { version = "0.33", default-features = false }
+# Windows Known Folder API (semantic roots), safe wrapper (carrova-platform only).
+known-folders = "1.4.2"
 mdns-sd = { version = "0.21.7", default-features = false }
 # QUIC/TLS: ring backend only (no aws-lc anywhere).
 quinn = { version = "0.11.12", default-features = false, features = ["runtime-tokio", "rustls-ring"] }
@@ -58,6 +62,8 @@ serde_bytes = "0.11.19"
 serde_json = "1"
 serde_yaml_ng = "0.10"
 sha2 = "0.10.9"
+# Process listing on macOS/Windows (carrova-platform only; Linux reads /proc).
+sysinfo = { version = "0.40.1", default-features = false, features = ["system"] }
 # UDP socket buffer sizing for QUIC (quinn never sets them).
 socket2 = "0.6.5"
 spake2 = "0.4.0"
@@ -78,6 +84,12 @@ tauri-plugin-updater = "2.14.1"
 ureq = { version = "3.5.1", default-features = false, features = ["rustls", "gzip"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 walkdir = "2"
+# WASM plugin runtime (pure-Rust interpreter, fuel metering; carrova-plugin only).
+wasmi = { version = "2.0.0", default-features = false, features = ["std", "validate", "auto-dispatch"] }
+# WAT → WASM for plugin runtime tests (dev only).
+wat = "1.263.0"
+# Safe Win32 wrappers (file info, volume serials) for the Windows adapter.
+winapi-util = "0.1.11"
 zeroize = { version = "1", features = ["derive"] }
 
 [workspace.lints.rust]

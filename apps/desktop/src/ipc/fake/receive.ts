@@ -3,12 +3,13 @@ import type { Blocker } from '../../bindings/Blocker';
 import type { Checklist } from '../../bindings/Checklist';
 import type { Event } from '../../bindings/Event';
 import type { PlanOptions } from '../../bindings/PlanOptions';
+import type { PlannedPlugin } from '../../bindings/PlannedPlugin';
 import type { PlanReview } from '../../bindings/PlanReview';
 import type { SessionId } from '../../bindings/SessionId';
 import type { SessionOpened } from '../../bindings/SessionOpened';
 import { bridgeError, raise } from '../reject';
 import * as fx from './fixtures';
-import { planUnder } from './planner';
+import { planUnder, type CrossOsConditions } from './planner';
 import { CANCELLED, later, type Runtime } from './runtime';
 import type { Scenario } from './scenario';
 
@@ -20,6 +21,38 @@ const TICKET = /^\d+-[a-z]+-[a-z]+(@\d{1,3}(\.\d{1,3}){3}:\d+)?$/;
 
 /** The running app of the `blocked` scenario, as its blocker. */
 const RUNNING_APP = { kind: 'running_app', app: 'neovim', name: 'Neovim' } satisfies Blocker;
+
+/** The `cross-os` scenario: the archive comes from a Mac. */
+const FROM_A_MAC = {
+  source: 'mac_os',
+  sameOs: ['tmux/config'],
+  mappings: [
+    {
+      item: 'neovim/config',
+      from: ['user_data', 'nvim'],
+      to: ['user_config', 'nvim'],
+      to_abs: '/home/ana/.config/nvim',
+    },
+    {
+      item: 'git/config',
+      from: ['home', '.gitconfig'],
+      to: ['home', '.gitconfig'],
+      to_abs: '/home/ana/.gitconfig',
+    },
+  ],
+} satisfies CrossOsConditions;
+
+/** The `plugin` scenario's plugin, over the Starship config. */
+const PATH_REWRITE = {
+  plugin: 'path-rewrite',
+  version: '1.0.0',
+  description: 'Rewrites home folder paths in the config for this computer.',
+  permissions: [
+    'It sees the path of your home folder on this computer.',
+    'It cannot use the network.',
+  ],
+  items: ['starship/config'],
+} satisfies PlannedPlugin;
 
 /** Receiving-side flows over `runtime`. */
 export class FakeReceiver {
@@ -100,7 +133,11 @@ export class FakeReceiver {
       this.planned = options;
       this.approved = this.approvedOptions === JSON.stringify(options);
       const running = this.scenario === 'blocked';
-      const replanned = planUnder(fx.plan, options, { runningApp: running ? RUNNING_APP : null });
+      const replanned = planUnder(fx.plan, options, {
+        runningApp: running ? RUNNING_APP : null,
+        ...(this.scenario === 'cross-os' && { crossOs: FROM_A_MAC }),
+        ...(this.scenario === 'plugin' && { plugin: PATH_REWRITE }),
+      });
       const review: PlanReview = { ...replanned, approval: this.approved ? 'given' : 'needed' };
       this.blocked = review.plan.blockers.length > 0;
       if (!running) return review;

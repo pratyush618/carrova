@@ -9,18 +9,24 @@ mod apply_support;
 #[path = "../support/mod.rs"]
 mod common;
 
-use apply_support::{Env, action, file, plan, seed_home};
+#[cfg(unix)]
+use apply_support::action;
+use apply_support::{Env, file, plan, seed_home};
 use carrova_core::CoreError;
-use carrova_core::plan::{Action, ObjectKind};
+use carrova_core::plan::Action;
+#[cfg(unix)]
+use carrova_core::plan::ObjectKind;
 use carrova_core::session::{Event, NullSink, RollbackOutcome, VecSink};
 use carrova_core::test_support::apply::{Failpoint, apply};
 use carrova_core::test_support::rollback::rollback;
+#[cfg(unix)]
 use carrova_platform::Platform;
 use carrova_platform::SemanticRoot::{Documents, Home};
 
 const NO_FAIL: Failpoint = Failpoint::OFF;
 
 #[test]
+#[cfg(unix)] // Unix mode bits
 fn group_and_world_write_bits_are_masked_on_new_objects() {
     let mut env = Env::new();
     let f = file(
@@ -60,6 +66,7 @@ fn group_and_world_write_bits_are_masked_on_new_objects() {
 
 /// Applies 0o664 / 0o666 files and an incoming 0o775 over an existing
 /// 0o755 dir; returns the resulting `(file 664, file 666, dir)` modes.
+#[cfg(unix)]
 fn apply_group_writable(keep_group_write: bool) -> (u32, u32, u32) {
     let mut env = Env::new();
     std::fs::create_dir_all(env.home.join("shared")).unwrap();
@@ -99,6 +106,7 @@ fn apply_group_writable(keep_group_write: bool) -> (u32, u32, u32) {
 }
 
 #[test]
+#[cfg(unix)] // Unix mode bits
 fn group_write_dropped_unless_plan_keeps_it() {
     assert_eq!(apply_group_writable(false), (0o644, 0o644, 0o755));
     // World-write still dropped; an existing dir is still never loosened.
@@ -106,6 +114,7 @@ fn group_write_dropped_unless_plan_keeps_it() {
 }
 
 #[test]
+#[cfg(unix)] // Unix mode bits
 fn existing_dir_modes_only_lose_bits() {
     let env = Env::new();
     seed_home(&env); // .ssh is 700, .config/app is 750
@@ -263,5 +272,6 @@ fn rollback_keeps_backup_when_replaced_file_was_edited() {
     let rb = rollback(&env.platform, &env.session_dir, &NullSink).unwrap();
     assert!(rb.failed.is_empty(), "{:?}", rb.failed);
     assert_eq!(std::fs::read(&p).unwrap(), b"old notes");
+    #[cfg(unix)]
     assert_eq!(env.mode(&p), 0o644);
 }

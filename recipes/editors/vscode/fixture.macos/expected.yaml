@@ -1,0 +1,28 @@
+binaries: [code]
+detected: true
+process_names: [code, Code]
+items:
+  settings:
+    files:
+      - user_config:Code/User/keybindings.json
+      - user_config:Code/User/profiles/1a2b3c/settings.json
+      - user_config:Code/User/settings.json
+      - user_config:Code/User/snippets/rust.json
+      - user_config:Code/User/tasks.json
+  global-state:
+    files:
+      - user_config:Code/User/globalStorage/state.vscdb
+      - user_config:Code/User/globalStorage/storage.json
+  extensions:
+    files: []
+not_captured:
+  - Library/Application Support/Code/User/profiles/1a2b3c/globalStorage/state.vscdb
+  - Library/Application Support/Code/User/globalStorage/state.vscdb.backup
+  - Library/Application Support/Code/User/workspaceStorage/abc123/state.vscdb
+  - Library/Application Support/Code/User/History/1f2e/entries.json
+  - Library/Application Support/Code/User/sync/lastSyncsettings.json
+  - Library/Application Support/Code/CachedData/0000/chrome/js/dummy.code
+  - Library/Application Support/Code/Cache/data_0
+  - Library/Application Support/Code/logs/20260101/main.log
+  - .vscode/extensions/rust-lang.rust-analyzer-0.0.1/package.json
+  - .vscode/argv.json

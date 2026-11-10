@@ -2,7 +2,8 @@
 //! machine, open → plan → approve → apply on another.
 
 use carrova_core::{KdfStrength, PlanApproval, PlanOptions, SessionId};
-use carrova_view::ipc::ErrorCode;
+use carrova_platform::OsKind;
+use carrova_view::ipc::{ErrorCode, SourceDevice};
 use serde_json::Value;
 use tauri::async_runtime::block_on;
 
@@ -60,6 +61,14 @@ fn an_archive_round_trip_moves_the_selected_files() {
     let review = review.review();
     assert!(review.plan.blockers.is_empty());
     assert_eq!(review.offered[0].key.as_str(), "app/config");
+    // The fake sender has no device name.
+    assert_eq!(
+        review.source,
+        Some(SourceDevice {
+            os: OsKind::Linux,
+            device_name: None,
+        })
+    );
     block_on(receive::approve(&receiver.state, &opened.session)).unwrap();
     let checklist = block_on(receive::apply(&receiver.state, &opened.session)).unwrap();
 

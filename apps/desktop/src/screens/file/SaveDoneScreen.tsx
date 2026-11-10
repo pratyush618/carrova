@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useFormat } from '../../i18n/useFormat';
-import { ActionBar, Arrival, Button, CopyBox, FlowCenter, FlowLayout, Head } from '../../ui';
+import { ActionBar, Button, CopyBox, FlowCenter, FlowLayout, Head, Seal } from '../../ui';
 import type { SavedIntents, SavedModel } from './model';
 
 /** Packed: the file's path to copy, and where to open it. */
@@ -33,11 +33,12 @@ export function SaveDoneScreen({
       }
     >
       <FlowCenter>
-        <Arrival
-          word={t('file.saved.stamp')}
-          meta={t('file.saved.meta', { size: format.bytes(model.bytes) })}
+        <Seal ring={t('file.saved.ring')} label={t('file.saved.seal')} />
+        <Head
+          center
+          title={t('file.saved.title')}
+          lede={t('file.saved.lede', { size: format.bytes(model.bytes) })}
         />
-        <Head center title={t('file.saved.title')} lede={t('file.saved.lede')} />
       </FlowCenter>
       <CopyBox text={model.path} />
     </FlowLayout>

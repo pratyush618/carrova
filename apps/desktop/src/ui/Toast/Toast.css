@@ -1,0 +1,54 @@
+/* Inverted surface: the one thing that sits above everything for a moment. */
+.p-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding-block: 10px;
+  padding-inline: 14px 12px;
+  border-radius: 12px;
+  background: var(--text-primary);
+  color: var(--surface-1);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  box-shadow: var(--e-3);
+}
+
+.p-toast > .p-icon {
+  color: var(--toast-ok);
+}
+
+.p-toast .p-btn--quiet {
+  min-block-size: 26px;
+  color: var(--surface-1);
+  opacity: 0.85;
+}
+
+.p-toast .p-btn--quiet:hover {
+  background: transparent;
+  color: var(--surface-1);
+  opacity: 1;
+}
+
+.p-toast-dock {
+  position: absolute;
+  z-index: 2;
+  inset-block-end: 84px;
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  animation: p-rise var(--dur-3) var(--ease-spring) both;
+}
+
+[dir='rtl'] .p-toast-dock {
+  translate: 50% 0;
+}
+
+@keyframes p-rise {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+}
+
+.p-toast :focus-visible {
+  outline-color: var(--surface-1);
+}

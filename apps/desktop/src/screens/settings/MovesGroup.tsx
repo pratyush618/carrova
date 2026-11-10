@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { ConflictRule, Retention } from '../../engine/types';
-import { Row, Select, Toggle, type SelectOption } from '../../ui';
+import { Row, Segmented, Toggle, type SegmentOption } from '../../ui';
 import { Group } from './Group';
 import type { SettingsIntents, SettingsModel } from './model';
 
@@ -17,20 +17,20 @@ export function MovesGroup({
 }) {
   const { t } = useTranslation();
   const defaults = model.moveDefaults;
-  const rules: SelectOption<ConflictRule>[] = RULES.map((value) => ({
+  const rules: SegmentOption<ConflictRule>[] = RULES.map((value) => ({
     value,
     label: t(`receive.details.rule.${value}`),
   }));
-  const retentions: SelectOption<Retention>[] = RETENTIONS.map((value) => ({
+  const retentions: SegmentOption<Retention>[] = RETENTIONS.map((value) => ({
     value,
-    label: t(`receive.choices.retentions.${value}`),
+    label: t(`settings.moves.retentions.${value}`),
   }));
   return (
     <Group title={t('settings.moves.group')} sub={t('settings.moves.sub')}>
       <Row
         title={t('settings.moves.rule')}
         trail={
-          <Select
+          <Segmented
             label={t('settings.moves.rule')}
             options={rules}
             value={defaults.conflict_rule}
@@ -43,7 +43,7 @@ export function MovesGroup({
       <Row
         title={t('settings.moves.retention')}
         trail={
-          <Select
+          <Segmented
             label={t('settings.moves.retention')}
             options={retentions}
             value={defaults.retention}

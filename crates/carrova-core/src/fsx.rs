@@ -4,7 +4,7 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-use carrova_platform::{FileKind, FileMeta, Platform, PlatformError};
+use carrova_platform::{FileKind, FileMeta, PermissionModel, Platform, PlatformError};
 
 use crate::error::{CoreError, Result};
 
@@ -31,6 +31,15 @@ pub(crate) fn lstat(p: &dyn Platform, path: &Path) -> Result<Option<FileMeta>> {
             }
         }
     }
+}
+
+/// Set the permission bits of `path` where the platform has them: a no-op
+/// under [`PermissionModel::Acl`], where ACLs decide access.
+pub(crate) fn set_mode(p: &dyn Platform, path: &Path, mode: u32) -> Result<()> {
+    if p.permission_model() == PermissionModel::Unix {
+        p.set_mode(path, mode)?;
+    }
+    Ok(())
 }
 
 /// `(parent, file name)` of an absolute path.
@@ -75,7 +84,7 @@ pub(crate) fn copy_tree(p: &dyn Platform, from: &Path, to: &Path) -> Result<()> 
                 copy_tree(p, &from.join(&entry.name), &to.join(&entry.name))?;
             }
             if let Some(mode) = mode {
-                p.set_mode(to, mode)?;
+                set_mode(p, to, mode)?;
             }
             p.sync_dir(to)?;
         }

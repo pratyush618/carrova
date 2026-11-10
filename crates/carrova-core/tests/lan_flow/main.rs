@@ -15,11 +15,11 @@ use std::time::Duration;
 use carrova_core::lan::{ConflictTarget, MAX_PAIRING_FAILURES, PlanSummary};
 use carrova_core::store::{LOG_FILE, RESUME_KEY_FILE};
 use carrova_core::{
-    CoreError, Event, Importer, ItemKey, KdfParams, Passphrase, PlanOptions, SendOutcome, State,
-    Ticket, WriteOptions, sessions,
+    CoreError, Event, Importer, ItemKey, KdfParams, Passphrase, PlanOptions, SendOutcome, Source,
+    State, Ticket, WriteOptions, sessions,
 };
 use carrova_crypto::pairing::PairingCode;
-use carrova_platform::SemanticRoot;
+use carrova_platform::{OsKind, PermissionModel, Platform, SemanticRoot};
 use lan_support::{Side, run, run_answering};
 
 fn options() -> PlanOptions {
@@ -239,6 +239,29 @@ fn declining_a_new_code_ends_the_send_without_offering_one_and_keeps_the_selecti
 }
 
 #[test]
+fn receiver_knows_the_senders_os_and_device_name_before_planning() {
+    let sender = Side::seeded(Side::named(Some("ezio-thinkpad")));
+    let receiver = Side::new();
+
+    let mut exp = sender.selected_exporter();
+    let running = run(exp.prepare_send().unwrap());
+    let mut imp =
+        Importer::connect(receiver.engine.clone(), running.first.as_ref().unwrap()).unwrap();
+
+    let source = &imp.manifest().unwrap().source;
+    assert_eq!(source.os, OsKind::Linux);
+    assert_eq!(source.device_name.as_deref(), Some("ezio-thinkpad"));
+    let record = sessions::show(&receiver.engine, imp.id()).unwrap();
+    assert!(matches!(
+        record.source,
+        Some(Source::Lan { peer_name: Some(ref n), .. }) if n == "ezio-thinkpad"
+    ));
+    imp.plan(&options()).unwrap();
+    imp.end_dry_run().unwrap();
+    running.thread.join().unwrap().unwrap();
+}
+
+#[test]
 fn dry_run_ends_the_sender_cleanly_and_writes_nothing_on_the_receiver() {
     let sender = Side::sender();
     let receiver = Side::new();
@@ -301,15 +324,20 @@ fn plan_summary_lists_counts_and_only_conflicting_receiver_paths() {
         .inspect(|c| assert_eq!(c.root, SemanticRoot::UserConfig))
         .map(|c| c.rel.as_str())
         .collect();
-    // The existing dir (mode tightened) and the differing file; nothing
-    // else of the receiver's.
-    assert_eq!(rels, BTreeSet::from(["app", "app/settings.json"]));
+    // The differing file and, where modes are authoritative, the existing
+    // dir whose mode is tightened; nothing else of the receiver's.
+    let expected = if receiver.platform.permission_model() == PermissionModel::Unix {
+        BTreeSet::from(["app", "app/settings.json"])
+    } else {
+        BTreeSet::from(["app/settings.json"])
+    };
+    assert_eq!(rels, expected);
     let config = summary
         .items
         .iter()
         .find(|i| i.item == "app/config")
         .unwrap();
-    assert_eq!(config.counts.replace, 2);
+    assert_eq!(config.counts.replace as usize, expected.len());
     assert!(config.counts.create >= 1);
     let wire = serde_json::to_string(&summary).unwrap();
     assert!(!wire.contains("unrelated"));

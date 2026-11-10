@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 use crate::{Manifest, ManifestError, Result};
 
 /// Manifest format versions this build can decode.
-pub const SUPPORTED_FORMAT: RangeInclusive<u32> = 1..=2;
+pub const SUPPORTED_FORMAT: RangeInclusive<u32> = 1..=3;
 
 /// Default cap on encoded manifest size accepted by [`Manifest::from_cbor`]:
 /// 32 MiB.

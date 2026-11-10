@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Arrival, CodeDisplay, ReduceMotionOverride } from '@/ui';
+import { CodeDisplay, Handshake, ReduceMotionOverride, Seal } from '@/ui';
 import { revealDuration } from '@/ui/CodeDisplay/flaps';
 
 const tiles = () =>
@@ -58,19 +58,43 @@ describe('CodeDisplay', () => {
   });
 });
 
-describe('Arrival', () => {
-  it('lands with a burst normally', () => {
-    render(<Arrival word="Arrived" meta="5 apps, 1.2 GB" />);
-    expect(screen.getByRole('img', { name: 'Arrived. 5 apps, 1.2 GB' })).toBeInTheDocument();
-    expect(screen.getByTestId('arrival-burst').children).toHaveLength(14);
+describe('Seal', () => {
+  it('stamps in with a one-off burst normally', () => {
+    render(<Seal ring="ARRIVED · ALL CHECKED · " label="Everything arrived" />);
+    expect(screen.getByRole('img', { name: 'Everything arrived' })).toBeInTheDocument();
+    expect(screen.getByTestId('seal-burst').children).toHaveLength(16);
   });
 
-  it('drops the burst under reduced motion', () => {
+  it('is simply there under reduced motion', () => {
     render(
       <ReduceMotionOverride value>
-        <Arrival word="Arrived" meta="5 apps, 1.2 GB" />
+        <Seal ring="ARRIVED · ALL CHECKED · " label="Everything arrived" />
       </ReduceMotionOverride>,
     );
-    expect(screen.queryByTestId('arrival-burst')).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Everything arrived' })).toBeInTheDocument();
+    expect(screen.queryByTestId('seal-burst')).not.toBeInTheDocument();
+  });
+});
+
+describe('Handshake', () => {
+  it('is decorative and shows each computer with its OS once known', () => {
+    const { container } = render(
+      <Handshake
+        here="ana-laptop"
+        there="ana-mbp"
+        linked
+        hereOs={{ kind: 'linux', label: 'Linux' }}
+        thereOs={null}
+      />,
+    );
+    const stage = container.firstElementChild;
+    expect(stage).toHaveAttribute('aria-hidden', 'true');
+    expect(stage).toHaveClass('p-handshake--linked');
+    expect(stage).toHaveTextContent('ana-laptopLinuxana-mbp');
+  });
+
+  it('shuttles a dot along the wire until the code is proven', () => {
+    const { container } = render(<Handshake here="a" there="b" linked={false} />);
+    expect(container.querySelector('.p-handshake__dot')).not.toBeNull();
   });
 });

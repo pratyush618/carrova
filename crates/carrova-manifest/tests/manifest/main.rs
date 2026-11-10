@@ -16,6 +16,9 @@ use carrova_platform::{
     SnapshotCapability,
 };
 
+mod format_v3;
+mod source_home;
+
 fn file_entry(rel: &str, data: &[u8]) -> Entry {
     let fc = carrova_manifest::chunk_reader(data, DEFAULT_CHUNK_PARAMS).unwrap();
     Entry {
@@ -38,8 +41,9 @@ fn sample() -> Manifest {
     Manifest::new(
         1_700_000_000,
         SourceInfo {
-            os: "linux".into(),
+            os: OsKind::Linux,
             carrova_version: "0.0.1".into(),
+            device_name: None,
         },
         vec![
             ManifestItem {
@@ -62,6 +66,7 @@ fn sample() -> Manifest {
                     file_entry("git/big-copy", &big),
                     file_entry("git/empty", b""),
                 ],
+                source_paths: Vec::new(),
             },
             ManifestItem {
                 recipe_id: None,
@@ -83,6 +88,7 @@ fn sample() -> Manifest {
                     mode: None,
                     mtime_ns: Some(-5),
                 }],
+                source_paths: Vec::new(),
             },
         ],
     )
@@ -139,8 +145,8 @@ fn aggregates_and_dedup() {
 #[test]
 fn future_version_rejected_cleanly() {
     let err = decode_edited(|v| {
-        *field(v, "format_version") = Value::Integer(3.into());
-        // also add a field v2 doesn't know, as a future format would
+        *field(v, "format_version") = Value::Integer(4.into());
+        // also add a field v3 doesn't know, as a future format would
         v.as_map_mut()
             .unwrap()
             .push((Value::Text("new_thing".into()), Value::Bool(true)));
@@ -149,11 +155,11 @@ fn future_version_rejected_cleanly() {
     assert!(
         matches!(
             err,
-            ManifestError::UnsupportedFormatVersion { found: 3, .. }
+            ManifestError::UnsupportedFormatVersion { found: 4, .. }
         ),
         "{err:?}"
     );
-    assert!(err.to_string().contains("version 3"));
+    assert!(err.to_string().contains("version 4"));
 }
 
 #[test]

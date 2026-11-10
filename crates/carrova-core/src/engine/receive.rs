@@ -75,7 +75,7 @@ impl Importer {
             Some(Source::Lan {
                 peer_cert_hash: Some(conn.peer_cert_hash()),
                 manifest_fingerprint: Blake3Hash::of(&bytes),
-                peer_name: None,
+                peer_name: manifest.source.device_name.clone(),
             }),
         )?;
         write_atomic(s.platform(), &s.dir, MANIFEST_FILE, &bytes)?;

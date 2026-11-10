@@ -1,4 +1,4 @@
-import { appName } from '../../../flows/receive/reviewViews';
+import { appName, itemLabel } from '../../../flows/receive/reviewViews';
 import { current } from '../../../flows/remote';
 import { OverrideDialog } from '../../../screens/override/OverrideDialog';
 import type { OverrideModel } from '../../../screens/override/model';
@@ -11,7 +11,7 @@ function overrideModel(
   reason: OverrideKind,
   subject: string | null,
   c: Controllers,
-): OverrideModel {
+): OverrideModel | null {
   switch (reason) {
     case 'unmovable': {
       const key = subject ?? '';
@@ -30,6 +30,13 @@ function overrideModel(
     }
     case 'space':
       return { kind: 'space' };
+    case 'cross_os': {
+      const key = subject ?? '';
+      const review = current(c.receive.state.review);
+      const asked = c.receive.state.asked.crossOs[key];
+      if (asked === undefined) return null;
+      return { kind: 'cross_os', item: review === null ? key : itemLabel(review, key), ...asked };
+    }
     case 'elsewhere':
       return { kind: 'elsewhere' };
   }
@@ -55,6 +62,9 @@ export function OverrideRoute({
       case 'running':
         receive.override('running', subject);
         return;
+      case 'cross_os':
+        if (subject !== null) receive.allowCrossOs(subject);
+        return;
       case 'space':
         // During a transfer the check is lifted live; before it, in the plan.
         if (receive.state.apply.status === 'loading') receive.continueDespiteSpace();
@@ -65,10 +75,7 @@ export function OverrideRoute({
         return;
     }
   };
-  return (
-    <OverrideDialog
-      model={overrideModel(reason, subject, controllers)}
-      on={{ onKeepSafe: nav.close, onOverride: confirm }}
-    />
-  );
+  const model = overrideModel(reason, subject, controllers);
+  if (model === null) return null;
+  return <OverrideDialog model={model} on={{ onKeepSafe: nav.close, onOverride: confirm }} />;
 }

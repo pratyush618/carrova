@@ -11,6 +11,8 @@ export const DEFAULT_ARCHIVE_NAME = 'carrova-setup.carrova';
 export interface SaveController {
   readonly state: SaveFlowState;
   readonly start: () => void;
+  /** Save the selection already made for sending (no new scan). */
+  readonly startFromSelection: () => void;
   readonly toLock: () => void;
   readonly back: () => void;
   readonly setPassphrase: (value: string) => void;
@@ -73,6 +75,9 @@ export function useSaveFlow(
     () => ({
       state,
       start,
+      startFromSelection: () => {
+        dispatch({ type: 'reset', path: DEFAULT_ARCHIVE_NAME });
+      },
       toLock,
       back: () => {
         dispatch({ type: 'step', step: 'what' });

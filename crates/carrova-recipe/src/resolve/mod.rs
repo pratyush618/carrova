@@ -29,7 +29,9 @@ pub fn build_excludes(globs: &[String]) -> Result<GlobSet, globset::Error> {
 
 /// List every file an item would move.
 ///
-/// For each `(root, rel)` path: resolve the root, join `rel`, and walk it
+/// Uses the item's paths and excludes for the platform's OS
+/// ([`Item::paths_for`], [`Item::exclude_for`]). For each `(root, rel)`
+/// path: resolve the root, join `rel`, and walk it
 /// without following any symlink. Symlinks become [`FileKind::Symlink`]
 /// entries, unless their target (resolved lexically against the link's
 /// directory) lies outside both the item path's own root and the home root,
@@ -53,14 +55,16 @@ pub fn resolve_item(item: &Item, platform: &dyn Platform) -> ResolvedItem {
             .filter(|p| !is_fs_root(p)),
     };
     if item.is_movable() {
-        match build_excludes(&item.exclude) {
+        let os = platform.os();
+        let paths = item.paths_for(os);
+        match build_excludes(item.exclude_for(os)) {
             Ok(excludes) => {
-                for pr in &item.paths {
+                for pr in paths {
                     r.path(pr, &excludes);
                 }
             }
             Err(e) => {
-                for pr in &item.paths {
+                for pr in paths {
                     r.skip(
                         pr.root,
                         pr.rel.as_str(),

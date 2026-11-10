@@ -1,4 +1,4 @@
-schema: 1
+schema: 3
 id: tmux
 name: tmux
 category: dev-tools
@@ -8,6 +8,10 @@ detect:
     - binary: tmux
     - path: { root: home, rel: .tmux.conf }
     - path: { root: user_config, rel: tmux }
+  macos:
+    - binary: tmux
+    - path: { root: home, rel: .tmux.conf }
+    - path: { root: home, rel: .config/tmux }
 items:
   - id: config
     label: tmux config and scripts
@@ -15,6 +19,12 @@ items:
       - { root: home, rel: .tmux.conf }
       - { root: home, rel: .tmux }
       - { root: user_config, rel: tmux }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .tmux.conf }
+          - { root: home, rel: .tmux }
+          - { root: home, rel: .config/tmux }
     exclude:
       - plugins
       - resurrect
@@ -28,6 +38,11 @@ items:
     paths:
       - { root: home, rel: .tmux/plugins }
       - { root: user_config, rel: tmux/plugins }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .tmux/plugins }
+          - { root: home, rel: .config/tmux/plugins }
     flags:
       portability: same_os
       sensitive: false

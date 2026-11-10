@@ -1,28 +1,31 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { importSession } from '@/ipc/fake/fixtures';
 import { renderApp } from '../../support/app';
 
 async function openHub(user: UserEvent, page: 'History' | 'Apps' | 'Settings'): Promise<void> {
-  await screen.findByRole('heading', { level: 1, name: 'What are we doing on this computer?' });
+  await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
   await user.click(screen.getByRole('button', { name: page }));
 }
 
 describe('history', () => {
-  it('lists past moves and undoes one after the preview', async () => {
+  it('opens the newest move beside the list and undoes it after the preview', async () => {
     const user = userEvent.setup();
     const { port } = await renderApp({ returning: true });
     const rollback = vi.spyOn(port, 'rollback');
     await openHub(user, 'History');
-    await user.click(
+    expect(
       await screen.findByRole('button', { name: /Opened a file from laptop\.carrova/ }),
-    );
-    const sheet = screen.getByRole('dialog', { name: 'Opened a file from laptop.carrova' });
-    await user.click(within(sheet).getByRole('button', { name: 'Undo this move' }));
-    // The engine's preview of what undo would do.
-    expect(await screen.findByText('12 files removed')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Undo the move' }));
+    ).toHaveAttribute('aria-current', 'true');
+    const detail = screen.getByRole('complementary', { name: 'This move' });
+    // The engine's preview of what undo would do, in the rail and again in the dialog.
+    expect(await within(detail).findByText('12 new files')).toBeInTheDocument();
+    await user.click(within(detail).getByRole('button', { name: 'Undo this move…' }));
+    expect(
+      await within(await screen.findByRole('dialog')).findByText('12 new files'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Undo move' }));
 
     expect(rollback).toHaveBeenCalledWith(importSession);
     expect(
@@ -35,13 +38,22 @@ describe('history', () => {
     const { port } = await renderApp({ returning: true });
     const dismiss = vi.spyOn(port, 'dismiss');
     await openHub(user, 'History');
-    await user.click(await screen.findByRole('button', { name: /Opened a file/ }));
-    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    await user.click(await screen.findByRole('button', { name: 'Forget this move…' }));
     const dialog = screen.getByRole('alertdialog', { name: 'Forget this move?' });
     expect(within(dialog).getByRole('button', { name: 'Keep it' })).toHaveFocus();
     await user.click(within(dialog).getByRole('button', { name: 'Forget it' }));
 
     expect(dismiss).toHaveBeenCalledWith(importSession);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('undoes a recent move straight from Home', async () => {
+    const user = userEvent.setup();
+    await renderApp({ returning: true });
+    await user.click(
+      await screen.findByRole('button', { name: 'Undo: Opened a file from laptop.carrova' }),
+    );
+    expect(await screen.findByRole('dialog', { name: 'Undo this move?' })).toBeInTheDocument();
   });
 });
 
@@ -64,7 +76,8 @@ describe('apps and settings', () => {
     const { port } = await renderApp({ returning: true });
     const save = vi.spyOn(port, 'saveSettings');
     await openHub(user, 'Settings');
-    await user.selectOptions(await screen.findByRole('combobox', { name: 'Appearance' }), 'dark');
+    const theme = await screen.findByRole('radiogroup', { name: 'Theme' });
+    await user.click(within(theme).getByRole('radio', { name: 'Dark' }));
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark' }));
     expect(document.documentElement.dataset['theme']).toBe('dark');
 
@@ -83,5 +96,16 @@ describe('apps and settings', () => {
     expect(
       await screen.findByRole('dialog', { name: 'Carrova is up to date' }),
     ).toBeInTheDocument();
+  });
+});
+
+describe('sidebar', () => {
+  it('says at its foot that development recipes are not signed', async () => {
+    await renderApp({ returning: true });
+    await waitFor(() => {
+      expect(screen.getByRole('navigation', { name: 'Main' })).toHaveTextContent(
+        'Recipes not signedDevelopment folder · 21 apps',
+      );
+    });
   });
 });

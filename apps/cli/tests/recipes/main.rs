@@ -106,6 +106,7 @@ fn rollback_without_a_terminal_needs_yes() -> Result<()> {
 }
 
 #[test]
+#[cfg(unix)] // Windows finds the store via known folders, not HOME: --yes would roll back the real one
 fn rollback_with_nothing_installed_explains_why() -> Result<()> {
     let tmp = fixture()?;
     let out = carrova(tmp.path(), &["recipes", "rollback", "--yes"])?;

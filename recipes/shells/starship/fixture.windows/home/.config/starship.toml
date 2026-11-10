@@ -1,0 +1,5 @@
+# Dummy Starship config for Carrova fixture tests.
+add_newline = false
+
+[character]
+success_symbol = "[>](bold green)"

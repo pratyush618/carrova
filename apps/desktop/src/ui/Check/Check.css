@@ -1,7 +1,7 @@
 .p-check {
-  inline-size: 20px;
-  block-size: 20px;
-  border-radius: 6px;
+  inline-size: 18px;
+  block-size: 18px;
+  border-radius: 5px;
   border: 1.5px solid var(--control);
   background: var(--surface-2);
   padding: 0;
@@ -9,37 +9,39 @@
   place-items: center;
   flex: none;
   color: var(--accent-on);
+  transition:
+    background var(--dur-1),
+    border-color var(--dur-1);
 }
 
 .p-check .p-icon {
-  inline-size: 14px;
-  block-size: 14px;
-  stroke-width: 2.5;
+  inline-size: 12px;
+  block-size: 12px;
+  stroke-width: 2.6;
+}
+
+/* The tick draws itself in; the dash of a mixed box just appears. */
+.p-check[aria-checked='true'] .p-icon {
   stroke-dasharray: 24;
-  stroke-dashoffset: 24;
-  transition: stroke-dashoffset var(--dur-2) var(--ease);
+  animation: p-check-draw var(--dur-2) var(--ease);
 }
 
 .p-check[aria-checked='true'],
 .p-check[aria-checked='mixed'] {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
 }
 
-.p-check[aria-checked='true'] .p-icon {
-  stroke-dashoffset: 0;
+/* Sensitive items: amber, so a picked key never looks like an ordinary pick. */
+.p-check--warn {
+  border-color: var(--warning);
 }
 
-.p-check[aria-checked='mixed']::after {
-  content: '';
-  inline-size: 10px;
-  block-size: 2px;
-  background: var(--accent-on);
-  border-radius: 1px;
-}
-
-.p-check[aria-checked='mixed'] .p-icon {
-  display: none;
+.p-check--warn[aria-checked='true'],
+.p-check--warn[aria-checked='mixed'] {
+  background: var(--warning);
+  border-color: var(--warning);
+  color: var(--surface-2);
 }
 
 /* An item that cannot be picked: shown, never interactive. */

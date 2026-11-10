@@ -7,6 +7,12 @@ detect:
   linux:
     - binary: ssh
     - path: { root: home, rel: .ssh }
+  macos:
+    - binary: ssh
+    - path: { root: home, rel: .ssh }
+  windows:
+    - binary: ssh
+    - path: { root: home, rel: .ssh }
 items:
   - id: config
     label: SSH client config and known hosts
@@ -15,7 +21,7 @@ items:
       - { root: home, rel: .ssh/config.d }
       - { root: home, rel: .ssh/known_hosts }
     flags:
-      portability: same_os
+      portability: cross_os
       sensitive: false
       requires_closed: false
       default: true

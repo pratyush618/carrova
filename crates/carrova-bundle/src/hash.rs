@@ -87,6 +87,10 @@ pub enum BlobKind {
     Recipe,
     /// The precompiled [`crate::DetectIndex`].
     Detect,
+    /// A plugin's `plugin.yaml`.
+    PluginManifest,
+    /// A plugin's WebAssembly module.
+    Plugin,
 }
 
 impl BlobKind {
@@ -96,6 +100,8 @@ impl BlobKind {
         match self {
             Self::Recipe => "yaml",
             Self::Detect => "json",
+            Self::PluginManifest => "plugin.yaml",
+            Self::Plugin => "wasm",
         }
     }
 
@@ -105,6 +111,8 @@ impl BlobKind {
         match self {
             Self::Recipe => 256 * 1024,
             Self::Detect => 4 * 1024 * 1024,
+            Self::PluginManifest => 16 * 1024,
+            Self::Plugin => carrova_plugin::MAX_WASM_BYTES,
         }
     }
 }

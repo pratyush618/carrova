@@ -1,0 +1,38 @@
+.p-tick {
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1.5px dashed var(--control);
+  color: var(--success);
+}
+
+.p-tick .p-icon {
+  inline-size: 13px;
+  block-size: 13px;
+  stroke-width: 2.4;
+}
+
+.p-tick--done {
+  border: 0;
+  background: var(--success-soft);
+}
+
+.p-tick--done .p-icon {
+  stroke-dasharray: 24;
+  animation: p-check-draw var(--dur-3) var(--ease-out) both;
+}
+
+.p-tick--now {
+  border: 2px solid var(--accent);
+  border-inline-end-color: transparent;
+  animation: p-spin 1s linear infinite;
+}
+
+.p-tick--wait {
+  border-style: solid;
+  border-color: var(--warning);
+  color: var(--warning);
+}

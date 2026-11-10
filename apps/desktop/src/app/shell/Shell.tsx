@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
+import { bundleStatus } from '../../flows/catalog/catalogViews';
 import { ChromeContext, Window } from '../../ui';
 import { useControllers } from '../controllers/Controllers';
 import type { FlowId } from '../nav/flows';
@@ -60,7 +61,11 @@ export function Shell({ initial }: { readonly initial: Nav }) {
     }),
     [go],
   );
-  const chrome = useMemo(() => buildChrome(view, t, go), [view, t, go]);
+  const recipes = controllers.settings.recipes;
+  const chrome = useMemo(
+    () => buildChrome(view, t, go, bundleStatus(recipes, t)),
+    [view, t, go, recipes],
+  );
   useScreenFocus(viewKey(view), root);
 
   const auto = useAutoOverlays(view);

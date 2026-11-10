@@ -3,8 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { renderApp } from '../../support/app';
 
-const home = () =>
-  screen.findByRole('heading', { level: 1, name: 'What are we doing on this computer?' });
+const home = () => screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
 
 describe('sending over the LAN', () => {
   it('scans, sends the selection, shows the code and ends on Delivered', async () => {
@@ -12,12 +11,12 @@ describe('sending over the LAN', () => {
     const { port } = await renderApp({ returning: true });
     const runSend = vi.spyOn(port, 'runSend');
     await home();
-    await user.click(screen.getByRole('button', { name: /Send/ }));
+    await user.click(screen.getByRole('button', { name: /^Send from this computer/ }));
     await user.click(await screen.findByRole('button', { name: 'Get pairing code' }));
 
     expect(runSend).toHaveBeenCalledOnce();
     expect(await screen.findByText('Your setup is on the new computer.')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Step 4 of 4' })).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Step 4 of 4' })).toBeInTheDocument();
   });
 
   it('sends every selection edit to the engine', async () => {
@@ -25,15 +24,53 @@ describe('sending over the LAN', () => {
     const { port } = await renderApp({ returning: true });
     const select = vi.spyOn(port, 'select');
     await home();
-    await user.click(screen.getByRole('button', { name: /Send/ }));
-    const toggles = await screen.findAllByRole('switch');
-    const first = toggles[0];
-    if (first === undefined) throw new Error('no app rows');
-    await user.click(first);
+    await user.click(screen.getByRole('button', { name: /^Send from this computer/ }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Bring Git' }));
 
     expect(select).toHaveBeenCalledOnce();
     const sent = select.mock.calls[0]?.[1];
     expect(Object.values(sent?.items ?? {}).some((c) => !c.included)).toBe(true);
+  });
+
+  it('brings a secret only after its own confirm', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true });
+    const select = vi.spyOn(port, 'select');
+    await home();
+    await user.click(screen.getByRole('button', { name: /^Send from this computer/ }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Include SSH key pairs (private keys)…' }),
+    );
+    const dialog = screen.getByRole('alertdialog', { name: 'Bring SSH key pairs (private keys)?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Leave behind' }));
+    expect(select).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Include SSH key pairs (private keys)…' }));
+    await user.click(screen.getByRole('button', { name: 'Bring them' }));
+    expect(select.mock.calls[0]?.[2]).toContainEqual({
+      kind: 'confirm_sensitive',
+      item: 'ssh/keys',
+      confirmed: true,
+    });
+    expect(
+      await screen.findByRole('checkbox', {
+        name: 'Bring SSH key pairs (private keys)',
+        checked: true,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the selection when saving to a file instead', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true });
+    const scan = vi.spyOn(port, 'scan');
+    await home();
+    await user.click(screen.getByRole('button', { name: /^Send from this computer/ }));
+    await user.click(await screen.findByRole('button', { name: 'Save to a file instead' }));
+    await user.click(await screen.findByRole('button', { name: 'Continue' }));
+
+    expect(await screen.findByRole('button', { name: 'Save file' })).toBeInTheDocument();
+    expect(scan).toHaveBeenCalledOnce();
   });
 
   it('asks before showing a new code after a wrong one, and goes on when the user agrees', async () => {
@@ -41,7 +78,7 @@ describe('sending over the LAN', () => {
     const { port } = await renderApp({ returning: true, scenario: 'wrong-code' });
     const answer = vi.spyOn(port, 'answerPairing');
     await home();
-    await user.click(screen.getByRole('button', { name: /Send/ }));
+    await user.click(screen.getByRole('button', { name: /^Send from this computer/ }));
     await user.click(await screen.findByRole('button', { name: 'Get pairing code' }));
 
     const dialog = await screen.findByRole('alertdialog', { name: 'Someone typed a wrong code' });
@@ -56,7 +93,7 @@ describe('sending over the LAN', () => {
     const user = userEvent.setup();
     await renderApp({ returning: true, scenario: 'wrong-code' });
     await home();
-    await user.click(screen.getByRole('button', { name: /Send/ }));
+    await user.click(screen.getByRole('button', { name: /^Send from this computer/ }));
     await user.click(await screen.findByRole('button', { name: 'Get pairing code' }));
     await user.click(await screen.findByRole('button', { name: 'Stop pairing' }));
 
@@ -72,7 +109,7 @@ describe('sending over the LAN', () => {
     const { port } = await renderApp({ returning: true, sleep });
     const cancel = vi.spyOn(port, 'cancel');
     await home();
-    await user.click(screen.getByRole('button', { name: /Send/ }));
+    await user.click(screen.getByRole('button', { name: /^Send from this computer/ }));
     const getCode = await screen.findByRole('button', { name: 'Get pairing code' });
     peerAway = true;
     await user.click(getCode);

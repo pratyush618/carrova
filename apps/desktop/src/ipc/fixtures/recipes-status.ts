@@ -8,6 +8,6 @@ export const recipesStatus: RecipesStatus = {
     kind: 'dev_dir',
   },
   skipped: [],
-  unverified: 15,
+  unverified: 21,
   verified: 0,
 };

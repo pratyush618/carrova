@@ -39,6 +39,7 @@ mod planner;
 
 use carrova_manifest::Manifest;
 use carrova_platform::Platform;
+use carrova_plugin::Plugin;
 use carrova_recipe::Recipe;
 
 use crate::error::{CoreError, Result};
@@ -51,8 +52,8 @@ pub use crate::space::{
 pub use blocker::Blocker;
 pub use dangerous::{DANGEROUS_PATHS, DangerousPath};
 pub use model::{
-    Action, Handler, ObjectKind, Plan, PlanWarning, PlannedAction, PlannedHandler,
-    SOURCE_SENSITIVE, recipe_sensitive,
+    Action, Handler, ObjectKind, PathMapping, Plan, PlanWarning, PlannedAction, PlannedHandler,
+    PlannedPlugin, SOURCE_SENSITIVE, recipe_sensitive,
 };
 pub use options::{ConflictRule, PlanOptions, Remap, Retention};
 
@@ -117,5 +118,22 @@ pub fn plan_on_date(
     session: &SessionId,
     date: &str,
 ) -> Result<Plan> {
-    planner::Planner::new(platform, recipes, manifest, options, date)?.run(session)
+    plan_with_plugins(platform, recipes, &[], manifest, options, session, date)
+}
+
+/// [`plan_on_date`] with the `plugins` available here: an item whose local
+/// recipe item names a plugin has its files passed through it
+/// ([`Plan::plugins`]) once the user allowed it
+/// ([`PlanOptions::confirmed_plugins`], else [`Blocker::UnconfirmedPlugin`]);
+/// with the plugin missing, its entries are skipped with a warning.
+pub fn plan_with_plugins(
+    platform: &dyn Platform,
+    recipes: &[Recipe],
+    plugins: &[Plugin],
+    manifest: &Manifest,
+    options: &PlanOptions,
+    session: &SessionId,
+    date: &str,
+) -> Result<Plan> {
+    planner::Planner::new(platform, recipes, plugins, manifest, options, date)?.run(session)
 }

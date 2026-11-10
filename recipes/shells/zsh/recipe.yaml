@@ -1,4 +1,4 @@
-schema: 1
+schema: 3
 id: zsh
 name: Zsh
 category: shells
@@ -8,6 +8,10 @@ detect:
     - binary: zsh
     - path: { root: home, rel: .zshrc }
     - path: { root: user_config, rel: zsh }
+  macos:
+    - binary: zsh
+    - path: { root: home, rel: .zshrc }
+    - path: { root: home, rel: .config/zsh }
 items:
   - id: config
     label: Zsh startup files and prompt config
@@ -19,6 +23,16 @@ items:
       - { root: home, rel: .zlogout }
       - { root: home, rel: .p10k.zsh }
       - { root: user_config, rel: zsh }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .zshrc }
+          - { root: home, rel: .zshenv }
+          - { root: home, rel: .zprofile }
+          - { root: home, rel: .zlogin }
+          - { root: home, rel: .zlogout }
+          - { root: home, rel: .p10k.zsh }
+          - { root: home, rel: .config/zsh }
     exclude:
       - "**/.zcompdump*"
       - "**/.zsh_history"
@@ -54,6 +68,16 @@ items:
       - { root: user_config, rel: zsh/.zhistory }
       - { root: user_config, rel: zsh/.histfile }
       - { root: user_config, rel: zsh/history }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .zsh_history }
+          - { root: home, rel: .zhistory }
+          - { root: home, rel: .histfile }
+          - { root: home, rel: .config/zsh/.zsh_history }
+          - { root: home, rel: .config/zsh/.zhistory }
+          - { root: home, rel: .config/zsh/.histfile }
+          - { root: home, rel: .config/zsh/history }
     flags:
       portability: same_os
       sensitive: true
@@ -64,6 +88,11 @@ items:
     paths:
       - { root: home, rel: .zsh_sessions }
       - { root: user_config, rel: zsh/.zsh_sessions }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .zsh_sessions }
+          - { root: home, rel: .config/zsh/.zsh_sessions }
     flags:
       portability: same_os
       sensitive: true

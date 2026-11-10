@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { toEdits } from '@/flows/send/selectionChange';
 import { scan } from '@/ipc/fixtures/scan';
+import { select } from '@/ipc/fixtures/select';
 
 const { selection } = scan;
 
@@ -39,5 +40,16 @@ describe('screen changes as engine edits', () => {
         selection,
       ),
     ).toEqual([{ kind: 'path', item: 'git/config', path: 'home:.gitconfig', included: false }]);
+  });
+
+  it('a preset sets the apps and keeps each key the user already confirmed, never more', () => {
+    expect(toEdits({ kind: 'preset', preset: 'everything' }, selection)).toEqual([
+      { kind: 'preset', preset: 'everything' },
+    ]);
+    // `select`: the engine's reply after `ssh/keys` was confirmed one by one.
+    expect(toEdits({ kind: 'preset', preset: 'none' }, select.selection)).toEqual([
+      { kind: 'preset', preset: 'none' },
+      { kind: 'item', item: 'ssh/keys', included: true },
+    ]);
   });
 });

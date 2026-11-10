@@ -37,10 +37,10 @@ export const file = {
     saving: 'Saving…',
   },
   saved: {
-    stamp: 'Packed',
-    meta: '{{size}}, encrypted',
+    ring: 'PACKED · ENCRYPTED · PACKED · ENCRYPTED · ',
+    seal: 'Packed and encrypted',
     title: 'Your setup is in one file.',
-    lede: 'Copy it to the other computer any way you like, then choose Open a file there.',
+    lede: '{{size}}, encrypted. Copy it to the other computer any way you like, then choose Open a file there.',
     showInFolder: 'Show in folder',
   },
   open: {

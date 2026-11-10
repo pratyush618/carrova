@@ -18,7 +18,7 @@ use carrova_manifest::{
     chunk_reader, entry_from_path,
 };
 use carrova_platform::fake::{FakePlatform, symlink};
-use carrova_platform::{Platform, SemanticRoot};
+use carrova_platform::{OsKind, Platform, SemanticRoot};
 use carrova_recipe::Recipe;
 use common::mkdir;
 use tempfile::TempDir;
@@ -71,6 +71,7 @@ fn item(recipe: Option<&str>, id: &str, entries: Vec<Entry>) -> ManifestItem {
         entries,
         handler: None,
         artifacts: Vec::new(),
+        source_paths: Vec::new(),
     }
 }
 
@@ -78,8 +79,9 @@ fn manifest(items: Vec<ManifestItem>) -> Manifest {
     let m = Manifest::new(
         0,
         SourceInfo {
-            os: "linux".into(),
+            os: OsKind::Linux,
             carrova_version: "test".into(),
+            device_name: None,
         },
         items,
     );
@@ -397,6 +399,7 @@ fn handler_items_touching_gnupg_are_sensitive() {
 // ------------------------------------------------------------- H2 modes
 
 #[test]
+#[cfg(unix)] // Unix mode bits
 fn incoming_modes_never_group_or_world_writable() {
     let e = env();
     let m = manifest(vec![item(
@@ -414,6 +417,7 @@ fn incoming_modes_never_group_or_world_writable() {
 }
 
 #[test]
+#[cfg(unix)] // Unix mode bits
 fn existing_directory_mode_is_never_loosened() {
     let e = env();
     mkdir(&e.sender, &e.sender_home, ".ssh", 0o777);
@@ -514,10 +518,12 @@ fn shell_code_dirs_need_confirmation() {
 
 // ------------------------------------------------------------- group-write
 
+#[cfg(unix)]
 fn mode_of(p: &Plan, rel: &str) -> Option<u32> {
     p.actions.iter().find(|a| a.rel == rel).unwrap().mode
 }
 
+#[cfg(unix)]
 fn mode_warnings<'p>(p: &'p Plan, item: &str) -> Vec<&'p str> {
     p.warnings
         .iter()
@@ -527,6 +533,7 @@ fn mode_warnings<'p>(p: &'p Plan, item: &str) -> Vec<&'p str> {
 }
 
 #[test]
+#[cfg(unix)] // Unix mode bits
 fn group_write_dropped_by_default_kept_with_option() {
     let e = env();
     let m = manifest(vec![item(
@@ -562,6 +569,7 @@ fn group_write_dropped_by_default_kept_with_option() {
 }
 
 #[test]
+#[cfg(unix)] // Unix mode bits
 fn group_write_option_never_loosens_existing_dir() {
     let e = env();
     mkdir(&e.sender, &e.sender_home, ".config/app", 0o775);
@@ -585,6 +593,7 @@ fn group_write_option_never_loosens_existing_dir() {
 /// Regression: one "mode 0644 instead of 0664" warning per file (14+ on a
 /// umask-002 laptop). Now one per item.
 #[test]
+#[cfg(unix)] // Unix mode bits
 fn mode_warnings_collapse_to_one_per_item() {
     let e = env();
     let m = manifest(vec![

@@ -1,5 +1,5 @@
 use super::*;
-use crate::{OsKind, Platform, PlatformError, SnapshotCapability};
+use crate::{OsKind, PermissionModel, Platform, SnapshotCapability};
 
 #[test]
 fn fake_platform_configured_values() {
@@ -41,6 +41,35 @@ fn fake_platform_configured_values() {
 }
 
 #[test]
+fn fake_defaults_to_a_linux_peer_with_unix_permissions() {
+    let p = FakePlatform::with_home("/h");
+    assert_eq!(p.os(), OsKind::Linux);
+    let host_model = if cfg!(unix) {
+        PermissionModel::Unix
+    } else {
+        PermissionModel::Acl
+    };
+    assert_eq!(p.permission_model(), host_model);
+}
+
+#[test]
+fn fake_with_os_simulates_a_macos_or_windows_peer() {
+    let mac = FakePlatform::with_home("/h").with_os(OsKind::MacOs);
+    assert_eq!(mac.os(), OsKind::MacOs);
+    #[cfg(unix)]
+    assert_eq!(mac.permission_model(), PermissionModel::Unix);
+
+    let win = FakePlatform::with_home("/h").with_os(OsKind::Windows);
+    assert_eq!(win.os(), OsKind::Windows);
+    assert_eq!(win.permission_model(), PermissionModel::Acl);
+    assert_eq!(
+        win.resolve_root(SemanticRoot::Home).unwrap(),
+        PathBuf::from("/h"),
+        "roots stay as configured"
+    );
+}
+
+#[test]
 fn fake_state_dir_default_and_override() {
     let p = FakePlatform::with_home("/h");
     assert_eq!(
@@ -54,7 +83,7 @@ fn fake_state_dir_default_and_override() {
     );
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn fake_tool_script_and_env() {
     let tmp = tempfile::TempDir::new().unwrap();
@@ -77,7 +106,7 @@ fn fake_tool_script_and_env() {
     assert!(write_tool_script(tmp.path(), "tool", "").is_err());
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn fake_filesystems_override_fs_id_and_free_space() {
     let tmp = tempfile::TempDir::new().unwrap();
@@ -97,7 +126,7 @@ fn fake_filesystems_override_fs_id_and_free_space() {
     assert_eq!(p.free_space(tmp.path()).unwrap(), 10);
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn fake_preallocate_beyond_free_space_is_storage_full() {
     let tmp = tempfile::TempDir::new().unwrap();
@@ -111,7 +140,7 @@ fn fake_preallocate_beyond_free_space_is_storage_full() {
     assert_eq!(f.metadata().unwrap().len(), 100);
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 #[test]
 fn fake_fs_ops_are_real() {
     let tmp = tempfile::TempDir::new().unwrap();
@@ -128,11 +157,12 @@ fn fake_fs_ops_are_real() {
     assert!(!st.exists());
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 mod hooks {
     use std::sync::Mutex;
 
     use super::*;
+    use crate::PlatformError;
 
     fn io_denied(path: &Path) -> PlatformError {
         PlatformError::io(path, std::io::ErrorKind::PermissionDenied.into())
@@ -216,4 +246,45 @@ fn fake_device_name_is_sanitised_like_a_native_one() {
     let named = |raw: &str| FakePlatform::with_home(tmp.path()).with_device_name(raw);
     assert_eq!(named("  studio\n").device_name().as_deref(), Some("studio"));
     assert_eq!(named("\u{202E}").device_name(), None);
+}
+
+/// Scripts written while other threads fork must run at once (no ETXTBSY).
+#[cfg(unix)]
+#[test]
+fn tool_scripts_run_at_once_while_other_threads_fork() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let stop = Arc::new(AtomicBool::new(false));
+    let forkers: Vec<_> = (0..4)
+        .map(|_| {
+            let stop = Arc::clone(&stop);
+            std::thread::spawn(move || {
+                while !stop.load(Ordering::Relaxed) {
+                    let _ = std::process::Command::new("/bin/true").status();
+                }
+            })
+        })
+        .collect();
+    let writers: Vec<_> = (0..4)
+        .map(|t| {
+            let dir = tmp.path().to_owned();
+            std::thread::spawn(move || {
+                for i in 0..50 {
+                    let bin =
+                        write_tool_script(&dir, &format!("tool-{t}-{i}"), "exit 0\n").unwrap();
+                    let status = std::process::Command::new(&bin).status().unwrap();
+                    assert!(status.success());
+                }
+            })
+        })
+        .collect();
+    for w in writers {
+        w.join().unwrap();
+    }
+    stop.store(true, Ordering::Relaxed);
+    for f in forkers {
+        f.join().unwrap();
+    }
 }

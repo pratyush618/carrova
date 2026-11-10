@@ -4,40 +4,145 @@
 }
 
 .p-timeline li {
-  display: grid;
-  grid-template-columns: 16px 1fr auto;
-  gap: 12px;
-  padding-block: 8px;
   position: relative;
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 10px;
+  padding-block-end: 14px;
+  font-size: var(--t-sm);
 }
 
 .p-timeline li::before {
   content: '';
-  inline-size: 10px;
-  block-size: 10px;
-  border-radius: 50%;
-  background: var(--success);
-  margin-block-start: 6px;
-  margin-inline-start: 3px;
-}
-
-.p-timeline li::after {
-  content: '';
   position: absolute;
-  inset-inline-start: 7px;
-  inset-block: 24px -6px;
+  inset-inline-start: 11px;
+  inset-block: 26px 2px;
   inline-size: 2px;
   background: var(--border);
 }
 
-.p-timeline li:last-child::after {
+.p-timeline li:last-child::before {
   display: none;
 }
 
-.p-timeline time {
+.p-timeline__dot {
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.p-timeline__dot .p-icon {
+  inline-size: 13px;
+  block-size: 13px;
+}
+
+.p-timeline__dot--accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.p-timeline__dot--muted {
+  background: var(--surface-0);
   color: var(--text-muted);
-  font-size: var(--t-sm);
+}
+
+.p-timeline b {
+  display: block;
+  font-size: var(--t-md);
+  font-weight: 650;
+}
+
+/* Text spans only: a bare `span` would outrank the dot's own rule and drop its circle. */
+.p-timeline li > div > span,
+.p-timeline time {
+  display: block;
+  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
+}
+
+/* Undo: steps fold back in, newest first. */
+.p-timeline--rewind li {
+  animation: p-rewind var(--dur-3) var(--ease-out) both;
+}
+
+.p-timeline--rewind li:nth-last-child(2) {
+  animation-delay: 0.12s;
+}
+
+.p-timeline--rewind li:nth-last-child(3) {
+  animation-delay: 0.24s;
+}
+
+.p-timeline--rewind li:nth-last-child(n + 4) {
+  animation-delay: 0.36s;
+}
+
+@keyframes p-rewind {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+}
+
+.p-move {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  inline-size: 100%;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  box-shadow: var(--e-1);
+  text-align: start;
+}
+
+.p-move + .p-move {
+  margin-block-start: var(--sp-1);
+}
+
+.p-move:hover {
+  border-color: var(--border-strong);
+}
+
+.p-move[aria-current='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.p-move__route {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+  font-weight: 650;
+}
+
+.p-move__when {
+  grid-row: 1;
+  grid-column: 2;
+  font-size: var(--t-sm);
+  color: var(--text-muted);
+}
+
+.p-move__sub {
+  grid-column: 1;
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+.p-move__tag {
+  grid-column: 2;
+  justify-self: end;
+}
+
+/* Rolled back: quieter, without dropping below AA contrast. */
+.p-move--undone .p-move__route {
+  color: var(--text-secondary);
 }
 
 .p-log {

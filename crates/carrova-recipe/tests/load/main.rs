@@ -6,7 +6,8 @@ use std::fs;
 use std::path::Path;
 
 use carrova_recipe::{
-    DetectRule, LoadError, Portability, SemanticRoot, TreeLayout, load_str, load_tree,
+    DetectRule, LoadError, Portability, SUPPORTED_SCHEMA, SemanticRoot, TreeLayout, load_str,
+    load_tree,
 };
 
 const GIT: &str = r#"
@@ -99,10 +100,11 @@ fn rejects_bad_yaml() {
 
 #[test]
 fn unsupported_schema_is_reported_before_unknown_fields() {
-    let v3 = GIT.replace("schema: 1", "schema: 3\nnew_field: x");
-    let err = load_str(&v3, Path::new("v3.yaml")).unwrap_err();
+    let next = SUPPORTED_SCHEMA.end() + 1;
+    let future = GIT.replace("schema: 1", &format!("schema: {next}\nnew_field: x"));
+    let err = load_str(&future, Path::new("future.yaml")).unwrap_err();
     assert!(
-        matches!(err, LoadError::UnsupportedSchema { found: 3, .. }),
+        matches!(err, LoadError::UnsupportedSchema { found, .. } if found == u64::from(next)),
         "{err}"
     );
 }
@@ -120,7 +122,9 @@ fn parses_v2_fields() {
     assert_eq!(r.processes, ["git-daemon"]);
     assert_eq!(
         r.items[1].handler,
-        Some(carrova_recipe::Handler::GpgKeyring)
+        Some(carrova_recipe::HandlerRef::Builtin(
+            carrova_recipe::Handler::GpgKeyring
+        ))
     );
     assert_eq!(r.items[0].handler, None);
     let text = serde_yaml_ng::to_string(&r).unwrap();

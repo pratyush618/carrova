@@ -28,7 +28,8 @@ peer_cert_hash?: string | null,
 manifest_fingerprint: string, 
 /**
  * The peer's device name as it announced it (sanitised), if
- * known: the receiver's name on the sender; `None` until it is
- * known and on the receiver (senders do not announce one yet).
+ * known: the receiver's name on the sender (`None` until it is
+ * known), the sender's manifest `source.device_name` on the
+ * receiver.
  */
 peer_name?: string | null, };

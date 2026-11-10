@@ -4,7 +4,7 @@
 }
 
 .p-field__label {
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .p-field__hint {
@@ -18,17 +18,17 @@
 
 .p-input {
   inline-size: 100%;
-  min-block-size: 44px;
-  padding-inline: 14px;
+  min-block-size: 40px;
+  padding-inline: 12px;
   border-radius: var(--r-ctl);
   border: 1px solid var(--control);
-  background: var(--surface-0);
+  background: var(--surface-2);
 }
 
 .p-input:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 0;
-  border-color: var(--accent);
+  border-color: var(--focus);
 }
 
 .p-input[aria-invalid='true'] {
@@ -39,10 +39,28 @@
   font-family: var(--mono);
 }
 
+/* House chevron instead of the OS one; two gradients so it follows the theme. */
 .p-select {
   min-block-size: 36px;
   inline-size: auto;
-  padding-inline: 10px;
+  padding-inline: 10px 32px;
+  appearance: none;
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 55%,
+    calc(100% - 12px) 55%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+[dir='rtl'] .p-select {
+  padding-inline: 10px 32px;
+  background-position:
+    12px 55%,
+    17px 55%;
 }
 
 .p-search {
@@ -51,10 +69,10 @@
   gap: var(--sp-1);
   padding-inline: 12px;
   border-radius: var(--r-ctl);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--control);
   background: var(--surface-2);
   color: var(--text-muted);
-  min-block-size: 40px;
+  min-block-size: 36px;
 }
 
 .p-search input {
@@ -62,12 +80,12 @@
   background: none;
   outline: 0;
   flex: 1;
-  min-block-size: 38px;
+  min-block-size: 34px;
   color: var(--text-primary);
 }
 
 .p-search:focus-within {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
 }
 
 .p-meter {

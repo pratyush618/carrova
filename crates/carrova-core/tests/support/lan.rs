@@ -135,15 +135,22 @@ pub struct Side {
 
 impl Side {
     pub fn new() -> Self {
+        Self::named(None)
+    }
+
+    /// A machine its OS calls `name` (`None`: unnamed).
+    pub fn named(name: Option<&str>) -> Self {
         let tmp = TempDir::new().unwrap();
         let home = tmp.path().join("home");
         std::fs::create_dir_all(home.join(".config")).unwrap();
         std::fs::create_dir_all(home.join(".local/share")).unwrap();
-        let platform = Arc::new(
-            FakePlatform::with_home(&home)
-                .with_state_dir(tmp.path().join("state/carrova"))
-                .binary("app", "/usr/bin/app"),
-        );
+        let mut platform = FakePlatform::with_home(&home)
+            .with_state_dir(tmp.path().join("state/carrova"))
+            .binary("app", "/usr/bin/app");
+        if let Some(name) = name {
+            platform = platform.with_device_name(name);
+        }
+        let platform = Arc::new(platform);
         let sink = Arc::new(HookSink::default());
         let engine = Engine::new(platform.clone(), common::recipes(RECIPE), sink.clone());
         Self {
@@ -158,7 +165,11 @@ impl Side {
     /// The sender's home: config files, a sensitive key and a big data
     /// file (several transfer batches of progress).
     pub fn sender() -> Self {
-        let s = Self::new();
+        Self::seeded(Self::new())
+    }
+
+    /// `s` with the sender's files of [`Self::sender`].
+    pub fn seeded(s: Self) -> Self {
         s.mkdir(".config/app", 0o700);
         s.put(".config/app/settings.json", b"{\"theme\":\"dark\"}", 0o644);
         s.put(".config/app/notes.txt", b"sender notes", 0o640);

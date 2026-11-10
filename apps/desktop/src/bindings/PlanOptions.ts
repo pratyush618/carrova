@@ -55,4 +55,18 @@ import_trust: boolean,
  * Opt-in: keep group-write bits from the archive (e.g. 0664 under a
  * umask-002 setup). World-write, setuid and setgid are never restored.
  */
-keep_group_write: boolean, };
+keep_group_write: boolean, 
+/**
+ * User override: same-OS item keys to restore although the archive
+ * comes from another OS (each would otherwise be a
+ * [`Blocker::CrossOs`](super::Blocker::CrossOs)). The user saw why
+ * the recipe marks them same-OS and accepted the risk.
+ */
+allow_cross_os: Array<ItemKey>, 
+/**
+ * Plugins the user allowed to change the files of the items that use
+ * them, after seeing their permissions ([`super::Plan::plugins`]);
+ * each other plugin in use is a
+ * [`Blocker::UnconfirmedPlugin`](super::Blocker::UnconfirmedPlugin).
+ */
+confirmed_plugins: Array<string>, };

@@ -1,0 +1,14 @@
+binaries: [zed]
+detected: true
+items:
+  config:
+    files:
+      - home:.config/zed/keymap.json
+      - home:.config/zed/settings.json
+      - home:.config/zed/tasks.json
+      - home:.config/zed/themes/dummy.json
+  extensions:
+    files: []
+not_captured:
+  - Library/Application Support/Zed/extensions/installed/dummy/extension.toml
+  - Library/Application Support/Zed/db/0-stable/db.sqlite

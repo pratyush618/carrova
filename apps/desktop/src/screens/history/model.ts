@@ -1,5 +1,6 @@
 import type { SessionState } from '../../engine/types';
 import type { Bytes } from '../shared/model';
+import type { UndoCounts } from '../undo/model';
 
 /** What a past session did. */
 export type MoveKind = 'received' | 'sent' | 'saved' | 'opened' | 'undone';
@@ -8,6 +9,8 @@ export type MoveKind = 'received' | 'sent' | 'saved' | 'opened' | 'undone';
 export interface HistoryEntry {
   readonly id: string;
   readonly kind: MoveKind;
+  /** Where the session stopped (the engine's lifecycle state). */
+  readonly state: SessionState;
   /** The other computer's name or the file's name; `null` when not recorded. */
   readonly peer: string | null;
   readonly when: Date;
@@ -22,10 +25,16 @@ export interface HistoryEntry {
 export interface HistoryModel {
   readonly now: Date;
   readonly entries: readonly HistoryEntry[];
+  /** The move open beside the list; `null` while there are none. */
+  readonly selected: SessionModel | null;
 }
 
 export interface HistoryIntents {
-  readonly onOpen: (id: string) => void;
+  readonly onSelect: (id: string) => void;
+  readonly onUndo: () => void;
+  readonly onResume: () => void;
+  /** Forget the selected move and its undo point (asked to confirm first). */
+  readonly onForget: () => void;
   readonly onReceive: () => void;
 }
 
@@ -39,12 +48,6 @@ export interface SessionModel {
   readonly timeline: readonly TimelineStep[];
   /** Redacted by the engine: no contents, secrets or codes. */
   readonly log: readonly string[];
-}
-
-export interface SessionIntents {
-  /** Forget the session and its undo point (asked to confirm first). */
-  readonly onRemoveUndoPoint: () => void;
-  readonly onUndo: () => void;
-  readonly onResume: () => void;
-  readonly onClose: () => void;
+  /** What Undo would do now; `null` while it can't be undone or the engine hasn't answered. */
+  readonly undoCounts: UndoCounts | null;
 }

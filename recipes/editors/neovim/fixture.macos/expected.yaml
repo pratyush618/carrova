@@ -1,0 +1,21 @@
+binaries: [nvim]
+detected: true
+items:
+  config:
+    files:
+      - home:.config/nvim/after/ftplugin/rust.lua
+      - home:.config/nvim/init.lua
+      - home:.config/nvim/lazy-lock.json
+      - home:.config/nvim/lua/config/lazy.lua
+      - home:.config/nvim/lua/plugins/ui.lua
+  plugins:
+    files:
+      - home:.local/share/nvim/lazy/lazy.nvim/lua/lazy.lua
+      - home:.local/share/nvim/mason/bin/rust-analyzer
+      - home:.local/share/nvim/site/pack/local/start/mytool/plugin/mytool.vim
+not_captured:
+  - .local/share/nvim/shada/main.shada
+  - .local/share/nvim/swap/%home%u%notes.md.swp
+  - .local/share/nvim/lsp.log
+  - .local/state/nvim/shada/main.shada
+  - .cache/nvim/luac.cache

@@ -1,12 +1,15 @@
 use std::collections::HashSet;
 
-use carrova_platform::SemanticRoot;
+use carrova_platform::{OsKind, SemanticRoot};
 use serde::{Deserialize, Serialize};
 
 use crate::{Blake3Hash, ChunkRef, RelPath};
 
 /// Current manifest wire-format version written by this build.
-pub const FORMAT_VERSION: u32 = 2;
+///
+/// v2: item handlers and artifacts. v3: typed source OS and per-item
+/// [`ManifestItem::source_paths`].
+pub const FORMAT_VERSION: u32 = 3;
 
 /// Most items a manifest may hold (checked by [`Manifest::validate`]).
 pub const MAX_ITEMS: usize = 100_000;
@@ -14,6 +17,8 @@ pub const MAX_ITEMS: usize = 100_000;
 pub const MAX_ENTRIES: usize = 1_000_000;
 /// Most artifacts a single item may hold.
 pub const MAX_ARTIFACTS_PER_ITEM: usize = 1024;
+/// Most source paths a single item may declare.
+pub const MAX_SOURCE_PATHS_PER_ITEM: usize = 1024;
 
 /// OS-neutral description of everything a transfer moves.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -24,16 +29,31 @@ pub struct Manifest {
     pub created_at: i64,
     pub source: SourceInfo,
     pub items: Vec<ManifestItem>,
+    /// The sender's home folder as an absolute path in its OS's syntax,
+    /// if known. Only plugins declaring `source_home` see it (to rewrite
+    /// absolute paths); nothing else reads it. Format v3+.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_home: Option<String>,
 }
 
 /// Where a manifest was produced.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SourceInfo {
-    /// Free-form OS description (e.g. `"linux"`).
-    pub os: String,
+    /// OS family of the sender, stored as its stable id (`"linux"`,
+    /// `"macos"`, `"windows"`), as formats 1 and 2 already wrote it.
+    #[serde(with = "crate::os_id")]
+    pub os: OsKind,
     pub carrova_version: String,
+    /// The sender's device name as its platform reports it (at most
+    /// [`MAX_DEVICE_NAME`] characters), if known. Format v3+; absent from
+    /// older manifests.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_name: Option<String>,
 }
+
+/// Longest [`SourceInfo::device_name`] a manifest may carry (characters).
+pub const MAX_DEVICE_NAME: usize = 64;
 
 /// One user-selectable unit (a recipe item, or a raw unrecognised path).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,6 +72,22 @@ pub struct ManifestItem {
     /// Opaque handler output (e.g. an exported keyring). Format v2+.
     #[serde(default)]
     pub artifacts: Vec<Artifact>,
+    /// The recipe item's paths on the source OS, slot by slot (index `i`
+    /// is the same data slot on every OS), so a receiver on another OS can
+    /// map each entry to its local slot. Empty for raw items and for
+    /// manifests before format v3.
+    #[serde(default)]
+    pub source_paths: Vec<SourcePath>,
+}
+
+/// A path a recipe item declares, as `(semantic root, relative path)`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourcePath {
+    /// Semantic root the path is relative to.
+    pub root: SemanticRoot,
+    /// Path below the root.
+    pub rel: RelPath,
 }
 
 /// Opaque handler output, content-addressed like a file.
@@ -130,6 +166,7 @@ impl Manifest {
             created_at,
             source,
             items,
+            source_home: None,
         }
     }
 

@@ -1,5 +1,13 @@
-import type { BridgeError, Retention } from '../../engine/types';
-import type { AppRef, AskAnswer, Bytes, ConflictRule, Failure, ItemKey } from '../shared/model';
+import type { BridgeError, OsKind, Retention, SemanticRoot } from '../../engine/types';
+import type {
+  AppRef,
+  AskAnswer,
+  Bytes,
+  ConflictRule,
+  Failure,
+  ItemKey,
+  MoveRoute,
+} from '../shared/model';
 import type { TransferModel } from '../shared/transfer';
 
 /** Typing the code, the handshake, or a recoverable failure. */
@@ -14,7 +22,13 @@ export type CodeEntryModel =
       /** Not found: the address fallback field. */
       readonly address: string;
     }
-  | { readonly status: 'connecting'; readonly here: string; readonly peer: string }
+  | {
+      readonly status: 'connecting';
+      readonly here: string;
+      readonly peer: string;
+      /** The code as typed, in words (`['7', 'zebra', 'lemon']`). */
+      readonly code: readonly string[];
+    }
   /** Pairing failed for another reason (engine wording). */
   | {
       readonly status: 'failed';
@@ -45,9 +59,29 @@ export type DecisionModel =
       readonly key: ItemKey;
       readonly app: string;
       readonly answer: 'skip' | 'closed' | null;
+    }
+  /** A same-system item from another system: leave it, or bring it anyway (override). */
+  | {
+      readonly kind: 'cross-os';
+      readonly key: ItemKey;
+      readonly title: string;
+      readonly from: OsKind;
+      readonly to: OsKind;
+      readonly answer: AskAnswer | null;
+    }
+  /** A plugin would change some items' files: allow it (consent dialog) or leave them. */
+  | {
+      readonly kind: 'plugin';
+      /** The plugin id. */
+      readonly key: string;
+      readonly description: string;
+      /** The items it changes, by name. */
+      readonly items: readonly string[];
+      readonly answer: 'allow' | 'leave' | null;
     };
 
-export type DecisionAnswer = NonNullable<DecisionModel['answer']>;
+/** Answers given in place on the review screen (the rest go through a dialog). */
+export type DecisionAnswer = AskAnswer | 'skip' | 'closed';
 
 /** "Here's what will change": the approval gate (`carrova-view` plan + space views). */
 export interface ReviewModel {
@@ -55,9 +89,9 @@ export interface ReviewModel {
     readonly added: number;
     readonly replaced: number;
     readonly identical: number;
+    /** Offered items that stay behind. */
+    readonly left: number;
   };
-  /** Undo window in days; `null` keeps the undo point until the user removes it. */
-  readonly undoDays: number | null;
   readonly decisions: readonly DecisionModel[];
   readonly space: {
     readonly needed: Bytes;
@@ -67,25 +101,86 @@ export interface ReviewModel {
     /** The user chose to ignore the space check. */
     readonly ignored: boolean;
   };
-  /** What still stops the plan; Approve waits for none. */
-  readonly blockers: readonly BlockerModel[];
+  /** Cross-system items land at this computer's paths; `null` when the source runs this OS. */
+  readonly mapped: { readonly from: OsKind; readonly to: OsKind; readonly apps: number } | null;
+  /** The suggestion for clashes (Every change can change it per app or file). */
+  readonly rule: ConflictRule;
+  readonly retention: Retention;
+  /** The engine still blocks the plan; Approve waits. */
+  readonly blocked: boolean;
+  readonly rail: ReviewRail;
   /** A change is being re-planned; Approve waits. */
   readonly busy: boolean;
 }
 
-/** One engine blocker (`Blocker`), with names and sizes ready to show. */
-export type BlockerModel =
-  | { readonly kind: 'unconfirmed_sensitive'; readonly what: string; readonly why: string }
-  | { readonly kind: 'running_app'; readonly app: string }
-  | { readonly kind: 'free_space'; readonly needed: Bytes; readonly free: Bytes };
+/** The review's "This move" rail. */
+export interface ReviewRail {
+  readonly route: MoveRoute;
+  /** Apps with something moving, of the apps offered. */
+  readonly apps: { readonly moving: number; readonly offered: number };
+  readonly bytes: Bytes;
+  /** Sensitive items brought, by name; `null` while one is unanswered. */
+  readonly keys: readonly string[] | null;
+}
 
 export interface ReviewIntents {
   readonly onAnswer: (key: ItemKey, answer: DecisionAnswer) => void;
   readonly onApplyWhileOpen: (key: ItemKey) => void;
   readonly onIgnoreSpace: () => void;
+  /** Bring a same-system item from another system anyway (opens its warning). */
+  readonly onBringAnyway: (key: ItemKey) => void;
+  /** Show what a plugin may do and ask to allow it. */
+  readonly onReviewPlugin: (plugin: string) => void;
+  /** Where cross-system items land (the mapping sheet). */
+  readonly onSeeWhere: () => void;
   readonly onSeeEvery: () => void;
   readonly onCancel: () => void;
   readonly onApprove: () => void;
+}
+
+/** One cross-system item slot: where it was there and where it lands here. */
+export interface MappingRow {
+  readonly key: string;
+  readonly glyph: string;
+  readonly title: string;
+  readonly from: MappedPath;
+  readonly to: MappedPath;
+}
+
+/** A path as a semantic root + relative path, and the real path when known here. */
+export interface MappedPath {
+  readonly root: SemanticRoot;
+  readonly rel: string;
+  /** The absolute path on this computer (only the target side can know it). */
+  readonly abs: string | null;
+}
+
+/** "Where things land": rows that change place first, same-place rows folded. */
+export interface MappingModel {
+  readonly from: OsKind;
+  readonly to: OsKind;
+  readonly moved: readonly MappingRow[];
+  readonly same: readonly MappingRow[];
+}
+
+/** What a plugin asks to do, from its manifest (`PlannedPlugin`). */
+export interface PluginConsentModel {
+  readonly plugin: string;
+  readonly version: string;
+  readonly description: string;
+  /** One plain sentence per permission. */
+  readonly permissions: readonly string[];
+  /** The items it changes, by name. */
+  readonly items: readonly string[];
+}
+
+export interface PluginConsentIntents {
+  /** Allow it for this move only. */
+  readonly onAllow: () => void;
+  /** Don't allow: its items are left behind. */
+  readonly onDecline: () => void;
+  /** Close without answering. */
+  readonly onClose: () => void;
 }
 
 /** A clashing file and the rule for it; `null` follows the item's rule. */
@@ -145,31 +240,21 @@ export interface ReceiveProgressIntents {
   readonly onHome: () => void;
 }
 
-/** Something left for the user after a move (`Checklist`). */
-export type Task =
-  | {
-      readonly kind: 'reinstall';
-      readonly app: string;
-      readonly count: number;
-      readonly command: string;
-    }
-  /** An app whose data arrived but which isn't installed here. */
-  | { readonly kind: 'install'; readonly app: string }
-  | { readonly kind: 'new-terminal' }
-  | { readonly kind: 'sign-in'; readonly app: string };
-
+/** After the move: what arrived, what didn't, and what is left to install. */
 export interface ArrivedModel {
-  readonly peer: string;
-  readonly apps: number;
+  readonly route: MoveRoute;
+  /** Apps that arrived, by name. */
+  readonly moved: readonly string[];
   readonly appsTotal: number;
+  readonly files: number;
   readonly bytes: Bytes;
   readonly replaced: number;
   readonly failures: readonly Failure[];
-  readonly tasks: readonly Task[];
+  /** Apps whose settings arrived but which aren't installed here. */
+  readonly toInstall: readonly string[];
 }
 
 export interface ArrivedIntents {
-  readonly onCopyCommand: (command: string) => void;
   /** Offered when failed items can be tried again. */
   readonly onRetry?: () => void;
   /** Offered while a rollback point exists. */

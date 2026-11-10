@@ -11,6 +11,7 @@ fn manifest_item(recipe: Option<&str>, id: &str) -> ManifestItem {
         entries: Vec::new(),
         handler: None,
         artifacts: Vec::new(),
+        source_paths: Vec::new(),
     }
 }
 

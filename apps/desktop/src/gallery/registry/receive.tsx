@@ -1,4 +1,6 @@
 import type { View } from '../../app/nav/navMachine';
+import { MappingSheet } from '../../screens/receive/MappingSheet';
+import { PluginConsentDialog } from '../../screens/receive/PluginConsentDialog';
 import { RecvCodeScreen } from '../../screens/receive/RecvCodeScreen';
 import { RecvDoneScreen } from '../../screens/receive/RecvDoneScreen';
 import { RecvProgressScreen } from '../../screens/receive/RecvProgressScreen';
@@ -22,12 +24,15 @@ export const reviewOn = noops(
   'onAnswer',
   'onApplyWhileOpen',
   'onIgnoreSpace',
+  'onBringAnyway',
+  'onReviewPlugin',
+  'onSeeWhere',
   'onSeeEvery',
   'onCancel',
   'onApprove',
 );
 const progressOn = { ...transferOn, ...noops('onRetry', 'onSeeWhat', 'onHome') };
-const arrivedOn = noops('onCopyCommand', 'onRetry', 'onUndo', 'onDone');
+const arrivedOn = noops('onRetry', 'onUndo', 'onDone');
 
 const CODE: Record<string, CodeEntryModel> = {
   typing: fx.codeTyping,
@@ -45,6 +50,7 @@ const PROGRESS: Record<string, ReceiveProgressModel> = {
 };
 
 export const reviewReady = <RecvReviewScreen model={fx.reviewReady} on={reviewOn} />;
+export const reviewCrossOs = <RecvReviewScreen model={fx.reviewCrossOs} on={reviewOn} />;
 
 export const receiveScreens: readonly GalleryScreen[] = [
   {
@@ -62,6 +68,7 @@ export const receiveScreens: readonly GalleryScreen[] = [
       base: (
         <RecvCodeScreen
           model={CODE[s] ?? fx.codeTyping}
+          here={fx.ROUTE.to}
           on={noops('onChange', 'onAddress', 'onConnect', 'onCancel', 'onBack')}
         />
       ),
@@ -72,10 +79,43 @@ export const receiveScreens: readonly GalleryScreen[] = [
     group: 'Receive',
     title: "Here's what will change",
     view: at('review'),
-    states: states(['decide', 'Needs answers'], ['ready', 'Ready']),
-    render: (s) => ({
-      base:
-        s === 'ready' ? reviewReady : <RecvReviewScreen model={fx.reviewDecide} on={reviewOn} />,
+    states: states(
+      ['decide', 'Needs answers'],
+      ['ready', 'Ready'],
+      ['cross-os', 'From another system'],
+      ['mapping', 'Where things land (sheet)'],
+    ),
+    render: (s) => {
+      switch (s) {
+        case 'ready':
+          return { base: reviewReady };
+        case 'cross-os':
+          return { base: reviewCrossOs };
+        case 'mapping':
+          return {
+            base: reviewCrossOs,
+            overlays: [<MappingSheet key="m" model={fx.mapping} onClose={() => undefined} />],
+          };
+        default:
+          return { base: <RecvReviewScreen model={fx.reviewDecide} on={reviewOn} /> };
+      }
+    },
+  },
+  {
+    id: 'plugin',
+    group: 'Receive',
+    title: 'Plugin permission consent (dialog)',
+    view: at('review'),
+    states: [],
+    render: () => ({
+      base: reviewCrossOs,
+      overlays: [
+        <PluginConsentDialog
+          key="p"
+          model={fx.pluginConsent}
+          on={noops('onAllow', 'onDecline', 'onClose')}
+        />,
+      ],
     }),
   },
   {

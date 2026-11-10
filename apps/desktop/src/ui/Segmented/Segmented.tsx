@@ -1,4 +1,5 @@
 import { useRef, type KeyboardEvent } from 'react';
+import { cx } from '../cx';
 import './Segmented.css';
 
 export interface SegmentOption<T extends string> {
@@ -13,6 +14,8 @@ export interface SegmentedProps<T extends string> {
   /** `null` = not answered yet (nothing preselected). */
   readonly value: T | null;
   readonly onChange: (value: T) => void;
+  /** The answer is a risk (bring keys): the picked option reads amber. */
+  readonly warn?: boolean;
 }
 
 const STEP: Partial<Record<string, number>> = {
@@ -32,6 +35,7 @@ export function Segmented<T extends string>({
   options,
   value,
   onChange,
+  warn = false,
 }: SegmentedProps<T>) {
   const group = useRef<HTMLDivElement>(null);
   const current = options.findIndex((o) => o.value === value);
@@ -52,7 +56,13 @@ export function Segmented<T extends string>({
   };
 
   return (
-    <div ref={group} className="p-seg" role="radiogroup" aria-label={label} onKeyDown={onKeyDown}>
+    <div
+      ref={group}
+      className={cx('p-seg', warn && 'p-seg--warn')}
+      role="radiogroup"
+      aria-label={label}
+      onKeyDown={onKeyDown}
+    >
       {options.map((option, i) => (
         <button
           key={option.value}

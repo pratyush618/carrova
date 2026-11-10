@@ -3,6 +3,10 @@
 
 use std::fmt;
 
+use carrova_platform::OsKind;
+use carrova_recipe::PluginId;
+
+use super::os_rules::BadName;
 use crate::plan::Action;
 use crate::plan::confine::{ProbeError, RootUnusable};
 
@@ -22,7 +26,15 @@ pub(super) enum SkipReason {
     Root(RootUnusable),
     RootUnavailable,
     UnknownHandler(String),
+    /// The local recipe names a plugin this computer does not have.
+    MissingPlugin(PluginId),
+    /// The plugin needs the sender's home folder, which the archive lacks.
+    NoSourceHome(PluginId),
     DuplicateTarget,
+    /// A path component this OS cannot hold.
+    BadName(BadName),
+    /// Symlinks are not restored on this OS.
+    NoSymlinks(OsKind),
     /// An ancestor (`root:rel`) is an incoming file or symlink.
     IncomingAncestor(String),
     /// An ancestor (`root:rel`) is a symlink on this machine.
@@ -60,7 +72,16 @@ impl fmt::Display for SkipReason {
             Self::Root(r) => fmt::Display::fmt(r, f),
             Self::RootUnavailable => f.write_str("root unavailable"),
             Self::UnknownHandler(h) => write!(f, "unknown handler `{h}`"),
+            Self::MissingPlugin(id) => {
+                write!(f, "plugin `{id}` is not available on this computer")
+            }
+            Self::NoSourceHome(id) => write!(
+                f,
+                "plugin `{id}` needs the old computer's home folder, but the source did not record its home folder"
+            ),
             Self::DuplicateTarget => f.write_str("another selected entry already writes this path"),
+            Self::BadName(bad) => fmt::Display::fmt(bad, f),
+            Self::NoSymlinks(os) => write!(f, "symlinks are not restored on {os}"),
             Self::IncomingAncestor(at) => write!(f, "{at} is an incoming file or symlink"),
             Self::SymlinkAncestor(at) => {
                 write!(f, "{at} is a symlink on this machine; never written through")

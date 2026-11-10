@@ -1,5 +1,5 @@
 import type { SessionProgress } from '../../app/state/session';
-import type { AppRef, Bytes } from '../../screens/shared/model';
+import type { AppRef, Bytes, MoveRoute } from '../../screens/shared/model';
 import type { TransferApp, TransferModel, TransferPhase } from '../../screens/shared/transfer';
 
 /** An app that moves, with the bytes it moves. */
@@ -31,25 +31,62 @@ export function chipStates(apps: readonly SizedApp[], fraction: number): Transfe
   });
 }
 
+/** One reading of the bytes done so far, at `at` (ms). */
+export interface RateSample {
+  readonly at: number;
+  readonly done: Bytes;
+}
+
+/** How far back the rate looks: long enough to smooth bursts, short enough to follow changes. */
+const RATE_WINDOW_MS = 5_000;
+
+/** `samples` with `next` added and readings older than the window dropped; a step back restarts. */
+export function addSample(samples: readonly RateSample[], next: RateSample): RateSample[] {
+  const last = samples.at(-1);
+  if (last !== undefined && next.done < last.done) return [next];
+  return [...samples.filter((s) => next.at - s.at <= RATE_WINDOW_MS), next];
+}
+
+/** Bytes per second over the window; `null` until it spans a second with progress. */
+export function rateOf(samples: readonly RateSample[]): number | null {
+  const first = samples[0];
+  const last = samples.at(-1);
+  if (first === undefined || last === undefined) return null;
+  const ms = last.at - first.at;
+  const bytes = last.done - first.done;
+  return ms < 1_000 || bytes <= 0 ? null : (bytes * 1_000) / ms;
+}
+
+/** What the screens know beyond the session's events: the two computers and the measured rate. */
+export interface TransferLive {
+  readonly route?: MoveRoute | null;
+  /** Bytes per second (`rateOf`), measured while bytes flow. */
+  readonly rate?: number | null;
+}
+
 /** The progress screens' model for one session. */
 export function transferModel(
   side: TransferModel['side'],
   progress: SessionProgress,
   apps: readonly SizedApp[],
   peer: string,
+  live: TransferLive = {},
 ): TransferModel {
   const phase = transferPhase(progress);
   const fallbackTotal = apps.reduce((n, a) => n + a.bytes, 0);
   const total = progress.total > 0 ? progress.total : fallbackTotal;
   const done = progress.total > 0 ? progress.done : 0;
   const paused = progress.paused;
+  const rate = phase === 'moving' ? (live.rate ?? null) : null;
   return {
     side,
     phase,
     peer,
     done,
     total,
-    secondsLeft: null,
+    secondsLeft: rate === null ? null : Math.max(0, total - done) / rate,
+    bytesPerSecond: rate,
+    route: live.route ?? null,
     apps: chipStates(apps, total === 0 ? 0 : done / total),
     shortfall:
       paused?.kind === 'low_disk_space' ? Math.max(0, paused.needed - paused.available) : 0,

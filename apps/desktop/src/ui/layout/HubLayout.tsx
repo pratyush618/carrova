@@ -1,67 +1,72 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { cx } from '../cx';
 import { Icon } from '../Icon/Icon';
 import { useChrome } from './chrome';
 import './layouts.css';
 
-/** The Carrova wordmark; a button home when `onClick` is given. */
-export function Wordmark({ onClick }: { readonly onClick?: () => void }) {
+/** The Carrova wordmark. */
+export function Wordmark() {
   const { t } = useTranslation();
-  const content = (
-    <>
+  return (
+    <span className="p-wordmark">
       <span className="p-wordmark__mark">
         <Icon name="swap" />
       </span>
       {t('brand.name')}
-    </>
-  );
-  return onClick ? (
-    <button type="button" className="p-wordmark" onClick={onClick}>
-      {content}
-    </button>
-  ) : (
-    <span className="p-wordmark">{content}</span>
+    </span>
   );
 }
 
 export interface HubLayoutProps {
-  /** `center` = content centred in the page (Home); `page` = a reading column. */
-  readonly variant?: 'page' | 'center';
+  /**
+   * `page` = a reading column; `center` = content centred in the page (Home);
+   * `flush` = the screen lays out the whole page itself (History's two panes).
+   */
+  readonly variant?: 'page' | 'center' | 'flush';
   readonly children: ReactNode;
 }
 
-/** Places: a quiet top bar with the main navigation, then the page. */
+/** Places: the sidebar (main navigation, bundle state at its foot), then the page. */
 export function HubLayout({ variant = 'page', children }: HubLayoutProps) {
   const { t } = useTranslation();
-  const { hubLinks, onHome } = useChrome();
+  const { hubLinks, hubStatus } = useChrome();
   return (
-    <>
-      <header className="p-topbar">
-        <Wordmark onClick={onHome} />
-        <nav className="p-nav" aria-label={t('nav.label')}>
-          {hubLinks.map((link) => (
-            <button
-              key={link.id}
-              type="button"
-              className="p-nav__link"
-              aria-current={link.current ? 'page' : undefined}
-              onClick={link.onSelect}
-            >
-              <Icon name={link.icon} size="sm" />
-              <span>{link.label}</span>
-            </button>
-          ))}
-        </nav>
-      </header>
-      {variant === 'center' ? (
-        <main className="p-hub-center">{children}</main>
-      ) : (
-        <main className="p-page">
-          <div className="p-page__inner">{children}</div>
-        </main>
-      )}
-      <span />
-    </>
+    <div className="p-hub">
+      <nav className="p-side" aria-label={t('nav.label')}>
+        {hubLinks.map((link) => (
+          <button
+            key={link.id}
+            type="button"
+            className="p-side__link"
+            aria-current={link.current ? 'page' : undefined}
+            onClick={link.onSelect}
+          >
+            <Icon name={link.icon} />
+            {link.label}
+            {link.count !== undefined && <span className="p-side__count">{link.count}</span>}
+          </button>
+        ))}
+        {hubStatus && (
+          <p className={cx('p-side__foot', `p-side__foot--${hubStatus.tone}`)}>
+            <b>
+              <Icon name={hubStatus.tone === 'success' ? 'shield' : 'warn'} size="sm" />
+              {hubStatus.title}
+            </b>
+            {hubStatus.detail}
+          </p>
+        )}
+      </nav>
+      <main className={cx('p-page', variant === 'flush' && 'p-page--flush')}>
+        {variant === 'flush' ? (
+          children
+        ) : (
+          <div className={cx('p-page__inner', variant === 'center' && 'p-page__inner--center')}>
+            {children}
+          </div>
+        )}
+      </main>
+    </div>
   );
 }
 

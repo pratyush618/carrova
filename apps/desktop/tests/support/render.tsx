@@ -7,8 +7,8 @@ const noop = (): void => undefined;
 /** Chrome for a flow at step 1 of 4 (enough for any layout). */
 export const testChrome: Chrome = {
   hubLinks: [],
-  onHome: noop,
-  flow: { name: 'Send', step: 1, total: 4, onClose: noop },
+  hubStatus: null,
+  flow: { name: 'Send', steps: ['Pick', 'Pair', 'Their review', 'Move'], step: 1, onClose: noop },
 };
 
 export interface ScreenOptions {

@@ -12,13 +12,15 @@ use carrova_crypto::sign::SignedKeyCert;
 
 use super::keyfile::{self, Role};
 
-/// Build an unsigned bundle.
+/// Build an unsigned bundle (plugins from `plugins/` next to `recipes`;
+/// run `just plugins` first).
 pub(super) fn build(recipes: &Path, out: &Path, version: u64, now: u64) -> anyhow::Result<()> {
     let report = carrova_bundle::build_bundle(recipes, out, BundleVersion(version), now)?;
     eprintln!(
-        "built bundle {} with {} recipes ({} files) in {}",
+        "built bundle {} with {} recipes and {} plugins ({} files) in {}",
         report.index.version,
         report.index.recipes.len(),
+        report.index.plugins.len(),
         report.files,
         out.display()
     );
@@ -52,10 +54,11 @@ pub(super) fn verify(dir: &Path, roots: &Path, now: u64) -> anyhow::Result<()> {
         .filter(|r| r.tier == Tier::Verified)
         .count();
     println!(
-        "ok: bundle {} — {} recipes ({verified} verified), {} skipped (unsupported schema or failing validation)",
+        "ok: bundle {} — {} recipes ({verified} verified), {} skipped (unsupported schema or failing validation), {} plugins",
         signed.version(),
         catalog.recipes.len(),
-        catalog.skipped.len()
+        catalog.skipped.len(),
+        catalog.plugins.len()
     );
     Ok(())
 }

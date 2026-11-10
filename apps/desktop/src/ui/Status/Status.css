@@ -45,6 +45,15 @@
   font-weight: 700;
 }
 
+.p-lockline--quiet {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.p-lockline--quiet .p-icon {
+  color: var(--success);
+}
+
 .p-kbd {
   font: 700 11px / 1 var(--mono);
   padding: 3px 6px;

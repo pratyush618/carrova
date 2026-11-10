@@ -4,9 +4,10 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use carrova_manifest::{Entry, EntryKind, ManifestItem, RelPath};
-use carrova_platform::{FileKind, SemanticRoot};
+use carrova_platform::{FileKind, PermissionModel, SemanticRoot};
 
 use super::Planner;
+use super::os_rules::OsRules;
 use super::skip::SkipReason;
 use crate::error::{CoreError, Result};
 use crate::key::ItemKey;
@@ -61,6 +62,7 @@ impl<'a> Planner<'a> {
     pub(super) fn targets(&mut self) -> Result<Vec<Target<'a>>> {
         let mut out = Vec::new();
         let mut seen: HashSet<PathBuf> = HashSet::new();
+        let rules = OsRules::of(self.platform.os());
         let manifest = self.manifest;
         for idx in self.selected.clone() {
             let item = &manifest.items[idx];
@@ -70,7 +72,8 @@ impl<'a> Planner<'a> {
                 .handler
                 .as_deref()
                 .filter(|h| !crate::handlers::is_known(h))
-                .map(|h| SkipReason::UnknownHandler(h.to_owned()));
+                .map(|h| SkipReason::UnknownHandler(h.to_owned()))
+                .or_else(|| self.plugin_skips.get(&key).cloned());
             for (entry_index, entry) in item.entries.iter().enumerate() {
                 let mut t = self.target(&key, entry_index, entry)?;
                 if t.pre_skip.is_none() {
@@ -78,7 +81,7 @@ impl<'a> Planner<'a> {
                 }
                 if t.pre_skip.is_none()
                     && let Some(a) = &t.abs
-                    && !seen.insert(a.clone())
+                    && !seen.insert(dedup_key(a, rules))
                 {
                     t.pre_skip = Some(SkipReason::DuplicateTarget);
                 }
@@ -89,22 +92,27 @@ impl<'a> Planner<'a> {
     }
 
     /// One entry's target: remapped, re-validated, resolved under its root.
+    /// `root`/`rel` on this computer, if the root is usable here.
+    pub(super) fn local_abs(&self, root: SemanticRoot, rel: &str) -> Option<PathBuf> {
+        match self.roots.usable(root) {
+            Some(Ok(base)) => Some(under(base, rel)),
+            _ => None,
+        }
+    }
+
     fn target(&self, key: &ItemKey, entry_index: usize, entry: &'a Entry) -> Result<Target<'a>> {
-        let (root, rel) = self.remapped(key, entry);
+        let (root, rel) = self.remapped(key, entry_index, entry);
         // Re-validate the composed path (defence in depth).
         RelPath::new(rel.as_str()).map_err(|e| CoreError::UnsafePath {
             path: rel.clone(),
             reason: e.to_string(),
         })?;
         let (abs, pre_skip) = match self.roots.usable(root) {
-            Some(Ok(base)) => {
-                let mut abs = base.clone();
-                abs.extend(rel.split('/'));
-                (Some(abs), None)
-            }
+            Some(Ok(base)) => (Some(under(base, &rel)), None),
             Some(Err(unusable)) => (None, Some(SkipReason::Root(unusable.clone()))),
             None => (None, Some(SkipReason::RootUnavailable)),
         };
+        let pre_skip = pre_skip.or_else(|| self.os_refusal(entry, &rel));
         let mode = self.final_mode(entry, abs.as_deref());
         Ok(Target {
             key: key.to_owned(),
@@ -142,24 +150,45 @@ impl<'a> Planner<'a> {
         }
     }
 
-    /// Final `(root, rel)` of an entry after the item's remap.
-    pub(super) fn remapped(&self, key: &ItemKey, entry: &Entry) -> (SemanticRoot, String) {
+    /// Final `(root, rel)` of entry `index` of item `key`: where it lands
+    /// on this OS ([`Self::local_path`]), after the item's remap.
+    pub(super) fn remapped(
+        &self,
+        key: &ItemKey,
+        index: usize,
+        entry: &Entry,
+    ) -> (SemanticRoot, String) {
+        let at = self.local_path(key, index, entry);
         let root = self
             .options
             .remaps
             .get(key)
             .and_then(|r| r.root)
-            .unwrap_or(entry.root);
+            .unwrap_or(at.root);
         let rel = match self.prefixes.get(key) {
-            Some(p) => format!("{}/{}", p.as_str(), entry.rel.as_str()),
-            None => entry.rel.as_str().to_owned(),
+            Some(p) => format!("{}/{}", p.as_str(), at.rel),
+            None => at.rel.to_owned(),
         };
         (root, rel)
     }
 
+    /// Why this OS cannot hold the entry at `rel` ([`OsRules`]).
+    fn os_refusal(&self, entry: &Entry, rel: &str) -> Option<SkipReason> {
+        let os = self.platform.os();
+        let rules = OsRules::of(os);
+        if matches!(entry.kind, EntryKind::Symlink { .. }) && !rules.symlinks {
+            return Some(SkipReason::NoSymlinks(os));
+        }
+        rules.bad_name(rel, os).map(SkipReason::BadName)
+    }
+
     /// Final mode for an entry under the plan's mode policy (an existing
-    /// directory at `abs` is only ever tightened).
+    /// directory at `abs` is only ever tightened); none where ACLs, not
+    /// mode bits, decide access.
     fn final_mode(&self, entry: &Entry, abs: Option<&Path>) -> Option<u32> {
+        if self.platform.permission_model() == PermissionModel::Acl {
+            return None;
+        }
         let incoming = entry.mode?;
         let existing_dir = match (&entry.kind, abs.map(|a| self.probe(a))) {
             (EntryKind::Dir, Some(Ok(Some(m)))) if m.kind == FileKind::Dir => m.mode,
@@ -167,4 +196,20 @@ impl<'a> Planner<'a> {
         };
         Some(self.policy.final_mode(incoming, existing_dir))
     }
+}
+
+/// The duplicate-target key of `abs`: case-folded where the OS ignores case.
+fn dedup_key(abs: &Path, rules: &OsRules) -> PathBuf {
+    if rules.case_insensitive {
+        abs.to_string_lossy().to_lowercase().into()
+    } else {
+        abs.to_path_buf()
+    }
+}
+
+/// `rel` (`/`-separated, may be empty) below `base`, in this OS's separators.
+fn under(base: &Path, rel: &str) -> PathBuf {
+    let mut abs = base.to_path_buf();
+    abs.extend(rel.split('/').filter(|s| !s.is_empty()));
+    abs
 }

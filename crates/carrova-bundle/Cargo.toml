@@ -12,6 +12,7 @@ blake3 = { workspace = true }
 data-encoding = { workspace = true }
 carrova-crypto = { workspace = true }
 carrova-platform = { workspace = true }
+carrova-plugin = { workspace = true }
 carrova-recipe = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

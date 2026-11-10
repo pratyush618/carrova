@@ -1,15 +1,19 @@
 import type { TFunction } from 'i18next';
 import type { ItemRoles } from '../../bindings/ItemRoles';
 import type { SelectionRow } from '../../bindings/SelectionRow';
-import type { ItemChoice, ScanResult, SelectionView } from '../../engine/types';
-import type {
-  CustomizeModel,
-  FoundApp,
-  ItemTag,
-  RawFolder,
-  SensitiveAsk,
-  TreeApp,
-  TreeItem,
+import type { ItemChoice, ScanResult, Selection, SelectionView } from '../../engine/types';
+import {
+  FOUND_PRESETS,
+  type CustomizeModel,
+  type FoundApp,
+  type FoundGroup,
+  type FoundPreset,
+  type ItemTag,
+  type MoveFacts,
+  type RawFolder,
+  type SecretItem,
+  type TreeApp,
+  type TreeItem,
 } from '../../screens/send/model';
 import { appRef, displayPath, type RootDirs } from '../shared/paths';
 
@@ -42,6 +46,10 @@ function entries(app: AppReport, result: ScanResult): Entry[] {
   });
 }
 
+/** The selection key of a folder no recipe covers. */
+const rawKey = (r: ScanResult['report']['unrecognised'][number]): string =>
+  `raw:${r.root}/${r.rel}`;
+
 const detected = (result: ScanResult): AppReport[] =>
   result.report.apps.filter((a) => a.detected && a.items.length > 0);
 
@@ -52,33 +60,107 @@ export function tagOf(tags: SelectionRow['tags']): ItemTag | null {
   return ranked[0] ?? null;
 }
 
-/** The summary rows of "Here's what we found": one per detected app. */
-export function foundApps(result: ScanResult): FoundApp[] {
-  return detected(result).map((app) => {
-    const ordinary = entries(app, result).filter((e) => e.roles.ordinary);
-    return {
-      ...appRef(app.id, app.name),
-      what: ordinary.map((e) => e.item.label).join(', '),
-      files: ordinary.reduce((n, e) => n + e.item.file_count, 0),
-      bytes: ordinary.reduce((n, e) => n + e.item.size, 0),
-      included: ordinary.some((e) => e.choice.included),
-    };
-  });
+function foundApp(app: AppReport, result: ScanResult): FoundApp {
+  const ordinary = entries(app, result).filter((e) => e.roles.ordinary);
+  return {
+    ...appRef(app.id, app.name),
+    what: ordinary.map((e) => e.item.label).join(', '),
+    files: ordinary.reduce((n, e) => n + e.item.file_count, 0),
+    bytes: ordinary.reduce((n, e) => n + e.item.size, 0),
+    included: ordinary.some((e) => e.choice.included),
+  };
 }
 
-/** Sensitive items, asked once in plain words; they start on "Leave behind". */
-export function sensitiveAsks(result: ScanResult): SensitiveAsk[] {
+/** One row per detected app (with what its row ticks: its ordinary items). */
+export const foundApps = (result: ScanResult): FoundApp[] =>
+  detected(result).map((app) => foundApp(app, result));
+
+/**
+ * "Here's what we found", grouped by category in the scan's order. Apps with
+ * nothing but secrets are left out: their secrets are asked on their own.
+ */
+export function foundGroups(result: ScanResult): FoundGroup[] {
+  const groups = new Map<string, FoundApp[]>();
+  for (const app of detected(result)) {
+    if (!entries(app, result).some((e) => e.roles.ordinary)) continue;
+    const list = groups.get(app.category) ?? [];
+    list.push(foundApp(app, result));
+    groups.set(app.category, list);
+  }
+  return [...groups].map(([category, apps]) => ({ category, apps }));
+}
+
+/** Keys and secrets: movable sensitive items, each brought only after its own confirm. */
+export function secretItems(result: ScanResult): SecretItem[] {
+  const dirs = result.report.platform.roots;
   return detected(result).flatMap((app) =>
     entries(app, result)
       .filter((e) => e.choice.sensitive && e.roles.movable)
       .map((e) => ({
         key: e.key,
-        title: `${app.name}: ${e.item.label}`,
+        app: appRef(app.id, app.name),
+        label: e.item.label,
         why: e.item.sensitive_reason,
-        kind: 'secret' as const,
-        answer: e.choice.included && e.choice.confirmed_sensitive ? 'bring' : 'leave',
+        paths: e.item.paths.map((p) => displayPath(p, dirs)),
+        bytes: e.item.size,
+        brought: e.choice.included && e.choice.confirmed_sensitive,
       })),
   );
+}
+
+/** Found apps and secrets whose app (or, for a secret, its label) contains `filter`. */
+export function filterFound(
+  groups: readonly FoundGroup[],
+  secrets: readonly SecretItem[],
+  filter: string,
+): { groups: FoundGroup[]; secrets: SecretItem[] } {
+  const needle = filter.trim().toLocaleLowerCase();
+  const hit = (...names: string[]) => names.some((n) => n.toLocaleLowerCase().includes(needle));
+  return {
+    groups: groups
+      .map((g) => ({ ...g, apps: g.apps.filter((a) => hit(a.name)) }))
+      .filter((g) => g.apps.length > 0),
+    secrets: secrets.filter((s) => hit(s.app.name, s.label)),
+  };
+}
+
+/** What each preset ticks, as `carrova_core::select::Selection::apply_preset` does. */
+const PRESET_TICKS: Readonly<Record<FoundPreset, (c: ItemChoice) => boolean>> = {
+  suggested: (c) => c.suggested,
+  everything: (c) => !c.sensitive && c.unmovable === null,
+  none: () => false,
+};
+
+/** The preset `selection` still matches, or `null` once edited. Keys don't count: they're asked one by one. */
+export function activePreset(selection: Selection): FoundPreset | null {
+  const items = Object.values(selection.items).filter((c) => !c.sensitive);
+  return FOUND_PRESETS.find((p) => items.every((c) => c.included === PRESET_TICKS[p](c))) ?? null;
+}
+
+/** Cache items the "Include caches" switch acts on. */
+const cacheEntries = (flat: readonly Entry[]): Entry[] =>
+  flat.filter((e) => e.roles.cache && !e.choice.sensitive);
+
+/** Every caches item is ticked (and there is at least one). */
+const cachesIncluded = (caches: readonly Entry[]): boolean =>
+  caches.length > 0 && caches.every((e) => e.choice.included);
+
+/** The rail's facts: apps ticked of those found, bytes ticked, keys brought, caches. */
+export function moveFacts(result: ScanResult): MoveFacts {
+  const apps = foundGroups(result).flatMap((g) => g.apps);
+  const flat = detected(result).flatMap((app) => entries(app, result));
+  const raw = result.report.unrecognised.filter(
+    (r) => result.selection.items[rawKey(r)]?.included === true,
+  );
+  return {
+    apps: apps.filter((a) => a.included).length,
+    totalApps: apps.length,
+    bytes:
+      flat.filter((e) => e.choice.included).reduce((n, e) => n + e.item.size, 0) +
+      raw.reduce((n, r) => n + r.size, 0),
+    keys: secretItems(result).filter((s) => s.brought).length,
+    caches: cachesIncluded(cacheEntries(flat)),
+  };
 }
 
 /** Why the selection can't be used yet, from the engine's view of it. */
@@ -125,7 +207,7 @@ export function customizeModel(
   const all = detected(result).map((app) => ({ app, list: entries(app, result) }));
   const flat = all.flatMap((a) => a.list);
   const picked = flat.filter((e) => e.choice.included);
-  const caches = flat.filter((e) => e.roles.cache && !e.choice.sensitive);
+  const caches = cacheEntries(flat);
   const apps: TreeApp[] = all
     .map(({ app, list }) => ({
       ...appRef(app.id, app.name),
@@ -146,7 +228,7 @@ export function customizeModel(
       count: result.report.unrecognised.filter((r) => r.size >= minRawBytes).length,
       minBytes: minRawBytes,
     },
-    includeCaches: caches.length > 0 && caches.every((e) => e.choice.included),
+    includeCaches: cachesIncluded(caches),
     cacheBytes: caches.reduce((n, e) => n + e.item.size, 0),
     picked: {
       files: picked.reduce((n, e) => n + e.item.file_count, 0),
@@ -162,7 +244,7 @@ export function rawFolders(result: ScanResult, minBytes: number, t: TFunction): 
   return result.report.unrecognised
     .filter((r) => r.size >= minBytes)
     .map((r) => {
-      const key = `raw:${r.root}/${r.rel}`;
+      const key = rawKey(r);
       return {
         key,
         path: displayPath(`${r.root}:${r.rel}`, dirs),

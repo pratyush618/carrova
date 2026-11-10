@@ -84,8 +84,8 @@ impl AppState {
         }
     }
 
-    /// An engine reporting to `sink`, with the current recipes. Blocking
-    /// (recipes resolve on first use).
+    /// An engine reporting to `sink`, with the current recipes and
+    /// plugins. Blocking (recipes resolve on first use).
     ///
     /// # Errors
     ///
@@ -96,7 +96,8 @@ impl AppState {
             Arc::clone(&self.platform),
             Arc::clone(&recipes.recipes),
             sink,
-        ))
+        )
+        .with_plugins(Arc::clone(&recipes.plugins)))
     }
 
     /// A sink for a session that does not exist yet.

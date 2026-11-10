@@ -28,7 +28,7 @@
 //!   happened even after staging was wiped. v2 journals still roll back.
 
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 use carrova_manifest::{Blake3Hash, DEFAULT_CHUNK_PARAMS};
@@ -220,6 +220,8 @@ impl Journal {
         // No-follow + fstat: a swapped-in symlink is never written through.
         let file = platform.open_append_nofollow(path)?;
         file.set_len(valid_len)?;
+        // Windows append handles are plain write handles: continue at the new end.
+        (&file).seek(SeekFrom::End(0))?;
         file.sync_all()?;
         let next_seq = records.len() as u64;
         Ok((

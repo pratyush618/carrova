@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { errorText } from '../../engine/errors';
-import { Button, Row } from '../../ui';
+import { AppGlyph, Button, Row } from '../../ui';
 import type { RecipeCheck, SettingsModel } from './model';
 
 type Recipes = NonNullable<SettingsModel['recipes']>;
@@ -47,6 +47,12 @@ export function RecipesRow({
         });
   return (
     <Row
+      lead={
+        <AppGlyph
+          glyph={{ icon: 'box' }}
+          tone={recipes.source.kind === 'dev' ? 'warning' : 'success'}
+        />
+      }
       title={t('settings.recipes.title')}
       sub={
         <>
@@ -60,7 +66,12 @@ export function RecipesRow({
         </>
       }
       trail={
-        <Button size="sm" disabled={recipes.check.status === 'checking'} onClick={onCheck}>
+        <Button
+          size="sm"
+          busy={recipes.check.status === 'checking'}
+          disabled={recipes.check.status === 'checking'}
+          onClick={onCheck}
+        >
           {t('settings.recipes.check')}
         </Button>
       }

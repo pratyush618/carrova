@@ -234,12 +234,14 @@ impl Importer {
     }
 
     pub(super) fn compute_plan(&self, options: &PlanOptions) -> Result<Plan> {
-        plan::plan(
+        plan::plan_with_plugins(
             self.s.platform(),
             self.s.engine.recipes(),
+            self.s.engine.plugins(),
             self.open_manifest(State::Planned)?,
             options,
             self.s.id(),
+            &crate::time::date(crate::time::now_unix()),
         )
     }
 

@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { About, CarrovaPort, Settings, UpdateStatus } from '../../engine/types';
+import type {
+  About,
+  CarrovaPort,
+  RecipesStatus,
+  ReportConsent,
+  Settings,
+  UpdateStatus,
+} from '../../engine/types';
 import { current, type Remote } from '../remote';
 import { useCommand, useRemote } from '../useRemote';
 import { settingsModel } from './settingsViews';
@@ -9,6 +16,10 @@ export interface SettingsController {
   /** `null` until settings and consent have loaded. */
   readonly model: SettingsModel | null;
   readonly settings: Settings | null;
+  /** Error-report consent (`unset` = never asked); `null` until loaded. */
+  readonly consent: ReportConsent | null;
+  /** The recipes in use (reloaded after an update); `null` until loaded. */
+  readonly recipes: RecipesStatus | null;
   /** This app and computer (About sheet); `null` until the engine answered. */
   readonly about: About | null;
   readonly save: (patch: Partial<Settings>) => void;
@@ -84,6 +95,8 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
     () => ({
       model,
       settings,
+      consent: consentValue,
+      recipes: current(recipes.state),
       about: current(about.state),
       save,
       setConsent,
@@ -91,6 +104,17 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       clearReports,
       reloadReports: reloadAll,
     }),
-    [model, settings, about.state, save, setConsent, checkRecipes, clearReports, reloadAll],
+    [
+      model,
+      settings,
+      consentValue,
+      recipes.state,
+      about.state,
+      save,
+      setConsent,
+      checkRecipes,
+      clearReports,
+      reloadAll,
+    ],
   );
 }

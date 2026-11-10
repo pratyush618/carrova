@@ -1,10 +1,26 @@
 import { peerLabel, type SessionProgress } from '../../app/state/session';
 import type { SendReport } from '../../engine/types';
 import type { FlowStep } from '../../app/nav/flows';
-import type { DeliveredModel, FoundModel, LiveModel, PairingModel } from '../../screens/send/model';
+import type {
+  DeliveredModel,
+  FoundModel,
+  LinkedModel,
+  LiveModel,
+  PairingModel,
+  SendMove,
+} from '../../screens/send/model';
+import type { RouteEnd } from '../../ui';
 import { current } from '../remote';
 import type { SendFlowState } from './sendFlow';
-import { foundApps, selectionIssues, sensitiveAsks } from './sendViews';
+import {
+  activePreset,
+  filterFound,
+  foundApps,
+  foundGroups,
+  moveFacts,
+  secretItems,
+  selectionIssues,
+} from './sendViews';
 import { transferModel, type SizedApp } from '../shared/transferView';
 import { appOf } from '../shared/keys';
 
@@ -20,25 +36,36 @@ export function sendStep(state: SendFlowState, progress: SessionProgress): FlowS
   }
 }
 
-/** "Here's what we found", from the scan and the user's selection. */
-export function foundModel(state: SendFlowState): FoundModel {
+/** "Here's what we found", from the scan and the user's selection, narrowed to `filter`. */
+export function foundModel(state: SendFlowState, filter = ''): FoundModel {
   const scan = current(state.scan);
   if (scan === null) {
     return { status: 'scanning', foundSoFar: [], progress: null };
   }
-  const apps = foundApps(scan);
-  if (apps.length === 0 && scan.report.unrecognised.length === 0) {
+  const groups = foundGroups(scan);
+  const secrets = secretItems(scan);
+  const unrecognised = scan.report.unrecognised.length;
+  if (groups.length === 0 && secrets.length === 0 && unrecognised === 0) {
     return { status: 'nothing', knownApps: scan.report.apps.length };
   }
   return {
     status: 'found',
-    apps,
-    asks: sensitiveAsks(scan),
+    ...filterFound(groups, secrets, filter),
+    filter,
+    preset: activePreset(scan.selection),
+    unrecognised,
+    facts: moveFacts(scan),
     issues: [
       ...selectionIssues(scan.view),
       ...(state.selectError === null ? [] : [state.selectError.message]),
     ],
   };
+}
+
+/** The move as the rail shows it: this computer and, once scanned, what moves. */
+export function sendMove(state: SendFlowState, here: RouteEnd | null): SendMove {
+  const scan = current(state.scan);
+  return { here, facts: scan === null ? null : moveFacts(scan) };
 }
 
 /** The pairing screen. Too many wrong codes locks pairing; any other failure says why. */
@@ -89,6 +116,20 @@ export function liveModel(
   return {
     status: 'transfer',
     transfer: transferModel('send', progress, sendingApps(state), peer),
+  };
+}
+
+/** Paired, while the receiver reviews: who they are and how many of their files get replaced. */
+export function linkedModel(
+  state: SendFlowState,
+  progress: SessionProgress,
+  here: RouteEnd | null,
+  unknownPeer: string,
+): LinkedModel {
+  return {
+    ...sendMove(state, here),
+    peer: { name: peerLabel(progress) ?? unknownPeer, os: progress.peerInventory?.os ?? null },
+    replaced: (progress.peerPlan?.items ?? []).reduce((n, i) => n + i.counts.replace, 0),
   };
 }
 

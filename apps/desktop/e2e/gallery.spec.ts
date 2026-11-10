@@ -37,7 +37,8 @@ for (const scheme of ['light', 'dark'] as const satisfies readonly Scheme[]) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
 
     const targets = await allTargets(page);
-    expect(targets.length).toBeGreaterThanOrEqual(29);
+    expect(targets.length).toBeGreaterThanOrEqual(62);
+    expect(targets).toContain('kit');
 
     for (const target of targets) {
       await test.step(target, async () => {

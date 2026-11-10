@@ -49,6 +49,7 @@ pub(super) fn manifest_item(recipe: &str, id: &str, label: &str, sensitive: bool
         entries: Vec::new(),
         handler: None,
         artifacts: Vec::new(),
+        source_paths: Vec::new(),
     };
     item.flags.sensitive = sensitive;
     item
@@ -103,6 +104,8 @@ pub(super) fn sample_plan() -> (Plan, Manifest) {
         missing_apps: vec![format!("app{ESC}"), "vscode".into()],
         running_apps: vec!["firefox".into()],
         app_names: Default::default(),
+        mappings: Vec::new(),
+        plugins: Vec::new(),
         blockers: vec![Blocker::RunningApp {
             app: format!("blocked{ESC}"),
             name: format!("blocked{ESC}"),
@@ -122,8 +125,9 @@ pub(super) fn sample_plan() -> (Plan, Manifest) {
     let manifest = Manifest::new(
         0,
         SourceInfo {
-            os: "linux".into(),
+            os: OsKind::Linux,
             carrova_version: "0".into(),
+            device_name: Some("ezio-thinkpad".into()),
         },
         vec![
             manifest_item("gnupg", "keys", "GnuPG keys", false),

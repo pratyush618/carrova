@@ -1,4 +1,4 @@
-schema: 1
+schema: 3
 id: gh
 name: GitHub CLI
 category: dev-tools
@@ -7,13 +7,28 @@ detect:
   linux:
     - binary: gh
     - path: { root: user_config, rel: gh }
+  macos:
+    - binary: gh
+    - path: { root: home, rel: .config/gh }
+  windows:
+    - binary: gh
+    - path: { root: user_config, rel: GitHub CLI }
+# gh uses ~/.config/gh and ~/.local/share/gh on macOS too; on Windows
+# %AppData%\GitHub CLI (config) and %LocalAppData%\GitHub CLI (data).
 items:
   - id: config
     label: GitHub CLI settings and aliases (config.yml)
     paths:
       - { root: user_config, rel: gh/config.yml }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .config/gh/config.yml }
+      windows:
+        paths:
+          - { root: user_config, rel: GitHub CLI/config.yml }
     flags:
-      portability: same_os
+      portability: cross_os
       sensitive: false
       requires_closed: false
       default: true
@@ -21,8 +36,15 @@ items:
     label: GitHub CLI login (hosts.yml; may contain OAuth tokens)
     paths:
       - { root: user_config, rel: gh/hosts.yml }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .config/gh/hosts.yml }
+      windows:
+        paths:
+          - { root: user_config, rel: GitHub CLI/hosts.yml }
     flags:
-      portability: same_os
+      portability: cross_os
       sensitive: true
       requires_closed: false
       default: false
@@ -30,6 +52,13 @@ items:
     label: Installed gh extensions (reinstallable)
     paths:
       - { root: user_data, rel: gh/extensions }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .local/share/gh/extensions }
+      windows:
+        paths:
+          - { root: user_data, rel: GitHub CLI/extensions }
     flags:
       portability: same_os
       sensitive: false

@@ -2,9 +2,10 @@
 //! confinement (a root is never the filesystem root).
 
 use std::ffi::OsString;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use super::LinuxPlatform;
+use crate::sys::confine;
 use crate::{PlatformError, SemanticRoot};
 
 impl LinuxPlatform {
@@ -24,22 +25,7 @@ impl LinuxPlatform {
     }
 
     pub(super) fn home(&self) -> Result<PathBuf, PlatformError> {
-        let unavailable = |reason: &str| PlatformError::RootUnavailable {
-            root: SemanticRoot::Home,
-            reason: reason.into(),
-        };
-        let home = self
-            .env
-            .home
-            .as_ref()
-            .filter(|h| !h.is_empty())
-            .ok_or_else(|| unavailable("HOME is not set"))?;
-        let home = PathBuf::from(home);
-        if home.is_absolute() {
-            confine(SemanticRoot::Home, &home)
-        } else {
-            Err(unavailable("HOME is not an absolute path"))
-        }
+        crate::sys::home_dir(self.env.home.as_deref())
     }
 
     /// XDG base-dir rule: use the variable only if set, non-empty and absolute.
@@ -91,45 +77,6 @@ impl LinuxPlatform {
         }
         confine(SemanticRoot::Documents, &self.home()?.join("Documents"))
     }
-}
-
-/// Lexically normalise an absolute root candidate (no filesystem access) and
-/// refuse anything that is, or climbs above, the filesystem root.
-///
-/// A root of `/` would make "inside a semantic root" mean "anywhere", which
-/// disables every confinement check built on top of roots.
-fn confine(root: SemanticRoot, path: &Path) -> Result<PathBuf, PlatformError> {
-    let unavailable = |reason: &str| PlatformError::RootUnavailable {
-        root,
-        reason: reason.into(),
-    };
-    let mut out = PathBuf::new();
-    let mut depth = 0usize;
-    for c in path.components() {
-        match c {
-            Component::RootDir => out.push(c),
-            Component::CurDir => {}
-            Component::ParentDir => {
-                if depth == 0 {
-                    return Err(unavailable("path climbs above the filesystem root"));
-                }
-                out.pop();
-                depth -= 1;
-            }
-            Component::Normal(n) => {
-                out.push(n);
-                depth += 1;
-            }
-            Component::Prefix(_) => return Err(unavailable("unexpected path prefix")),
-        }
-    }
-    if !out.has_root() {
-        return Err(unavailable("path is not absolute"));
-    }
-    if depth == 0 {
-        return Err(unavailable("path is the filesystem root"));
-    }
-    Ok(out)
 }
 
 /// Find the last `KEY="value"` assignment in a `user-dirs.dirs` file and

@@ -1,0 +1,76 @@
+.p-maprow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  padding-block: 14px;
+}
+
+.p-maprow + .p-maprow {
+  border-block-start: 1px solid var(--border);
+}
+
+.p-maprow__paths {
+  display: grid;
+  gap: 4px;
+  min-inline-size: 0;
+}
+
+.p-maprow__title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-weight: 650;
+}
+
+.p-maprow__note {
+  margin-block-start: 4px;
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+.p-path {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  min-inline-size: 0;
+  font: 13px / 1.5 var(--mono);
+  text-align: start;
+}
+
+.p-path .p-os {
+  flex: none;
+  inline-size: 74px;
+  font-family: var(--font);
+}
+
+.p-path code {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.p-path--from code {
+  color: var(--text-muted);
+}
+
+.p-path--from mark {
+  background: transparent;
+  color: var(--text-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in oklab, var(--danger) 60%, transparent);
+}
+
+.p-path--to code {
+  color: var(--text-primary);
+}
+
+.p-path--to mark {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 4px;
+  padding-inline: 3px;
+}
+
+.p-path__same {
+  color: var(--success);
+  font: 650 var(--t-xs) var(--font);
+}

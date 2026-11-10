@@ -55,6 +55,7 @@ function ItemRow({ item, on }: { readonly item: TreeItem; readonly on: TreeInten
           <LockedCheck />
         ) : (
           <Check
+            warn={tag?.kind === 'sensitive'}
             value={item.picked}
             label={item.label}
             onChange={(picked) => {

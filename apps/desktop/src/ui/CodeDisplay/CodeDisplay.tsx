@@ -44,35 +44,37 @@ function CodeTiles({ words, reveal = false, size = 'md' }: CodeDisplayProps) {
   const elapsed = useRevealClock(reveal && !reduced, revealDuration(words.join('').length));
 
   return (
-    <div
-      className={cx('p-code', size === 'sm' && 'p-code--sm')}
-      role="img"
-      aria-label={t('ui.code.label', { code: words.join(' ') })}
-    >
-      {words.map((word, w) => (
-        <Fragment key={`${String(w)}-${word}`}>
-          {w > 0 && <span className="p-code__dash" />}
-          <span className="p-code__word" aria-hidden="true">
-            {Array.from(word, (ch, c) => {
-              const i = (offsets[w] ?? 0) + c;
-              const set = elapsed >= settleAt(i);
-              return (
-                <span
-                  key={i}
-                  className={cx(
-                    'p-flap',
-                    /\d/.test(ch) && 'p-flap--num',
-                    reveal && (set ? 'p-flap--set' : 'p-flap--spinning'),
-                  )}
-                  data-settled={set}
-                >
-                  {flapFace(ch, i, elapsed)}
-                </span>
-              );
-            })}
-          </span>
-        </Fragment>
-      ))}
+    <div className="p-code-fit">
+      <div
+        className={cx('p-code', size === 'sm' && 'p-code--sm')}
+        role="img"
+        aria-label={t('ui.code.label', { code: words.join(' ') })}
+      >
+        {words.map((word, w) => (
+          <Fragment key={`${String(w)}-${word}`}>
+            {w > 0 && <span className="p-code__dash" />}
+            <span className="p-code__word" aria-hidden="true">
+              {Array.from(word, (ch, c) => {
+                const i = (offsets[w] ?? 0) + c;
+                const set = elapsed >= settleAt(i);
+                return (
+                  <span
+                    key={i}
+                    className={cx(
+                      'p-flap',
+                      /\d/.test(ch) && 'p-flap--num',
+                      reveal && (set ? 'p-flap--set' : 'p-flap--spinning'),
+                    )}
+                    data-settled={set}
+                  >
+                    {flapFace(ch, i, elapsed)}
+                  </span>
+                );
+              })}
+            </span>
+          </Fragment>
+        ))}
+      </div>
     </div>
   );
 }

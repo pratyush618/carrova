@@ -6,7 +6,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use carrova_crypto::pairing::{RESUME_SECRET_LEN, ResumeSecret};
-use carrova_platform::{FileKind, Platform};
+use carrova_platform::{FileKind, PermissionModel, Platform};
 
 use super::RESUME_KEY_FILE;
 use super::files::open_existing;
@@ -53,7 +53,9 @@ pub fn write_resume_secret(
 /// regular file of mode `600` owned by the current user (when the platform
 /// knows users) and exactly the secret's size: a key others could read or
 /// plant is never used. A platform that reports no permission bits is
-/// refused too.
+/// refused too, except under [`PermissionModel::Acl`]: there the
+/// profile's ACLs keep the state directory private, and neither mode nor
+/// owner is checked.
 pub fn read_resume_secret(
     platform: &dyn Platform,
     session_dir: &Path,
@@ -78,6 +80,9 @@ pub fn read_resume_secret(
 /// [`read_resume_secret`]'s permission and owner check of the opened key
 /// file (opened without following links).
 fn check_key_meta(platform: &dyn Platform, file: &std::fs::File) -> Result<()> {
+    if platform.permission_model() == PermissionModel::Acl {
+        return Ok(());
+    }
     let meta = platform.file_metadata(file)?;
     let problem = match meta.mode {
         None => Some(ResumeKeyProblem::UnknownMode),

@@ -6,7 +6,7 @@ import { createFakePort, type FakeOptions, type Scenario } from '@/ipc/fake';
 
 export interface AppOptions {
   readonly scenario?: Scenario;
-  /** Error-report consent already answered (opens on Home instead of Welcome). */
+  /** Error-report consent already answered (Home doesn't ask). */
   readonly returning?: boolean;
   readonly host?: DesktopHost;
   /** Fake step delay; 0 runs every task straight through. */

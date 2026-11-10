@@ -1,5 +1,5 @@
 import type { HubPage, View } from '../../nav/navMachine';
-import { AppsRoute, HistoryRoute, HomeRoute, SettingsRoute, WelcomeRoute } from './HubRoutes';
+import { AppsRoute, HistoryRoute, HomeRoute, SettingsRoute } from './HubRoutes';
 import { OpenRoute, ReceiveRoute } from './ReceiveRoutes';
 import { SaveRoute, SendRoute } from './SendRoutes';
 import { UndoRoute } from './UndoRoute';
@@ -20,8 +20,6 @@ function HubRoute({ page }: { readonly page: HubPage }) {
 /** The screen for `view`. Exhaustive over every page and flow position. */
 export function ViewRoute({ view }: { readonly view: View }) {
   switch (view.kind) {
-    case 'welcome':
-      return <WelcomeRoute />;
     case 'hub':
       return <HubRoute page={view.page} />;
     case 'flow': {

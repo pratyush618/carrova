@@ -3,27 +3,57 @@ import { i18n } from '@/i18n/i18n';
 import { scan } from '@/ipc/fixtures/scan';
 import { selectEdits } from '@/ipc/fixtures/select-edits';
 import { select } from '@/ipc/fixtures/select';
-import { customizeModel, foundApps, rawFolders, sensitiveAsks } from '@/flows/send/sendViews';
+import {
+  activePreset,
+  customizeModel,
+  filterFound,
+  foundApps,
+  foundGroups,
+  moveFacts,
+  rawFolders,
+  secretItems,
+} from '@/flows/send/sendViews';
 import { displayPath } from '@/flows/shared/paths';
 
 const t = i18n.t.bind(i18n);
 
 describe('send views', () => {
-  it('summarises detected apps and asks about every sensitive item, starting on leave', () => {
-    const apps = foundApps(scan);
-    expect(apps.length).toBe(
-      scan.report.apps.filter((a) => a.detected && a.items.length > 0).length,
-    );
-    const asks = sensitiveAsks(scan);
-    expect(asks.length).toBeGreaterThan(0);
-    expect(asks.every((a) => a.answer === 'leave')).toBe(true);
+  it('groups apps with ordinary items by category, in scan order', () => {
+    const groups = foundGroups(scan);
+    expect(groups.map((g) => g.category)).toEqual(['dev-tools', 'editors', 'security', 'shells']);
+    expect(groups.find((g) => g.category === 'shells')?.apps.map((a) => a.id)).toEqual([
+      'bash',
+      'starship',
+    ]);
   });
 
-  it('answers bring once the user confirms', () => {
-    const [ask] = sensitiveAsks(scan);
-    if (ask === undefined) throw new Error('fixture has no sensitive item');
+  it('lists every movable secret with its key files, starting off', () => {
+    const secrets = secretItems(scan);
+    expect(secrets.map((s) => s.key)).toContain('ssh/keys');
+    expect(secrets.every((s) => !s.brought)).toBe(true);
+    const keys = secrets.find((s) => s.key === 'ssh/keys');
+    expect(keys?.paths.length).toBeGreaterThan(0);
+    expect(keys?.paths.every((p) => !p.includes(':'))).toBe(true);
+  });
+
+  it('counts a secret as brought once the user confirms it', () => {
     // The engine's reply to ticking and confirming `ssh/keys`.
-    expect(sensitiveAsks(select).find((a) => a.key === 'ssh/keys')?.answer).toBe('bring');
+    expect(secretItems(select).find((s) => s.key === 'ssh/keys')?.brought).toBe(true);
+    expect(moveFacts(select).keys).toBe(1);
+  });
+
+  it('states the move in facts: apps ticked of found, bytes ticked, no keys, no caches', () => {
+    const facts = moveFacts(scan);
+    const apps = foundGroups(scan).flatMap((g) => g.apps);
+    expect(facts).toMatchObject({
+      apps: apps.filter((a) => a.included).length,
+      totalApps: apps.length,
+      keys: 0,
+      caches: false,
+    });
+    const ticked = Object.entries(scan.selection.items).filter(([, c]) => c.included);
+    expect(facts.bytes).toBeGreaterThan(0);
+    expect(ticked.length).toBeGreaterThan(0);
   });
 
   it('filters the Customize tree by app or item name and expands matches', () => {
@@ -55,5 +85,35 @@ describe('send views', () => {
     const folders = rawFolders(scan, 0, t);
     expect(folders.length).toBe(scan.report.unrecognised.length);
     expect(folders.every((f) => f.key.startsWith('raw:') && !f.picked)).toBe(true);
+  });
+
+  it('filters found apps and secrets by app or item name, dropping emptied groups', () => {
+    const all = { groups: foundGroups(scan), secrets: secretItems(scan) };
+    expect(filterFound(all.groups, all.secrets, '  ')).toEqual(all);
+    const ssh = filterFound(all.groups, all.secrets, 'SSH');
+    expect(ssh.groups.map((g) => g.category)).toEqual(['security']);
+    expect(ssh.groups.flatMap((g) => g.apps.map((a) => a.id))).toEqual(['ssh']);
+    expect(ssh.secrets.every((s) => s.app.id === 'ssh')).toBe(true);
+    expect(ssh.secrets.length).toBeGreaterThan(0);
+    expect(filterFound(all.groups, all.secrets, 'no such app')).toEqual({
+      groups: [],
+      secrets: [],
+    });
+  });
+
+  it('names the preset the selection matches, ignoring keys (they are asked one by one)', () => {
+    const { items } = select.selection;
+    const every = (pick: (c: (typeof items)[string]) => boolean) => ({
+      items: Object.fromEntries(
+        Object.entries(items).map(([k, c]) => [k, { ...c, included: pick(c) }]),
+      ),
+    });
+    // `select` brought `ssh/keys`; the apps are still as suggested.
+    expect(activePreset(select.selection)).toBe('suggested');
+    expect(activePreset(every((c) => !c.sensitive && c.unmovable === null))).toBe('everything');
+    expect(activePreset(every((c) => c.sensitive))).toBe('none');
+    expect(activePreset(every((c) => c.suggested || c.paths.includes('user_data:nvim')))).toBe(
+      null,
+    );
   });
 });

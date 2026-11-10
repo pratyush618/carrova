@@ -1,4 +1,4 @@
-schema: 1
+schema: 3
 id: neovim
 name: Neovim
 category: editors
@@ -7,13 +7,28 @@ detect:
   linux:
     - binary: nvim
     - path: { root: user_config, rel: nvim }
+  macos:
+    - binary: nvim
+    - path: { root: home, rel: .config/nvim }
+  windows:
+    - binary: nvim
+    - path: { root: user_data, rel: nvim }
+# Neovim uses the XDG defaults (~/.config, ~/.local/share) on macOS; on
+# Windows config is %LOCALAPPDATA%\nvim and data %LOCALAPPDATA%\nvim-data.
 items:
   - id: config
     label: Neovim config (init.lua/init.vim, Lua modules, plugin lockfile)
     paths:
       - { root: user_config, rel: nvim }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .config/nvim }
+      windows:
+        paths:
+          - { root: user_data, rel: nvim }
     flags:
-      portability: same_os
+      portability: cross_os
       sensitive: false
       requires_closed: false
       default: true
@@ -21,6 +36,13 @@ items:
     label: Installed plugins and language servers (reinstallable, can be large)
     paths:
       - { root: user_data, rel: nvim }
+    os:
+      macos:
+        paths:
+          - { root: home, rel: .local/share/nvim }
+      windows:
+        paths:
+          - { root: user_data, rel: nvim-data }
     exclude:
       - shada
       - swap

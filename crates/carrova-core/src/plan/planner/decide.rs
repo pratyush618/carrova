@@ -171,6 +171,10 @@ impl Planner<'_> {
             (EntryKind::Dir, FileKind::Dir) => Ok(mode_eq),
             (EntryKind::Dir, _) => Err(SkipReason::DirOverNonDir),
             (_, FileKind::Dir) => Err(SkipReason::NonDirOverDir),
+            // A plugin's output is only known after it ran: never identical.
+            (EntryKind::File { .. }, FileKind::File) if self.plugin_items.contains_key(&t.key) => {
+                Ok(false)
+            }
             (EntryKind::File { size, hash, .. }, FileKind::File) => {
                 Ok(mode_eq && existing.size == *size && self.hash_existing(abs) == Some(*hash))
             }

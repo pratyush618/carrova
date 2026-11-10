@@ -1,0 +1,14 @@
+binaries: [pwsh]
+detected: true
+items:
+  profiles:
+    files:
+      - home:.config/powershell/Microsoft.PowerShell_profile.ps1
+      - home:.config/powershell/profile.ps1
+  history:
+    files:
+      - home:.local/share/powershell/PSReadLine/ConsoleHost_history.txt
+  modules:
+    files: []
+not_captured:
+  - .local/share/powershell/Modules/DummyModule/1.0.0/DummyModule.psm1

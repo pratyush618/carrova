@@ -1,0 +1,10 @@
+/* "I understand": the tick that unlocks a risky override. Clicking the words ticks the box. */
+.s-understand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-block-start: var(--sp-2);
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}

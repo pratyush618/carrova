@@ -1,6 +1,15 @@
 import { useTranslation } from 'react-i18next';
 import { ActionBar, Button } from '../../ui';
-import type { TransferIntents, TransferModel } from './transfer';
+import type { TransferIntents, TransferModel, TransferPhase } from './transfer';
+
+/** The bar's note per phase; the engine retries a lost link by itself, so that says so. */
+const NOTE = {
+  moving: 'transfer.awake',
+  paused: null,
+  held: null,
+  reconnecting: 'transfer.resumesItself',
+  applying: 'transfer.applyNote',
+} as const satisfies Record<TransferPhase, string | null>;
 
 /**
  * Cancel is always offered until the final apply, which can't stop half-way:
@@ -16,12 +25,13 @@ export function TransferActions({
 }) {
   const { t } = useTranslation();
   const applying = model.phase === 'applying';
+  const note = NOTE[model.phase];
   return (
     <ActionBar
       start={
         !applying && (
           <>
-            <Button kind="danger" onClick={on.onCancel}>
+            <Button kind="quiet-danger" onClick={on.onCancel}>
               {t('action.cancel')}
             </Button>
             {model.phase === 'paused' && on.onIgnoreSpace && (
@@ -32,7 +42,7 @@ export function TransferActions({
           </>
         )
       }
-      note={applying ? t('transfer.applyNote') : ''}
+      note={note === null ? '' : t(note)}
       end={
         <>
           {model.phase === 'moving' && on.onPause && (
@@ -41,7 +51,7 @@ export function TransferActions({
             </Button>
           )}
           {model.phase === 'held' && on.onResume && (
-            <Button kind="primary" onClick={on.onResume}>
+            <Button kind="primary" icon="play" onClick={on.onResume}>
               {t('transfer.resume')}
             </Button>
           )}

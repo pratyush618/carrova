@@ -78,27 +78,37 @@ impl Applier<'_> {
             .get(&key)
             .ok_or_else(|| unverified("entry was not staged"))?
             .clone();
-        let &(hash, size) = self
+        let &(manifest_hash, manifest_size) = self
             .digests
             .0
             .get(&key)
             .ok_or_else(|| unverified("entry is not a file in the manifest"))?;
+        if manifest_size != a.size {
+            return Err(unverified("manifest size differs from plan"));
+        }
+        // A plugin's output replaces the manifest's content.
+        let (hash, size) = staged
+            .rewritten
+            .get(&key)
+            .copied()
+            .unwrap_or((manifest_hash, manifest_size));
         let staged_size = fsx::lstat(self.p, &src)?
             .filter(|m| m.kind == FileKind::File)
             .map(|m| m.size);
-        if size != a.size || staged_size != Some(a.size) {
+        if staged_size != Some(size) {
             return Err(unverified("staged size differs from plan"));
         }
         let mode = self
             .policy
             .final_mode(a.mode.unwrap_or(MODELESS_FILE_MODE), None);
         let mtime = a.mtime_ns.map(carrova_manifest::time_from_unix_nanos);
-        // mtime first: setting it needs an fd, opening needs read access,
-        // which the final mode may not grant.
+        // mtime first, while the staged file is still ours (`STAGED_MODE`):
+        // the final mode may not grant access, and Windows only sets times
+        // through a handle with write access.
         if let Some(t) = mtime {
-            self.p.open_read_nofollow(&src)?.set_modified(t)?;
+            self.p.open_rw_nofollow(&src)?.set_modified(t)?;
         }
-        self.p.set_mode(&src, mode)?;
+        fsx::set_mode(self.p, &src, mode)?;
 
         let backup = if matches!(a.action, Action::Replace) {
             self.backup_intent(&abs, &label)?
@@ -195,7 +205,7 @@ impl Applier<'_> {
             .append(&Record::CreatedTemp { abs: tmp.clone() })?;
         // The staged file already has its final mode, which may not allow
         // reading it back; it is ours.
-        self.p.set_mode(&f.src, STAGED_MODE)?;
+        fsx::set_mode(self.p, &f.src, STAGED_MODE)?;
         {
             let mut out = self.p.create_new_file(&tmp, Some(f.mode))?;
             let mut inp = self.p.open_read_nofollow(&f.src)?;

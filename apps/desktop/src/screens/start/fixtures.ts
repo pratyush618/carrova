@@ -1,11 +1,12 @@
-import { NOW, SENDER, YESTERDAY } from '../shared/fixtures';
-import type { HomeModel, WelcomeModel } from './model';
-
-export const welcome: WelcomeModel = { errorReports: false };
+import { historyTimeline } from '../history/fixtures';
+import { NOW } from '../shared/fixtures';
+import type { HomeModel } from './model';
 
 export const homeReturning: HomeModel = {
   now: NOW,
-  last: { direction: 'received', peer: SENDER, when: YESTERDAY, apps: 5, undoable: true },
+  recent: historyTimeline.entries.slice(0, 2),
+  askReports: false,
 };
 
-export const homeFirst: HomeModel = { now: NOW, last: null };
+/** A fresh install: no moves yet, error-report consent not answered. */
+export const homeFirst: HomeModel = { now: NOW, recent: [], askReports: true };

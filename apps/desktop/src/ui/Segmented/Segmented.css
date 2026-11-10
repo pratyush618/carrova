@@ -10,10 +10,10 @@
 .p-seg__opt {
   border: 0;
   background: none;
-  padding: 6px 12px;
+  padding: 5px 12px;
   border-radius: 7px;
   font-size: var(--t-sm);
-  font-weight: 700;
+  font-weight: 650;
   color: var(--text-secondary);
   white-space: nowrap;
   transition:
@@ -24,5 +24,11 @@
 .p-seg__opt[aria-checked='true'] {
   background: var(--surface-2);
   color: var(--text-primary);
-  box-shadow: var(--e-1);
+  box-shadow:
+    var(--e-1),
+    inset 0 0 0 1px var(--border-strong);
+}
+
+.p-seg--warn .p-seg__opt[aria-checked='true'] {
+  color: var(--warning);
 }

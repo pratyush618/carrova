@@ -4,7 +4,9 @@ use std::collections::{HashMap, HashSet};
 
 use carrova_platform::SemanticRoot;
 
-use crate::model::{MAX_ARTIFACTS_PER_ITEM, MAX_ENTRIES, MAX_ITEMS};
+use crate::model::{
+    MAX_ARTIFACTS_PER_ITEM, MAX_DEVICE_NAME, MAX_ENTRIES, MAX_ITEMS, MAX_SOURCE_PATHS_PER_ITEM,
+};
 use crate::text::check_text;
 use crate::{
     Artifact, Blake3Hash, ChunkFault, ChunkRef, Entry, EntryKind, InvalidReason, MAX_CHUNK_LEN,
@@ -13,12 +15,14 @@ use crate::{
 
 impl Manifest {
     /// Structural checks a receiver relies on (paths are already checked by
-    /// [`RelPath`](crate::RelPath)): supported version, count limits
-    /// ([`MAX_ITEMS`], [`MAX_ENTRIES`], [`MAX_ARTIFACTS_PER_ITEM`]), non-empty
+    /// [`RelPath`](crate::RelPath), the source OS by its type): supported
+    /// version, count limits ([`MAX_ITEMS`], [`MAX_ENTRIES`],
+    /// [`MAX_ARTIFACTS_PER_ITEM`], [`MAX_SOURCE_PATHS_PER_ITEM`]), non-empty
     /// ids, no control / bidi characters in any displayed string (ids, label,
-    /// handler, artifact names, symlink targets, source info), mode bits,
-    /// symlink targets, and chunk lists contiguous and covering each file
-    /// exactly with chunks of `1..=`[`MAX_CHUNK_LEN`] bytes.
+    /// handler, artifact names, symlink targets, source version, home and
+    /// device name, the latter at most [`MAX_DEVICE_NAME`] characters),
+    /// mode bits, symlink targets, and chunk lists contiguous and covering
+    /// each file exactly with chunks of `1..=`[`MAX_CHUNK_LEN`] bytes.
     ///
     /// Across all items it also rejects duplicate `(root, rel)` entries,
     /// any entry lying below a `Symlink` or `File` entry of the same root
@@ -31,8 +35,18 @@ impl Manifest {
     pub fn validate(&self) -> Result<()> {
         crate::wire::check_version(self.format_version)?;
         self.check_limits()?;
-        check_text("source os", &self.source.os)?;
         check_text("source carrova_version", &self.source.carrova_version)?;
+        if let Some(name) = &self.source.device_name {
+            check_text("source device_name", name)?;
+            check_count(
+                "source device_name characters",
+                name.chars().count(),
+                MAX_DEVICE_NAME,
+            )?;
+        }
+        if let Some(home) = &self.source_home {
+            check_text("source_home", home)?;
+        }
         let mut index = EntryIndex::default();
         for item in &self.items {
             item.validate()?;
@@ -108,6 +122,11 @@ impl ManifestItem {
             "artifacts in one item",
             self.artifacts.len(),
             MAX_ARTIFACTS_PER_ITEM,
+        )?;
+        check_count(
+            "source paths in one item",
+            self.source_paths.len(),
+            MAX_SOURCE_PATHS_PER_ITEM,
         )?;
         self.artifacts
             .iter()

@@ -15,6 +15,7 @@ fn key_file_round_trips_and_checks_role() {
 }
 
 #[test]
+#[cfg(unix)] // Windows files have no mode bits (profile ACLs keep it private)
 fn key_file_is_private() {
     let tmp = tempfile::tempdir().unwrap();
     let path = tmp.path().join("signer.key");

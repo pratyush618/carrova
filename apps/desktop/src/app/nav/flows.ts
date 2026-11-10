@@ -1,6 +1,8 @@
+import type { common } from '../../i18n/en/common';
+
 /**
- * Task flows and their steps, in order: the single source of truth for step
- * dots, next/back and which screen a position shows.
+ * Task flows and their steps, in order: the single source of truth for the
+ * stepper, next/back and which screen a position shows.
  */
 export const FLOWS = {
   send: ['found', 'code', 'live', 'done'],
@@ -13,6 +15,20 @@ export const FLOWS = {
 } as const satisfies Record<string, readonly [string, ...string[]]>;
 
 export type FlowId = keyof typeof FLOWS;
+
+/** A stepper label (`flow.steps.<label>` in the catalogue). */
+export type StepLabel = keyof typeof common.flow.steps;
+
+/** The stepper's label for each step, parallel to {@link FLOWS} (lengths checked by the type). */
+export const STEP_LABELS = {
+  send: ['pick', 'pair', 'theirReview', 'move'],
+  receive: ['code', 'review', 'move', 'done'],
+  save: ['pick', 'lock', 'done'],
+  open: ['file', 'review', 'move', 'done'],
+  undo: ['preview', 'done'],
+} as const satisfies {
+  readonly [F in FlowId]: readonly StepLabel[] & { readonly length: (typeof FLOWS)[F]['length'] };
+};
 export type FlowStep<F extends FlowId = FlowId> = (typeof FLOWS)[F][number];
 
 /** A step inside a flow, typed so the step always belongs to the flow. */
@@ -25,11 +41,6 @@ const steps = (flow: FlowId): readonly string[] => FLOWS[flow];
 /** 0-based index of `at` in its flow. */
 export function stepIndex(at: FlowPosition): number {
   return steps(at.flow).indexOf(at.step);
-}
-
-/** Number of steps in `flow`. */
-export function flowLength(flow: FlowId): number {
-  return steps(flow).length;
 }
 
 /** The first step of `flow`. */

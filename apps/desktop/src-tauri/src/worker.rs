@@ -16,8 +16,13 @@ use futures_channel::oneshot;
 
 use crate::command_error::CommandError;
 
-/// A request for the worker: runs with exclusive access to the object.
-type Job<T> = Box<dyn FnOnce(&mut T) + Send>;
+/// A request for the worker: runs with exclusive access to the object and
+/// returns its reply, which the worker sends once it is idle again (so a
+/// caller acting on the answer never finds it still busy).
+type Job<T> = Box<dyn FnOnce(&mut T) -> Reply + Send>;
+
+/// Delivers a job's result to its caller.
+type Reply = Box<dyn FnOnce() + Send>;
 
 /// Handle to a worker thread owning a `T`. Cheap to clone; the thread
 /// ends once every handle is dropped and its last job returned.
@@ -58,6 +63,7 @@ impl<T: 'static> Worker<T> {
             .spawn(move || {
                 let mut object = match open() {
                     Ok((object, extra)) => {
+                        flag.store(false, Ordering::Release);
                         // A dropped receiver only means nobody waits.
                         let _ = opened.send(Ok(extra));
                         object
@@ -67,10 +73,12 @@ impl<T: 'static> Worker<T> {
                         return;
                     }
                 };
-                flag.store(false, Ordering::Release);
                 for job in queue {
-                    let _busy = Busy::mark(&flag);
-                    job(&mut object);
+                    let reply = {
+                        let _busy = Busy::mark(&flag);
+                        job(&mut object)
+                    };
+                    reply();
                 }
             })?;
         let extra = reply.await.map_err(|_| CommandError::worker_gone())??;
@@ -84,8 +92,11 @@ impl<T: 'static> Worker<T> {
     ) -> Result<R, CommandError> {
         let (done, reply) = oneshot::channel();
         self.jobs
-            .send(Box::new(move |object: &mut T| {
-                let _ = done.send(job(object));
+            .send(Box::new(move |object: &mut T| -> Reply {
+                let result = job(object);
+                Box::new(move || {
+                    let _ = done.send(result);
+                })
             }))
             .map_err(|_| CommandError::worker_gone())?;
         reply.await.map_err(|_| CommandError::worker_gone())

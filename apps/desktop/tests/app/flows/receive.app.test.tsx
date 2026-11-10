@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderApp } from '../../support/app';
 
 async function toReview(user: UserEvent, code = '7-acid-lemon'): Promise<void> {
-  await screen.findByRole('heading', { level: 1, name: 'What are we doing on this computer?' });
+  await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
   await user.click(screen.getByRole('button', { name: /Receive/ }));
   await user.type(await screen.findByRole('textbox', { name: 'Pairing code' }), code);
   await user.click(screen.getByRole('button', { name: 'Connect' }));
@@ -70,12 +70,41 @@ describe('receiving over the LAN', () => {
     expect(last?.confirmed_sensitive).toEqual([]);
   });
 
-  it('keeps Approve disabled while the plan has a blocker and says why', async () => {
+  it('keeps Approve disabled while the plan has a blocker and asks about it', async () => {
     const user = userEvent.setup();
     await renderApp({ returning: true, scenario: 'blocked' });
     await toReview(user);
     expect(screen.getByRole('button', { name: 'Approve and move' })).toBeDisabled();
-    expect(screen.getByText(/Neovim is open. Close it, skip it/)).toBeInTheDocument();
+    expect(screen.getByText('Neovim is open')).toBeInTheDocument();
+  });
+
+  it('brings an item from another system only after the "I understand" override', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true, scenario: 'cross-os' });
+    const plan = vi.spyOn(port, 'plan');
+    await toReview(user);
+    await user.click(screen.getByRole('button', { name: /^Override… / }));
+    const dialog = screen.getByRole('alertdialog', { name: /anyway\?$/ });
+    const go = within(dialog).getByRole('button', { name: 'Bring anyway' });
+    expect(go).toBeDisabled();
+    await user.click(within(dialog).getByRole('checkbox', { name: /I understand/ }));
+    await user.click(go);
+
+    expect(plan.mock.calls.at(-1)?.[1].allow_cross_os).toEqual(['tmux/config']);
+    expect(await screen.findByText('Bringing it anyway')).toBeInTheDocument();
+  });
+
+  it("asks this computer to allow a plugin and writes the user's consent", async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true, scenario: 'plugin' });
+    const plan = vi.spyOn(port, 'plan');
+    await toReview(user);
+    await user.click(screen.getByRole('button', { name: 'Review… (path-rewrite plugin)' }));
+    const dialog = screen.getByRole('dialog', { name: 'Allow “path-rewrite”?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Allow for this move' }));
+
+    expect(plan.mock.calls.at(-1)?.[1].confirmed_plugins).toEqual(['path-rewrite']);
+    expect(await screen.findByText('Allowed for this move')).toBeInTheDocument();
   });
 
   it('shows a failed apply that was rolled back, with the engine reason', async () => {
@@ -93,7 +122,7 @@ describe('receiving over the LAN', () => {
   it('tells a wrong code apart and asks for the new one', async () => {
     const user = userEvent.setup();
     await renderApp({ returning: true, scenario: 'wrong-code' });
-    await screen.findByRole('heading', { level: 1, name: 'What are we doing on this computer?' });
+    await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
     await user.click(screen.getByRole('button', { name: /Receive/ }));
     await user.type(await screen.findByRole('textbox', { name: 'Pairing code' }), '7-acid-lemon');
     await user.click(screen.getByRole('button', { name: 'Connect' }));
@@ -103,7 +132,7 @@ describe('receiving over the LAN', () => {
   it('says when something typed is not a code at all', async () => {
     const user = userEvent.setup();
     await renderApp({ returning: true });
-    await screen.findByRole('heading', { level: 1, name: 'What are we doing on this computer?' });
+    await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
     await user.click(screen.getByRole('button', { name: /Receive/ }));
     await user.type(await screen.findByRole('textbox', { name: 'Pairing code' }), 'nonsense');
     await user.click(screen.getByRole('button', { name: 'Connect' }));
@@ -118,7 +147,7 @@ describe('receiving over the LAN', () => {
     await bringAll(user);
     await user.click(screen.getByRole('button', { name: 'Approve and move' }));
     await user.click(await screen.findByRole('button', { name: 'Undo this move' }));
-    await user.click(screen.getByRole('button', { name: 'Undo the move' }));
+    await user.click(screen.getByRole('button', { name: 'Undo move' }));
 
     expect(rollback).toHaveBeenCalledOnce();
     expect(

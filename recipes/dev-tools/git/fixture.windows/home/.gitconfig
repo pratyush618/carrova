@@ -1,0 +1,6 @@
+# carrova fixture: dummy global git config
+[user]
+	name = Test User
+	email = test@example.invalid
+[alias]
+	st = status

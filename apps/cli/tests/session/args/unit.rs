@@ -32,6 +32,8 @@ const APPROVED: &[&str] = &[
     "app/config",
     "--confirm-sensitive",
     "user_data/big",
+    "--allow-cross-os",
+    "app/state",
     "--rule",
     "default=keep-both",
     "--rule",
@@ -95,4 +97,25 @@ fn a_passed_rule_overrides_that_target_and_keeps_the_others() {
             .iter()
             .all(|(k, r)| resumed.item_rules.get(k) == Some(r))
     );
+}
+
+#[test]
+fn allow_cross_os_flag_lists_the_overridden_items() {
+    assert!(options(&[]).allow_cross_os.is_empty());
+    assert_eq!(
+        options(&["--allow-cross-os", "a/x", "--allow-cross-os", "b/y"]).allow_cross_os,
+        ["a/x", "b/y"]
+    );
+}
+
+#[test]
+fn allow_plugin_flag_lists_the_allowed_plugins() {
+    assert!(options(&[]).confirmed_plugins.is_empty());
+    let allowed = options(&["--allow-plugin", "path-rewrite", "--allow-plugin", "other"]);
+    let ids: Vec<&str> = allowed
+        .confirmed_plugins
+        .iter()
+        .map(carrova_recipe::PluginId::as_str)
+        .collect();
+    assert_eq!(ids, ["path-rewrite", "other"]);
 }

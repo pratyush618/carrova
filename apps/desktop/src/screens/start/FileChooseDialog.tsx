@@ -11,7 +11,11 @@ export function FileChooseDialog({ on }: { readonly on: FileChooseIntents }) {
       icon="file"
       title={t('start.fileChoose.title')}
       onDismiss={on.onCancel}
-      foot={<Button onClick={on.onCancel}>{t('action.cancel')}</Button>}
+      foot={
+        <Button kind="quiet" onClick={on.onCancel}>
+          {t('action.cancel')}
+        </Button>
+      }
     >
       <p>{t('start.fileChoose.body')}</p>
       <List>

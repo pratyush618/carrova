@@ -5,12 +5,11 @@ export type HubPage = 'home' | 'history' | 'apps' | 'settings';
 
 /** What fills the window. */
 export type View =
-  | { readonly kind: 'welcome' }
   | { readonly kind: 'hub'; readonly page: HubPage }
   | { readonly kind: 'flow'; readonly at: FlowPosition };
 
 /** Why an override dialog is open: each names one rule the user may bend. */
-export type OverrideKind = 'unmovable' | 'running' | 'space' | 'elsewhere';
+export type OverrideKind = 'unmovable' | 'running' | 'space' | 'cross_os' | 'elsewhere';
 
 /** Sheets and dialogs over the view. */
 export type Overlay =
@@ -18,13 +17,16 @@ export type Overlay =
   | { readonly kind: 'customize' }
   | { readonly kind: 'unrecognised' }
   | { readonly kind: 'review-details' }
+  /** Where cross-system items land (receive review). */
+  | { readonly kind: 'mappings' }
+  /** What a plugin may do, and whether to allow it for this move. */
+  | { readonly kind: 'plugin-consent'; readonly plugin: string }
   | { readonly kind: 'undo-confirm' }
-  | { readonly kind: 'session'; readonly id: string }
   | { readonly kind: 'recipe'; readonly id: string }
   | { readonly kind: 'update' }
   | { readonly kind: 'report'; readonly id: string }
   | { readonly kind: 'about' }
-  /** `subject`: the item key (unmovable, elsewhere) or app id (running) the override is about. */
+  /** `subject`: the item key (unmovable, cross_os, elsewhere) or app id (running) the override is about. */
   | { readonly kind: 'override'; readonly reason: OverrideKind; readonly subject: string | null }
   /** Restore an item somewhere else (after the "elsewhere" warning). */
   | { readonly kind: 'remap'; readonly item: string }
@@ -39,7 +41,6 @@ export interface Nav {
 
 /** Every way navigation can change. Screens raise intents; the shell maps them to these. */
 export type NavEvent =
-  | { readonly type: 'finishWelcome' }
   | { readonly type: 'openHub'; readonly page: HubPage }
   | { readonly type: 'startFlow'; readonly flow: FlowId }
   | { readonly type: 'enterFlow'; readonly at: FlowPosition }
@@ -51,10 +52,8 @@ export type NavEvent =
 
 const HOME: View = { kind: 'hub', page: 'home' };
 
-/** Where a fresh install starts. */
-export const firstRun: Nav = { view: { kind: 'welcome' }, overlays: [] };
-/** Where a returning user starts. */
-export const returning: Nav = { view: HOME, overlays: [] };
+/** Where the app opens: Home (it does onboarding on a fresh install). */
+export const atHome: Nav = { view: HOME, overlays: [] };
 
 const show = (view: View): Nav => ({ view, overlays: [] });
 
@@ -68,8 +67,6 @@ function step(nav: Nav, delta: 1 | -1): Nav {
 /** The navigation reducer. Pure; any event that doesn't apply leaves `nav` unchanged. */
 export function navigate(nav: Nav, event: NavEvent): Nav {
   switch (event.type) {
-    case 'finishWelcome':
-      return nav.view.kind === 'welcome' ? show(HOME) : nav;
     case 'openHub':
       return show({ kind: 'hub', page: event.page });
     case 'startFlow':

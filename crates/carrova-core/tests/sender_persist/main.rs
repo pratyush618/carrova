@@ -12,17 +12,13 @@ mod common;
 use std::fs;
 use std::path::Path;
 
-use carrova_core::capture::{CAPTURE_FILE, Capture, MANIFEST_FILE, capture};
-use carrova_core::select::{Preset, Selection};
-use carrova_core::session::{NullSink, Role, State};
+use carrova_core::session::{Role, State};
 use carrova_core::store::{
     RESUME_KEY_FILE, Store, read_resume_secret, wipe_resume_secret, write_resume_secret,
 };
-use carrova_core::{Cancel, ScanOptions, scan};
 use carrova_crypto::pairing::ResumeSecret;
-use carrova_manifest::{ChunkRef, ChunkSource};
-use carrova_platform::Platform;
-use carrova_platform::fake::{FakePlatform, Hooks, write_tool_script};
+use carrova_platform::fake::{FakePlatform, Hooks};
+use carrova_platform::{OsKind, Platform};
 use carrova_recipe::load_str;
 use tempfile::TempDir;
 
@@ -57,81 +53,94 @@ items:
       - { root: home, rel: .gnupg/pubring.kbx }
 ";
 
-fn write(path: &Path, bytes: &[u8]) {
-    fs::create_dir_all(path.parent().unwrap()).unwrap();
-    fs::write(path, bytes).unwrap();
-}
+// The fake `gpg` is a `#!/bin/sh` script.
+#[cfg(unix)]
+mod persisted_capture {
+    use carrova_core::capture::{CAPTURE_FILE, Capture, MANIFEST_FILE, capture};
+    use carrova_core::select::{Preset, Selection};
+    use carrova_core::session::NullSink;
+    use carrova_core::{Cancel, ScanOptions, scan};
+    use carrova_manifest::{ChunkRef, ChunkSource};
+    use carrova_platform::fake::write_tool_script;
 
-fn all_chunks(cap: &Capture) -> Vec<ChunkRef> {
-    cap.manifest.unique_chunk_refs().copied().collect()
-}
+    use super::*;
 
-#[test]
-fn persisted_capture_serves_identical_chunks_after_reload() {
-    let tmp = TempDir::new().unwrap();
-    let home = tmp.path().join("home");
-    write(&home.join(".config/app/a.txt"), b"alpha");
-    write(&home.join(".config/app/big.bin"), &vec![3u8; 300_000]);
-    write(&home.join(".gnupg/pubring.kbx"), b"keys");
-    let gpg = write_tool_script(tmp.path(), "gpg", "printf 'exported %s' \"$*\"\n").unwrap();
-    let platform = FakePlatform::with_home(&home)
-        .binary("app", "/usr/bin/app")
-        .binary("gpg", &gpg);
-    let recipes = vec![
-        load_str(APP, Path::new("app.yaml")).unwrap(),
-        load_str(GPG, Path::new("gpg.yaml")).unwrap(),
-    ];
-    let report = scan(&recipes, &platform, ScanOptions::default()).unwrap();
-    let mut sel = Selection::from_scan(&report, Preset::None);
-    sel.set_included("app/config", true).unwrap();
-    sel.set_included("gnupg/keyring", true).unwrap();
-    let cap = capture(&platform, &recipes, &sel, &NullSink, &Cancel::default()).unwrap();
-    assert!(cap.failed.is_empty(), "{:?}", cap.failed);
-    let keyring = cap
-        .manifest
-        .items
-        .iter()
-        .find(|i| i.item_id == "keyring")
-        .unwrap();
-    assert!(!keyring.artifacts.is_empty(), "handler artifacts (blobs)");
-
-    let session = tmp.path().join("session");
-    fs::create_dir(&session).unwrap();
-    let sent = cap.persist(&platform, &session).unwrap();
-    for f in [MANIFEST_FILE, CAPTURE_FILE] {
-        assert_eq!(
-            platform.metadata(&session.join(f)).unwrap().mode,
-            Some(0o600)
-        );
-    }
-    // No absolute paths are persisted.
-    let raw = fs::read(session.join(CAPTURE_FILE)).unwrap();
-    let home_bytes = home.to_str().unwrap().as_bytes();
-    assert!(!raw.windows(home_bytes.len()).any(|w| w == home_bytes));
-
-    let loaded = Capture::load(&platform, &session).unwrap();
-    assert_eq!(loaded.manifest, cap.manifest);
-    assert_eq!(loaded.manifest_cbor().unwrap(), sent, "deterministic bytes");
-    let chunks = all_chunks(&cap);
-    let mut before = cap.chunk_source(&platform);
-    let mut after = loaded.chunk_source(&platform);
-    for c in &chunks {
-        assert_eq!(before.read_chunk(c).unwrap(), after.read_chunk(c).unwrap());
+    fn write(path: &Path, bytes: &[u8]) {
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, bytes).unwrap();
     }
 
-    // A file changed since capture is still caught after reload.
-    fs::write(home.join(".config/app/a.txt"), b"ALPHA").unwrap();
-    let a = loaded
-        .manifest
-        .entries()
-        .find(|e| e.rel.as_str() == "app/a.txt")
-        .unwrap()
-        .chunks()[0];
-    assert!(after.read_chunk(&a).is_err());
+    fn all_chunks(cap: &Capture) -> Vec<ChunkRef> {
+        cap.manifest.unique_chunk_refs().copied().collect()
+    }
 
-    // A capture file from another manifest is refused.
-    fs::write(session.join(MANIFEST_FILE), b"\xa0").unwrap();
-    assert!(Capture::load(&platform, &session).is_err());
+    #[test]
+    fn persisted_capture_serves_identical_chunks_after_reload() {
+        let tmp = TempDir::new().unwrap();
+        let home = tmp.path().join("home");
+        write(&home.join(".config/app/a.txt"), b"alpha");
+        write(&home.join(".config/app/big.bin"), &vec![3u8; 300_000]);
+        write(&home.join(".gnupg/pubring.kbx"), b"keys");
+        let gpg = write_tool_script(tmp.path(), "gpg", "printf 'exported %s' \"$*\"\n").unwrap();
+        let platform = FakePlatform::with_home(&home)
+            .binary("app", "/usr/bin/app")
+            .binary("gpg", &gpg);
+        let recipes = vec![
+            load_str(APP, Path::new("app.yaml")).unwrap(),
+            load_str(GPG, Path::new("gpg.yaml")).unwrap(),
+        ];
+        let report = scan(&recipes, &platform, ScanOptions::default()).unwrap();
+        let mut sel = Selection::from_scan(&report, Preset::None);
+        sel.set_included("app/config", true).unwrap();
+        sel.set_included("gnupg/keyring", true).unwrap();
+        let cap = capture(&platform, &recipes, &sel, &NullSink, &Cancel::default()).unwrap();
+        assert!(cap.failed.is_empty(), "{:?}", cap.failed);
+        let keyring = cap
+            .manifest
+            .items
+            .iter()
+            .find(|i| i.item_id == "keyring")
+            .unwrap();
+        assert!(!keyring.artifacts.is_empty(), "handler artifacts (blobs)");
+
+        let session = tmp.path().join("session");
+        fs::create_dir(&session).unwrap();
+        let sent = cap.persist(&platform, &session).unwrap();
+        for f in [MANIFEST_FILE, CAPTURE_FILE] {
+            assert_eq!(
+                platform.metadata(&session.join(f)).unwrap().mode,
+                Some(0o600)
+            );
+        }
+        // No absolute paths are persisted.
+        let raw = fs::read(session.join(CAPTURE_FILE)).unwrap();
+        let home_bytes = home.to_str().unwrap().as_bytes();
+        assert!(!raw.windows(home_bytes.len()).any(|w| w == home_bytes));
+
+        let loaded = Capture::load(&platform, &session).unwrap();
+        assert_eq!(loaded.manifest, cap.manifest);
+        assert_eq!(loaded.manifest_cbor().unwrap(), sent, "deterministic bytes");
+        let chunks = all_chunks(&cap);
+        let mut before = cap.chunk_source(&platform);
+        let mut after = loaded.chunk_source(&platform);
+        for c in &chunks {
+            assert_eq!(before.read_chunk(c).unwrap(), after.read_chunk(c).unwrap());
+        }
+
+        // A file changed since capture is still caught after reload.
+        fs::write(home.join(".config/app/a.txt"), b"ALPHA").unwrap();
+        let a = loaded
+            .manifest
+            .entries()
+            .find(|e| e.rel.as_str() == "app/a.txt")
+            .unwrap()
+            .chunks()[0];
+        assert!(after.read_chunk(&a).is_err());
+
+        // A capture file from another manifest is refused.
+        fs::write(session.join(MANIFEST_FILE), b"\xa0").unwrap();
+        assert!(Capture::load(&platform, &session).is_err());
+    }
 }
 
 #[test]
@@ -148,6 +157,7 @@ fn resume_key_is_private_and_wiped_when_the_session_ends() {
     assert!(read_resume_secret(&platform, &dir).unwrap().is_none());
     write_resume_secret(&platform, &dir, &secret).unwrap();
     let key = dir.join(RESUME_KEY_FILE);
+    #[cfg(unix)]
     assert_eq!(platform.metadata(&key).unwrap().mode, Some(0o600));
     let back = read_resume_secret(&platform, &dir).unwrap().unwrap();
     assert_eq!(back.expose_bytes(), secret.expose_bytes());
@@ -181,6 +191,7 @@ fn resume_key_is_private_and_wiped_when_the_session_ends() {
 }
 
 #[test]
+#[cfg(unix)] // mode bits
 fn resume_key_readable_by_others_is_refused() {
     let tmp = TempDir::new().unwrap();
     let platform = FakePlatform::with_home(tmp.path());
@@ -204,6 +215,7 @@ fn resume_key_readable_by_others_is_refused() {
 }
 
 #[test]
+#[cfg(unix)] // mode bits
 fn resume_key_swapped_after_open_is_judged_by_the_opened_file() {
     let tmp = TempDir::new().unwrap();
     let fake = FakePlatform::with_home(tmp.path());
@@ -230,6 +242,7 @@ fn resume_key_swapped_after_open_is_judged_by_the_opened_file() {
 }
 
 #[test]
+#[cfg(unix)] // the mode check exists only on Unix
 fn resume_key_with_unknown_mode_is_refused() {
     let tmp = TempDir::new().unwrap();
     let fake = FakePlatform::with_home(tmp.path());
@@ -250,6 +263,30 @@ fn resume_key_with_unknown_mode_is_refused() {
 }
 
 #[test]
+fn resume_key_under_acl_permissions_skips_the_mode_and_owner_checks() {
+    let tmp = TempDir::new().unwrap();
+    let fake = FakePlatform::with_home(tmp.path());
+    let store = Store::open(&fake).unwrap();
+    let rec = store
+        .create(&fake, Role::Import, State::Transferring, None)
+        .unwrap();
+    let dir = store.session_dir(&rec.id).unwrap();
+    write_resume_secret(&fake, &dir, &ResumeSecret::from_bytes([7; 32])).unwrap();
+    fake.set_mode(&dir.join(RESUME_KEY_FILE), 0o644).unwrap();
+
+    // Windows: no mode bits, no uid; the profile's ACLs keep it private.
+    let acl = fake.clone().with_os(OsKind::Windows).with_hooks(Hooks {
+        hide_mode: true,
+        uid: Some(u32::MAX),
+        ..Hooks::default()
+    });
+    assert!(read_resume_secret(&acl, &dir).unwrap().is_some());
+    #[cfg(unix)]
+    assert!(read_resume_secret(&fake, &dir).is_err());
+}
+
+#[test]
+#[cfg(unix)] // uids
 fn resume_key_owned_by_another_user_is_refused() {
     let tmp = TempDir::new().unwrap();
     let fake = FakePlatform::with_home(tmp.path());

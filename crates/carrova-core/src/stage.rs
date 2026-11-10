@@ -8,9 +8,11 @@
 //! (`staging/files/<n>`) by a [`StagingStore`], shared by archive and LAN
 //! staging: every chunk is verified once on arrival and written at every
 //! offset the layout lists; [`StagingStore::finish`] checks each whole
-//! file. Apply then renames the staged files into place.
+//! file. Plugin items' files then pass through their plugin ([`plugins`]).
+//! Apply then renames the staged files into place.
 
 pub mod layout;
+mod plugins;
 mod progress_log;
 pub mod staging;
 
@@ -18,6 +20,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use carrova_archive::ArchiveReader;
+use carrova_manifest::Blake3Hash;
 use carrova_platform::{Platform, PlatformError};
 use zeroize::Zeroizing;
 
@@ -29,6 +32,7 @@ use crate::session::progress::PROGRESS_STEP;
 use crate::session::{EventSink, Phase, ProgressMeter};
 
 pub use layout::{STAGED_MODE, StageLayout};
+pub(crate) use plugins::run_plugins;
 pub use staging::{CheckpointPolicy, StagingStore};
 
 /// Verified staged data.
@@ -38,6 +42,9 @@ pub struct Staged {
     pub files: BTreeMap<(ItemKey, usize), PathBuf>,
     /// Handler artifact → staged artifact (verified hash).
     pub artifacts: BTreeMap<ArtifactId, PathBuf>,
+    /// Files a plugin rewrote (`files` points at the output): their
+    /// BLAKE3 and size, which apply uses instead of the manifest's.
+    pub rewritten: BTreeMap<(ItemKey, usize), (Blake3Hash, u64)>,
 }
 
 /// Stage everything `plan` needs from `reader` into `staging_dir`
