@@ -1,0 +1,46 @@
+# Flathub manifest: repackages the release .deb (Tauri's recommended route;
+# Flathub accepts prebuilt binaries for apps whose release CI is public).
+# Release checklist: bump `url` + `sha256` to the new Carrova_<ver>_amd64.deb,
+# add a <release> to dev.carrova.app.metainfo.xml. See packaging/README.md.
+id: dev.carrova.app
+runtime: org.gnome.Platform # ships webkit2gtk-4.1, which Tauri 2 links against
+runtime-version: "49"
+sdk: org.gnome.Sdk
+command: carrova-desktop
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --share=ipc
+  - --share=network # LAN transfer + recipe/app update checks
+  # Carrova's job is reading and restoring app data in the real home dir,
+  # so it needs the host home and the host XDG dirs, not the sandbox ones.
+  - --filesystem=home
+  - --unset-env=XDG_CONFIG_HOME
+  - --unset-env=XDG_DATA_HOME
+  - --unset-env=XDG_CACHE_HOME
+  - --unset-env=XDG_STATE_HOME
+modules:
+  - name: carrova
+    buildsystem: simple
+    sources:
+      - type: file
+        path: dev.carrova.app.metainfo.xml
+      - type: file
+        dest-filename: carrova.deb
+        only-arches: [x86_64]
+        url: https://github.com/pratyush618/carrova/releases/download/v0.1.0/Carrova_0.1.0_amd64.deb
+        sha256: 0000000000000000000000000000000000000000000000000000000000000000 # set per release
+    build-commands:
+      - ar -x carrova.deb && tar -xf data.tar.gz
+      - install -Dm755 usr/bin/carrova-desktop /app/bin/carrova-desktop
+      # Signed recipe bundle shipped with the app (tauri resource dir).
+      - mkdir -p /app/lib && cp -r usr/lib/Carrova /app/lib/
+      - install -Dm644 usr/share/applications/*.desktop /app/share/applications/dev.carrova.app.desktop
+      - desktop-file-edit --set-icon=dev.carrova.app /app/share/applications/dev.carrova.app.desktop
+      - |
+        for icon in usr/share/icons/hicolor/*/apps/carrova-desktop.png; do
+          size="$(basename "$(dirname "$(dirname "$icon")")")"
+          install -Dm644 "$icon" "/app/share/icons/hicolor/$size/apps/dev.carrova.app.png"
+        done
+      - install -Dm644 dev.carrova.app.metainfo.xml /app/share/metainfo/dev.carrova.app.metainfo.xml

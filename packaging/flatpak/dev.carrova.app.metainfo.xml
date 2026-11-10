@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.carrova.app</id>
+  <launchable type="desktop-id">dev.carrova.app.desktop</launchable>
+  <name>Carrova</name>
+  <summary>Move app data between computers</summary>
+  <developer id="dev.carrova">
+    <name>Carrova contributors</name>
+  </developer>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Apache-2.0</project_license>
+  <url type="homepage">https://github.com/pratyush618/carrova</url>
+  <url type="bugtracker">https://github.com/pratyush618/carrova/issues</url>
+  <url type="vcs-browser">https://github.com/pratyush618/carrova</url>
+  <description>
+    <p>
+      Carrova moves app settings, keys and user data between computers over the
+      local network or as an encrypted file. You pick exactly what moves; apps
+      are reinstalled, never copied.
+    </p>
+    <p>
+      Every restore is shown as a plan first, applied with a backup and can be
+      undone. Sensitive items such as SSH keys stay unticked until you confirm.
+    </p>
+  </description>
+  <categories>
+    <category>Utility</category>
+    <category>System</category>
+  </categories>
+  <keywords>
+    <keyword>migrate</keyword>
+    <keyword>transfer</keyword>
+    <keyword>settings</keyword>
+    <keyword>dotfiles</keyword>
+  </keywords>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">720</display_length>
+  </requires>
+  <content_rating type="oars-1.1"/>
+  <!-- Flathub needs screenshots before submission: add <screenshots> with hosted PNG URLs. -->
+  <releases>
+    <release version="0.1.0" date="2026-11-10"/>
+  </releases>
+</component>

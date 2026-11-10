@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths: &recipe-paths
       - recipes/**
+      - plugins/**
+      - rust-toolchain.toml
       - crates/carrova-recipe/**
       - crates/carrova-bundle/**
       - xtask/**
@@ -35,7 +37,7 @@ jobs:
         with:
           rust: "true"
           cache-key: recipes # recipe/bundle/CLI crates only; no WebKit libs needed
-      - run: just recipes-validate fixtures
+      - run: just recipes-validate fixtures plugins-check
       # Unsigned dry run: proves the tree (incl. TIERS.yaml) bundles. The version
       # only has to be valid here; real versions come from `recipes-vN` tags.
       - run: just bundle "$GITHUB_RUN_NUMBER"

@@ -1,6 +1,9 @@
 # Carrova — single entry point for every workflow. `just --list` for help.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
+# Git Bash, not System32's WSL `bash.exe` (Windows searches System32 before PATH).
+# shortcut: assumes Git's default install dir, fine for CI runners; make it configurable if a dev needs another path.
+set windows-shell := ["C:/Program Files/Git/bin/bash.exe", "-euo", "pipefail", "-c"]
 
 default:
     @just --list
@@ -17,9 +20,38 @@ build:
 test:
     cargo test --workspace --all-features
 
+# Build every plugin under plugins/ to plugins/<id>/plugin.wasm (+ host tests).
+plugins:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export CARGO_TARGET_DIR="$PWD/target/plugins"
+    for dir in plugins/*/; do
+        name="$(sed -n 's/^name = "\(.*\)"/\1/p' "$dir/Cargo.toml" | head -1)"
+        cargo test --manifest-path "$dir/Cargo.toml" -q
+        cargo build --manifest-path "$dir/Cargo.toml" --release --target wasm32-unknown-unknown
+        cp "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/${name//-/_}.wasm" "$dir/plugin.wasm"
+    done
+
+# Fail if a committed plugin.wasm is not what its source builds to (CI + release).
+plugins-check: plugins
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "$(git status --porcelain -- plugins)" ]; then
+        git status --short -- plugins
+        echo "plugins/ differs from a fresh build: run \`just plugins\` and commit the result" >&2
+        exit 1
+    fi
+
 # Recipe fixture tests; optionally one app: `just fixtures git`
 fixtures app="":
     CARROVA_FIXTURE_FILTER="{{app}}" cargo test -p carrova-recipe --test fixtures -- --nocapture
+
+# Only crates without C build deps: blake3 (manifest) and ring (transport) need
+# a target C toolchain, so everything above them is left to the macOS/Windows CI jobs.
+
+# Cross-OS `cargo check` for macOS (arm64) and Windows from Linux
+check-targets:
+    for target in aarch64-apple-darwin x86_64-pc-windows-msvc; do rustup target add "$target" && cargo check --target "$target" --all-targets -p carrova-platform -p carrova-recipe -p carrova-crypto -p carrova-plugin -p carrova-report; done
 
 # Validate every recipe in recipes/ (schema + policy issues)
 recipes-validate:
@@ -40,7 +72,10 @@ lint:
     RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 
 # Everything CI would run
-ci: lint build test fixtures bindings-check test-layout ui-lint ui-test
+ci: ci-portable bindings-check test-layout ui-lint ui-test
+
+# The part of `ci` that runs on every OS (the macOS/Windows CI jobs)
+ci-portable: lint build test fixtures
 
 # End-to-end migration in clean Ubuntu containers (needs docker).
 # `just e2e --archive FILE` imports an existing archive instead of a seeded one.

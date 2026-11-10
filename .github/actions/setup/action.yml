@@ -9,7 +9,7 @@ inputs:
     description: Install the Rust toolchain pinned in rust-toolchain.toml and restore the cargo cache.
     default: "false"
   tauri-deps:
-    description: Install the WebKitGTK system libraries the carrova-desktop crate links against.
+    description: Install the WebKitGTK system libraries the carrova-desktop crate links against (Linux only; macOS/Windows need none).
     default: "false"
   node:
     description: Install pnpm + Node 24 and the locked front-end dependencies.
@@ -30,7 +30,7 @@ runs:
         tool: just@1.58.0
 
     - name: Install Tauri system libraries
-      if: inputs.tauri-deps == 'true'
+      if: inputs.tauri-deps == 'true' && runner.os == 'Linux'
       shell: bash
       run: just setup-ubuntu
 

@@ -46,6 +46,9 @@
 /crates/carrova-crypto/              @carrova/core
 /crates/carrova-transport/           @carrova/core
 /crates/carrova-bundle/              @carrova/core
+/crates/carrova-plugin/              @carrova/core
+# Plugins run code on users' machines: core tier only, never community.
+/plugins/                           @carrova/core
 /keys/                              @carrova/core
 /.github/                           @carrova/core
 /SECURITY.md                        @carrova/core
