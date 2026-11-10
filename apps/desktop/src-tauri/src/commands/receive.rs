@@ -2,8 +2,9 @@
 
 use std::path::PathBuf;
 
-use carrova_core::{Checklist, PlanOptions, SessionId};
+use carrova_core::{Checklist, PlanEdit, PlanOptions, SessionId};
 use carrova_view::ipc::{PlanReply, SessionOpened};
+use carrova_view::lan::NearbyPeer;
 use tauri::{AppHandle, State};
 
 use super::reply;
@@ -46,6 +47,17 @@ pub async fn plan(
     reply(&app, ops::receive::plan(&state, &session, options).await)
 }
 
+/// `CarrovaPort.editPlan`.
+#[tauri::command]
+pub async fn edit_plan(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    session: SessionId,
+    edits: Vec<PlanEdit>,
+) -> Result<PlanReply, CommandError> {
+    reply(&app, ops::receive::edit_plan(&state, &session, edits).await)
+}
+
 /// `CarrovaPort.planOptions`.
 #[tauri::command]
 pub async fn plan_options(
@@ -83,6 +95,21 @@ pub async fn set_transfer_paused(
     paused: bool,
 ) -> Result<(), CommandError> {
     ops::receive::set_transfer_paused(&state, &session, paused)
+}
+
+/// `CarrovaPort.retryConnection`.
+#[tauri::command]
+pub async fn retry_connection(
+    state: State<'_, AppState>,
+    session: SessionId,
+) -> Result<(), CommandError> {
+    ops::receive::retry_connection(&state, &session)
+}
+
+/// `CarrovaPort.browseNearby`.
+#[tauri::command]
+pub async fn browse_nearby(state: State<'_, AppState>) -> Result<Vec<NearbyPeer>, CommandError> {
+    ops::receive::nearby(&state).await
 }
 
 /// `CarrovaPort.ignoreFreeSpace`.

@@ -1,6 +1,6 @@
 //! Recipe commands.
 
-use carrova_view::ipc::{CatalogEntry, RecipesStatus, RecipesUpdate};
+use carrova_view::ipc::{CatalogEntry, RecipesCheck, RecipesStatus, RecipesUpdate};
 use tauri::State;
 
 use crate::command_error::CommandError;
@@ -23,6 +23,12 @@ pub async fn recipes_status(state: State<'_, AppState>) -> Result<RecipesStatus,
 #[tauri::command]
 pub async fn recipes_update(state: State<'_, AppState>) -> Result<RecipesUpdate, CommandError> {
     ops::recipes::update(&state).await
+}
+
+/// `CarrovaPort.recipesCheck`.
+#[tauri::command]
+pub async fn recipes_check(state: State<'_, AppState>) -> Result<RecipesCheck, CommandError> {
+    ops::recipes::check(&state).await
 }
 
 /// `CarrovaPort.recipesReset`.

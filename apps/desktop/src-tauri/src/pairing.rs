@@ -92,10 +92,10 @@ impl BridgePrompt {
 }
 
 impl SendPrompt for BridgePrompt {
-    fn show_code(&mut self, ticket: &Ticket, offer: CodeOffer) {
+    fn show_code(&mut self, ticket: &Ticket, offer: CodeOffer, expires_in: Duration) {
         self.out.emit(&BridgeEvent::PairingCode {
             session: self.session.clone(),
-            code: code_view(ticket, offer),
+            code: code_view(ticket, offer, expires_in),
         });
     }
 
