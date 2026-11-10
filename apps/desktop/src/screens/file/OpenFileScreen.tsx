@@ -19,7 +19,7 @@ export function OpenFileScreen({
       actions={
         <ActionBar
           start={
-            <Button icon="back" onClick={on.onBack}>
+            <Button kind="quiet" icon="back" onClick={on.onBack}>
               {t('action.back')}
             </Button>
           }

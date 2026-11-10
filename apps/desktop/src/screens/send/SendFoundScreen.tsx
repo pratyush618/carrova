@@ -10,23 +10,30 @@ import {
   LinkButton,
   Note,
   Progress,
+  Search,
+  Segmented,
   Status,
+  type RouteEnd,
 } from '../../ui';
-import { FoundSelection, selectionTotals } from './FoundSelection';
-import type { FoundIntents, FoundModel, FoundPurpose } from './model';
+import { FoundSelection } from './FoundSelection';
+import { FOUND_PRESETS, type FoundIntents, type FoundModel, type FoundPurpose } from './model';
+import { RouteChip, SendRail } from './SendRail';
+import './send.css';
 
 export interface SendFoundScreenProps {
   readonly model: FoundModel;
   readonly purpose: FoundPurpose;
+  /** This computer, once the engine has said (route chip and rail). */
+  readonly here?: RouteEnd | null;
   readonly on: FoundIntents;
 }
 
 /** "Here's what we found": the one selection screen for sending and for saving a file. */
-export function SendFoundScreen({ model, purpose, on }: SendFoundScreenProps) {
+export function SendFoundScreen({ model, purpose, here = null, on }: SendFoundScreenProps) {
   const { t } = useTranslation();
   const format = useFormat();
   const back = (
-    <Button icon="back" onClick={on.onBack}>
+    <Button kind="quiet" icon="back" onClick={on.onBack}>
       {t('action.back')}
     </Button>
   );
@@ -35,7 +42,15 @@ export function SendFoundScreen({ model, purpose, on }: SendFoundScreenProps) {
     case 'scanning':
       return (
         <FlowLayout
-          actions={<ActionBar start={<Button onClick={on.onBack}>{t('action.cancel')}</Button>} />}
+          actions={
+            <ActionBar
+              start={
+                <Button kind="quiet" onClick={on.onBack}>
+                  {t('action.cancel')}
+                </Button>
+              }
+            />
+          }
         >
           <Head title={t('send.found.scanningTitle')} lede={t('send.found.scanningLede')} />
           <Status>
@@ -67,17 +82,32 @@ export function SendFoundScreen({ model, purpose, on }: SendFoundScreenProps) {
         </FlowLayout>
       );
     case 'found': {
-      const size = format.bytes(selectionTotals(model.apps).bytes);
-      const withKeys = model.asks.some((a) => a.kind === 'secret' && a.answer === 'bring');
+      const { facts } = model;
+      const empty = model.groups.length === 0 && model.secrets.length === 0;
+      const note = {
+        apps: t('count.apps', { count: facts.apps }),
+        size: format.bytes(facts.bytes),
+      };
       return (
         <FlowLayout
+          {...(purpose === 'send' && { route: <RouteChip here={here} /> })}
+          rail={<SendRail move={{ here, facts }} purpose={purpose} onChange={on.onCustomize} />}
           actions={
             <ActionBar
-              start={<Button onClick={on.onCustomize}>{t('send.found.customize')}</Button>}
+              start={
+                <>
+                  <Button onClick={on.onCustomize}>{t('send.found.customize')}</Button>
+                  {on.onSaveInstead && (
+                    <Button kind="quiet" icon="archive" onClick={on.onSaveInstead}>
+                      {t('send.found.saveInstead')}
+                    </Button>
+                  )}
+                </>
+              }
               note={
-                withKeys
-                  ? t('send.found.noteWithKeys', { size })
-                  : t('send.found.noteNoKeys', { size })
+                facts.keys === 0
+                  ? t('send.found.noteNoKeys', note)
+                  : t('send.found.noteWithKeys', { ...note, count: facts.keys })
               }
               end={
                 <Button kind="primary" disabled={model.issues.length > 0} onClick={on.onContinue}>
@@ -87,10 +117,46 @@ export function SendFoundScreen({ model, purpose, on }: SendFoundScreenProps) {
             />
           }
         >
-          <FoundSelection apps={model.apps} asks={model.asks} on={on} />
+          <Head
+            title={t('send.found.title')}
+            lede={t('send.found.lede', {
+              apps: t('count.apps', { count: facts.totalApps }),
+              device: here?.name ?? t('send.found.thisComputer'),
+            })}
+          />
           {model.issues.map((issue) => (
             <Banner key={issue} tone="danger" title={t('send.found.issue')} body={issue} />
           ))}
+          <div className="s-found-tools">
+            <Search
+              label={t('send.found.filter')}
+              placeholder={t('send.found.filter')}
+              value={model.filter}
+              onChange={on.onFilter}
+            />
+            <Segmented
+              label={t('send.found.presets')}
+              options={FOUND_PRESETS.map((value) => ({
+                value,
+                label: t(`send.found.preset.${value}`),
+              }))}
+              value={model.preset}
+              onChange={on.onPreset}
+            />
+          </div>
+          {empty ? (
+            <Note center>{t('send.found.noMatch', { filter: model.filter.trim() })}</Note>
+          ) : (
+            <FoundSelection groups={model.groups} secrets={model.secrets} on={on} />
+          )}
+          {model.unrecognised > 0 && (
+            <Note>
+              {t('send.found.notListed')}{' '}
+              <LinkButton onClick={on.onPickFolders}>
+                {t('send.found.unrecognised', { count: model.unrecognised })}
+              </LinkButton>
+            </Note>
+          )}
         </FlowLayout>
       );
     }

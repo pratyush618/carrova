@@ -34,12 +34,17 @@ export function SaveLockScreen({
       actions={
         <ActionBar
           start={
-            <Button icon="back" onClick={on.onBack}>
+            <Button kind="quiet" icon="back" onClick={on.onBack}>
               {t('action.back')}
             </Button>
           }
           end={
-            <Button kind="primary" disabled={!model.canSave} onClick={on.onSave}>
+            <Button
+              kind="primary"
+              busy={model.saving}
+              disabled={!model.canSave}
+              onClick={on.onSave}
+            >
               {model.saving ? t('file.lock.saving') : t('file.lock.save')}
             </Button>
           }

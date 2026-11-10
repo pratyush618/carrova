@@ -1,59 +1,100 @@
 import { APPS, GB, KB, MB, RECEIVER, SENDER } from '../shared/fixtures';
+import type { RouteEnd } from '../../ui';
+import type { AppRef } from '../shared/model';
 import type {
   CustomizeModel,
   DeliveredModel,
   FoundApp,
+  FoundGroup,
   FoundModel,
+  LinkedModel,
   LiveModel,
+  MoveFacts,
   PairingModel,
-  SensitiveAsk,
+  SecretItem,
+  SendMove,
   UnrecognisedModel,
 } from './model';
 import { transferAt } from '../shared/transferFixtures';
 
-const FOUND_APPS: readonly FoundApp[] = [
-  { ...APPS.git, what: 'Name, email, aliases, global ignore', files: 2, included: true },
-  { ...APPS.ssh, what: 'Server list and shortcuts', files: 3, included: true },
-  { ...APPS.gpg, what: 'Public keys and trust settings', files: 4, included: true },
-  { ...APPS.shell, what: 'History, aliases and prompt theme', files: 15, included: true },
-  { ...APPS.vscode, what: 'Settings, keybindings, snippets', files: 388, included: true },
+const app = (ref: AppRef, what: string, files: number, bytes = 0): FoundApp => ({
+  ...ref,
+  what,
+  files,
+  bytes,
+  included: true,
+});
+
+const GROUPS: readonly FoundGroup[] = [
+  {
+    category: 'dev-tools',
+    apps: [app(APPS.git, 'Name, email, aliases, global ignore', 2, 4 * KB)],
+  },
+  { category: 'editors', apps: [app(APPS.vscode, 'Settings, keybindings, snippets', 388, GB)] },
+  {
+    category: 'security',
+    apps: [
+      app(APPS.ssh, 'Server list and shortcuts', 3, 14 * KB),
+      { ...app(APPS.gpg, 'Public keys and trust settings', 4, 96 * KB), included: false },
+    ],
+  },
+  {
+    category: 'shells',
+    apps: [app(APPS.shell, 'History, aliases and prompt theme', 15, 2.3 * MB)],
+  },
 ];
 
-export const ASKS: readonly SensitiveAsk[] = [
+export const SECRETS: readonly SecretItem[] = [
   {
     key: 'ssh/keys',
-    title: 'Your SSH keys',
+    app: APPS.ssh,
+    label: 'SSH key pairs (private keys)',
     why: 'They log you in to servers and GitHub. Anyone with a copy can do the same, as you.',
-    kind: 'secret',
-    answer: 'leave',
+    paths: ['~/.ssh/id_ed25519', '~/.ssh/id_ed25519_work'],
+    bytes: 6 * KB,
+    brought: false,
   },
   {
     key: 'gpg/secret-keys',
-    title: 'Your GnuPG secret keys',
+    app: APPS.gpg,
+    label: 'GnuPG secret keys',
     why: 'They sign your commits and open mail sent to you. Anyone with a copy can do both.',
-    kind: 'secret',
-    answer: 'leave',
+    paths: ['~/.gnupg/private-keys-v1.d'],
+    bytes: 12 * KB,
+    brought: false,
   },
   {
-    key: 'shell/rc',
-    title: 'Shell startup files',
-    why: 'They run every time you open a terminal. Bring them if you wrote or checked them yourself.',
-    kind: 'runs-code',
-    answer: 'leave',
+    key: 'git/credentials',
+    app: APPS.git,
+    label: 'Stored Git credentials',
+    why: null,
+    paths: ['~/.git-credentials'],
+    bytes: 1 * KB,
+    brought: false,
   },
 ];
+
+export const HERE: RouteEnd = { os: 'linux', name: SENDER };
+
+const FACTS: MoveFacts = { apps: 4, totalApps: 5, bytes: 1.2 * GB, keys: 0, caches: false };
+
+export const move: SendMove = { here: HERE, facts: FACTS };
 
 export const foundScanning: FoundModel = {
   status: 'scanning',
   foundSoFar: ['Git', 'SSH', 'GnuPG'],
   progress: 0.45,
 };
-export const foundReady: FoundModel = {
+export const foundReady = {
   status: 'found',
-  apps: FOUND_APPS,
-  asks: ASKS,
+  groups: GROUPS,
+  secrets: SECRETS,
+  filter: '',
+  preset: 'suggested',
+  unrecognised: 3,
+  facts: FACTS,
   issues: [],
-};
+} satisfies FoundModel;
 export const foundNothing: FoundModel = { status: 'nothing', knownApps: 15 };
 
 export const customize: CustomizeModel = {
@@ -215,16 +256,23 @@ export const pairingRenewed: PairingModel = {
 };
 export const pairingLocked: PairingModel = { status: 'locked' };
 
-export const liveReviewing: LiveModel = {
-  status: 'reviewing',
-  here: SENDER,
-  peer: RECEIVER,
+/** Paired with a Mac: the cross-OS banner shows. */
+export const linkedCrossOs: LinkedModel = {
+  ...move,
+  peer: { name: RECEIVER, os: 'mac_os' },
   replaced: 3,
 };
-export const liveMoving: LiveModel = { status: 'transfer', transfer: transferAt('moving', 'send') };
-export const liveReconnecting: LiveModel = {
+export const linkedSameOs: LinkedModel = {
+  ...linkedCrossOs,
+  peer: { name: RECEIVER, os: 'linux' },
+};
+export const liveMoving = {
+  status: 'transfer',
+  transfer: transferAt('moving', 'send'),
+} satisfies LiveModel;
+export const liveReconnecting = {
   status: 'transfer',
   transfer: transferAt('reconnecting', 'send'),
-};
+} satisfies LiveModel;
 
 export const delivered: DeliveredModel = { peer: RECEIVER, apps: 5, bytes: 1.2 * GB };

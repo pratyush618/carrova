@@ -1,0 +1,11 @@
+/* "Filter apps" beside the preset switch; the preset wraps under on narrow windows. */
+.s-found-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-2);
+}
+
+.s-found-tools > .p-search {
+  flex: 1 1 14rem;
+}

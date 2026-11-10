@@ -8,7 +8,13 @@ import {
   sendFlowReducer,
   type SendFlowAction,
 } from '@/flows/send/sendFlow';
-import { foundModel, pairingModel, sendStep } from '@/flows/send/sendProgressViews';
+import {
+  foundModel,
+  linkedModel,
+  pairingModel,
+  sendMove,
+  sendStep,
+} from '@/flows/send/sendProgressViews';
 
 const run = (...actions: SendFlowAction[]) => actions.reduce(sendFlowReducer, initialSendFlow);
 const scanned = run({ type: 'scan', action: { type: 'ok', value: scan } });
@@ -79,6 +85,34 @@ describe('send flow', () => {
       error: error('network'),
     });
     expect(sendStep(fail('network'), { ...session, link: 'connected' })).toBe('code');
+  });
+
+  it("names the receiver and its OS once linked, and keeps the move's facts", () => {
+    const here = { os: 'linux' as const, name: 'ana-laptop' };
+    const session = {
+      ...emptySession(scan.session),
+      link: 'connected' as const,
+      peer: '192.168.1.7:47822',
+    };
+    expect(linkedModel(scanned, session, here, 'Another computer').peer).toEqual({
+      name: '192.168.1.7:47822',
+      os: null,
+    });
+    const inventory = {
+      os: 'mac_os' as const,
+      carrova_version: '0.1.0',
+      apps: [],
+      free_space: null,
+    };
+    const linked = linkedModel(
+      scanned,
+      { ...session, peerName: 'ana-mbp', peerInventory: inventory },
+      here,
+      'Another computer',
+    );
+    expect(linked).toMatchObject({ here, peer: { name: 'ana-mbp', os: 'mac_os' }, replaced: 0 });
+    expect(linked.facts).toEqual(sendMove(scanned, here).facts);
+    expect(sendMove(initialSendFlow, here).facts).toBeNull();
   });
 
   it('goes back to the selection, keeping it', () => {
