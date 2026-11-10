@@ -39,8 +39,11 @@ fn hook_records_a_redacted_panic_only_while_consent_is_allowed() {
         report.message_chain[0],
         "cannot read ~/<path> for code <pairing-code>"
     );
+    // `file!()`: the location as the compiler spells it on this OS.
     assert!(
-        report.message_chain[1].starts_with("at crates/carrova-report/tests/panic_hook/main.rs:")
+        report.message_chain[1].starts_with(&format!("at {}:", file!())),
+        "{}",
+        report.message_chain[1]
     );
     assert!(
         report
