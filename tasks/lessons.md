@@ -14,3 +14,7 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 ## 2026-11-08 — Load monitor was silently deaf (mawk input buffering)
 - **What happened:** the pressure monitor (`tail -F log | awk …`) never fired while load hit 17 for ~3 min; mawk block-buffers piped *input*, so lines sat unread. A test-loop agent also ran 20 full suites while another agent compiled.
 - **Rule:** stream filters on pipes use `mawk -W interactive` / `grep --line-buffered`, and a new monitor is proven by piping a known-bad sample line through it before trusting silence. Agent briefs with repeat loops must check load per iteration, not once.
+
+## 2026-11-10 — Session crashes killed CI and agents mid-run
+- **What happened:** the Claude process crashed twice during W4 (heavy `just ci` + agents, load ~17); background builds and agents died with it, forcing restarts and partial-edit recovery.
+- **Rule:** long verification (`just ci`, e2e suites) runs detached and niced: `setsid nohup nice -n 15 bash -c 'just ci > /tmp/ci.log 2>&1; echo "CI EXIT $?" >> /tmp/ci.log' &`, then wait on the log with an until-loop. Never run a full CI alongside compiling agents; after a crash, check `git status` and resume agents with SendMessage rather than restarting from scratch.
