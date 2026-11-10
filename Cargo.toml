@@ -36,7 +36,7 @@ ctrlc = "3.5"
 data-encoding = "2.11"
 # Recipe bundle signatures (Ed25519, audited dalek).
 ed25519-dalek = { version = "3.0.0", default-features = false, features = ["fast", "zeroize", "alloc"] }
-fastcdc = "3"
+fastcdc = "5"
 # Oneshot replies from desktop session workers to async Tauri commands.
 futures-channel = { version = "0.3", default-features = false, features = ["std"] }
 getrandom = "0.4"
@@ -44,9 +44,9 @@ globset = "0.4"
 # Cross-platform interface enumeration (transport fallback address / broadcast targets).
 if-addrs = "0.15"
 # SHA-2 generation pinned to spake2 0.4 (digest 0.10): hkdf/hmac/sha2 share it.
-hkdf = "0.12.4"
-hmac = "0.12.1"
-jsonschema = { version = "0.33", default-features = false }
+hkdf = "0.13.0"
+hmac = "0.13.0"
+jsonschema = { version = "0.60", default-features = false }
 # Windows Known Folder API (semantic roots), safe wrapper (carrova-platform only).
 known-folders = "1.4.2"
 mdns-sd = { version = "0.21.7", default-features = false }
@@ -61,7 +61,7 @@ serde = { version = "1", features = ["derive"] }
 serde_bytes = "0.11.19"
 serde_json = "1"
 serde_yaml_ng = "0.10"
-sha2 = "0.10.9"
+sha2 = "0.11.1"
 # Process listing on macOS/Windows (carrova-platform only; Linux reads /proc).
 sysinfo = { version = "0.40.1", default-features = false, features = ["system"] }
 # UDP socket buffer sizing for QUIC (quinn never sets them).
