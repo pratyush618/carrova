@@ -111,8 +111,10 @@ export interface ReviewModel {
   /** The engine still blocks the plan; Approve waits. */
   readonly blocked: boolean;
   readonly rail: ReviewRail;
-  /** A change is being re-planned; Approve waits. */
+  /** The latest change isn't planned yet (or failed); Approve waits. */
   readonly busy: boolean;
+  /** Why the latest change could not be planned; the plan shown is the engine's last one. */
+  readonly error: BridgeError | null;
 }
 
 /** The review's "This move" rail. */

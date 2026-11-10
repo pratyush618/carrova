@@ -110,6 +110,32 @@ describe('receiving over the LAN', () => {
     expect(replanned?.plan.options.confirmed_sensitive).toEqual([]);
   });
 
+  it('takes back an answer the engine could not plan, says why and waits to approve', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true });
+    await toReview(user);
+    await bringAll(user);
+    vi.spyOn(port, 'editPlan').mockRejectedValueOnce({
+      code: 'invalid_selection',
+      message: 'the plan changed underneath',
+      hint: null,
+    });
+    const [leave] = screen.getAllByRole('radio', { name: 'Leave behind' });
+    if (leave === undefined) throw new Error('no decisions in the fixture');
+    await user.click(leave);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('the plan changed underneath');
+    expect(leave).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Approve and move' })).toBeDisabled();
+
+    await user.click(leave);
+    await vi.waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Approve and move' })).toBeEnabled();
+    });
+    expect(leave).toBeChecked();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('keeps Approve disabled while the plan has a blocker and asks about it', async () => {
     const user = userEvent.setup();
     await renderApp({ returning: true, scenario: 'blocked' });

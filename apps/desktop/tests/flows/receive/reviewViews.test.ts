@@ -29,6 +29,7 @@ const withOptions = (review: PlanReview, patch: Partial<PlanOptions>): PlanRevie
   ...review,
   plan: { ...review.plan, options: { ...review.plan.options, ...patch } },
 });
+const ready = { status: 'ready', value: plan } as const;
 const [first, second] = plan.offered;
 if (first === undefined || second === undefined) throw new Error('fixture offers too little');
 
@@ -127,11 +128,20 @@ describe('review views', () => {
   it('blocks Approve while re-planning or while the engine still blocks', () => {
     const running = { kind: 'running_app', app: 'neovim', name: 'Neovim' } as const;
     const blocked = { ...plan, plan: { ...plan.plan, blockers: [running] } };
-    expect(reviewModel(blocked, inputs(), true, route)).toMatchObject({
+    const loading = { status: 'loading', last: blocked } as const;
+    expect(reviewModel(blocked, inputs(), loading, route)).toMatchObject({
       busy: true,
       blocked: true,
+      error: null,
     });
-    expect(reviewModel(plan, inputs(), false, route).blocked).toBe(false);
+    expect(reviewModel(plan, inputs(), ready, route).blocked).toBe(false);
+  });
+
+  it('keeps Approve blocked and says why after a change failed to plan', () => {
+    const error = { code: 'invalid_selection', message: 'no', hint: null } as const;
+    const failed = { status: 'failed', error, last: plan } as const;
+    expect(reviewModel(plan, inputs(), failed, route)).toMatchObject({ busy: true, error });
+    expect(reviewModel(plan, inputs(), ready, route)).toMatchObject({ busy: false, error: null });
   });
 
   it('sums cross-system mappings into one suggestion, by app', () => {
@@ -151,21 +161,21 @@ describe('review views', () => {
         ],
       },
     };
-    expect(reviewModel(mapped, inputs(), false, route).mapped).toEqual({
+    expect(reviewModel(mapped, inputs(), ready, route).mapped).toEqual({
       from: 'mac_os',
       to: 'linux',
       apps: 1,
     });
-    expect(reviewModel(plan, inputs(), false, route).mapped).toBeNull();
+    expect(reviewModel(plan, inputs(), ready, route).mapped).toBeNull();
   });
 
   it('says on the rail which keys come along once every one is answered', () => {
     const secrets = planUnconfirmed.offered.filter((o) => o.sensitive !== null);
-    expect(reviewModel(planUnconfirmed, inputs(), false, route).rail.keys).toBeNull();
+    expect(reviewModel(planUnconfirmed, inputs(), ready, route).rail.keys).toBeNull();
     const answers = Object.fromEntries(
       secrets.map((o, i) => [o.key, i === 0 ? ('bring' as const) : ('leave' as const)]),
     );
-    expect(reviewModel(planUnconfirmed, inputs({ answers }), false, route).rail.keys).toEqual([
+    expect(reviewModel(planUnconfirmed, inputs({ answers }), ready, route).rail.keys).toEqual([
       secrets[0]?.label,
     ]);
   });
@@ -182,14 +192,14 @@ describe('review views', () => {
 
   it('shows the retention and space the engine planned with, the disk size when known', () => {
     const kept = withOptions(plan, { retention: { keep_for: { days: 30 } } });
-    expect(reviewModel(kept, inputs(), false, route).retention).toEqual({ keep_for: { days: 30 } });
+    expect(reviewModel(kept, inputs(), ready, route).retention).toEqual({ keep_for: { days: 30 } });
     expect(detailsModel(kept).choices.retention).toEqual({ keep_for: { days: 30 } });
     const [fs] = plan.space.filesystems;
     if (fs === undefined) throw new Error('fixture checks no filesystem');
     const sized = { ...plan, space: { ...plan.space, filesystems: [{ ...fs, total: 500 }] } };
-    expect(reviewModel(sized, inputs(), false, route).space.total).toBe(500);
+    expect(reviewModel(sized, inputs(), ready, route).space.total).toBe(500);
     const unsized = { ...plan, space: { ...plan.space, filesystems: [{ ...fs, total: null }] } };
-    expect(reviewModel(unsized, inputs(), false, route).space.total).toBeNull();
+    expect(reviewModel(unsized, inputs(), ready, route).space.total).toBeNull();
   });
 
   it('lists apps to install, what arrived, and skipped items as failures', () => {

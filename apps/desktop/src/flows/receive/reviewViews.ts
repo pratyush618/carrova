@@ -10,6 +10,7 @@ import type {
   ReviewModel,
 } from '../../screens/receive/model';
 import type { Computer, MoveRoute } from '../../screens/shared/model';
+import type { Remote } from '../remote';
 import { appOf } from '../shared/keys';
 import { appRef } from '../shared/paths';
 
@@ -168,7 +169,7 @@ function railOf(
 export function reviewModel(
   review: PlanReview,
   inputs: ReviewInputs,
-  busy: boolean,
+  remote: Remote<PlanReview>,
   route: MoveRoute,
 ): ReviewModel {
   const asked = decisions(review, inputs);
@@ -184,7 +185,8 @@ export function reviewModel(
     retention: review.plan.options.retention,
     blocked: review.plan.blockers.length > 0,
     rail: railOf(review, asked, route),
-    busy,
+    busy: remote.status !== 'ready',
+    error: remote.status === 'failed' ? remote.error : null,
   };
 }
 

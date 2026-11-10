@@ -15,6 +15,7 @@ import type {
 } from '../../engine/types';
 import type { DecisionAnswer, ImportChoices } from '../../screens/receive/model';
 import { current } from '../remote';
+import type { Answers } from './reviewViews';
 import { connectTarget } from './entry';
 import { answerEdits, choiceEdits } from './planOptions';
 import { initialReceiveFlow, receiveFlowReducer, type ReceiveFlowState } from './receiveFlow';
@@ -92,18 +93,35 @@ export function useReceiveFlow(
 
   /** Edits in the order the user made them, each sent once the one before is answered. */
   const edits = useRef<Promise<unknown>>(Promise.resolve());
+  /** Answers shown before their edit is planned: the edit that set each, and the last planned one. */
+  const answering = useRef({
+    by: new Map<string, number>(),
+    planned: new Map<string, DecisionAnswer>(),
+  });
   const edit = useCallback(
-    (changes: PlanEdit[]) => {
+    (changes: PlanEdit[], answers: Answers = {}) => {
       if (session === null || changes.length === 0) return;
       const mine = ++ticket.current;
+      const { by, planned } = answering.current;
+      for (const [key, answer] of Object.entries(answers)) {
+        by.set(key, mine);
+        dispatch({ type: 'answer', key, answer });
+      }
       dispatch({ type: 'plan', action: { type: 'start' } });
       const reply: Promise<PlanReview> = edits.current.then(() => port.editPlan(session, changes));
       edits.current = reply.catch(() => undefined);
       reply.then(
         (value) => {
+          for (const [key, answer] of Object.entries(answers)) planned.set(key, answer);
           if (mine === ticket.current) dispatch({ type: 'plan', action: { type: 'ok', value } });
         },
         (reason: unknown) => {
+          // Take back what the engine didn't plan, unless a newer edit has answered it since.
+          for (const key of Object.keys(answers)) {
+            if (by.get(key) === mine) {
+              dispatch({ type: 'answer', key, answer: planned.get(key) ?? null });
+            }
+          }
           if (mine === ticket.current) {
             dispatch({ type: 'plan', action: { type: 'fail', error: toBridgeError(reason) } });
           }
@@ -234,8 +252,7 @@ export function useReceiveFlow(
       choosePath,
       open,
       answer: (key: ItemKey, answer: DecisionAnswer) => {
-        dispatch({ type: 'answer', key, answer });
-        edit(answerEdits(key, answer));
+        edit(answerEdits(key, answer), { [key]: answer });
       },
       setRule: (item: ItemKey, rule: ConflictRule) => {
         edit([{ kind: 'item_rule', item, rule }]);
@@ -257,12 +274,13 @@ export function useReceiveFlow(
       },
       leavePlugin: (plugin: string) => {
         const items = state.asked.plugins[plugin]?.items ?? [];
-        for (const key of items) dispatch({ type: 'answer', key, answer: 'leave' });
-        edit(items.flatMap((key) => answerEdits(key, 'leave')));
+        edit(
+          items.flatMap((key) => answerEdits(key, 'leave')),
+          Object.fromEntries(items.map((key) => [key, 'leave' as const])),
+        );
       },
       override: (override: PlanOverride, app: string | null) => {
-        if (app !== null) dispatch({ type: 'answer', key: app, answer: 'closed' });
-        edit([{ kind: 'override', check: override }]);
+        edit([{ kind: 'override', check: override }], app === null ? {} : { [app]: 'closed' });
       },
       approve,
       setPaused: (paused: boolean) => {

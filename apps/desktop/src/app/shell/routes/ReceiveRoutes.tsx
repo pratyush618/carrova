@@ -65,7 +65,7 @@ function ReviewRoute() {
   }
   return (
     <RecvReviewScreen
-      model={reviewModel(plan, receive.state, review.status === 'loading', route)}
+      model={reviewModel(plan, receive.state, review, route)}
       on={{
         onAnswer: receive.answer,
         onApplyWhileOpen: (app) => {

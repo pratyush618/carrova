@@ -56,7 +56,8 @@ export type ReceiveFlowAction =
   /** A session picked up again, with the options it last planned with (if any). */
   | { readonly type: 'resumed'; readonly session: SessionId; readonly options: PlanOptions | null }
   | { readonly type: 'plan'; readonly action: RemoteAction<PlanReview> }
-  | { readonly type: 'answer'; readonly key: string; readonly answer: DecisionAnswer }
+  /** `null` takes the answer back (its edit failed). */
+  | { readonly type: 'answer'; readonly key: string; readonly answer: DecisionAnswer | null }
   | { readonly type: 'apply'; readonly action: RemoteAction<Checklist> };
 
 export const initialReceiveFlow: ReceiveFlowState = {
@@ -119,8 +120,11 @@ export function receiveFlowReducer(
             ? rememberAsked(state.asked, action.action.value)
             : state.asked,
       };
-    case 'answer':
-      return { ...state, answers: { ...state.answers, [action.key]: action.answer } };
+    case 'answer': {
+      const { key, answer } = action;
+      const rest = Object.fromEntries(Object.entries(state.answers).filter(([k]) => k !== key));
+      return { ...state, answers: answer === null ? rest : { ...rest, [key]: answer } };
+    }
     case 'apply':
       return { ...state, apply: remoteReducer(state.apply, action.action) };
   }

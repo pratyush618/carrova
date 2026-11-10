@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next';
+import { errorText } from '../../engine/errors';
 import { useFormat } from '../../i18n/useFormat';
 import {
   ActionBar,
   AppGlyph,
+  Banner,
   Button,
   FlowLayout,
   GroupHead,
@@ -116,6 +118,7 @@ export function RecvReviewScreen({ model, on }: RecvReviewScreenProps) {
         : t('receive.review.ready', { size: format.bytes(model.rail.bytes) });
   const { counts } = model;
   const kept = retentionCopy(model.retention);
+  const failure = model.error === null ? null : errorText(model.error, t);
   return (
     <FlowLayout
       rail={<ReviewRail model={model} />}
@@ -140,6 +143,7 @@ export function RecvReviewScreen({ model, on }: RecvReviewScreenProps) {
         title={t('receive.review.title')}
         lede={t(`receive.review.lede.${kept.key}`, { count: kept.count })}
       />
+      {failure && <Banner tone="danger" title={failure.title} body={failure.body} />}
       <section aria-label={t('receive.review.counts')}>
         <Stats>
           <Stat

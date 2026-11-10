@@ -97,6 +97,7 @@ const review = (answered: boolean): ReviewModel => ({
     keys: answered ? ['Your SSH keys'] : null,
   },
   busy: false,
+  error: null,
 });
 
 export const reviewDecide = review(false);
