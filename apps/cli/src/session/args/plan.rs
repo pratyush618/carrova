@@ -71,6 +71,15 @@ pub struct PlanArgs {
     /// Discard the rollback point right after a successful apply.
     #[arg(long)]
     discard_rollback: bool,
+    /// Keep the rollback point for DAYS days after the apply, then prune it
+    /// (default: until `carrova sessions dismiss`).
+    #[arg(
+        long,
+        value_name = "DAYS",
+        conflicts_with = "discard_rollback",
+        value_parser = clap::value_parser!(u32).range(1..)
+    )]
+    keep_undo_for: Option<u32>,
     /// Don't ask for confirmation (required when stdin is not a terminal).
     #[arg(short, long)]
     yes: bool,
@@ -153,6 +162,9 @@ impl PlanArgs {
         }
         if self.discard_rollback {
             o.retention = Retention::DiscardOnSuccess;
+        }
+        if let Some(days) = self.keep_undo_for {
+            o.retention = Retention::KeepFor { days };
         }
         o
     }

@@ -24,10 +24,12 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use carrova_core::lan::browse_nearby;
 use carrova_core::session::{Role, SessionId};
 use carrova_core::{
     Cancel, CoreError, Engine, Exporter, Importer, SendHandle, SendOutcome, SendReport, Ticket,
 };
+use carrova_view::lan::nearby_peer;
 use clap::Args;
 use serde_json::json;
 
@@ -37,7 +39,7 @@ use crate::interrupt;
 use crate::output::{OutputFormat, print_json};
 use crate::prompt::{Consent, confirm, ensure_can_confirm, pairing_ticket};
 use crate::recipes::RecipeLocations;
-use crate::render::lan::recovery_hint;
+use crate::render::lan::{nearby, recovery_hint};
 use crate::render::session::{ChecklistOf, checklist};
 use crate::render::text::human_size;
 use crate::session::{PlanArgs, SelectionArgs, choose, engine, review_and_apply, start_exporter};
@@ -57,7 +59,7 @@ pub struct SendArgs {
         value_parser = parse_session_id,
         conflicts_with_all = [
             "preset", "include", "exclude", "exclude_path",
-            "confirm_sensitive", "force_unmovable",
+            "confirm_sensitive", "force_unmovable", "allow_plugin",
         ],
     )]
     resume: Option<Option<SessionId>>,
@@ -248,6 +250,19 @@ pub fn receive(
     )
 }
 
+/// Before asking for the code: the senders nearby offering one (best
+/// effort; a failed look says nothing).
+fn show_nearby(platform: &dyn carrova_platform::Platform) {
+    eprintln!("Looking for machines nearby...");
+    match browse_nearby(platform) {
+        Ok(found) => {
+            let peers: Vec<_> = found.iter().map(nearby_peer).collect();
+            eprintln!("{}", nearby(&peers));
+        }
+        Err(e) => tracing::debug!(error = %e, "looking for senders nearby failed"),
+    }
+}
+
 /// The receive session: resumed, or paired with the ticket (asked for if
 /// not given). Ctrl-C cancels the wait for the sender.
 fn open_receive(engine: Engine, a: &ReceiveArgs) -> Result<Importer> {
@@ -264,7 +279,12 @@ fn open_receive(engine: Engine, a: &ReceiveArgs) -> Result<Importer> {
     }
     let ticket = match &a.ticket {
         Some(t) => t.clone(),
-        None => pairing_ticket()?,
+        None => {
+            if std::io::stdin().is_terminal() {
+                show_nearby(engine.platform().as_ref());
+            }
+            pairing_ticket()?
+        }
     };
     let _ctrl_c = interrupt::arm(&cancel, a.plan.format());
     Importer::connect_with(engine, &ticket, cancel).map_err(|e| match e {

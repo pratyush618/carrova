@@ -5,6 +5,8 @@ dev-tools / Git  (binary git, config dir)
 
 dev-tools / OpenSSH  (binary ssh, config dir)
   keys        SSH keys        4.1 kB      3 files  [sensitive]  [off]
+    key home:.ssh/id_ed25519  SHA256:uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s (ed25519, me@host\u{1b}[1A\u{1b}[2K)
+    key home:.ssh/id_rsa  SHA256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU (rsa)
   machine-id  Machine id        10 B       1 file  [unmovable: bound to this machine]
 
 dev-tools / Firefox  (binary firefox, config dir)

@@ -1,4 +1,4 @@
-20261108-120000-aaaaaa  import  done          LAN peer abababababab  [rollback available]
+20261108-120000-aaaaaa  import  done          LAN peer studio\u{1b}[1A\u{1b}[2K (abababababab) · macOS  [rollback available]  [undo until 2023-11-28]
 20261108-110000-bbbbbb  import  failed        LAN (not paired yet)
 20261108-100000-cccccc  export  rolled back   /tmp/a\u{1b}[1A\u{1b}[2K.carrova
 20261108-090000-dddddd  export  scanned       

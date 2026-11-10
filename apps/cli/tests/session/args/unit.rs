@@ -119,3 +119,23 @@ fn allow_plugin_flag_lists_the_allowed_plugins() {
         .collect();
     assert_eq!(ids, ["path-rewrite", "other"]);
 }
+
+#[test]
+fn keep_undo_for_sets_a_retention_of_that_many_days() {
+    use carrova_core::plan::Retention;
+    assert_eq!(options(&[]).retention, Retention::default());
+    assert_eq!(
+        options(&["--keep-undo-for", "14"]).retention,
+        Retention::KeepFor { days: 14 }
+    );
+    let parse_err = |argv: &[&str]| {
+        Import::try_parse_from(
+            ["import", "a.carrova"]
+                .into_iter()
+                .chain(argv.iter().copied()),
+        )
+        .is_err()
+    };
+    assert!(parse_err(&["--keep-undo-for", "0"]));
+    assert!(parse_err(&["--keep-undo-for", "7", "--discard-rollback"]));
+}

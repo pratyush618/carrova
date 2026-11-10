@@ -1,9 +1,12 @@
 //! `carrova recipes update | rollback | reset`: change the installed
-//! bundle. Only these commands ever do; nothing updates recipes
-//! automatically.
+//! bundle (`update --check` only looks). Only these commands ever do;
+//! nothing updates recipes automatically.
 
 use anyhow::Result;
-use carrova_bundle::{BundleError, BundleStore, BundleVersion, UpdateAttempt, UpdateOutcome};
+use carrova_bundle::{
+    BundleError, BundleStore, BundleVersion, CheckAttempt, UpdateAttempt, UpdateOutcome,
+};
+use carrova_view::ipc::RecipesCheck;
 
 use super::error::{Action, explain, retry_later};
 use super::seams::{http_config, trusted_roots};
@@ -27,6 +30,27 @@ pub fn update(url: &str) -> Result<UpdateOutcome> {
     let platform = carrova_platform::current();
     outcome(
         carrova_bundle::update(platform.as_ref(), roots, &http_config(url)),
+        url,
+    )
+}
+
+/// The check attempt for release base `url` as the command's result, in
+/// the desktop's terms ([`RecipesCheck`]) and judged like [`outcome`]: a
+/// bundle that is not published yet is an error that says to retry.
+pub fn checked(attempt: carrova_bundle::Result<CheckAttempt>, url: &str) -> Result<RecipesCheck> {
+    match attempt.map_err(|e| explain(e, Action::Update(url)))?.into() {
+        RecipesCheck::RetryLater => Err(retry_later(url)),
+        check => Ok(check),
+    }
+}
+
+/// [`carrova_bundle::check`] as [`update`] would fetch it; installs
+/// nothing.
+pub fn check(url: &str) -> Result<RecipesCheck> {
+    let roots = trusted_roots().map_err(|e| explain(e, Action::Update(url)))?;
+    let platform = carrova_platform::current();
+    checked(
+        carrova_bundle::check(platform.as_ref(), roots, &http_config(url)),
         url,
     )
 }

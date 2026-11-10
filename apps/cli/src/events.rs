@@ -89,6 +89,7 @@ impl CliSink {
             // `carrova send` shows the warning when it asks for a new code;
             // the receiver's command fails with the pairing error.
             Event::PairingFailed => None,
+            Event::PairingInProgress => Some(lan_report::PAIRING_IN_PROGRESS.to_owned()),
         }
     }
 
