@@ -112,6 +112,8 @@ pub struct FsSpace {
     pub needed: u64,
     /// Free space it has, if known.
     pub available: Option<u64>,
+    /// Its capacity, if known.
+    pub total: Option<u64>,
     /// How much is missing, when known to be short.
     pub short_by: Option<u64>,
 }
@@ -138,6 +140,7 @@ pub fn space_view(plan: &Plan, needs: &[SpaceNeed]) -> SpaceView {
                 what: n.describe(),
                 needed: n.needed,
                 available: n.available,
+                total: n.total,
                 short_by: n
                     .is_short()
                     .then(|| n.needed.saturating_sub(n.available.unwrap_or(0))),

@@ -9,14 +9,19 @@ fn ticket(s: &str) -> Ticket {
 
 #[test]
 fn code_view_offers_fallback_ticket_only_with_an_address() {
-    let v = code_view(&ticket("7-acid-lemon@192.168.1.20:47822"), CodeOffer::First);
+    let v = code_view(
+        &ticket("7-acid-lemon@192.168.1.20:47822"),
+        CodeOffer::First,
+        Duration::from_secs(300),
+    );
     assert_eq!(v.code, "7-acid-lemon");
     assert_eq!(
         v.fallback.as_deref(),
         Some("7-acid-lemon@192.168.1.20:47822")
     );
     assert!(!v.renewed);
-    let v = code_view(&ticket("7-acid-lemon"), CodeOffer::Renewed);
+    assert_eq!(v.expires_in_secs, 300);
+    let v = code_view(&ticket("7-acid-lemon"), CodeOffer::Renewed, Duration::ZERO);
     assert_eq!(v.fallback, None);
     assert!(v.renewed);
 }
@@ -81,8 +86,10 @@ fn pause_view_reports_shortfall() {
         fs: "/home/me/.local/state/carrova".into(),
         available: 100,
         needed: 250,
+        disk: Some("/home".into()),
     };
     let v = pause_view(&reason, Some(&id)).unwrap();
+    assert_eq!(v.disk, Some("/home"));
     assert_eq!((v.shortfall, v.available), (150, 100));
     assert_eq!(v.fs, "/home/me/.local/state/carrova");
     assert_eq!(v.session, Some(&id));

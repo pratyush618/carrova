@@ -1,5 +1,6 @@
 //! Recipe catalogue and bundle payloads.
 
+use carrova_bundle::{CheckAttempt, UpdateCheck};
 use serde::Serialize;
 
 /// Where the loaded recipes came from.
@@ -54,6 +55,45 @@ pub enum RecipesUpdate {
     UpToDate,
     /// The release is being re-published; try again shortly.
     RetryLater,
+}
+
+/// `recipes_check` result: whether a newer bundle is offered (nothing is
+/// installed). The CLI's `recipes update --check` reads the same value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum RecipesCheck {
+    /// A newer, verified bundle is ready to install (`recipes_update`).
+    Available {
+        /// Offered version.
+        version: u64,
+    },
+    /// Already on the newest bundle.
+    UpToDate {
+        /// Installed (and offered) version.
+        version: u64,
+    },
+    /// The offered bundle was rolled back by the user, so it is not offered
+    /// again.
+    Refused {
+        /// Offered version.
+        version: u64,
+    },
+    /// The release is being re-published; try again shortly.
+    RetryLater,
+}
+
+impl From<CheckAttempt> for RecipesCheck {
+    fn from(attempt: CheckAttempt) -> Self {
+        match attempt {
+            CheckAttempt::RetryLater => Self::RetryLater,
+            CheckAttempt::Done(UpdateCheck::Available(pending)) => Self::Available {
+                version: pending.version().0,
+            },
+            CheckAttempt::Done(UpdateCheck::UpToDate(v)) => Self::UpToDate { version: v.0 },
+            CheckAttempt::Done(UpdateCheck::Refused(v)) => Self::Refused { version: v.0 },
+        }
+    }
 }
 
 /// A recipe's effective trust tier (carrova-bundle's `EffectiveTier`), as
