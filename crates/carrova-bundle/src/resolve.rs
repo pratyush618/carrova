@@ -24,6 +24,7 @@
 use std::path::{Path, PathBuf};
 
 use carrova_crypto::sign::{SignError, TrustRoots};
+use carrova_plugin::{Plugin, PluginPackage};
 
 use crate::shipped::open_shipped;
 use crate::{
@@ -111,6 +112,9 @@ pub struct ResolvedRecipes {
     pub recipes: Vec<BundledRecipe>,
     /// Recipes left out (unsupported schema, or failing validation).
     pub skipped: Vec<SkippedRecipe>,
+    /// Plugins from the same source (unsigned with a dev dir), not yet
+    /// compiled.
+    pub plugins: Vec<PluginPackage>,
     /// When the bundle was built (unix seconds); `None` for a dev dir.
     pub created: Option<u64>,
     /// Why an installed bundle was passed over, if one was.
@@ -123,9 +127,30 @@ impl ResolvedRecipes {
             source,
             recipes: catalog.recipes,
             skipped: catalog.skipped,
+            plugins: catalog.plugins,
             created,
             rejected_install: None,
         }
+    }
+
+    /// Compile [`Self::plugins`] for an engine. One that fails to load
+    /// (refused import, broken ABI) is left out and returned as a
+    /// [`BundleError::InvalidPlugin`] for the front-end to warn about.
+    #[must_use]
+    pub fn load_plugins(&self) -> (Vec<Plugin>, Vec<BundleError>) {
+        let mut loaded = Vec::new();
+        let mut failed = Vec::new();
+        for package in &self.plugins {
+            let id = package.manifest.id.to_string();
+            match Plugin::load(package.clone()) {
+                Ok(plugin) => loaded.push(plugin),
+                Err(e) => failed.push(BundleError::InvalidPlugin {
+                    id,
+                    reason: e.to_string(),
+                }),
+            }
+        }
+        (loaded, failed)
     }
 
     /// Recipes of the unsigned tree at `dir`.

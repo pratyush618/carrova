@@ -54,6 +54,9 @@ fn built_bundle_round_trips_into_the_store() {
     );
     let detect = store.detect_index().unwrap();
     assert_eq!(detect.linux.keys().collect::<Vec<_>>(), ["alpha", "beta"]);
+    for per_os in [&detect.macos, &detect.windows] {
+        assert_eq!(per_os.keys().collect::<Vec<_>>(), ["alpha", "beta"]);
+    }
     assert!(
         store
             .root()

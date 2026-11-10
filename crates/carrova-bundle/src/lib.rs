@@ -2,7 +2,7 @@
 //! recipe tree that clients fetch from GitHub Releases (`recipes-vN`
 //! tags) and install without an app release.
 //!
-//! # Bundle format (`format: 1`)
+//! # Bundle format (`format: 3`)
 //!
 //! A bundle is a flat set of files (one release, every asset at the top
 //! level):
@@ -12,13 +12,17 @@
 //! | `index.json` | [`BundleIndex`]. Its **raw bytes** are what is signed. |
 //! | `index.sig.json` | [`IndexSignature`]: `{ cert, sig }`, the signer's [`SignedKeyCert`] and its signature over `index.json` under [`SignContext::BundleIndex`]. |
 //! | `<blake3>.yaml` | One recipe file, named by the lowercase-hex BLAKE3 of its bytes ([`BlobHash`]). |
-//! | `<blake3>.json` | [`DetectIndex`]: the Linux detect rules of every recipe, so detection needs no full parse. Referenced by [`BundleIndex::detect`]. |
+//! | `<blake3>.json` | [`DetectIndex`]: the per-OS detect rules of every recipe, so detection needs no full parse. Referenced by [`BundleIndex::detect`]. |
+//! | `<blake3>.plugin.yaml` | A plugin's manifest ([`carrova_plugin::PluginManifest`]). |
+//! | `<blake3>.wasm` | A plugin's WebAssembly module. Both referenced by a [`PluginEntry`] in [`BundleIndex::plugins`]. |
 //!
 //! [`BundleIndex`] carries a monotonic [`BundleVersion`] (rollback
 //! protection), the creation time, and per recipe its id, category,
 //! [`Tier`] (from `recipes/TIERS.yaml`, see [`TierPolicy`]), schema
-//! version, hash and size. Every name derived from the index goes through
-//! [`Asset`], whose hashes are validated as exactly 64 lowercase hex
+//! version, hash and size, and per plugin its id, version and two blobs
+//! (built from `plugins/<id>/` next to the recipe tree, [`plugins_dir`];
+//! plugins are core-maintainer reviewed, no tiers). Every name derived
+//! from the index goes through [`Asset`], whose hashes are validated as exactly 64 lowercase hex
 //! digits, so the index can never name a path.
 //!
 //! # Trust
@@ -68,6 +72,7 @@ mod fetch;
 mod hash;
 mod index;
 mod locations;
+mod plugins;
 mod policy;
 mod resolve;
 mod roots;
@@ -91,6 +96,7 @@ pub use fetch::{
 pub use hash::{Asset, BlobHash, BlobKind, BlobRef};
 pub use index::{BundleIndex, BundleVersion, FORMAT, RecipeEntry, SkipCause, SkippedRecipe, Tier};
 pub use locations::{DevOverride, RECIPES_ENV, RecipeLocations, checkout_recipes_dir};
+pub use plugins::{PLUGIN_MANIFEST_FILE, PLUGIN_MODULE_FILE, PluginEntry, plugins_dir};
 pub use policy::MAX_VERSION_JUMP;
 pub use resolve::{InstalledRejected, RecipeSource, RecipeSources, ResolvedRecipes, resolve};
 pub use roots::{parse_roots, release_roots};

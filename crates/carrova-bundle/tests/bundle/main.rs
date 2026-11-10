@@ -5,6 +5,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 mod http;
+mod plugins;
 mod resolve;
 mod store;
 mod support;

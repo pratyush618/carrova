@@ -6,6 +6,7 @@ use std::path::Path;
 use carrova_crypto::sign::{SignedKeyCert, SigningKey};
 use carrova_recipe::{LoadedRecipe, load_str, load_tree, validate_tree};
 
+use crate::plugins::{PluginEntry, load_plugin_tree};
 use crate::{
     Asset, BlobKind, BlobRef, BundleError, BundleIndex, BundleVersion, DetectIndex, FORMAT,
     IndexSignature, RecipeEntry, Result, TierPolicy,
@@ -44,7 +45,8 @@ pub(crate) fn load_tiered_tree(dir: &Path) -> Result<(Vec<LoadedRecipe>, TierPol
 }
 
 /// Build an unsigned bundle of the recipe tree at `recipes_dir` (tiers from
-/// its `TIERS.yaml`) into `out_dir`, which must be empty or absent.
+/// its `TIERS.yaml`) and the plugins next to it ([`crate::plugins_dir`])
+/// into `out_dir`, which must be empty or absent.
 pub fn build_bundle(
     recipes_dir: &Path,
     out_dir: &Path,
@@ -52,6 +54,7 @@ pub fn build_bundle(
     created: u64,
 ) -> Result<BuildReport> {
     let (loaded, tiers) = load_tiered_tree(recipes_dir)?;
+    let plugin_tree = load_plugin_tree(recipes_dir)?;
     prepare_out_dir(out_dir)?;
 
     let mut recipes = Vec::with_capacity(loaded.len());
@@ -70,6 +73,21 @@ pub fn build_bundle(
     }
     recipes.sort_by(|a, b| a.id.cmp(&b.id));
 
+    let mut plugins = Vec::with_capacity(plugin_tree.len());
+    for p in plugin_tree {
+        let manifest =
+            serde_yaml_ng::to_string(&p.manifest).map_err(|e| BundleError::InvalidPlugin {
+                id: p.manifest.id.to_string(),
+                reason: e.to_string(),
+            })?;
+        plugins.push(PluginEntry {
+            manifest: write_blob(out_dir, BlobKind::PluginManifest, manifest.as_bytes())?,
+            module: write_blob(out_dir, BlobKind::Plugin, &p.wasm)?,
+            id: p.manifest.id,
+            version: p.manifest.version,
+        });
+    }
+
     let detect = DetectIndex::from_recipes(loaded.iter().map(|l| &l.recipe)).to_json()?;
     let index = BundleIndex {
         format: FORMAT,
@@ -77,13 +95,14 @@ pub fn build_bundle(
         created,
         recipes,
         detect: write_blob(out_dir, BlobKind::Detect, &detect)?,
+        plugins,
     };
     index.validate()?;
     let bytes = serde_json::to_vec_pretty(&index).map_err(BundleError::json("index"))?;
     write(out_dir, Asset::Index, &bytes)?;
-    tracing::info!(%version, recipes = index.recipes.len(), "bundle built");
+    tracing::info!(%version, recipes = index.recipes.len(), plugins = index.plugins.len(), "bundle built");
     Ok(BuildReport {
-        files: index.recipes.len() + 2,
+        files: index.recipes.len() + 2 * index.plugins.len() + 2,
         index,
     })
 }

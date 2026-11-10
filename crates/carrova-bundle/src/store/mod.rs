@@ -156,7 +156,7 @@ impl<'p> BundleStore<'p> {
 
     /// Parse the supported recipes of a stored `index` (blobs re-verified).
     pub(crate) fn catalog(&self, index: &BundleIndex) -> Result<Catalog> {
-        Catalog::from_index(index, |entry| self.read_blob(&entry.asset(), &entry.blob()))
+        Catalog::from_index(index, |asset, blob| self.read_blob(asset, blob))
     }
 
     /// The installed bundle's detection index (hash re-verified).

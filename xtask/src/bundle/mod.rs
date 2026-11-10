@@ -6,7 +6,7 @@
 //! keygen --role root   --out ~/.config/carrova-dev/bundle-root.key     (offline, once)
 //! keygen --role signer --out ~/.config/carrova-dev/bundle-signer.key   (CI secret)
 //! certify --root ROOT.key --signer-pub HEX --days 90 --out signer.cert.json
-//! build  --recipes recipes --out dist/recipes --version N
+//! build  --recipes recipes --out dist/recipes --version N   (+ ../plugins; `just plugins` first)
 //! sign   --dir dist/recipes --signer SIGNER.key --cert signer.cert.json
 //! verify --dir dist/recipes --roots keys/bundle-roots.json
 //! pin    --dir dist/recipes      (prints CARROVA_SHIPPED_INDEX_HASH for packaging)

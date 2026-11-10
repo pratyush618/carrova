@@ -14,6 +14,14 @@ pub enum BundleError {
     /// The recipe tree has load errors or validation issues (build refused).
     #[error("recipe tree is invalid:\n{}", .0.join("\n"))]
     InvalidRecipes(Vec<String>),
+    /// A plugin of the tree, or a bundled plugin, is invalid.
+    #[error("plugin `{id}` is invalid: {reason}")]
+    InvalidPlugin {
+        /// Plugin id (or directory name).
+        id: String,
+        /// What is wrong.
+        reason: String,
+    },
     /// `TIERS.yaml` is malformed or names an unknown recipe.
     #[error("invalid tier policy: {0}")]
     Tiers(String),

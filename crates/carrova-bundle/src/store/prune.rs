@@ -26,9 +26,14 @@ impl BundleStore<'_> {
             // Only deciding what to keep: no signature check needed.
             let index = BundleIndex::parse(&self.read_index_file(version, &Asset::Index)?)?;
             let all = index.recipes.iter().map(crate::RecipeEntry::asset);
+            let plugins = index
+                .plugins
+                .iter()
+                .flat_map(|p| p.blobs().map(|(asset, _)| asset));
             keep_blobs.extend(
                 std::iter::once(index.detect_asset())
                     .chain(all)
+                    .chain(plugins)
                     .map(|a| OsString::from(a.file_name())),
             );
         }
