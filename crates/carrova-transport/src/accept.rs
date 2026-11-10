@@ -23,6 +23,8 @@ use crate::tuning::{HANDSHAKE_TIMEOUT, MAX_PENDING_HANDSHAKES};
 /// [`TransportError::PairingFailed`]. If the deadline passes while it
 /// runs, the loop waits for it (at most [`HANDSHAKE_TIMEOUT`]) and
 /// refuses newcomers meanwhile.
+/// `on_staked` runs once, when an attempt puts the secret at stake
+/// (pairing: the receiver's PAKE message claimed the code).
 /// Resume: failed proofs are logged and the sender keeps waiting (the tag
 /// is public, so a stranger must not be able to end the wait).
 pub(crate) async fn accept(
@@ -30,7 +32,9 @@ pub(crate) async fn accept(
     identity: &Arc<Identity>,
     expected: &Expected,
     deadline: Instant,
+    on_staked: &mut dyn FnMut(),
 ) -> Result<Authenticated> {
+    let mut announced = false;
     let slots = HandshakeSlots::new(MAX_PENDING_HANDSHAKES);
     let mut attempts = JoinSet::new();
     // Set once the deadline passed with the secret at stake.
@@ -59,6 +63,10 @@ pub(crate) async fn accept(
                         });
                     }
                 }
+            }
+            () = expected.staked(), if !announced => {
+                announced = true;
+                on_staked();
             }
             Some(joined) = attempts.join_next() => {
                 if let Some(end) = settle(joined, expected) {

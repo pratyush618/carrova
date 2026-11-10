@@ -193,7 +193,7 @@ mod real_sender {
 
         fn accept(&self, listener: &mut Listener) -> Result<Connection> {
             match self {
-                Self::Pair(code) => listener.accept_pairing(code, T),
+                Self::Pair(code) => listener.accept_pairing(code, T, || {}),
                 Self::Resume(secret) => listener.accept_resume(secret, T),
             }
         }

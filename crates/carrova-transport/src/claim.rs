@@ -6,20 +6,37 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use carrova_crypto::pairing::PairingCode;
+use tokio::sync::Notify;
 
 /// One code's single use, shared by the attempts racing for it.
 #[derive(Debug, Default)]
-pub(crate) struct CodeClaim(AtomicBool);
+pub(crate) struct CodeClaim {
+    taken: AtomicBool,
+    /// Wakes [`Self::taken`] (a stored permit, so a claim made before
+    /// anyone waits is not missed).
+    claimed: Notify,
+}
 
 impl CodeClaim {
     /// Claim the code for one attempt: `true` for the first caller only.
     pub(crate) fn take(&self) -> bool {
-        !self.0.swap(true, Ordering::AcqRel)
+        let first = !self.taken.swap(true, Ordering::AcqRel);
+        if first {
+            self.claimed.notify_one();
+        }
+        first
     }
 
     /// Whether an attempt has claimed the code (it is spent, or in use).
     pub(crate) fn is_taken(&self) -> bool {
-        self.0.load(Ordering::Acquire)
+        self.taken.load(Ordering::Acquire)
+    }
+
+    /// Resolves once an attempt has claimed the code.
+    pub(crate) async fn taken(&self) {
+        if !self.is_taken() {
+            self.claimed.notified().await;
+        }
     }
 }
 

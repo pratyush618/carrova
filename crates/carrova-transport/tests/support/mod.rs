@@ -105,7 +105,7 @@ pub fn pair_with(
     let code = PairingCode::generate().unwrap();
     let t = ticket(&code, &listener);
     let sender = thread::spawn(move || {
-        let conn = listener.accept_pairing(&code, T);
+        let conn = listener.accept_pairing(&code, T, || {});
         (conn, listener)
     });
     let receiver = connect(Target::Pairing(&t), T, opts).unwrap();
