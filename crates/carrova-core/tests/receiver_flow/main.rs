@@ -23,7 +23,7 @@ use carrova_manifest::{
     ItemFlags, Manifest, ManifestItem, SourceInfo, chunk_reader, entry_from_path,
 };
 use carrova_platform::fake::{FakePlatform, symlink};
-use carrova_platform::{OsKind, Platform, SemanticRoot};
+use carrova_platform::{OsKind, PermissionModel, Platform, SemanticRoot};
 use carrova_recipe::Recipe;
 use common::{mkdir, put};
 use tempfile::TempDir;
@@ -213,8 +213,10 @@ fn create_identical_replace_and_default_selection() {
     assert_eq!(*action_of(&p, "app/a.txt"), Action::Create);
     assert_eq!(*action_of(&p, "app/b.txt"), Action::Identical);
     assert_eq!(*action_of(&p, "app/c.txt"), Action::Replace);
-    // Same bytes, other mode: only Unix compares modes (Windows uses ACLs).
-    let mode_only = if cfg!(unix) {
+    // Same bytes, other mode: replaced only where modes are authoritative
+    // (one more conflict, one more byte); under ACLs it is identical.
+    let d_replaced = e.recv.permission_model() == PermissionModel::Unix;
+    let mode_only = if d_replaced {
         Action::Replace
     } else {
         Action::Identical
@@ -228,8 +230,8 @@ fn create_identical_replace_and_default_selection() {
     assert_eq!(a.link_target, None);
     assert_eq!(a.mtime_ns, m.items[0].entries[1].mtime_ns);
     assert!(a.mtime_ns.is_some());
-    assert_eq!(p.conflicts().count(), 2);
-    assert_eq!(p.bytes_to_write, 3);
+    assert_eq!(p.conflicts().count(), 1 + usize::from(d_replaced));
+    assert_eq!(p.bytes_to_write, 2 + u64::from(d_replaced));
     assert!(p.blockers.is_empty(), "{:?}", p.blockers);
     assert!(p.missing_apps.is_empty());
     assert_eq!(p.session, sid());

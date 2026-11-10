@@ -19,7 +19,7 @@ use carrova_core::{
     State, Ticket, WriteOptions, sessions,
 };
 use carrova_crypto::pairing::PairingCode;
-use carrova_platform::{OsKind, SemanticRoot};
+use carrova_platform::{OsKind, PermissionModel, Platform, SemanticRoot};
 use lan_support::{Side, run, run_answering};
 
 fn options() -> PlanOptions {
@@ -324,9 +324,9 @@ fn plan_summary_lists_counts_and_only_conflicting_receiver_paths() {
         .inspect(|c| assert_eq!(c.root, SemanticRoot::UserConfig))
         .map(|c| c.rel.as_str())
         .collect();
-    // The differing file and, where modes apply (not Windows ACLs), the
-    // existing dir whose mode is tightened; nothing else of the receiver's.
-    let expected = if cfg!(unix) {
+    // The differing file and, where modes are authoritative, the existing
+    // dir whose mode is tightened; nothing else of the receiver's.
+    let expected = if receiver.platform.permission_model() == PermissionModel::Unix {
         BTreeSet::from(["app", "app/settings.json"])
     } else {
         BTreeSet::from(["app/settings.json"])
