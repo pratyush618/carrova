@@ -1,0 +1,8 @@
+# Machine budget: keep builds from saturating the dev laptop (12 cores / ~13 GiB).
+[build]
+jobs = 4
+# Disk budget: incremental caches grew to 11 GiB on the dev laptop.
+incremental = false
+
+[alias]
+xtask = "run -p xtask --"

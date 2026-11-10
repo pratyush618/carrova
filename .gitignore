@@ -1,0 +1,38 @@
+# --- Rust ---
+/target/
+**/*.rs.bk
+rustc-ice-*.txt
+**/mutants.out*/
+
+# --- Node / desktop front-end ---
+node_modules/
+# Build output: apps/desktop/dist (Vite) and dist/recipes (`just bundle`).
+dist/
+*.tsbuildinfo
+.vite/
+# Tauri-generated schemas/capabilities (regenerated on every build).
+apps/desktop/src-tauri/gen/
+# Playwright output.
+playwright-report/
+test-results/
+blob-report/
+
+# --- Secrets: never tracked ---
+*.key
+.env*
+!.env.example
+
+# --- Local tooling ---
+.claude/settings.local.json
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Recipe fixtures are fake home dirs: they intentionally contain dummy
+# `*.key`, `.vscode/`, `node_modules/`, etc. Re-include every file and dir
+# under them (last match wins, so this must stay last).
+!recipes/*/*/fixture/**
+
+# Misc
+junk/

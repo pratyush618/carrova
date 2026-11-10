@@ -1,0 +1,113 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "apps/cli", "apps/desktop/src-tauri", "xtask"]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.99"
+license = "Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+carrova-core = { path = "crates/carrova-core" }
+carrova-recipe = { path = "crates/carrova-recipe" }
+carrova-manifest = { path = "crates/carrova-manifest" }
+carrova-transport = { path = "crates/carrova-transport" }
+carrova-crypto = { path = "crates/carrova-crypto" }
+carrova-archive = { path = "crates/carrova-archive" }
+carrova-platform = { path = "crates/carrova-platform" }
+carrova-plugin = { path = "crates/carrova-plugin" }
+carrova-view = { path = "crates/carrova-view" }
+carrova-bundle = { path = "crates/carrova-bundle" }
+carrova-report = { path = "crates/carrova-report" }
+
+aead-stream = "0.6"
+anyhow = "1"
+argon2 = { version = "0.6", default-features = false, features = ["alloc", "zeroize"] }
+blake3 = "1"
+chacha20poly1305 = { version = "0.11", features = ["zeroize"] }
+ciborium = "0.2"
+clap = { version = "4", features = ["derive"] }
+ctrlc = "3.5"
+# Hex for hashes, tags and certificate fingerprints (one implementation, no deps).
+data-encoding = "2.11"
+# Recipe bundle signatures (Ed25519, audited dalek).
+ed25519-dalek = { version = "3.0.0", default-features = false, features = ["fast", "zeroize", "alloc"] }
+fastcdc = "3"
+# Oneshot replies from desktop session workers to async Tauri commands.
+futures-channel = { version = "0.3", default-features = false, features = ["std"] }
+getrandom = "0.4"
+globset = "0.4"
+# Cross-platform interface enumeration (transport fallback address / broadcast targets).
+if-addrs = "0.15"
+# SHA-2 generation pinned to spake2 0.4 (digest 0.10): hkdf/hmac/sha2 share it.
+hkdf = "0.12.4"
+hmac = "0.12.1"
+jsonschema = { version = "0.33", default-features = false }
+mdns-sd = { version = "0.21.7", default-features = false }
+# QUIC/TLS: ring backend only (no aws-lc anywhere).
+quinn = { version = "0.11.12", default-features = false, features = ["runtime-tokio", "rustls-ring"] }
+rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "ring"] }
+rpassword = "7"
+rustix = { version = "1", features = ["fs", "process", "system"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std"] }
+secrecy = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_bytes = "0.11.19"
+serde_json = "1"
+serde_yaml_ng = "0.10"
+sha2 = "0.10.9"
+# UDP socket buffer sizing for QUIC (quinn never sets them).
+socket2 = "0.6.5"
+spake2 = "0.4.0"
+tempfile = "3"
+thiserror = "2"
+# Async runtime: only carrova-transport may depend on it (blocking API outside).
+tokio = { version = "1.54.1", default-features = false, features = ["rt-multi-thread", "net", "time", "sync", "macros"] }
+tracing = "0.1"
+# TS bindings for the desktop IPC contract (one source of truth).
+ts-rs = { version = "12.0.1", default-features = false, features = ["serde-compat"] }
+# Desktop shell (Tauri 2 stable line; 3.x is alpha).
+tauri = { version = "2.12.5", features = [] }
+tauri-build = { version = "2.7.4", features = [] }
+tauri-plugin-dialog = "2.8.4"
+tauri-plugin-opener = "2.7.2"
+tauri-plugin-updater = "2.14.1"
+# Blocking HTTP for recipe bundle fetch (rustls + ring, no tokio).
+ureq = { version = "3.5.1", default-features = false, features = ["rustls", "gzip"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+walkdir = "2"
+zeroize = { version = "1", features = ["derive"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+# pedantic-lite
+cast_lossless = "warn"
+cloned_instead_of_copied = "warn"
+explicit_iter_loop = "warn"
+implicit_clone = "warn"
+inefficient_to_string = "warn"
+manual_let_else = "warn"
+needless_pass_by_value = "warn"
+redundant_closure_for_method_calls = "warn"
+semicolon_if_nothing_returned = "warn"
+uninlined_format_args = "warn"
+unnested_or_patterns = "warn"
+
+# Disk budget (dev laptop ~10 GiB free): no debug info for third-party deps;
+# our own crates keep line tables for backtraces.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

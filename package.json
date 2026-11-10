@@ -1,0 +1,13 @@
+{
+  "name": "carrova",
+  "private": true,
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4"
+  }
+}

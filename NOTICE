@@ -1,0 +1,23 @@
+Carrova
+Copyright the Carrova contributors. Licensed under the Apache License, 2.0.
+
+This product includes third-party material:
+
+EFF Short Wordlist 2.0
+  Source:  https://www.eff.org/files/2016/09/08/eff_short_wordlist_2_0.txt
+  Author:  Electronic Frontier Foundation (https://www.eff.org/dice)
+  License: Creative Commons Attribution 3.0 United States (CC BY 3.0 US),
+           https://creativecommons.org/licenses/by/3.0/us/
+  Changes: dice numbers removed, "yo-yo" spelled "yoyo", list sorted.
+  Location: crates/carrova-crypto/src/pairing/wordlist.rs
+
+Atkinson Hyperlegible Next and Atkinson Hyperlegible Mono (fonts)
+  Source:  https://github.com/googlefonts/atkinson-hyperlegible-next
+           (via npm @fontsource-variable/atkinson-hyperlegible-next and
+           @fontsource-variable/atkinson-hyperlegible-mono, latin + latin-ext
+           variable woff2 subsets)
+  Author:  The Atkinson Hyperlegible Next Project Authors, for the Braille Institute
+  Copyright 2020-2024 The Atkinson Hyperlegible Next Project Authors
+  License: SIL Open Font License, Version 1.1, https://openfontlicense.org
+  Changes: none (subset files as published by Fontsource).
+  Location: bundled into the desktop app by apps/desktop/src/main.tsx
