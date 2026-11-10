@@ -15,7 +15,7 @@ use carrova_bundle::{
     BundleStore, DevOverride, EffectiveTier, HttpConfig, KnownApp, RecipeLocations, RecipeSource,
     RecipesInUse, ResolvedRecipes, UpdateAttempt, release_roots,
 };
-use carrova_core::Recipe;
+use carrova_core::{Plugin, Recipe};
 use carrova_platform::Platform;
 use carrova_view::ipc::{
     CatalogEntry, CatalogItem, RecipeOrigin, RecipeTier, RecipesStatus, RecipesUpdate,
@@ -35,13 +35,16 @@ pub fn app_locations(resource_dir: Option<&Path>) -> RecipeLocations {
     )
 }
 
-/// Resolved recipes plus the plain list sessions are built with.
+/// Resolved recipes plus the plain lists sessions are built with.
 #[derive(Debug)]
 pub struct LoadedRecipes {
     /// Source, tiers and skipped recipes.
     pub resolved: ResolvedRecipes,
     /// The recipes, shared by every engine built from them.
     pub recipes: Arc<[Recipe]>,
+    /// The compiled plugins from the same source (one that fails to load
+    /// is logged and left out).
+    pub plugins: Arc<[Plugin]>,
 }
 
 /// Resolves recipes once and keeps them until an update installs new ones.
@@ -77,7 +80,15 @@ impl RecipeService {
             .locations
             .resolve(self.platform.as_ref(), &release_roots()?)?;
         let recipes = resolved.recipes.iter().map(|b| b.recipe.clone()).collect();
-        let current = Arc::new(LoadedRecipes { resolved, recipes });
+        let (plugins, failed) = resolved.load_plugins();
+        for e in failed {
+            tracing::warn!(error = %e, "plugin left out");
+        }
+        let current = Arc::new(LoadedRecipes {
+            resolved,
+            recipes,
+            plugins: plugins.into(),
+        });
         *loaded = Some(Arc::clone(&current));
         Ok(current)
     }

@@ -14,7 +14,7 @@
       {
         "label": "main",
         "title": "Carrova",
-        "width": 1024,
+        "width": 1100,
         "height": 720,
         "minWidth": 720,
         "minHeight": 520
@@ -58,7 +58,14 @@
     "category": "Utility",
     "shortDescription": "Move app data between computers",
     "longDescription": "Carrova moves app settings, keys and user data between computers over the local network or as an encrypted file. You pick exactly what moves; apps are reinstalled, never copied.",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/256x256.png", "icons/icon.png"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/256x256.png",
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
     "linux": {
       "deb": {
         "section": "utils",

@@ -93,12 +93,17 @@ impl Machine {
         let tree = tmp.path().join("recipes");
         std::fs::create_dir_all(tree.join("test/app")).unwrap();
         std::fs::write(tree.join("test/app/recipe.yaml"), RECIPE).unwrap();
-        Self::with_recipes(tmp, tree, &["app"])
+        Self::with_recipes(tmp, tree, &["app"], None)
     }
 
     /// A machine in `tmp` using the recipe tree `tree`, with `binaries`
-    /// installed (for detection).
-    pub(crate) fn with_recipes(tmp: TempDir, tree: PathBuf, binaries: &[&str]) -> Self {
+    /// installed (for detection) and, if given, the device name it announces.
+    pub(crate) fn with_recipes(
+        tmp: TempDir,
+        tree: PathBuf,
+        binaries: &[&str],
+        device: Option<&str>,
+    ) -> Self {
         let home = tmp.path().join("home");
         std::fs::create_dir_all(home.join(".config")).unwrap();
         let platform = binaries.iter().fold(
@@ -107,6 +112,10 @@ impl Machine {
                 .free_space_bytes(FREE_SPACE),
             |platform, &bin| platform.binary(bin, format!("/usr/bin/{bin}")),
         );
+        let platform = match device {
+            Some(name) => platform.with_device_name(name),
+            None => platform,
+        };
         let events = Arc::new(Events::default());
         let state = AppState::new(
             Arc::new(platform),

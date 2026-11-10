@@ -28,9 +28,9 @@ fn out_dir() -> PathBuf {
 }
 
 /// A machine using the repository's recipes.
-fn machine() -> Machine {
+fn machine(device: &str) -> Machine {
     let tree = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../recipes");
-    Machine::with_recipes(tempfile::tempdir().unwrap(), tree, BINARIES)
+    Machine::with_recipes(tempfile::tempdir().unwrap(), tree, BINARIES, Some(device))
 }
 
 /// Writes fixtures with `machine`'s temp paths replaced by stable ones.
@@ -135,8 +135,8 @@ fn populate(machine: &Machine) {
 #[test]
 #[ignore = "writes files: run through `just ipc-fixtures`"]
 fn record_ipc_fixtures() {
-    let sender = machine();
-    let receiver = machine();
+    let sender = machine("ana-desktop");
+    let receiver = machine("ana-laptop");
     populate(&sender);
     receiver.put(".gitconfig", b"[user]\n\tname = Ana (new laptop)\n");
     let rec = Recorder::new(&[(&sender, "ana"), (&receiver, "ana")]);
