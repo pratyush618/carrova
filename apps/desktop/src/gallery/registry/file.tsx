@@ -4,7 +4,7 @@ import { SaveDoneScreen } from '../../screens/file/SaveDoneScreen';
 import { SaveLockScreen } from '../../screens/file/SaveLockScreen';
 import { lockStrong, lockWeak, openReady, openWrong, saved } from '../../screens/file/fixtures';
 import { SendFoundScreen } from '../../screens/send/SendFoundScreen';
-import { foundReady } from '../../screens/send/fixtures';
+import { foundReady, HERE } from '../../screens/send/fixtures';
 import { noops } from '../noops';
 import { foundOn } from './send';
 import { states, type GalleryScreen } from '../types';
@@ -21,7 +21,9 @@ export const fileScreens: readonly GalleryScreen[] = [
     title: 'Save: what goes in',
     view: save('what'),
     states: [],
-    render: () => ({ base: <SendFoundScreen model={foundReady} purpose="save" on={foundOn} /> }),
+    render: () => ({
+      base: <SendFoundScreen model={foundReady} purpose="save" here={HERE} on={foundOn} />,
+    }),
   },
   {
     id: 'save-lock',

@@ -1,17 +1,25 @@
 import type { TFunction } from 'i18next';
-import type { Chrome, HubLink, IconName } from '../../ui';
-import { flowLength, stepIndex } from '../nav/flows';
+import type { Chrome, HubLink, HubStatus, IconName } from '../../ui';
+import { STEP_LABELS, stepIndex } from '../nav/flows';
 import type { HubPage, NavEvent, View } from '../nav/navMachine';
 
 const HUB: readonly { page: HubPage; icon: IconName }[] = [
-  { page: 'home', icon: 'swap' },
+  { page: 'home', icon: 'home' },
   { page: 'history', icon: 'history' },
   { page: 'apps', icon: 'apps' },
   { page: 'settings', icon: 'settings' },
 ];
 
-/** The layouts' chrome for `view`: top-bar links, or the flow's name and step. */
-export function buildChrome(view: View, t: TFunction, dispatch: (event: NavEvent) => void): Chrome {
+/**
+ * The layouts' chrome for `view`: sidebar links (and the bundle state at its
+ * foot, once known), or the flow's name and labelled steps.
+ */
+export function buildChrome(
+  view: View,
+  t: TFunction,
+  dispatch: (event: NavEvent) => void,
+  hubStatus: HubStatus | null = null,
+): Chrome {
   const current = view.kind === 'hub' ? view.page : null;
   const hubLinks: HubLink[] = HUB.map(({ page, icon }) => ({
     id: page,
@@ -26,18 +34,12 @@ export function buildChrome(view: View, t: TFunction, dispatch: (event: NavEvent
     view.kind === 'flow'
       ? {
           name: t(`flow.names.${view.at.flow}`),
+          steps: STEP_LABELS[view.at.flow].map((label) => t(`flow.steps.${label}`)),
           step: stepIndex(view.at) + 1,
-          total: flowLength(view.at.flow),
           onClose: () => {
             dispatch({ type: 'closeFlow' });
           },
         }
       : null;
-  return {
-    hubLinks,
-    flow,
-    onHome: () => {
-      dispatch({ type: 'openHub', page: 'home' });
-    },
-  };
+  return { hubLinks, hubStatus, flow };
 }

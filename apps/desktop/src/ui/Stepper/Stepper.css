@@ -1,0 +1,73 @@
+.p-steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-sm);
+}
+
+.p-steps li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.p-steps li + li::before {
+  content: '';
+  inline-size: 22px;
+  block-size: 1px;
+  background: var(--border-strong);
+  margin-inline-end: 1px;
+}
+
+.p-steps i {
+  inline-size: 20px;
+  block-size: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: 700 11px / 1 var(--font);
+  font-style: normal;
+  border: 1.5px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+.p-steps i .p-icon {
+  inline-size: 11px;
+  block-size: 11px;
+  stroke-width: 3;
+}
+
+.p-steps .p-steps--done {
+  color: var(--text-secondary);
+}
+
+.p-steps .p-steps--done i {
+  background: var(--success-soft);
+  border-color: transparent;
+  color: var(--success);
+}
+
+.p-steps .p-steps--now {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.p-steps .p-steps--now i {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--accent-on);
+  transition: background var(--dur-2) var(--ease);
+}
+
+/* Narrow windows: numbers only, the current label stays. */
+@media (max-width: 959px) {
+  .p-steps li:not(.p-steps--now) {
+    font-size: 0;
+  }
+
+  .p-steps li:not(.p-steps--now) i {
+    font-size: 11px;
+  }
+}

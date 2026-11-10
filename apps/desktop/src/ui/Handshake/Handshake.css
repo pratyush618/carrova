@@ -1,95 +1,206 @@
+/* Base styles are the end state; animations only play *into* it, so reduced
+   motion (which stops every animation) shows the settled picture. */
 .p-handshake {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: var(--sp-2);
-  padding-block: var(--sp-3);
+  grid-template-columns: 1fr minmax(96px, 200px) 1fr;
+  /* Equal-height tiles even when only one side knows its OS. */
+  align-items: stretch;
+  margin-block: var(--sp-1) var(--sp-3);
 }
 
-.p-handshake__end {
+.p-handshake > :not(.p-handshake__device) {
+  align-self: center;
+}
+
+.p-handshake__device {
   display: grid;
   justify-items: center;
-  gap: 6px;
-  font-size: var(--t-sm);
-  color: var(--text-secondary);
-}
-
-.p-handshake__pc {
-  inline-size: 64px;
-  block-size: 64px;
+  align-content: start;
+  gap: 10px;
+  padding: 22px 16px;
   border-radius: 18px;
-  display: grid;
-  place-items: center;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  box-shadow: var(--e-1);
-  color: var(--text-secondary);
+  box-shadow: var(--e-2);
+  text-align: center;
+  animation: p-hs-slide var(--dur-4) var(--ease-out) both;
+  --p-hs-from: -60px;
+}
+
+.p-handshake__device:last-child {
+  --p-hs-from: 60px;
+}
+
+[dir='rtl'] .p-handshake__device {
+  --p-hs-from: 60px;
+}
+
+[dir='rtl'] .p-handshake__device:last-child {
+  --p-hs-from: -60px;
+}
+
+.p-handshake__screen {
+  position: relative;
+  inline-size: 92px;
+  block-size: 60px;
+  border-radius: 8px;
+  border: 2px solid var(--border-strong);
+  background: var(--surface-0);
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+}
+
+.p-handshake__screen::after {
+  content: '';
+  position: absolute;
+  inset-block-end: -9px;
+  inset-inline: -10px;
+  block-size: 5px;
+  border-radius: 0 0 6px 6px;
+  background: var(--border-strong);
+}
+
+.p-handshake__name {
+  font-weight: 700;
+  margin-block-start: 6px;
+  overflow-wrap: anywhere;
 }
 
 .p-handshake__wire {
   position: relative;
-  block-size: 2px;
-  background: repeating-linear-gradient(90deg, var(--border-strong) 0 6px, transparent 6px 12px);
+  block-size: 60px;
+  display: grid;
+  place-items: center;
+}
+
+.p-handshake__line {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 50%;
+  inline-size: 100%;
+  block-size: 4px;
+  translate: 0 -50%;
+  overflow: visible;
+}
+
+.p-handshake__line path {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 2;
+  stroke-dasharray: 3 6;
+}
+
+.p-handshake__line .p-handshake__live {
+  stroke: var(--success);
+  stroke-width: 2.5;
+  stroke-dasharray: 220;
+  stroke-dashoffset: 220;
+}
+
+.p-handshake__lock {
+  position: relative;
+  z-index: 1;
+  inline-size: 56px;
+  block-size: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.p-handshake__shackle {
+  transform-origin: 13px 9px;
+}
+
+/* Checking the code: the lock is open and a dot shuttles along the wire. */
+.p-handshake--pending .p-handshake__shackle {
+  transform: translateY(-3px) rotate(-14deg);
 }
 
 .p-handshake__dot {
   position: absolute;
-  inset-block-start: -4px;
-  inline-size: 10px;
-  block-size: 10px;
+  inset-block-start: calc(50% - 4px);
+  inset-inline-start: 8%;
+  inline-size: 8px;
+  block-size: 8px;
   border-radius: 50%;
   background: var(--accent);
-  animation: p-travel 1.4s var(--ease) infinite alternate;
+  animation: p-hs-shuttle 1.4s var(--ease) infinite alternate;
 }
 
-.p-handshake__dot + .p-handshake__dot {
-  animation-delay: 0.7s;
-  opacity: 0.5;
+/* Linked: the wire draws, then the shackle clicks shut and the lock pops. */
+.p-handshake--linked .p-handshake__live {
+  stroke-dashoffset: 0;
+  animation: p-hs-draw 0.7s var(--ease-out) 0.35s both;
 }
 
-@keyframes p-travel {
-  from {
-    inset-inline-start: 0;
-  }
-  to {
-    inset-inline-start: calc(100% - 10px);
-  }
+.p-handshake--linked .p-handshake__lock {
+  background: var(--success-soft);
+  border-color: transparent;
+  color: var(--success);
+  animation: p-hs-pop var(--dur-3) var(--ease-spring) 0.9s both;
 }
 
-.p-handshake__lock {
+.p-handshake--linked .p-handshake__shackle {
+  animation: p-hs-click var(--dur-3) var(--ease-spring) 0.9s both;
+}
+
+.p-handshake--linked .p-handshake__lock::after {
+  content: '';
   position: absolute;
-  inset-inline-start: 50%;
-  inset-block-start: 50%;
-  translate: -50% -50%;
-  inline-size: 40px;
-  block-size: 40px;
+  inset: -2px;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--success);
-  color: var(--surface-1);
-  animation: p-snap var(--dur-3) var(--ease-spring);
+  border: 2px solid var(--success);
+  opacity: 0;
+  animation: p-hs-ring 1.1s var(--ease-out) 1s both;
 }
 
-[dir='rtl'] .p-handshake__lock {
-  translate: 50% -50%;
-}
-
-.p-handshake--linked .p-handshake__wire {
-  background: var(--success);
-}
-
-.p-handshake--linked .p-handshake__pc {
-  border-color: var(--success);
-}
-
-@keyframes p-snap {
+@keyframes p-hs-slide {
   from {
-    scale: 0.2;
+    transform: translateX(var(--p-hs-from));
     opacity: 0;
   }
+}
+
+@keyframes p-hs-shuttle {
   to {
+    inset-inline-start: 88%;
+  }
+}
+
+@keyframes p-hs-draw {
+  from {
+    stroke-dashoffset: 220;
+  }
+}
+
+@keyframes p-hs-click {
+  from {
+    transform: translateY(-3px) rotate(-14deg);
+  }
+}
+
+@keyframes p-hs-pop {
+  0% {
     scale: 1;
-    opacity: 1;
+    background: var(--surface-2);
+    color: var(--text-secondary);
+  }
+  40% {
+    scale: 1.18;
+  }
+}
+
+@keyframes p-hs-ring {
+  from {
+    scale: 1;
+    opacity: 0.8;
+  }
+  to {
+    scale: 1.9;
+    opacity: 0;
   }
 }

@@ -1,8 +1,13 @@
+/* The code never wraps: on a narrow card the tiles shrink to fit instead. */
+.p-code-fit {
+  container-type: inline-size;
+  inline-size: 100%;
+}
+
 .p-code {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
   direction: ltr;
   justify-content: center;
 }
@@ -10,6 +15,11 @@
 .p-code__word {
   display: flex;
   gap: 4px;
+  min-inline-size: 0;
+}
+
+.p-code__dash {
+  flex: none;
 }
 
 .p-code__dash {
@@ -20,15 +30,17 @@
 }
 
 .p-flap {
+  flex: 0 1 40px;
   inline-size: 40px;
-  block-size: 58px;
+  min-inline-size: 0;
+  aspect-ratio: 40 / 58;
   border-radius: 8px;
   display: grid;
   place-items: center;
   position: relative;
   background: var(--flap);
   color: var(--flap-ink);
-  font: 700 34px / 1 var(--mono);
+  font: 700 min(34px, 5.6cqi) / 1 var(--mono);
   text-transform: lowercase;
   box-shadow:
     var(--e-2),
@@ -46,7 +58,7 @@
 }
 
 .p-flap--num {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-on);
 }
 
@@ -74,8 +86,8 @@
 }
 
 .p-code--sm .p-flap {
+  flex-basis: 26px;
   inline-size: 26px;
-  block-size: 36px;
-  font-size: 20px;
+  font-size: min(20px, 3.6cqi);
   border-radius: 5px;
 }

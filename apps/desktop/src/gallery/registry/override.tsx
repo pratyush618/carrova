@@ -7,7 +7,12 @@ import { customize, foundReady } from '../../screens/send/fixtures';
 import { RecvProgressScreen } from '../../screens/receive/RecvProgressScreen';
 import { RecvReviewScreen } from '../../screens/receive/RecvReviewScreen';
 import { ReviewDetailsSheet } from '../../screens/receive/ReviewDetailsSheet';
-import { progressAt, reviewDecide, reviewDetails } from '../../screens/receive/fixtures';
+import {
+  progressAt,
+  reviewCrossOs,
+  reviewDecide,
+  reviewDetails,
+} from '../../screens/receive/fixtures';
 import type { View } from '../../app/nav/navMachine';
 import { noops } from '../noops';
 import { foundOn, transferOn } from './send';
@@ -49,6 +54,7 @@ const BASES: Record<OverrideModel['kind'], GalleryRender> = {
       />
     ),
   },
+  cross_os: { base: <RecvReviewScreen model={reviewCrossOs} on={reviewOn} /> },
   elsewhere: {
     base: <RecvReviewScreen model={reviewDecide} on={reviewOn} />,
     overlays: [
@@ -67,6 +73,7 @@ const VIEWS: Record<OverrideModel['kind'], View> = {
   unmovable: { kind: 'flow', at: { flow: 'send', step: 'found' } },
   running: { kind: 'flow', at: { flow: 'receive', step: 'review' } },
   space: { kind: 'flow', at: { flow: 'receive', step: 'progress' } },
+  cross_os: { kind: 'flow', at: { flow: 'receive', step: 'review' } },
   elsewhere: { kind: 'flow', at: { flow: 'receive', step: 'review' } },
 };
 
@@ -80,6 +87,7 @@ export const overrideScreens: readonly GalleryScreen[] = [
       ['unmovable', 'Unmovable item'],
       ['running', 'App is running'],
       ['space', 'Free space'],
+      ['cross_os', 'From another system'],
       ['elsewhere', 'Somewhere else'],
     ),
     render: (s) => {

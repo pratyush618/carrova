@@ -1,13 +1,15 @@
-/* Neutral, so the accent stays the only colour that means "act". */
+/* Neutral by default, so the accent stays the only colour that means "act". */
 .p-app {
-  inline-size: 40px;
-  block-size: 40px;
-  border-radius: 10px;
+  inline-size: 34px;
+  block-size: 34px;
+  border-radius: 9px;
   display: grid;
   place-items: center;
-  background: var(--surface-0);
+  flex: none;
+  background: var(--well);
   border: 1px solid var(--border);
-  font: 700 13px / 1 var(--mono);
+  font: 700 11px / 1 var(--mono);
+  letter-spacing: -0.02em;
   color: var(--text-secondary);
   direction: ltr;
 }
@@ -19,10 +21,25 @@
   font-size: 10px;
 }
 
-.p-app--done {
-  background: var(--success-soft);
+.p-app--warning {
+  background: var(--warning-soft);
+  color: var(--warning);
   border-color: transparent;
+}
+
+.p-app--accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: transparent;
+}
+
+.p-app--success {
+  background: var(--success-soft);
   color: var(--success);
+  border-color: transparent;
+}
+
+.p-app--done {
   animation: p-tick var(--dur-3) var(--ease-spring);
 }
 

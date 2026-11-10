@@ -61,8 +61,8 @@
 }
 
 .g-frame {
-  inline-size: min(1000px, 100%);
-  block-size: 680px;
+  inline-size: min(1100px, 100%);
+  block-size: 720px;
   border-radius: 14px;
   border: 1px solid var(--border-strong);
   box-shadow: var(--e-3);
@@ -109,4 +109,176 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+/* Component sheet (mockup `kit`): a document, not a window. */
+.g-doc {
+  inline-size: min(1100px, 100%);
+}
+
+.g-kit {
+  padding: 36px 40px 44px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: var(--e-3);
+}
+
+.g-kit > section {
+  padding-block: 26px;
+  border-block-start: 1px solid var(--border);
+}
+
+.g-kit > section:first-child {
+  padding-block-start: 10px;
+  border: 0;
+}
+
+.g-kit > section > h2 {
+  font-size: var(--t-xl);
+  margin-block-end: 4px;
+}
+
+.g-kit > section > .p-lede {
+  margin-block: 6px 18px;
+}
+
+.g-kit__label {
+  margin-block: 14px 8px;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.g-kit__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.g-kit__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 18px;
+}
+
+.g-kit__swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.g-kit__swatch {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: var(--t-xs);
+}
+
+.g-kit__chips {
+  display: flex;
+  block-size: 44px;
+}
+
+.g-kit__chips span {
+  flex: 1;
+}
+
+.g-kit__swatch-text {
+  display: grid;
+  gap: 1px;
+  padding: 8px 10px;
+  font-family: var(--mono);
+}
+
+.g-kit__swatch-text b {
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+
+.g-kit__swatch-text span {
+  color: var(--text-muted);
+}
+
+.g-kit__table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.g-kit__table th,
+.g-kit__table td {
+  padding: 7px 10px;
+  text-align: start;
+  border-block-end: 1px solid var(--border);
+}
+
+.g-kit__table th {
+  font-size: var(--t-xs);
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.g-kit__ok {
+  color: var(--success);
+  font-weight: 650;
+}
+
+.g-kit__bad {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.g-kit__type {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: baseline;
+  gap: 10px 16px;
+}
+
+.g-kit__type > span:nth-child(odd) {
+  font: 12px var(--mono);
+  color: var(--text-muted);
+}
+
+.g-kit__lg {
+  font-size: var(--t-lg);
+}
+
+.g-kit__sm {
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+.g-kit__mini {
+  position: relative;
+  block-size: 220px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+
+.g-kit__mini .p-scrim,
+.g-kit__mini .p-sheet,
+.g-kit__mini .p-dialog {
+  animation: none;
+}
+
+.g-kit__mini .p-sheet {
+  inline-size: 62%;
+}
+
+.g-kit__mini .p-sheet__head,
+.g-kit__mini .p-sheet__body {
+  padding-inline: 14px;
+}
+
+.g-kit__mini .p-dialog {
+  inline-size: 70%;
+  padding: var(--sp-2);
 }

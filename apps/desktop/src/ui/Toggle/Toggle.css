@@ -1,32 +1,44 @@
 .p-toggle {
-  inline-size: 40px;
-  block-size: 24px;
-  border-radius: var(--r-pill);
-  border: 0;
+  inline-size: 36px;
+  block-size: 22px;
+  border-radius: 11px;
+  border: 1.5px solid var(--control);
   padding: 0;
-  background: var(--control);
+  background: var(--surface-0);
   position: relative;
   flex: none;
-  transition: background var(--dur-2) var(--ease);
+  transition: background var(--dur-2);
 }
 
 .p-toggle::after {
   content: '';
   position: absolute;
-  inset-block-start: 3px;
-  inset-inline-start: 3px;
-  inline-size: 18px;
-  block-size: 18px;
+  inset-block-start: 2px;
+  inset-inline-start: 2px;
+  inline-size: 15px;
+  block-size: 15px;
   border-radius: 50%;
-  background: var(--knob);
-  box-shadow: var(--e-1);
-  transition: inset-inline-start var(--dur-2) var(--ease-spring);
+  background: var(--control);
+  transition:
+    translate var(--dur-2) var(--ease-spring),
+    background var(--dur-2);
 }
 
 .p-toggle[aria-checked='true'] {
-  background: var(--accent);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
 }
 
 .p-toggle[aria-checked='true']::after {
-  inset-inline-start: 19px;
+  translate: 14px;
+  background: var(--knob);
+}
+
+[dir='rtl'] .p-toggle[aria-checked='true']::after {
+  translate: -14px;
+}
+
+.p-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }

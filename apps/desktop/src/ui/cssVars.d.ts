@@ -7,7 +7,7 @@ declare module 'react' {
     '--p'?: string;
     /** Tree indentation level. */
     '--depth'?: string;
-    /** Arrival burst particle vector and spin. */
+    /** Seal burst particle vector and spin. */
     '--dx'?: string;
     '--dy'?: string;
     '--rot'?: string;

@@ -1,23 +1,12 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconButton } from '../Button/Button';
+import { Button, IconButton } from '../Button/Button';
 import { cx } from '../cx';
+import { useMediaQuery } from '../motion';
+import { Stepper } from '../Stepper/Stepper';
 import { useChrome } from './chrome';
+import { Sheet } from './Sheet';
 import './layouts.css';
-
-function StepDots({ step, total }: { readonly step: number; readonly total: number }) {
-  const { t } = useTranslation();
-  return (
-    <span className="p-dots" role="img" aria-label={t('flow.step', { step, total })}>
-      {Array.from({ length: total }, (_, i) => (
-        <i
-          key={i}
-          className={cx(i + 1 < step && 'p-dots--done', i + 1 === step && 'p-dots--now')}
-        />
-      ))}
-    </span>
-  );
-}
 
 export interface ActionBarProps {
   /** Secondary actions at the start (Back, Cancel, Customize). */
@@ -43,28 +32,74 @@ export function ActionBar({ start, note, end }: ActionBarProps) {
   );
 }
 
+/** Below this width the rail folds into a header button and a side sheet. */
+const RAIL_FITS = '(min-width: 960px)';
+
 export interface FlowLayoutProps {
   readonly children: ReactNode;
   readonly actions: ReactNode;
+  /** The move's manifest, beside the main column (a sheet on narrow windows). */
+  readonly rail?: ReactNode;
+  /** The route chip at the end of the header ("ezio-thinkpad → ezio-mbp"). */
+  readonly route?: ReactNode;
+  /** 0-based step to show as current when it differs from the route (pairing done, now "Their review"). */
+  readonly stepNow?: number;
 }
 
-/** Tasks: close, step dots, a centred column and one action bar. */
-export function FlowLayout({ children, actions }: FlowLayoutProps) {
+/** Tasks: close, labelled steps, the main column, the manifest rail and one action bar. */
+export function FlowLayout({ children, actions, rail, route, stepNow }: FlowLayoutProps) {
   const { t } = useTranslation();
   const { flow } = useChrome();
+  const railFits = useMediaQuery(RAIL_FITS);
+  const [railOpen, setRailOpen] = useState(false);
+  const sheetOpen = rail !== undefined && railOpen && !railFits;
+  const closeRail = () => {
+    setRailOpen(false);
+  };
   return (
     <>
-      <header className="p-flowbar">
-        <span className="p-flowbar__close">
-          <IconButton icon="close" label={t('flow.close')} onClick={flow?.onClose} />
+      <header className="p-flowhead" inert={sheetOpen}>
+        <IconButton icon="close" label={t('flow.close')} onClick={flow?.onClose} />
+        <span className="p-flowhead__name">{flow?.name}</span>
+        {flow && <Stepper steps={flow.steps} current={stepNow ?? flow.step - 1} />}
+        <span className="p-flowhead__end">
+          {route}
+          {rail !== undefined && !railFits && (
+            <Button
+              kind="quiet"
+              size="sm"
+              icon="box"
+              aria-haspopup="dialog"
+              onClick={() => {
+                setRailOpen(true);
+              }}
+            >
+              {t('flow.thisMove')}
+            </Button>
+          )}
         </span>
-        <span className="p-flowbar__name">{flow?.name}</span>
-        {flow && <StepDots step={flow.step} total={flow.total} />}
       </header>
-      <main className="p-flow">
-        <div className="p-flow__col">{children}</div>
-      </main>
-      {actions}
+      <div
+        className={cx('p-flowbody', rail !== undefined && railFits && 'p-flowbody--rail')}
+        inert={sheetOpen}
+      >
+        <main className="p-flow">
+          <div className="p-flow__col">{children}</div>
+        </main>
+        {rail !== undefined && railFits && (
+          <aside className="p-rail" aria-label={t('flow.thisMove')}>
+            {rail}
+          </aside>
+        )}
+      </div>
+      <div className="p-flowfoot" inert={sheetOpen}>
+        {actions}
+      </div>
+      {sheetOpen && (
+        <Sheet title={t('flow.thisMove')} onClose={closeRail}>
+          {rail}
+        </Sheet>
+      )}
     </>
   );
 }
@@ -72,13 +107,4 @@ export function FlowLayout({ children, actions }: FlowLayoutProps) {
 /** Centred content inside a flow column (codes, stamps). */
 export function FlowCenter({ children }: { readonly children: ReactNode }) {
   return <div className="p-flow__center">{children}</div>;
-}
-
-/** First run: nothing but the message. */
-export function BareLayout({ children }: { readonly children: ReactNode }) {
-  return (
-    <main className="p-bare">
-      <div className="p-flow__col">{children}</div>
-    </main>
-  );
 }

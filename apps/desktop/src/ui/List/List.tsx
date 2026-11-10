@@ -1,20 +1,36 @@
 import type { ReactNode } from 'react';
 import { cx } from '../cx';
+import { Icon } from '../Icon/Icon';
 import './List.css';
 
 export interface ListProps {
   /** `card` sits on its own surface; `plain` is dividers on the canvas. */
   readonly kind?: 'card' | 'plain';
   readonly label?: string;
+  /** Sensitive group (card only): an amber band on top saying why ("Start off, asked one by one"). */
+  readonly warn?: ReactNode;
   readonly children: ReactNode;
 }
 
 /** A list of {@link Row}s. */
-export function List({ kind = 'card', label, children }: ListProps) {
+export function List({ kind = 'card', label, warn, children }: ListProps) {
+  if (warn === undefined) {
+    return (
+      <ul className={cx('p-list', `p-list--${kind}`)} aria-label={label}>
+        {children}
+      </ul>
+    );
+  }
   return (
-    <ul className={cx('p-list', `p-list--${kind}`)} aria-label={label}>
-      {children}
-    </ul>
+    <div className="p-list--card p-list--warn">
+      <p className="p-list__band">
+        <Icon name="key" size="sm" />
+        {warn}
+      </p>
+      <ul className="p-list" aria-label={label}>
+        {children}
+      </ul>
+    </div>
   );
 }
 
@@ -31,7 +47,7 @@ function RowBody({ lead, title, sub, trail }: RowContent) {
   return (
     <>
       <span className="p-row__lead">{lead}</span>
-      <span>
+      <span className="p-row__body">
         <span className="p-row__title">{title}</span>
         {sub !== undefined && <span className="p-row__sub">{sub}</span>}
       </span>

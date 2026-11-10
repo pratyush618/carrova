@@ -24,6 +24,8 @@ export interface GalleryScreen {
   readonly view: View;
   readonly states: readonly GalleryState[];
   readonly render: (state: string) => GalleryRender;
+  /** A design document (the component sheet): rendered on the page, not in a window. */
+  readonly doc?: boolean;
 }
 
 /** Builds `[{id,label}]` from `[id, label]` pairs. */

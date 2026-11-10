@@ -2,7 +2,19 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { Banner, Button, Check, Field, Input, Progress, Segmented, Toggle } from '@/ui';
+import {
+  Banner,
+  Button,
+  Check,
+  Decision,
+  Field,
+  Input,
+  MapRow,
+  Progress,
+  Segmented,
+  Toast,
+  Toggle,
+} from '@/ui';
 
 describe('Button', () => {
   it('is a button named by its label that cannot be pressed while disabled', async () => {
@@ -16,6 +28,17 @@ describe('Button', () => {
     await userEvent.click(button);
     expect(button).toBeDisabled();
     expect(onClick).not.toHaveBeenCalled();
+  });
+});
+
+describe('Button busy', () => {
+  it('tells assistive tech it is waiting', () => {
+    render(
+      <Button busy disabled>
+        Waiting…
+      </Button>,
+    );
+    expect(screen.getByRole('button', { name: 'Waiting…' })).toHaveAttribute('aria-busy', 'true');
   });
 });
 
@@ -136,5 +159,83 @@ describe('Field', () => {
     expect(input).toHaveAttribute('aria-invalid', 'true');
     expect(input).toHaveAccessibleDescription("That passphrase doesn't open this file.");
     expect(screen.queryByText('Four words or more')).not.toBeInTheDocument();
+  });
+});
+
+describe('Decision', () => {
+  it('turns its tile green once answered, whichever way it is answered', () => {
+    const { container, rerender } = render(
+      <Decision
+        icon="running"
+        title="VS Code is open"
+        why="Quit it so its settings can be placed."
+        answered={false}
+        action={<Button size="sm">Skip</Button>}
+      />,
+    );
+    expect(container.querySelector('.p-app--success')).toBeNull();
+    rerender(
+      <Decision
+        icon="key"
+        title="Your SSH keys"
+        why="Anyone with a copy can log in as you."
+        options={[{ value: 'leave', label: 'Leave behind' }]}
+        value="leave"
+        onChange={() => undefined}
+      />,
+    );
+    expect(container.querySelector('.p-app--success')).not.toBeNull();
+    expect(screen.getByRole('radiogroup', { name: 'Your SSH keys' })).toBeInTheDocument();
+  });
+
+  it('reads amber while a sensitive question is unanswered', () => {
+    const { container } = render(
+      <Decision
+        icon="key"
+        sensitive
+        title="Your SSH keys"
+        why="Anyone with a copy can log in as you."
+        options={[{ value: 'leave', label: 'Leave behind' }]}
+        value={null}
+        onChange={() => undefined}
+      />,
+    );
+    expect(container.querySelector('.p-app--warning')).not.toBeNull();
+  });
+});
+
+describe('MapRow', () => {
+  it('says when an item lands in the same place', () => {
+    render(
+      <MapRow
+        from={{ os: 'linux', label: 'Ubuntu', path: '~/.gitconfig' }}
+        to={{ os: 'mac_os', label: 'macOS', path: '~/.gitconfig' }}
+      />,
+    );
+    expect(screen.getByText('same place')).toBeInTheDocument();
+    expect(document.querySelector('mark')).toBeNull();
+  });
+
+  it('marks the changed segment on both sides', () => {
+    render(
+      <MapRow
+        from={{ os: 'linux', label: 'Ubuntu', path: '~/.config/Code/User' }}
+        to={{ os: 'mac_os', label: 'macOS', path: '~/Library/Application Support/Code/User' }}
+      />,
+    );
+    expect(Array.from(document.querySelectorAll('mark'), (m) => m.textContent)).toEqual([
+      '.config',
+      'Library/Application Support',
+    ]);
+  });
+});
+
+describe('Toast', () => {
+  it('announces politely and can be dismissed', async () => {
+    const onDismiss = vi.fn();
+    render(<Toast onDismiss={onDismiss}>Copied</Toast>);
+    expect(screen.getByRole('status')).toHaveTextContent('Copied');
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(onDismiss).toHaveBeenCalledOnce();
   });
 });

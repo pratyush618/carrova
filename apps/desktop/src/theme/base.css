@@ -12,7 +12,7 @@ body {
 }
 
 body {
-  font: var(--t-md) / var(--lh-body) var(--font);
+  font: 400 var(--t-md) / var(--lh-body) var(--font);
   color: var(--text-primary);
   background: var(--surface-1);
   -webkit-font-smoothing: antialiased;
@@ -109,6 +109,24 @@ code {
   *::after {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+@keyframes p-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* A tick drawing itself in (paths drawn with `stroke-dasharray: 24`). */
+@keyframes p-check-draw {
+  from {
+    stroke-dashoffset: 24;
   }
 }
 

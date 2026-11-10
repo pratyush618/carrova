@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { buildChrome } from '../app/shell/chrome';
-import { Button, ChromeContext, Window } from '../ui';
+import { Button, ChromeContext, type HubStatus, Window } from '../ui';
 import { DevBar } from './DevBar';
 import { ScreenIndex } from './ScreenIndex';
 import { hashFor, neighbour, resolve } from './registry';
@@ -9,6 +9,13 @@ import { useHashTarget } from './useHashTarget';
 import './gallery.css';
 
 const ignore = (): void => undefined;
+
+/** Fixture for the sidebar foot (the shell reads the real bundle state). */
+const HUB_STATUS: HubStatus = {
+  title: 'Recipes up to date',
+  tone: 'success',
+  detail: 'Bundle 2026.11.3 · signed',
+};
 
 /** Dev-only screen gallery: every screen and state from fixtures, like the mockup's dev bar. */
 export function Gallery() {
@@ -37,7 +44,13 @@ export function Gallery() {
   if (!ref) return null;
   const { screen, state } = ref;
   const rendered = screen.render(state);
-  const chrome = buildChrome(rendered.view ?? screen.view, t, ignore);
+  const chrome = buildChrome(rendered.view ?? screen.view, t, ignore, HUB_STATUS);
+  const frame = {
+    'data-testid': 'gallery-frame',
+    'data-screen': screen.id,
+    'data-state': state,
+    'data-states': screen.states.map((s) => s.id).join(' '),
+  };
 
   return (
     <div className="g-root">
@@ -76,19 +89,19 @@ export function Gallery() {
             ))}
           </div>
         )}
-        <div
-          className="g-frame"
-          data-testid="gallery-frame"
-          data-screen={screen.id}
-          data-state={state}
-          data-states={screen.states.map((s) => s.id).join(' ')}
-        >
-          <ChromeContext value={chrome}>
-            <Window key={`${screen.id}:${state}`} overlays={rendered.overlays ?? []}>
-              {rendered.base}
-            </Window>
-          </ChromeContext>
-        </div>
+        {screen.doc ? (
+          <div className="g-doc" {...frame}>
+            {rendered.base}
+          </div>
+        ) : (
+          <div className="g-frame" {...frame}>
+            <ChromeContext value={chrome}>
+              <Window key={`${screen.id}:${state}`} overlays={rendered.overlays ?? []}>
+                {rendered.base}
+              </Window>
+            </ChromeContext>
+          </div>
+        )}
       </div>
     </div>
   );

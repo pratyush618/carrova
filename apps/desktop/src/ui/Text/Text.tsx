@@ -28,14 +28,17 @@ export interface GroupHeadProps {
   readonly title: ReactNode;
   /** Status on the inline end (a badge or a count). */
   readonly aside?: ReactNode;
+  /** Before the title: a box that picks the whole group. */
+  readonly lead?: ReactNode;
 }
 
 /** A section heading inside a screen. */
-export function GroupHead({ title, aside }: GroupHeadProps) {
+export function GroupHead({ title, aside, lead }: GroupHeadProps) {
   return (
     <div className="p-group-head">
+      {lead}
       <h2>{title}</h2>
-      {aside}
+      {aside !== undefined && <span className="p-group-head__aside">{aside}</span>}
     </div>
   );
 }

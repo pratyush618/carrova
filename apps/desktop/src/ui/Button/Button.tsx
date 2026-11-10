@@ -4,14 +4,16 @@ import { Icon } from '../Icon/Icon';
 import type { IconName } from '../Icon/icons';
 import './Button.css';
 
-export type ButtonKind = 'primary' | 'secondary' | 'quiet' | 'danger';
+export type ButtonKind = 'primary' | 'secondary' | 'quiet' | 'quiet-danger' | 'danger';
 
 type NativeButton = Omit<ComponentPropsWithoutRef<'button'>, 'className' | 'type' | 'children'>;
 
 export interface ButtonProps extends NativeButton {
   /** One `primary` per screen; its label says what happens. */
   readonly kind?: ButtonKind;
-  readonly size?: 'md' | 'sm';
+  readonly size?: 'md' | 'sm' | 'lg';
+  /** Waiting on something: shows a spinner (pair with `disabled` and a "Waiting…" label). */
+  readonly busy?: boolean;
   /** Leading icon. */
   readonly icon?: IconName;
   /** Trailing icon (mirrors in RTL when directional). */
@@ -23,6 +25,7 @@ export interface ButtonProps extends NativeButton {
 export function Button({
   kind = 'secondary',
   size = 'md',
+  busy = false,
   icon,
   iconEnd,
   children,
@@ -34,8 +37,9 @@ export function Button({
       className={cx(
         'p-btn',
         kind !== 'secondary' && `p-btn--${kind}`,
-        size === 'sm' && 'p-btn--sm',
+        size !== 'md' && `p-btn--${size}`,
       )}
+      aria-busy={busy || undefined}
       {...native}
     >
       {icon && <Icon name={icon} />}

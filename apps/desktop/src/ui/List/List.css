@@ -6,16 +6,41 @@
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--r-card);
+  box-shadow: var(--e-1);
   overflow: hidden;
+}
+
+/* Sensitive group: amber edge and a band that says why. */
+.p-list--warn {
+  border-color: color-mix(in oklab, var(--warning) 28%, var(--border));
+}
+
+.p-list__band {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 9px 14px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: var(--t-sm);
+  font-weight: 650;
 }
 
 .p-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: var(--sp-2);
-  padding: 12px var(--sp-2);
+  gap: 12px;
+  padding: 10px 14px;
   min-block-size: 56px;
+}
+
+.p-row__lead:empty {
+  display: none;
+}
+
+.p-row:has(> .p-row__lead:empty) {
+  grid-template-columns: 1fr auto;
 }
 
 .p-list > li + li {
@@ -27,36 +52,44 @@
   padding-inline: 0;
 }
 
+.p-row__body {
+  min-inline-size: 0;
+}
+
 .p-row__title {
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .p-row__sub {
   display: block;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: var(--t-sm);
 }
 
 .p-row__trail {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: 12px;
   color: var(--text-muted);
   font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .p-row__lead {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   color: var(--text-secondary);
 }
 
 .p-row--off .p-row__title {
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
-.p-row--off .p-app {
-  opacity: 0.55;
+/* Warning glyphs keep full strength: dimmed amber text fails AA on its soft fill. */
+.p-row--off .p-app:not(.p-app--warning) {
+  opacity: 0.7;
 }
 
 .p-row--link {

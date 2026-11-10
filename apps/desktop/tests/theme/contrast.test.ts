@@ -27,6 +27,17 @@ describe('contrast maths', () => {
 });
 
 describe('token table', () => {
+  it('measures every pair the mockup measures', () => {
+    expect(contrastPairs).toHaveLength(33);
+  });
+
+  it('puts text on the accent fill, never on the text accent', () => {
+    const onAccent = contrastPairs.filter((p) => p.fg === 'accent-on').map((p) => p.bg);
+    expect(onAccent).toEqual(['accent-fill', 'accent-fill-hover']);
+    // Why the fill exists: dark accent-on (white) is unreadable on the light dark-theme accent.
+    expect(contrastRatio(colorTokens['accent-on'].dark, colorTokens.accent.dark)).toBeLessThan(4.5);
+  });
+
   for (const theme of THEMES) {
     for (const { fg, bg, min } of contrastPairs) {
       it(`${theme}: ${fg} on ${bg} meets ${String(min)}:1`, () => {

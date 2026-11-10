@@ -1,0 +1,55 @@
+.p-perm {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  gap: 2px 12px;
+  align-items: start;
+  padding-block: 9px;
+}
+
+.p-perm + .p-perm {
+  border-block-start: 1px solid var(--border);
+}
+
+.p-perm__ic {
+  grid-row: span 2;
+  inline-size: 30px;
+  block-size: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--well);
+  color: var(--text-secondary);
+}
+
+.p-perm__ic .p-icon {
+  inline-size: 18px;
+  block-size: 18px;
+}
+
+.p-perm__ic--safe {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.p-perm__t {
+  font-weight: 650;
+}
+
+.p-perm__tag {
+  grid-row: 1;
+  grid-column: 3;
+}
+
+.p-perm__d {
+  grid-column: 2;
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+.p-perm__d code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font-size: 12.5px;
+}

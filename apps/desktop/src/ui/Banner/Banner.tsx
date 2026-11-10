@@ -8,7 +8,7 @@ export type BannerTone = Exclude<Tone, 'neutral'>;
 
 const ICON: Record<BannerTone, IconName> = {
   accent: 'info',
-  warning: 'key',
+  warning: 'warn',
   danger: 'warn',
   success: 'check',
 };
@@ -27,11 +27,11 @@ export function Banner({ tone, title, body, action, icon }: BannerProps) {
   return (
     <div className={`p-banner p-banner--${tone}`} role={tone === 'danger' ? 'alert' : 'status'}>
       <Icon name={icon ?? ICON[tone]} />
-      <div>
+      <div className="p-banner__text">
         <p className="p-banner__title">{title}</p>
-        {body !== undefined && <p className="p-banner__body">{body}</p>}
+        {body !== undefined && <p>{body}</p>}
       </div>
-      <div>{action}</div>
+      {action !== undefined && <div className="p-banner__action">{action}</div>}
     </div>
   );
 }

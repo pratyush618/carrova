@@ -6,18 +6,25 @@ export interface ProgressProps {
   /** 0–1. Clamped. */
   readonly value: number;
   readonly label: string;
+  /** Interrupted: the fill turns amber and stops shimmering. */
   readonly paused?: boolean;
+  /** `sm` = the slim per-app bar inside a row. */
+  readonly size?: 'md' | 'sm';
   /** Left and right captions under the bar (done, time left). */
   readonly meta?: readonly [ReactNode, ReactNode];
 }
 
 /** A real progress bar: never faked, never indeterminate. */
-export function Progress({ value, label, paused = false, meta }: ProgressProps) {
+export function Progress({ value, label, paused = false, size = 'md', meta }: ProgressProps) {
   const p = Math.min(1, Math.max(0, value));
   return (
     <div>
       <div
-        className={cx('p-progress', paused && 'p-progress--paused')}
+        className={cx(
+          'p-progress',
+          paused && 'p-progress--paused',
+          size === 'sm' && 'p-progress--sm',
+        )}
         role="progressbar"
         aria-label={label}
         aria-valuemin={0}

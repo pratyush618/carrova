@@ -1,3 +1,4 @@
+import { Kit } from '../Kit';
 import type { GalleryScreen } from '../types';
 import { fileScreens } from './file';
 import { hubScreens } from './hub';
@@ -6,10 +7,17 @@ import { receiveScreens } from './receive';
 import { sendScreens } from './send';
 import { startScreens } from './start';
 
-/**
- * Every Phase 4 screen of the mockup's SCREENS registry, in mockup order.
- * (`xos`, `plugins`, `plugin-perms` are Phase 5; `design` is the mockup's own doc.)
- */
+const kitScreen: GalleryScreen = {
+  id: 'kit',
+  group: 'Design system',
+  title: 'Component sheet',
+  view: { kind: 'hub', page: 'home' },
+  states: [],
+  doc: true,
+  render: () => ({ base: <Kit /> }),
+};
+
+/** Every screen of the mockup's SCREENS registry, in mockup order, then the component sheet. */
 export const SCREENS: readonly GalleryScreen[] = [
   ...startScreens,
   ...sendScreens,
@@ -17,6 +25,7 @@ export const SCREENS: readonly GalleryScreen[] = [
   ...fileScreens,
   ...hubScreens,
   ...overrideScreens,
+  kitScreen,
 ];
 
 /** `#gallery/<id>:<state>` target. */

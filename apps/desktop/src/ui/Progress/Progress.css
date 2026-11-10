@@ -1,21 +1,58 @@
 .p-progress {
-  block-size: 8px;
-  border-radius: var(--r-pill);
+  position: relative;
+  block-size: 6px;
+  border-radius: 3px;
   background: var(--surface-0);
-  border: 1px solid var(--border);
   overflow: hidden;
 }
 
 .p-progress__fill {
+  position: relative;
   block-size: 100%;
   inline-size: calc(var(--p, 0) * 100%);
   background: var(--accent);
   border-radius: inherit;
-  transition: inline-size var(--dur-3) var(--ease);
+  overflow: hidden;
+  transition: inline-size 300ms linear;
+}
+
+/* A light passing along the fill: "still moving". Gone when paused or still. */
+.p-progress__fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--surface-2) 55%, transparent),
+      transparent
+    )
+    no-repeat;
+  background-size: 60px 100%;
+  animation: p-sheen 1.6s linear infinite;
 }
 
 .p-progress--paused .p-progress__fill {
-  background: var(--text-muted);
+  background: var(--warning);
+}
+
+.p-progress--paused .p-progress__fill::after,
+.p-progress--sm .p-progress__fill::after,
+:root[data-motion='reduce'] .p-progress__fill::after {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .p-progress__fill::after {
+    display: none;
+  }
+}
+
+/* Per-app bar inside a row. */
+.p-progress--sm {
+  inline-size: 110px;
+  block-size: 4px;
+  border-radius: 2px;
 }
 
 .p-progress-meta {
@@ -26,4 +63,13 @@
   color: var(--text-muted);
   margin-block-start: var(--sp-1);
   font-variant-numeric: tabular-nums;
+}
+
+@keyframes p-sheen {
+  from {
+    background-position: -60px 0;
+  }
+  to {
+    background-position: calc(100% + 60px) 0;
+  }
 }
