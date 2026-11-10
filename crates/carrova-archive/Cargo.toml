@@ -1,0 +1,28 @@
+[package]
+name = "carrova-archive"
+description = "Carrova encrypted archive export/import (Phase 2)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+carrova-crypto = { workspace = true }
+carrova-manifest = { workspace = true }
+carrova-platform = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+ts-rs = { workspace = true, optional = true }
+
+[dev-dependencies]
+carrova-platform = { workspace = true, features = ["fake"] }
+tempfile = { workspace = true }
+
+[features]
+# TypeScript bindings (ts-rs) for the types front-ends receive.
+ts = ["dep:ts-rs"]
+
+[lints]
+workspace = true
