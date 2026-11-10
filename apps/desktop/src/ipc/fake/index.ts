@@ -46,6 +46,10 @@ const ABOUT: About = {
   os: 'linux',
 };
 
+/** The recipe list `recipes-update` offers. */
+const NEWER_RECIPES = 2;
+const UP_TO_DATE = { kind: 'up_to_date' } as const;
+
 /** A fake port acting out `options.scenario`. */
 export function createFakePort(options: FakeOptions = {}): CarrovaPort {
   const scenario = options.scenario ?? 'happy';
@@ -54,6 +58,9 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
   const receiver = new FakeReceiver(runtime, scenario);
   let settings = DEFAULT_SETTINGS;
   let consent: ReportConsent = 'unset';
+  // shortcut: an install doesn't change `recipesStatus`; make it stateful if a test needs the new version shown.
+  let recipesInstalled = false;
+  const newerRecipes = () => scenario === 'recipes-update' && !recipesInstalled;
   const noReport = () => later(() => raise(bridgeError('session', 'no such error report')));
 
   return {
@@ -76,13 +83,16 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
       later(() => {
         receiver.cancelConnect();
       }),
+    browseNearby: () => later(() => []),
     plan: (session, options) => receiver.plan(session, options),
+    editPlan: (session, edits) => receiver.editPlan(session, edits),
     planOptions: (session) => receiver.planOptions(session),
     approve: (session) => receiver.approve(session),
     apply: (session) => receiver.apply(session),
     endReview: (session) => receiver.endReview(session),
     setTransferPaused: (session, paused) => receiver.setTransferPaused(session, paused),
     ignoreFreeSpace: (session) => receiver.ignoreFreeSpace(session),
+    retryConnection: (session) => receiver.retryConnection(session),
 
     cancel: (session) =>
       later(() => {
@@ -115,7 +125,18 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
           : fx.catalog,
       ),
     recipesStatus: () => later(() => fx.recipesStatus),
-    recipesUpdate: () => later(() => ({ kind: 'up_to_date' }) as const),
+    recipesCheck: () =>
+      later(() =>
+        newerRecipes()
+          ? ({ kind: 'available', version: NEWER_RECIPES } as const)
+          : ({ kind: 'up_to_date', version: NEWER_RECIPES - 1 } as const),
+      ),
+    recipesUpdate: () =>
+      later(() => {
+        if (!newerRecipes()) return UP_TO_DATE;
+        recipesInstalled = true;
+        return { kind: 'updated', version: NEWER_RECIPES } as const;
+      }),
     recipesReset: () => later(() => fx.recipesStatus),
 
     about: () => later(() => ABOUT),

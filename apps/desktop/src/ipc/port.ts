@@ -20,6 +20,8 @@ import type { Checklist } from '../bindings/Checklist';
 import type { ErrorReport } from '../bindings/ErrorReport';
 import type { IssueDraft } from '../bindings/IssueDraft';
 import type { KdfStrength } from '../bindings/KdfStrength';
+import type { NearbyPeer } from '../bindings/NearbyPeer';
+import type { PlanEdit } from '../bindings/PlanEdit';
 import type { PlanOptions } from '../bindings/PlanOptions';
 import type { PassphraseStrength } from '../bindings/PassphraseStrength';
 import type { PlanReview } from '../bindings/PlanReview';
@@ -27,6 +29,7 @@ import type { Preset } from '../bindings/Preset';
 import type { ReportConsent } from '../bindings/ReportConsent';
 import type { ReportId } from '../bindings/ReportId';
 import type { ReportSummary } from '../bindings/ReportSummary';
+import type { RecipesCheck } from '../bindings/RecipesCheck';
 import type { RecipesStatus } from '../bindings/RecipesStatus';
 import type { RecipesUpdate } from '../bindings/RecipesUpdate';
 import type { RollbackPreview } from '../bindings/RollbackPreview';
@@ -90,8 +93,17 @@ export interface CarrovaPort {
   connect(code: string): Promise<SessionOpened>;
   /** Stop a `connect` that is still pairing (it has no session yet). */
   cancelConnect(): Promise<void>;
+  /** Senders nearby offering a code (device names only; the user still types the code). */
+  browseNearby(): Promise<NearbyPeer[]>;
   /** (Re)build the plan with the user's options; nothing is written. */
   plan(session: SessionId, options: PlanOptions): Promise<PlanReview>;
+  /**
+   * Re-plan with the user's `edits` applied by the engine to the current plan's
+   * options (`review.plan.options` holds the result). Rejects with
+   * `invalid_selection` (nothing changed) before the first `plan` or if an edit
+   * names an unknown item or plugin.
+   */
+  editPlan(session: SessionId, edits: PlanEdit[]): Promise<PlanReview>;
   /**
    * The options the session last planned with (`null` before its first plan).
    * A resumed import plans from these, so its earlier choices and approval
@@ -111,6 +123,8 @@ export interface CarrovaPort {
    * check (the user's override, after the warning). A really full disk still stops it.
    */
   ignoreFreeSpace(session: SessionId): Promise<void>;
+  /** Reconnect a lost LAN transfer now instead of after the back-off ("Try now"). */
+  retryConnection(session: SessionId): Promise<void>;
 
   // --- Any session --------------------------------------------------------
   /** Stop a running task between steps; apply always completes or rolls back. */
@@ -133,6 +147,8 @@ export interface CarrovaPort {
   /** Apps Carrova knows, with detection on this machine. */
   catalog(): Promise<CatalogEntry[]>;
   recipesStatus(): Promise<RecipesStatus>;
+  /** Whether a newer recipe bundle is offered; installs nothing. */
+  recipesCheck(): Promise<RecipesCheck>;
   /** Check for, verify and install a newer recipe bundle. */
   recipesUpdate(): Promise<RecipesUpdate>;
   /** Remove the installed recipe bundle; the recipes shipped with the app are used again. */

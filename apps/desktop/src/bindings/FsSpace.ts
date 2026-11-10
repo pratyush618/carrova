@@ -17,6 +17,10 @@ needed: number,
  */
 available: number | null, 
 /**
+ * Its capacity, if known.
+ */
+total: number | null, 
+/**
  * How much is missing, when known to be short.
  */
 short_by: number | null, };

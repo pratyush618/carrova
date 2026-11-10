@@ -16,4 +16,8 @@ available: number,
 /**
  * Bytes needed to continue.
  */
-needed: number, } | { "kind": "by_user" };
+needed: number, 
+/**
+ * Mount point of that filesystem, if the platform knows it.
+ */
+disk: string | null, } | { "kind": "by_user" };

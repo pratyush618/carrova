@@ -48,13 +48,16 @@ export function createTauriPort(): CarrovaPort {
     openArchive: (path, passphrase) => call('open_archive', { path, passphrase }),
     connect: (code) => call('connect', { code }),
     cancelConnect: () => call('cancel_connect'),
+    browseNearby: () => call('browse_nearby'),
     plan: (session, options) => call('plan', { session, options }),
+    editPlan: (session, edits) => call('edit_plan', { session, edits }),
     planOptions: (session) => call('plan_options', { session }),
     approve: (session) => call('approve', { session }),
     apply: (session) => call('apply', { session }),
     endReview: (session) => call('end_review', { session }),
     setTransferPaused: (session, paused) => call('set_transfer_paused', { session, paused }),
     ignoreFreeSpace: (session) => call('ignore_free_space', { session }),
+    retryConnection: (session) => call('retry_connection', { session }),
 
     cancel: (session) => call('cancel', { session }),
     resume: (session, passphrase) => call('resume', { session, passphrase: passphrase ?? null }),
@@ -65,6 +68,7 @@ export function createTauriPort(): CarrovaPort {
 
     catalog: () => call('catalog'),
     recipesStatus: () => call('recipes_status'),
+    recipesCheck: () => call('recipes_check'),
     recipesUpdate: () => call('recipes_update'),
     recipesReset: () => call('recipes_reset'),
 

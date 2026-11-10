@@ -64,7 +64,16 @@ function edited(key: string, c: ItemChoice, edit: SelectionEdit): ItemChoice {
       const r = rolesOf(c);
       return r.cache && r.movable && !c.sensitive ? { ...c, included: edit.included } : c;
     }
+    case 'allow_plugin':
+      return c;
   }
+}
+
+/** `allowed` after `edit`: the user's answer for an exporting plugin. */
+function consented(allowed: readonly string[], edit: SelectionEdit): string[] {
+  if (edit.kind !== 'allow_plugin') return [...allowed];
+  const rest = allowed.filter((p) => p !== edit.plugin);
+  return edit.allow ? [...rest, edit.plugin] : rest;
 }
 
 /** The item an edit names, if it names one. */
@@ -80,19 +89,31 @@ export function applyEdits(selection: Selection, edits: readonly SelectionEdit[]
     const items = Object.fromEntries(
       Object.entries(current.items).map(([key, c]) => [key, edited(key, c, edit)]),
     );
-    return { items };
+    return { ...current, items, confirmed_plugins: consented(current.confirmed_plugins, edit) };
   }, selection);
 }
 
 function issuesOf(selection: Selection): SelectionIssue[] {
-  return Object.entries(selection.items).flatMap(([item, c]) => [
+  const ofItems = Object.entries(selection.items).flatMap(([item, c]) => [
     ...(c.included && c.sensitive && !c.confirmed_sensitive
-      ? [{ item, problem: 'sensitive item needs explicit confirmation' }]
+      ? [{ item, problem: 'sensitive item needs explicit confirmation', plugin: null }]
       : []),
     ...(c.included && !c.force_unmovable && c.unmovable !== null
-      ? [{ item, problem: `item is unmovable (${c.unmovable}); force it to include` }]
+      ? [{ item, problem: `item is unmovable (${c.unmovable}); force it to include`, plugin: null }]
       : []),
   ]);
+  const ofPlugins = selection.export_plugins
+    .filter((p) => !selection.confirmed_plugins.includes(p.plugin))
+    .flatMap((p) =>
+      p.items
+        .filter((item) => selection.items[item]?.included === true)
+        .map((item) => ({
+          item,
+          problem: `plugin \`${p.plugin}\` must change its files on this computer before sending`,
+          plugin: p.plugin,
+        })),
+    );
+  return [...ofItems, ...ofPlugins];
 }
 
 function tagsOf(c: ItemChoice): SelectionTag[] {
@@ -124,5 +145,6 @@ export function viewOf(selection: Selection, base: SelectionView): SelectionView
     included: entries.filter(([, c]) => c.included).length,
     included_size: rows.reduce((n, r) => n + (r.included ? (r.facts?.size ?? 0) : 0), 0),
     issues: issuesOf(selection),
+    plugins: selection.export_plugins,
   };
 }

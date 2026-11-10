@@ -3,4 +3,8 @@
 /**
  * How long rollback points are kept.
  */
-export type Retention = "until_dismissed" | "discard_on_success";
+export type Retention = "until_dismissed" | "discard_on_success" | { "keep_for": { 
+/**
+ * Days to keep the undo point.
+ */
+days: number, } };

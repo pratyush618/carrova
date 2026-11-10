@@ -20,4 +20,12 @@ fallback: string | null,
 /**
  * A previous code was burned by a failed pairing attempt.
  */
-renewed: boolean, };
+renewed: boolean, 
+/**
+ * The previous code outlived its lifetime and this one replaced it.
+ */
+expired: boolean, 
+/**
+ * Seconds until the code stops working (a fresh one replaces it).
+ */
+expires_in_secs: number, };

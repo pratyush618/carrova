@@ -20,6 +20,7 @@ export const selectIssues: ScanResult = {
               sensitive: false,
             },
             id: 'config',
+            keys: [],
             label: 'Global Git config, ignore and attributes',
             missing: ['user_config:git'],
             paths: ['home:.gitconfig', 'user_config:git'],
@@ -38,6 +39,7 @@ export const selectIssues: ScanResult = {
               sensitive: true,
             },
             id: 'credentials',
+            keys: [],
             label: 'Stored Git credentials (plain-text tokens/passwords)',
             missing: ['home:.git-credentials', 'user_config:git/credentials'],
             paths: ['home:.git-credentials', 'user_config:git/credentials'],
@@ -66,6 +68,7 @@ export const selectIssues: ScanResult = {
               sensitive: false,
             },
             id: 'config',
+            keys: [],
             label: 'tmux config and scripts',
             missing: ['home:.tmux', 'user_config:tmux'],
             paths: ['home:.tmux.conf', 'home:.tmux', 'user_config:tmux'],
@@ -84,6 +87,7 @@ export const selectIssues: ScanResult = {
               sensitive: false,
             },
             id: 'plugins',
+            keys: [],
             label: 'Plugins installed by TPM (reinstallable)',
             missing: ['home:.tmux/plugins', 'user_config:tmux/plugins'],
             paths: ['home:.tmux/plugins', 'user_config:tmux/plugins'],
@@ -112,6 +116,7 @@ export const selectIssues: ScanResult = {
               sensitive: false,
             },
             id: 'config',
+            keys: [],
             label: 'Neovim config (init.lua/init.vim, Lua modules, plugin lockfile)',
             missing: [],
             paths: ['user_config:nvim'],
@@ -130,6 +135,7 @@ export const selectIssues: ScanResult = {
               sensitive: false,
             },
             id: 'plugins',
+            keys: [],
             label: 'Installed plugins and language servers (reinstallable, can be large)',
             missing: ['user_data:nvim'],
             paths: ['user_data:nvim'],
@@ -158,6 +164,7 @@ export const selectIssues: ScanResult = {
               sensitive: false,
             },
             id: 'config',
+            keys: [],
             label: 'SSH client config and known hosts',
             missing: ['home:.ssh/config.d', 'home:.ssh/known_hosts'],
             paths: ['home:.ssh/config', 'home:.ssh/config.d', 'home:.ssh/known_hosts'],
@@ -176,6 +183,7 @@ export const selectIssues: ScanResult = {
               sensitive: true,
             },
             id: 'authorized-keys',
+            keys: [],
             label: 'Authorized keys (lets those keys log in to this machine)',
             missing: ['home:.ssh/authorized_keys'],
             paths: ['home:.ssh/authorized_keys'],
@@ -194,6 +202,14 @@ export const selectIssues: ScanResult = {
               sensitive: true,
             },
             id: 'keys',
+            keys: [
+              {
+                comment: 'ana@laptop',
+                fingerprint: 'SHA256:NjPW/nTdCp+kYt8q2MDzlxqVglp1qFUCdXF10CRjeX0',
+                kind: 'ed25519',
+                path: 'home:.ssh/id_ed25519',
+              },
+            ],
             label: 'SSH key pairs (private keys)',
             missing: [],
             paths: ['home:.ssh'],
@@ -222,6 +238,7 @@ export const selectIssues: ScanResult = {
               sensitive: false,
             },
             id: 'config',
+            keys: [],
             label: 'Bash startup files, aliases and readline config',
             missing: [
               'home:.bash_profile',
@@ -255,6 +272,7 @@ export const selectIssues: ScanResult = {
               sensitive: true,
             },
             id: 'history',
+            keys: [],
             label: 'Bash command history',
             missing: ['home:.bash_history'],
             paths: ['home:.bash_history'],
@@ -283,6 +301,7 @@ export const selectIssues: ScanResult = {
               sensitive: false,
             },
             id: 'config',
+            keys: [],
             label: 'Starship prompt config (starship.toml)',
             missing: [],
             paths: ['user_config:starship.toml'],
@@ -319,6 +338,8 @@ export const selectIssues: ScanResult = {
     warnings: [],
   },
   selection: {
+    confirmed_plugins: [],
+    export_plugins: [],
     items: {
       'bash/config': {
         confirmed_sensitive: false,
@@ -450,7 +471,7 @@ export const selectIssues: ScanResult = {
       },
     },
   },
-  session: '20261110-050017-f8867c',
+  session: '20261110-115827-ad7f88',
   view: {
     hidden_raw: 0,
     included: 7,
@@ -458,14 +479,17 @@ export const selectIssues: ScanResult = {
     issues: [
       {
         item: 'ssh/keys',
+        plugin: null,
         problem: 'sensitive item needs explicit confirmation',
       },
     ],
+    plugins: [],
     rows: [
       {
         excluded_paths: [],
         facts: {
           files: 1,
+          keys: [],
           label: 'Bash startup files, aliases and readline config',
           size: 37,
         },
@@ -486,6 +510,7 @@ export const selectIssues: ScanResult = {
         excluded_paths: [],
         facts: {
           files: 0,
+          keys: [],
           label: 'Bash command history',
           size: 0,
         },
@@ -507,6 +532,7 @@ export const selectIssues: ScanResult = {
         excluded_paths: [],
         facts: {
           files: 1,
+          keys: [],
           label: 'Global Git config, ignore and attributes',
           size: 44,
         },
@@ -527,6 +553,7 @@ export const selectIssues: ScanResult = {
         excluded_paths: [],
         facts: {
           files: 0,
+          keys: [],
           label: 'Stored Git credentials (plain-text tokens/passwords)',
           size: 0,
         },
@@ -548,6 +575,7 @@ export const selectIssues: ScanResult = {
         excluded_paths: [],
         facts: {
           files: 2,
+          keys: [],
           label: 'Neovim config (init.lua/init.vim, Lua modules, plugin lockfile)',
           size: 30,
         },
@@ -568,6 +596,7 @@ export const selectIssues: ScanResult = {
         excluded_paths: [],
         facts: {
           files: 0,
+          keys: [],
           label: 'Installed plugins and language servers (reinstallable, can be large)',
           size: 0,
         },
@@ -584,6 +613,7 @@ export const selectIssues: ScanResult = {
         excluded_paths: [],
         facts: {
           files: 0,
+          keys: [],
           label: 'Authorized keys (lets those keys log in to this machine)',
           size: 0,
         },
@@ -605,6 +635,7 @@ export const selectIssues: ScanResult = {
         excluded_paths: [],
         facts: {
           files: 1,
+          keys: [],
           label: 'SSH client config and known hosts',
           size: 30,
         },
@@ -625,6 +656,14 @@ export const selectIssues: ScanResult = {
         excluded_paths: [],
         facts: {
           files: 2,
+          keys: [
+            {
+              comment: 'ana@laptop',
+              fingerprint: 'SHA256:NjPW/nTdCp+kYt8q2MDzlxqVglp1qFUCdXF10CRjeX0',
+              kind: 'ed25519',
+              path: 'home:.ssh/id_ed25519',
+            },
+          ],
           label: 'SSH key pairs (private keys)',
           size: 73,
         },
@@ -646,6 +685,7 @@ export const selectIssues: ScanResult = {
         excluded_paths: [],
         facts: {
           files: 1,
+          keys: [],
           label: 'Starship prompt config (starship.toml)',
           size: 20,
         },
@@ -666,6 +706,7 @@ export const selectIssues: ScanResult = {
         excluded_paths: [],
         facts: {
           files: 1,
+          keys: [],
           label: 'tmux config and scripts',
           size: 16,
         },
@@ -686,6 +727,7 @@ export const selectIssues: ScanResult = {
         excluded_paths: [],
         facts: {
           files: 0,
+          keys: [],
           label: 'Plugins installed by TPM (reinstallable)',
           size: 0,
         },

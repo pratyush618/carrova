@@ -2,8 +2,10 @@
 import type { ItemKey } from "./ItemKey";
 
 /**
- * A plugin the plan runs over the files of `items`, with what the user
- * is asked to allow ([`PlanOptions::confirmed_plugins`]).
+ * A plugin run over the files of `items`, with what the user is asked to
+ * allow: on the receiver the plan's ([`PlanOptions::confirmed_plugins`]),
+ * on the sender a selection's export
+ * ([`crate::Selection::confirmed_plugins`]).
  */
 export type PlannedPlugin = { plugin: string, version: string, description: string, 
 /**

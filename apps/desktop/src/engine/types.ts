@@ -3,6 +3,7 @@
  * `../bindings`. This module is the one place that names them, so screens and
  * state never import Rust shapes directly.
  */
+
 export type { ArchiveSummary } from '../bindings/ArchiveSummary';
 export type { BridgeError } from '../bindings/BridgeError';
 export type { BridgeEvent } from '../bindings/BridgeEvent';
