@@ -51,6 +51,11 @@ pub(crate) struct Stop {
 }
 
 impl Stop {
+    /// Whether [`Stoppable::stop`] was called.
+    pub(crate) fn is_stopped(&self) -> bool {
+        self.stopped.load(Ordering::Acquire)
+    }
+
     /// Resolves once [`Stoppable::stop`] was called.
     pub(crate) async fn stopped(&self) {
         loop {

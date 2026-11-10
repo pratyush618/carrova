@@ -54,6 +54,10 @@ pub(super) async fn stream(
             )
         } => Some(outcome),
     };
+    // The join can also run dry because serving stopped (the read queue
+    // closes right after `stop`) before `stopped()` is polled again: reset
+    // then too, never finish, or the receiver sees a truncated stream.
+    let outcome = outcome.filter(|_| !stop.is_stopped());
     let Some((requested, responded)) = outcome else {
         let _ = send.reset(STREAM_CANCELLED);
         let _ = recv.stream_mut().stop(STREAM_CANCELLED);
@@ -64,7 +68,10 @@ pub(super) async fn stream(
         // request side saw is moot.
         Err(Respond::Stopped) => Ok(StreamEnd::Served(sent)),
         Err(Respond::Failed(e)) => Err(e),
-        Ok(()) => requested.map(|()| StreamEnd::Served(sent)),
+        Ok(()) => {
+            let _ = send.finish();
+            requested.map(|()| StreamEnd::Served(sent))
+        }
     }
 }
 
@@ -139,7 +146,7 @@ async fn respond(
         }
         out.push(&p.chunk, data);
     }
+    // The caller finishes the stream, once it knows serving wasn't stopped.
     out.flush(send, sent).await?;
-    let _ = send.finish();
     Ok(())
 }
