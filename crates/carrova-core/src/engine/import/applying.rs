@@ -41,6 +41,11 @@ impl Importer {
     /// [`CoreError::PeerCancelled`], with the same outcome.
     pub fn apply(&mut self) -> Result<Checklist> {
         let plan = self.approved_plan()?;
+        // The approved plan's override lifts every runtime free-space guard
+        // (chunk staging and plugin output) via the one live control.
+        if plan.options.ignore_free_space {
+            self.control.ignore_free_space();
+        }
         self.cancel.check()?;
         self.s.transition(State::Transferring)?;
         let staged = match self.stage(&plan) {

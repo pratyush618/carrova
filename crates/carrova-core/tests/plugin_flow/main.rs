@@ -242,6 +242,26 @@ fn plugin_output_without_room_is_a_full_disk_not_a_partial_write() {
 }
 
 #[test]
+fn a_plan_approved_with_the_space_override_writes_plugin_output_on_a_low_disk() {
+    let (r, mut imp) = receiver(vec![path_rewrite()]);
+    r.platform.override_free_space(Some(1));
+    let options = PlanOptions {
+        ignore_free_space: true,
+        ..confirmed()
+    };
+    imp.plan(&options).unwrap();
+    imp.approve().unwrap();
+    imp.apply().unwrap();
+    let target = r
+        .home
+        .join("Library/Application Support/obsidian/obsidian.json");
+    assert_eq!(
+        std::fs::read_to_string(target).unwrap(),
+        vault_list(&r.home)
+    );
+}
+
+#[test]
 fn plugin_output_without_room_pauses_a_lan_transfer_until_space_frees() {
     let (_s, mut exp) = linux_sender();
     let running = lan_support::run(exp.prepare_send().unwrap());

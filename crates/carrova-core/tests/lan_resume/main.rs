@@ -164,11 +164,7 @@ fn low_disk_space_pauses_the_transfer_until_space_frees_up() {
     let running = run(exp.prepare_send().unwrap());
     let mut imp =
         Importer::connect(receiver.engine.clone(), running.first.as_ref().unwrap()).unwrap();
-    imp.plan(&PlanOptions {
-        ignore_free_space: true,
-        ..options()
-    })
-    .unwrap();
+    imp.plan(&options()).unwrap();
     imp.approve().unwrap();
 
     receiver.platform.override_free_space(Some(1024));
