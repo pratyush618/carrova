@@ -7,7 +7,7 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 # Placeholder: becomes the .deb `Maintainer:` field. Replace before release.
-authors = ["Carrova maintainers <maintainers@carrova.invalid>"]
+authors = ["Pratyush Sharma <mail@byteveda.org>"]
 
 [lib]
 name = "carrova_desktop"
