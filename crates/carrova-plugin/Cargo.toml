@@ -1,6 +1,6 @@
 [package]
 name = "carrova-plugin"
-description = "Carrova WASM plugin runtime (stub until Phase 5)"
+description = "Carrova WASM plugin runtime: sandboxed receiver-side content transforms"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,6 +8,15 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+carrova-platform = { workspace = true }
+carrova-recipe = { workspace = true }
+serde = { workspace = true }
+serde_yaml_ng = { workspace = true }
+thiserror = { workspace = true }
+wasmi = { workspace = true }
+
+[dev-dependencies]
+wat = { workspace = true }
 
 [lints]
 workspace = true

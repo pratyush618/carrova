@@ -1,0 +1,21 @@
+[package]
+name = "path-rewrite"
+description = "Carrova plugin: rewrite the source home folder path to this computer's"
+version = "1.0.0"
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+
+# Standalone: not part of the Carrova workspace (`just plugins` builds it
+# for wasm32-unknown-unknown and copies the module to `plugin.wasm`).
+[workspace]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = "s"
+lto = true
+panic = "abort"
+strip = true
+codegen-units = 1
