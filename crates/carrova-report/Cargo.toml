@@ -1,0 +1,24 @@
+[package]
+name = "carrova-report"
+description = "Opt-in, redacted local crash and error reports shared by every Carrova front-end"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+ts-rs = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[features]
+# TypeScript bindings (ts-rs) of the report types the desktop UI receives.
+ts = ["dep:ts-rs"]
+
+[lints]
+workspace = true
