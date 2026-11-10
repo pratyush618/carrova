@@ -1,0 +1,27 @@
+binaries: [gpg]
+detected: true
+process_names: [gpg, gpg-agent, scdaemon, dirmngr, keyboxd]
+items:
+  config:
+    files:
+      - home:.gnupg/dirmngr.conf
+      - home:.gnupg/gpg-agent.conf
+      - home:.gnupg/gpg.conf
+      - home:.gnupg/sshcontrol
+  public-keyring:
+    # Handler item: files are the declared paths the handler mutates.
+    handler: gpg-keyring
+    files:
+      - home:.gnupg/public-keys.d/pubring.db
+      - home:.gnupg/pubring.kbx
+      - home:.gnupg/trustdb.gpg
+  secret-keys:
+    files:
+      - home:.gnupg/openpgp-revocs.d/0123456789ABCDEF0123456789ABCDEF01234567.rev
+      - home:.gnupg/private-keys-v1.d/0123456789ABCDEF0123456789ABCDEF01234567.key
+not_captured:
+  - .gnupg/S.gpg-agent
+  - .gnupg/pubring.kbx.lock
+  - .gnupg/public-keys.d/pubring.db.lock
+  - .gnupg/random_seed
+  - ".gnupg/private-keys-v1.d/.#lk0x0000-dummy.1234"

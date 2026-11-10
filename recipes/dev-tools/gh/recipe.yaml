@@ -1,0 +1,40 @@
+schema: 1
+id: gh
+name: GitHub CLI
+category: dev-tools
+description: GitHub CLI settings and aliases (config.yml). Your login (hosts.yml) can hold OAuth tokens and is a separate, sensitive item. Tokens kept in the system keyring cannot be moved; run gh auth login on the new machine.
+detect:
+  linux:
+    - binary: gh
+    - path: { root: user_config, rel: gh }
+items:
+  - id: config
+    label: GitHub CLI settings and aliases (config.yml)
+    paths:
+      - { root: user_config, rel: gh/config.yml }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: hosts
+    label: GitHub CLI login (hosts.yml; may contain OAuth tokens)
+    paths:
+      - { root: user_config, rel: gh/hosts.yml }
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false
+  - id: extensions
+    label: Installed gh extensions (reinstallable)
+    paths:
+      - { root: user_data, rel: gh/extensions }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: false
+  - id: keyring-token
+    label: Login tokens stored in the system keyring
+    unmovable: gh stores tokens in the OS keyring by default; they are bound to this machine. Run gh auth login on the new machine.

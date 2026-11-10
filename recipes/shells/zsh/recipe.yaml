@@ -1,0 +1,71 @@
+schema: 1
+id: zsh
+name: Zsh
+category: shells
+description: Zsh startup files, Powerlevel10k config and Oh My Zsh customisations. The Oh My Zsh framework itself is reinstalled, not copied. Completion dumps are caches and never captured.
+detect:
+  linux:
+    - binary: zsh
+    - path: { root: home, rel: .zshrc }
+    - path: { root: user_config, rel: zsh }
+items:
+  - id: config
+    label: Zsh startup files and prompt config
+    paths:
+      - { root: home, rel: .zshrc }
+      - { root: home, rel: .zshenv }
+      - { root: home, rel: .zprofile }
+      - { root: home, rel: .zlogin }
+      - { root: home, rel: .zlogout }
+      - { root: home, rel: .p10k.zsh }
+      - { root: user_config, rel: zsh }
+    exclude:
+      - "**/.zcompdump*"
+      - "**/.zsh_history"
+      - "**/.zhistory"
+      - "**/.histfile"
+      - "**/history"
+      - "**/.zsh_sessions"
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: oh-my-zsh-custom
+    label: Oh My Zsh custom plugins, themes and scripts
+    paths:
+      - { root: home, rel: .oh-my-zsh/custom }
+    exclude: ["**/.zcompdump*"]
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: oh-my-zsh
+    label: Oh My Zsh framework
+    unmovable: The framework is reinstalled from upstream; only your custom/ directory moves.
+  - id: history
+    label: Zsh command history
+    paths:
+      - { root: home, rel: .zsh_history }
+      - { root: home, rel: .zhistory }
+      - { root: home, rel: .histfile }
+      - { root: user_config, rel: zsh/.zsh_history }
+      - { root: user_config, rel: zsh/.zhistory }
+      - { root: user_config, rel: zsh/.histfile }
+      - { root: user_config, rel: zsh/history }
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false
+  - id: sessions
+    label: Zsh per-session history (.zsh_sessions)
+    paths:
+      - { root: home, rel: .zsh_sessions }
+      - { root: user_config, rel: zsh/.zsh_sessions }
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false

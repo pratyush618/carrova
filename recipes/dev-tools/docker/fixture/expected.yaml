@@ -1,0 +1,21 @@
+binaries: [docker]
+detected: true
+items:
+  contexts:
+    files:
+      - home:.docker/contexts/meta/0000aaaa/meta.json
+  context-tls:
+    files:
+      - home:.docker/contexts/tls/0000aaaa/docker/ca.pem
+      - home:.docker/contexts/tls/0000aaaa/docker/cert.pem
+      - home:.docker/contexts/tls/0000aaaa/docker/key.pem
+  config:
+    files:
+      - home:.docker/config.json
+  cli-plugins:
+    files:
+      - home:.docker/cli-plugins/docker-compose
+  credential-helper-logins:
+    files: []
+not_captured:
+  - .docker/buildx/instances/default

@@ -1,0 +1,32 @@
+schema: 1
+id: neovim
+name: Neovim
+category: editors
+description: Neovim configuration (init.lua or init.vim, Lua modules, plugin lockfile). Installed plugins and language servers are reinstallable and off by default. Editing history (ShaDa), swap and undo state are never captured.
+detect:
+  linux:
+    - binary: nvim
+    - path: { root: user_config, rel: nvim }
+items:
+  - id: config
+    label: Neovim config (init.lua/init.vim, Lua modules, plugin lockfile)
+    paths:
+      - { root: user_config, rel: nvim }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: plugins
+    label: Installed plugins and language servers (reinstallable, can be large)
+    paths:
+      - { root: user_data, rel: nvim }
+    exclude:
+      - shada
+      - swap
+      - "**/*.log"
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: false

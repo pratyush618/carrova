@@ -1,0 +1,36 @@
+binaries: [zsh]
+detected: true
+items:
+  config:
+    files:
+      - home:.p10k.zsh
+      - home:.zprofile
+      - home:.zshenv
+      - home:.zshrc
+      - user_config:zsh/aliases.zsh
+  oh-my-zsh-custom:
+    files:
+      - home:.oh-my-zsh/custom/aliases.zsh
+      - home:.oh-my-zsh/custom/plugins/myplugin/myplugin.plugin.zsh
+      - home:.oh-my-zsh/custom/themes/mytheme.zsh-theme
+  oh-my-zsh:
+    files: []
+  history:
+    files:
+      - home:.histfile
+      - home:.zhistory
+      - home:.zsh_history
+      - user_config:zsh/.histfile
+      - user_config:zsh/.zhistory
+      - user_config:zsh/.zsh_history
+      - user_config:zsh/history
+  sessions:
+    files:
+      - home:.zsh_sessions/0A1B2C3D-0000-0000-0000-000000000000.history
+      - home:.zsh_sessions/0A1B2C3D-0000-0000-0000-000000000000.session
+      - user_config:zsh/.zsh_sessions/0A1B2C3D-0000-0000-0000-000000000001.history
+not_captured:
+  - .zcompdump-host-5.9
+  - .config/zsh/.zcompdump
+  - .oh-my-zsh/oh-my-zsh.sh
+  - .oh-my-zsh/plugins/git/git.plugin.zsh

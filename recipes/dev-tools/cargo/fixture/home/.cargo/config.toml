@@ -1,0 +1,6 @@
+# Dummy Cargo config for Carrova fixture tests.
+[build]
+jobs = 4
+
+[alias]
+b = "build"

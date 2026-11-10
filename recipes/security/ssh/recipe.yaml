@@ -1,0 +1,48 @@
+schema: 1
+id: ssh
+name: OpenSSH
+category: security
+description: OpenSSH client configuration, known hosts, authorized keys and key pairs. Private keys are sensitive and off by default; permissions (600) are restored exactly.
+detect:
+  linux:
+    - binary: ssh
+    - path: { root: home, rel: .ssh }
+items:
+  - id: config
+    label: SSH client config and known hosts
+    paths:
+      - { root: home, rel: .ssh/config }
+      - { root: home, rel: .ssh/config.d }
+      - { root: home, rel: .ssh/known_hosts }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: authorized-keys
+    label: Authorized keys (lets those keys log in to this machine)
+    paths:
+      - { root: home, rel: .ssh/authorized_keys }
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false
+  - id: keys
+    label: SSH key pairs (private keys)
+    paths:
+      - { root: home, rel: .ssh }
+    exclude:
+      - config
+      - config.d
+      - "known_hosts*"
+      - "authorized_keys*"
+      - "*.sock"
+      - "cm-*"
+      - sockets
+      - controlmasters
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false

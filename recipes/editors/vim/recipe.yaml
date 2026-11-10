@@ -1,0 +1,59 @@
+schema: 1
+id: vim
+name: Vim
+category: editors
+description: Vim and gVim startup files plus your ~/.vim runtime directory (ftplugins, colour schemes, autoload scripts). Plugins installed by a plugin manager are reinstallable and off by default. Swap, undo and backup files are never captured; editing history (viminfo) is a separate, sensitive item.
+detect:
+  linux:
+    - binary: vim
+    - path: { root: home, rel: .vimrc }
+    - path: { root: home, rel: .vim }
+    - path: { root: user_config, rel: vim }
+items:
+  - id: config
+    label: Vim startup files and runtime directory
+    paths:
+      - { root: home, rel: .vimrc }
+      - { root: home, rel: .gvimrc }
+      - { root: home, rel: .vim }
+      - { root: user_config, rel: vim }
+    exclude:
+      - plugged
+      - bundle
+      - pack
+      - swap
+      - undo
+      - backup
+      - viminfo
+      - .netrwhist
+      - "**/*.sw?"
+      - "**/*.un~"
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: plugins
+    label: Plugins installed by a plugin manager (reinstallable)
+    paths:
+      - { root: home, rel: .vim/plugged }
+      - { root: home, rel: .vim/bundle }
+      - { root: home, rel: .vim/pack }
+      - { root: user_config, rel: vim/plugged }
+      - { root: user_config, rel: vim/pack }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: false
+  - id: history
+    label: Vim editing history (viminfo; command line, search and registers)
+    paths:
+      - { root: home, rel: .viminfo }
+      - { root: home, rel: .vim/viminfo }
+      - { root: user_config, rel: vim/viminfo }
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false

@@ -1,0 +1,22 @@
+schema: 1
+id: npm
+name: npm
+category: dev-tools
+description: npm user config (~/.npmrc). It often contains registry auth tokens, so it is sensitive and off by default. The package cache and logs are never captured; global packages are reinstalled, not copied.
+detect:
+  linux:
+    - binary: npm
+    - path: { root: home, rel: .npmrc }
+items:
+  - id: npmrc
+    label: npm user config (.npmrc; may contain registry auth tokens)
+    paths:
+      - { root: home, rel: .npmrc }
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false
+  - id: global-packages
+    label: Globally installed packages
+    unmovable: Global packages are reinstalled with npm install -g, never copied (they may contain native builds tied to this machine).

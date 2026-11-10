@@ -1,0 +1,16 @@
+binaries: [gh]
+detected: true
+items:
+  config:
+    files:
+      - user_config:gh/config.yml
+  hosts:
+    files:
+      - user_config:gh/hosts.yml
+  extensions:
+    files:
+      - user_data:gh/extensions/gh-dash/gh-dash
+  keyring-token:
+    files: []
+not_captured:
+  - .config/gh/state.yml

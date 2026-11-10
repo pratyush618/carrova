@@ -1,0 +1,32 @@
+schema: 1
+id: git
+name: Git
+category: dev-tools
+description: Global Git configuration (user identity, aliases, global ignore and attributes). Stored credentials are a separate, sensitive item.
+detect:
+  linux:
+    - binary: git
+    - path: { root: home, rel: .gitconfig }
+    - path: { root: user_config, rel: git }
+items:
+  - id: config
+    label: Global Git config, ignore and attributes
+    paths:
+      - { root: home, rel: .gitconfig }
+      - { root: user_config, rel: git }
+    exclude: ["**/credentials"]
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: credentials
+    label: Stored Git credentials (plain-text tokens/passwords)
+    paths:
+      - { root: home, rel: .git-credentials }
+      - { root: user_config, rel: git/credentials }
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false

@@ -1,0 +1,38 @@
+schema: 1
+id: vscode
+name: Visual Studio Code
+category: editors
+description: VS Code user settings, keybindings, snippets, tasks and profiles. Caches and per-workspace state are never captured. Extensions are reinstalled, not copied.
+detect:
+  linux:
+    - binary: code
+    - path: { root: user_config, rel: Code/User }
+items:
+  - id: settings
+    label: Settings, keybindings, snippets, tasks and profiles
+    paths:
+      - { root: user_config, rel: Code/User }
+    exclude:
+      - "**/globalStorage"
+      - "**/workspaceStorage"
+      - History
+      - sync
+      - "**/*.log"
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: global-state
+    label: Global UI and extension state (state databases)
+    paths:
+      - { root: user_config, rel: Code/User/globalStorage }
+    exclude: ["**/*.vscdb.backup", "**/*.log"]
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: true
+      default: false
+  - id: extensions
+    label: Installed extensions
+    unmovable: Extensions are reinstalled from the marketplace, never copied.

@@ -1,0 +1,25 @@
+binaries: [vim]
+detected: true
+items:
+  config:
+    files:
+      - home:.gvimrc
+      - home:.vim/autoload/plug.vim
+      - home:.vim/colors/mine.vim
+      - home:.vim/ftplugin/python.vim
+      - home:.vimrc
+      - user_config:vim/vimrc
+  plugins:
+    files:
+      - home:.vim/bundle/nerdtree/plugin/NERD_tree.vim
+      - home:.vim/pack/plugins/start/fugitive/plugin/fugitive.vim
+      - home:.vim/plugged/vim-surround/plugin/surround.vim
+  history:
+    files:
+      - home:.viminfo
+not_captured:
+  - .vim/swap/%home%u%notes.txt.swp
+  - .vim/undo/%home%u%notes.txt
+  - .vim/backup/notes.txt~
+  - .vim/.netrwhist
+  - .vim/.scratch.vim.swp

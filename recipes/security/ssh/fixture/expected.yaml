@@ -1,0 +1,20 @@
+binaries: [ssh]
+detected: true
+items:
+  config:
+    files:
+      - home:.ssh/config
+      - home:.ssh/config.d/work
+      - home:.ssh/known_hosts
+  authorized-keys:
+    files:
+      - home:.ssh/authorized_keys
+  keys:
+    files:
+      - home:.ssh/id_ed25519
+      - home:.ssh/id_ed25519.pub
+      - home:.ssh/id_rsa_work
+      - home:.ssh/id_rsa_work.pub
+not_captured:
+  - .ssh/known_hosts.old
+  - ".ssh/cm-test@example.invalid:22"

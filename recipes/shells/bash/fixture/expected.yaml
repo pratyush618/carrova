@@ -1,0 +1,14 @@
+binaries: [bash]
+detected: true
+items:
+  config:
+    files:
+      - home:.bash_aliases
+      - home:.bash_profile
+      - home:.bashrc
+      - home:.inputrc
+      - home:.profile
+  history:
+    files:
+      - home:.bash_history
+not_captured: []

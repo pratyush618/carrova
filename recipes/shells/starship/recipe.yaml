@@ -1,0 +1,19 @@
+schema: 1
+id: starship
+name: Starship
+category: shells
+description: Starship prompt configuration (starship.toml). The line that enables Starship lives in your shell startup file and moves with that shell. Logs in the cache folder are never captured.
+detect:
+  linux:
+    - binary: starship
+    - path: { root: user_config, rel: starship.toml }
+items:
+  - id: config
+    label: Starship prompt config (starship.toml)
+    paths:
+      - { root: user_config, rel: starship.toml }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true

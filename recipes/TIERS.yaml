@@ -1,0 +1,20 @@
+# Trust tiers for recipes in the published bundle.
+# Recipes listed under `verified` were reviewed by maintainers; every other
+# recipe ships as `community`. Ids must match an existing recipe (the bundle
+# build fails on unknown ids).
+verified:
+  - bash
+  - cargo
+  - docker
+  - fish
+  - gh
+  - git
+  - gnupg
+  - neovim
+  - npm
+  - ssh
+  - starship
+  - tmux
+  - vim
+  - vscode
+  - zsh

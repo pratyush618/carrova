@@ -1,0 +1,40 @@
+schema: 1
+id: fish
+name: fish
+category: shells
+description: fish config, functions, conf.d snippets and completions, including plugins installed by Fisher (they live in the same folders). Universal variables are a separate, sensitive item (they can hold exported tokens); command history is a separate, sensitive item.
+detect:
+  linux:
+    - binary: fish
+    - path: { root: user_config, rel: fish }
+items:
+  - id: config
+    label: fish config, functions, conf.d and completions
+    paths:
+      - { root: user_config, rel: fish }
+    exclude:
+      - fish_variables
+      - "fishd.*"
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: universal-variables
+    label: Universal variables (abbreviations, colours, fish_user_paths and anything set with set -U, which can include exported tokens or API keys)
+    paths:
+      - { root: user_config, rel: fish/fish_variables }
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false
+  - id: history
+    label: fish command history
+    paths:
+      - { root: user_data, rel: fish/fish_history }
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false

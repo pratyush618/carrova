@@ -1,0 +1,20 @@
+binaries: [cargo]
+detected: true
+items:
+  config:
+    files:
+      - home:.cargo/config.toml
+  credentials:
+    files:
+      - home:.cargo/credentials.toml
+  crate-cache:
+    files:
+      - home:.cargo/git/db/dummy-0000000000000000/HEAD
+      - home:.cargo/registry/cache/index.crates.io-0000000000000000/serde-1.0.0.crate
+      - home:.cargo/registry/index/index.crates.io-0000000000000000/config.json
+  installed-binaries:
+    files: []
+not_captured:
+  - .cargo/bin/cargo-watch
+  - .cargo/.crates2.json
+  - .cargo/env

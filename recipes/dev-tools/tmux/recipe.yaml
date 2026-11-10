@@ -1,0 +1,35 @@
+schema: 1
+id: tmux
+name: tmux
+category: dev-tools
+description: tmux configuration (~/.tmux.conf or ~/.config/tmux) and your own scripts. Plugins installed by TPM are reinstallable and off by default. Saved sessions (tmux-resurrect) can contain pane contents and are never captured.
+detect:
+  linux:
+    - binary: tmux
+    - path: { root: home, rel: .tmux.conf }
+    - path: { root: user_config, rel: tmux }
+items:
+  - id: config
+    label: tmux config and scripts
+    paths:
+      - { root: home, rel: .tmux.conf }
+      - { root: home, rel: .tmux }
+      - { root: user_config, rel: tmux }
+    exclude:
+      - plugins
+      - resurrect
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: plugins
+    label: Plugins installed by TPM (reinstallable)
+    paths:
+      - { root: home, rel: .tmux/plugins }
+      - { root: user_config, rel: tmux/plugins }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: false

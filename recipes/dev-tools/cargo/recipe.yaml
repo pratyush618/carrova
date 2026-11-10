@@ -1,0 +1,43 @@
+schema: 1
+id: cargo
+name: Cargo
+category: dev-tools
+description: Cargo global config (~/.cargo/config.toml). Registry credentials are a separate, sensitive item. The downloaded crate cache is large and off by default; installed binaries are reinstalled, not copied.
+detect:
+  linux:
+    - binary: cargo
+    - path: { root: home, rel: .cargo }
+items:
+  - id: config
+    label: Cargo global config (config.toml)
+    paths:
+      - { root: home, rel: .cargo/config.toml }
+      - { root: home, rel: .cargo/config }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: credentials
+    label: Registry credentials (credentials.toml; API tokens)
+    paths:
+      - { root: home, rel: .cargo/credentials.toml }
+      - { root: home, rel: .cargo/credentials }
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false
+  - id: crate-cache
+    label: Downloaded crates and git dependencies (cache, large, re-downloaded on demand)
+    paths:
+      - { root: home, rel: .cargo/registry }
+      - { root: home, rel: .cargo/git }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: false
+  - id: installed-binaries
+    label: Binaries installed with cargo install
+    unmovable: Reinstall them with cargo install (and the toolchain with rustup); ~/.cargo/bin also holds rustup's proxies, which must not be copied.

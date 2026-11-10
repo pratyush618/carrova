@@ -1,0 +1,12 @@
+binaries: [npm]
+detected: true
+items:
+  npmrc:
+    files:
+      - home:.npmrc
+  global-packages:
+    files: []
+not_captured:
+  - .npm/_cacache/index-v5/00/dummy
+  - .npm/_logs/2026-01-01T00_00_00_000Z-debug-0.log
+  - .npm-global/lib/node_modules/typescript/package.json

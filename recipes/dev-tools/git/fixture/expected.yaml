@@ -1,0 +1,14 @@
+binaries: [git]
+detected: true
+items:
+  config:
+    files:
+      - home:.gitconfig
+      - user_config:git/attributes
+      - user_config:git/config
+      - user_config:git/ignore
+  credentials:
+    files:
+      - home:.git-credentials
+      - user_config:git/credentials
+not_captured: []

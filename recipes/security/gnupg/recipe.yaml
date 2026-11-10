@@ -1,0 +1,51 @@
+schema: 2
+id: gnupg
+name: GnuPG
+category: security
+description: GnuPG configuration, public keyring and secret keys. Public keys and ownertrust move through the built-in gpg-keyring handler (`gpg --export` / `--import`, merged into the receiver keyring). Secret keys are copied as raw files (keygrip-named, merge cleanly) with the GnuPG daemons stopped.
+detect:
+  linux:
+    - binary: gpg
+    - path: { root: home, rel: .gnupg }
+processes: [gpg-agent, scdaemon, dirmngr, keyboxd]
+items:
+  - id: config
+    label: GnuPG, gpg-agent and dirmngr config
+    paths:
+      - { root: home, rel: .gnupg/gpg.conf }
+      - { root: home, rel: .gnupg/gpg-agent.conf }
+      - { root: home, rel: .gnupg/dirmngr.conf }
+      - { root: home, rel: .gnupg/scdaemon.conf }
+      - { root: home, rel: .gnupg/common.conf }
+      - { root: home, rel: .gnupg/sshcontrol }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: public-keyring
+    label: Public keyring and trust database
+    handler: gpg-keyring
+    # Files the handler's `gpg --import` may change on the receiver (backed
+    # up before apply). public-keys.d is the keyboxd store (GnuPG 2.4+).
+    paths:
+      - { root: home, rel: .gnupg/pubring.kbx }
+      - { root: home, rel: .gnupg/trustdb.gpg }
+      - { root: home, rel: .gnupg/public-keys.d }
+    exclude: ["**/S.*", "**/*.lock", "**/.#lk*", "**/random_seed"]
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: true
+      default: true
+  - id: secret-keys
+    label: Secret keys and revocation certificates
+    paths:
+      - { root: home, rel: .gnupg/private-keys-v1.d }
+      - { root: home, rel: .gnupg/openpgp-revocs.d }
+    exclude: ["**/S.*", "**/*.lock", "**/.#lk*", "**/random_seed"]
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: true
+      default: false

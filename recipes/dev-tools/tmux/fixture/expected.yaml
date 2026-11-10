@@ -1,0 +1,15 @@
+binaries: [tmux]
+detected: true
+items:
+  config:
+    files:
+      - home:.tmux.conf
+      - home:.tmux/scripts/status.sh
+      - user_config:tmux/tmux.conf
+  plugins:
+    files:
+      - home:.tmux/plugins/tmux-sensible/sensible.tmux
+      - home:.tmux/plugins/tpm/tpm
+      - user_config:tmux/plugins/tmux-yank/yank.tmux
+not_captured:
+  - .tmux/resurrect/tmux_resurrect_20260101T000000.txt

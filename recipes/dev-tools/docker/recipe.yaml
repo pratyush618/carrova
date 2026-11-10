@@ -1,0 +1,51 @@
+schema: 1
+id: docker
+name: Docker CLI
+category: dev-tools
+description: Docker CLI contexts and client config. config.json can hold registry logins, so it is sensitive and off by default; logins kept by a credential helper live in the system keyring and cannot be moved. Images, containers and volumes are not user config and are never captured.
+detect:
+  linux:
+    - binary: docker
+    - path: { root: home, rel: .docker }
+items:
+  - id: contexts
+    label: Docker contexts (remote and alternative engine endpoints)
+    paths:
+      - { root: home, rel: .docker/contexts }
+    exclude:
+      - tls
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: true
+  - id: context-tls
+    label: TLS client certificates and keys for Docker contexts
+    paths:
+      - { root: home, rel: .docker/contexts/tls }
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false
+  - id: config
+    label: Docker client config (config.json; may contain registry logins)
+    paths:
+      - { root: home, rel: .docker/config.json }
+    flags:
+      portability: same_os
+      sensitive: true
+      requires_closed: false
+      default: false
+  - id: cli-plugins
+    label: CLI plugins such as Compose and Buildx (reinstallable)
+    paths:
+      - { root: home, rel: .docker/cli-plugins }
+    flags:
+      portability: same_os
+      sensitive: false
+      requires_closed: false
+      default: false
+  - id: credential-helper-logins
+    label: Registry logins stored by a credential helper (credsStore/credHelpers)
+    unmovable: Credential helpers keep logins in the system keyring or pass, which are bound to this machine. Run docker login again on the new machine.
