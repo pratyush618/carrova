@@ -18,7 +18,7 @@ build:
 
 # Unit + integration tests (all features so test doubles compile)
 test:
-    cargo test --workspace --all-features
+    cargo test --workspace --all-features --no-fail-fast
 
 # Build every plugin under plugins/ to plugins/<id>/plugin.wasm (+ host tests).
 plugins:
