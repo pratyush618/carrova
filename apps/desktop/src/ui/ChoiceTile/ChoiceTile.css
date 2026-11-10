@@ -1,0 +1,41 @@
+.p-tile-choice {
+  display: grid;
+  gap: var(--sp-1);
+  align-content: start;
+  text-align: start;
+  padding: var(--sp-3);
+  border-radius: var(--r-card);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  box-shadow: var(--e-1);
+  transition:
+    transform var(--dur-2) var(--ease),
+    box-shadow var(--dur-2) var(--ease),
+    border-color var(--dur-2);
+}
+
+.p-tile-choice:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--e-2);
+  border-color: var(--border-strong);
+}
+
+.p-tile-choice__icon {
+  inline-size: 48px;
+  block-size: 48px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  margin-block-end: var(--sp-1);
+}
+
+.p-tile-choice__title {
+  font-size: var(--t-xl);
+  font-weight: 700;
+}
+
+.p-tile-choice__sub {
+  color: var(--text-muted);
+}

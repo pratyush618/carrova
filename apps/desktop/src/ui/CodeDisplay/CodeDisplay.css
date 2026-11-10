@@ -1,0 +1,81 @@
+.p-code {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  direction: ltr;
+  justify-content: center;
+}
+
+.p-code__word {
+  display: flex;
+  gap: 4px;
+}
+
+.p-code__dash {
+  inline-size: 14px;
+  block-size: 4px;
+  border-radius: 2px;
+  background: var(--text-muted);
+}
+
+.p-flap {
+  inline-size: 40px;
+  block-size: 58px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  background: var(--flap);
+  color: var(--flap-ink);
+  font: 700 34px / 1 var(--mono);
+  text-transform: lowercase;
+  box-shadow:
+    var(--e-2),
+    inset 0 0 0 1px var(--flap-edge);
+}
+
+.p-flap::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 50%;
+  block-size: 2px;
+  background: var(--flap-seam);
+  opacity: 0.55;
+}
+
+.p-flap--num {
+  background: var(--accent);
+  color: var(--accent-on);
+}
+
+.p-flap--spinning {
+  animation: p-flip 90ms linear infinite;
+}
+
+.p-flap--set {
+  animation: p-settle var(--dur-2) var(--ease-spring);
+}
+
+@keyframes p-flip {
+  50% {
+    transform: scaleY(0.82);
+  }
+}
+
+@keyframes p-settle {
+  from {
+    transform: scaleY(0.6);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.p-code--sm .p-flap {
+  inline-size: 26px;
+  block-size: 36px;
+  font-size: 20px;
+  border-radius: 5px;
+}

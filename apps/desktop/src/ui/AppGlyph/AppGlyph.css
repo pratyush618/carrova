@@ -1,0 +1,39 @@
+/* Neutral, so the accent stays the only colour that means "act". */
+.p-app {
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  font: 700 13px / 1 var(--mono);
+  color: var(--text-secondary);
+  direction: ltr;
+}
+
+.p-app--sm {
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: 7px;
+  font-size: 10px;
+}
+
+.p-app--done {
+  background: var(--success-soft);
+  border-color: transparent;
+  color: var(--success);
+  animation: p-tick var(--dur-3) var(--ease-spring);
+}
+
+@keyframes p-tick {
+  0% {
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

@@ -1,0 +1,84 @@
+.p-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  min-block-size: 40px;
+  padding-inline: var(--sp-2);
+  border-radius: var(--r-ctl);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-weight: 700;
+  white-space: nowrap;
+  transition:
+    background var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease),
+    border-color var(--dur-1);
+}
+
+.p-btn:hover {
+  border-color: var(--text-muted);
+}
+
+.p-btn:active {
+  transform: scale(0.98);
+}
+
+.p-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.p-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-on);
+}
+
+.p-btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.p-btn--quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--accent);
+  padding-inline: var(--sp-1);
+}
+
+.p-btn--quiet:hover {
+  border-color: transparent;
+  background: var(--accent-soft);
+}
+
+.p-btn--danger {
+  color: var(--danger);
+}
+
+.p-btn--danger:hover {
+  border-color: var(--danger);
+}
+
+.p-btn--sm {
+  min-block-size: 32px;
+  padding-inline: 12px;
+  font-size: var(--t-sm);
+}
+
+.p-btn--icon {
+  padding-inline: var(--sp-1);
+}
+
+.p-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}

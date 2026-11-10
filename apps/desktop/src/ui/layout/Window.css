@@ -1,0 +1,16 @@
+.p-window {
+  position: relative;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: hidden;
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+
+.p-window__base {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  block-size: 100%;
+  min-block-size: 0;
+  animation: p-fade var(--dur-2) var(--ease);
+}

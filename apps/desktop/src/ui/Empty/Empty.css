@@ -1,0 +1,40 @@
+.p-empty {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--sp-1);
+  padding: var(--sp-6) var(--sp-3);
+}
+
+.p-empty__art {
+  inline-size: 64px;
+  block-size: 64px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-0);
+  color: var(--text-muted);
+  margin-block-end: var(--sp-1);
+}
+
+.p-empty__art--danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.p-empty__title {
+  font-size: var(--t-lg);
+}
+
+.p-empty__title:focus {
+  outline: none;
+}
+
+.p-empty p {
+  color: var(--text-muted);
+  max-inline-size: 40ch;
+}
+
+.p-empty__action {
+  margin-block-start: var(--sp-2);
+}

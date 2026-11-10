@@ -1,0 +1,19 @@
+.p-copybox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-1);
+  padding-block: 6px;
+  padding-inline: 14px 6px;
+  border-radius: var(--r-ctl);
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+}
+
+.p-copybox code {
+  direction: ltr;
+  unicode-bidi: isolate;
+  overflow-wrap: anywhere;
+}

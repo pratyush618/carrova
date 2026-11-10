@@ -1,0 +1,19 @@
+.s-home__choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 15.5rem));
+  gap: var(--sp-2);
+}
+
+.s-home__last {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--t-sm);
+  color: var(--text-muted);
+}
+
+@media (max-width: 760px) {
+  .s-home__choices {
+    grid-template-columns: 1fr;
+  }
+}

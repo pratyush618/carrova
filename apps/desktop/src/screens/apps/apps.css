@@ -1,0 +1,27 @@
+.s-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: var(--sp-2);
+}
+
+.s-app-card {
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--sp-2);
+  border-radius: var(--r-card);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  text-align: start;
+  inline-size: 100%;
+}
+
+.s-app-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--e-1);
+}
+
+.s-app-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

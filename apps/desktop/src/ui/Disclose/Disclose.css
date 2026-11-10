@@ -1,0 +1,30 @@
+.p-disclose > summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 700;
+  list-style: none;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  border-radius: var(--r-ctl);
+}
+
+.p-disclose > summary::-webkit-details-marker {
+  display: none;
+}
+
+.p-disclose > summary .p-icon {
+  transition: transform var(--dur-2) var(--ease);
+}
+
+.p-disclose[open] > summary .p-icon {
+  transform: rotate(90deg);
+}
+
+[dir='rtl'] .p-disclose[open] > summary .p-icon {
+  transform: scaleX(-1) rotate(90deg);
+}
+
+.p-disclose__body {
+  padding-block-start: 12px;
+}

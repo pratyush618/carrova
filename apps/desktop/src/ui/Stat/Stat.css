@@ -1,0 +1,18 @@
+.p-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+}
+
+.p-stat__n {
+  font-size: var(--t-2xl);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.p-stat__l {
+  color: var(--text-muted);
+  font-size: var(--t-sm);
+  margin-block-start: var(--sp-0);
+}

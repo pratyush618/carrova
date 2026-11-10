@@ -1,0 +1,48 @@
+.p-check {
+  inline-size: 20px;
+  block-size: 20px;
+  border-radius: 6px;
+  border: 1.5px solid var(--control);
+  background: var(--surface-2);
+  padding: 0;
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--accent-on);
+}
+
+.p-check .p-icon {
+  inline-size: 14px;
+  block-size: 14px;
+  stroke-width: 2.5;
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  transition: stroke-dashoffset var(--dur-2) var(--ease);
+}
+
+.p-check[aria-checked='true'],
+.p-check[aria-checked='mixed'] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.p-check[aria-checked='true'] .p-icon {
+  stroke-dashoffset: 0;
+}
+
+.p-check[aria-checked='mixed']::after {
+  content: '';
+  inline-size: 10px;
+  block-size: 2px;
+  background: var(--accent-on);
+  border-radius: 1px;
+}
+
+.p-check[aria-checked='mixed'] .p-icon {
+  display: none;
+}
+
+/* An item that cannot be picked: shown, never interactive. */
+.p-check--locked {
+  opacity: 0.55;
+}

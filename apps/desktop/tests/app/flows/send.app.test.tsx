@@ -1,0 +1,85 @@
+import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
+import { renderApp } from '../../support/app';
+
+const home = () =>
+  screen.findByRole('heading', { level: 1, name: 'What are we doing on this computer?' });
+
+describe('sending over the LAN', () => {
+  it('scans, sends the selection, shows the code and ends on Delivered', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true });
+    const runSend = vi.spyOn(port, 'runSend');
+    await home();
+    await user.click(screen.getByRole('button', { name: /Send/ }));
+    await user.click(await screen.findByRole('button', { name: 'Get pairing code' }));
+
+    expect(runSend).toHaveBeenCalledOnce();
+    expect(await screen.findByText('Your setup is on the new computer.')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Step 4 of 4' })).toBeInTheDocument();
+  });
+
+  it('sends every selection edit to the engine', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true });
+    const select = vi.spyOn(port, 'select');
+    await home();
+    await user.click(screen.getByRole('button', { name: /Send/ }));
+    const toggles = await screen.findAllByRole('switch');
+    const first = toggles[0];
+    if (first === undefined) throw new Error('no app rows');
+    await user.click(first);
+
+    expect(select).toHaveBeenCalledOnce();
+    const sent = select.mock.calls[0]?.[1];
+    expect(Object.values(sent?.items ?? {}).some((c) => !c.included)).toBe(true);
+  });
+
+  it('asks before showing a new code after a wrong one, and goes on when the user agrees', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true, scenario: 'wrong-code' });
+    const answer = vi.spyOn(port, 'answerPairing');
+    await home();
+    await user.click(screen.getByRole('button', { name: /Send/ }));
+    await user.click(await screen.findByRole('button', { name: 'Get pairing code' }));
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Someone typed a wrong code' });
+    expect(within(dialog).getByRole('button', { name: 'Stop pairing' })).toHaveFocus();
+    await user.click(within(dialog).getByRole('button', { name: 'Show a new code' }));
+
+    expect(answer).toHaveBeenCalledWith(expect.any(String), true);
+    expect(await screen.findByText('Your setup is on the new computer.')).toBeInTheDocument();
+  });
+
+  it('stops pairing for good when the user declines a new code', async () => {
+    const user = userEvent.setup();
+    await renderApp({ returning: true, scenario: 'wrong-code' });
+    await home();
+    await user.click(screen.getByRole('button', { name: /Send/ }));
+    await user.click(await screen.findByRole('button', { name: 'Get pairing code' }));
+    await user.click(await screen.findByRole('button', { name: 'Stop pairing' }));
+
+    expect(await screen.findByRole('heading', { name: 'Pairing stopped' })).toBeInTheDocument();
+  });
+
+  it('cancels a running send when the flow is closed', async () => {
+    const user = userEvent.setup();
+    // Once the code is up, the peer never types it: the send stays running
+    // however slowly the test machine gets to the close button.
+    let peerAway = false;
+    const sleep = () => (peerAway ? new Promise<void>(() => undefined) : Promise.resolve());
+    const { port } = await renderApp({ returning: true, sleep });
+    const cancel = vi.spyOn(port, 'cancel');
+    await home();
+    await user.click(screen.getByRole('button', { name: /Send/ }));
+    const getCode = await screen.findByRole('button', { name: 'Get pairing code' });
+    peerAway = true;
+    await user.click(getCode);
+    await screen.findByRole('img', { name: /Pairing code/ });
+    await user.click(screen.getByRole('button', { name: 'Close and go home' }));
+
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(await home()).toBeInTheDocument();
+  });
+});

@@ -1,0 +1,76 @@
+.p-list {
+  display: grid;
+}
+
+.p-list--card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+
+.p-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 12px var(--sp-2);
+  min-block-size: 56px;
+}
+
+.p-list > li + li {
+  border-block-start: 1px solid var(--border);
+}
+
+.p-list--plain .p-row,
+.p-row--flush {
+  padding-inline: 0;
+}
+
+.p-row__title {
+  font-weight: 700;
+}
+
+.p-row__sub {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--t-sm);
+}
+
+.p-row__trail {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--t-sm);
+}
+
+.p-row__lead {
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+}
+
+.p-row--off .p-row__title {
+  color: var(--text-muted);
+}
+
+.p-row--off .p-app {
+  opacity: 0.55;
+}
+
+.p-row--link {
+  inline-size: 100%;
+  border: 0;
+  background: none;
+  text-align: start;
+  border-radius: 0;
+}
+
+.p-row--link:hover {
+  background: var(--surface-0);
+}
+
+.p-row--link:focus-visible {
+  outline-offset: -2px;
+}

@@ -1,0 +1,32 @@
+.p-toggle {
+  inline-size: 40px;
+  block-size: 24px;
+  border-radius: var(--r-pill);
+  border: 0;
+  padding: 0;
+  background: var(--control);
+  position: relative;
+  flex: none;
+  transition: background var(--dur-2) var(--ease);
+}
+
+.p-toggle::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 3px;
+  inset-inline-start: 3px;
+  inline-size: 18px;
+  block-size: 18px;
+  border-radius: 50%;
+  background: var(--knob);
+  box-shadow: var(--e-1);
+  transition: inset-inline-start var(--dur-2) var(--ease-spring);
+}
+
+.p-toggle[aria-checked='true'] {
+  background: var(--accent);
+}
+
+.p-toggle[aria-checked='true']::after {
+  inset-inline-start: 19px;
+}

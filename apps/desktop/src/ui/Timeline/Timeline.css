@@ -1,0 +1,54 @@
+/* A real sequence, so it is ordered. */
+.p-timeline {
+  display: grid;
+}
+
+.p-timeline li {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  gap: 12px;
+  padding-block: 8px;
+  position: relative;
+}
+
+.p-timeline li::before {
+  content: '';
+  inline-size: 10px;
+  block-size: 10px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-block-start: 6px;
+  margin-inline-start: 3px;
+}
+
+.p-timeline li::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 7px;
+  inset-block: 24px -6px;
+  inline-size: 2px;
+  background: var(--border);
+}
+
+.p-timeline li:last-child::after {
+  display: none;
+}
+
+.p-timeline time {
+  color: var(--text-muted);
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.p-log {
+  margin: 0;
+  padding: var(--sp-2);
+  border-radius: var(--r-ctl);
+  background: var(--surface-0);
+  font: 12px / 1.6 var(--mono);
+  color: var(--text-secondary);
+  overflow: auto;
+  direction: ltr;
+  text-align: start;
+  white-space: pre-wrap;
+}

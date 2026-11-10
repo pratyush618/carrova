@@ -1,0 +1,26 @@
+.p-ghost {
+  position: relative;
+}
+
+.p-input--code {
+  font: 700 var(--t-2xl) / 1 var(--mono);
+  min-block-size: 64px;
+  letter-spacing: 0.02em;
+}
+
+.p-ghost__hint {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 15px;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  font: 700 var(--t-2xl) / 1 var(--mono);
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  white-space: pre;
+}
+
+.p-ghost__typed {
+  visibility: hidden;
+}

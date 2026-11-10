@@ -1,0 +1,24 @@
+.p-icon {
+  inline-size: 20px;
+  block-size: 20px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.p-icon--sm {
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+.p-icon--lg {
+  inline-size: 28px;
+  block-size: 28px;
+}
+
+[dir='rtl'] .p-icon--dir {
+  transform: scaleX(-1);
+}

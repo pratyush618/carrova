@@ -1,0 +1,43 @@
+import type { HubPage, View } from '../../nav/navMachine';
+import { AppsRoute, HistoryRoute, HomeRoute, SettingsRoute, WelcomeRoute } from './HubRoutes';
+import { OpenRoute, ReceiveRoute } from './ReceiveRoutes';
+import { SaveRoute, SendRoute } from './SendRoutes';
+import { UndoRoute } from './UndoRoute';
+
+function HubRoute({ page }: { readonly page: HubPage }) {
+  switch (page) {
+    case 'home':
+      return <HomeRoute />;
+    case 'history':
+      return <HistoryRoute />;
+    case 'apps':
+      return <AppsRoute />;
+    case 'settings':
+      return <SettingsRoute />;
+  }
+}
+
+/** The screen for `view`. Exhaustive over every page and flow position. */
+export function ViewRoute({ view }: { readonly view: View }) {
+  switch (view.kind) {
+    case 'welcome':
+      return <WelcomeRoute />;
+    case 'hub':
+      return <HubRoute page={view.page} />;
+    case 'flow': {
+      const { at } = view;
+      switch (at.flow) {
+        case 'send':
+          return <SendRoute step={at.step} />;
+        case 'save':
+          return <SaveRoute step={at.step} />;
+        case 'receive':
+          return <ReceiveRoute step={at.step} />;
+        case 'open':
+          return <OpenRoute step={at.step} />;
+        case 'undo':
+          return at.step === 'result' ? <UndoRoute /> : <HomeRoute />;
+      }
+    }
+  }
+}

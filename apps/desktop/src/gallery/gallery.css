@@ -1,0 +1,112 @@
+/* Dev-only screen gallery (the mockup's prototype chrome). Not product. */
+.g-root {
+  min-block-size: 100%;
+  background: var(--backdrop);
+  color: var(--text-primary);
+}
+
+.g-dev {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+  padding: 10px var(--sp-3);
+  background: var(--backdrop);
+  border-block-end: 1px solid var(--border-strong);
+  font-size: var(--t-sm);
+}
+
+.g-dev__title {
+  font-weight: 700;
+  margin-inline-end: var(--sp-1);
+}
+
+.g-dev__where {
+  color: var(--text-secondary);
+  margin-inline: var(--sp-1) auto;
+}
+
+.g-dev .p-btn {
+  min-block-size: 30px;
+  padding-inline: 10px;
+  font-size: var(--t-sm);
+}
+
+.g-dev .p-btn[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.g-stage {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-3) var(--sp-8);
+}
+
+.g-states {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.g-states .p-btn[aria-current='true'] {
+  background: var(--text-primary);
+  color: var(--surface-1);
+  border-color: var(--text-primary);
+}
+
+.g-frame {
+  inline-size: min(1000px, 100%);
+  block-size: 680px;
+  border-radius: 14px;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--e-3);
+  overflow: hidden;
+}
+
+.g-index {
+  position: fixed;
+  z-index: 10;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: 340px;
+  overflow: auto;
+  padding: var(--sp-3);
+  background: var(--surface-3);
+  box-shadow: var(--e-3);
+}
+
+.g-index h3 {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-block: var(--sp-2) var(--sp-0);
+}
+
+.g-index a {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: var(--t-sm);
+}
+
+.g-index a:hover {
+  background: var(--surface-0);
+}
+
+.g-index a[aria-current='page'] {
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+
+.g-index__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
