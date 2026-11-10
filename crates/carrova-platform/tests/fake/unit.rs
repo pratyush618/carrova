@@ -247,3 +247,44 @@ fn fake_device_name_is_sanitised_like_a_native_one() {
     assert_eq!(named("  studio\n").device_name().as_deref(), Some("studio"));
     assert_eq!(named("\u{202E}").device_name(), None);
 }
+
+/// Scripts written while other threads fork must run at once (no ETXTBSY).
+#[cfg(unix)]
+#[test]
+fn tool_scripts_run_at_once_while_other_threads_fork() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let stop = Arc::new(AtomicBool::new(false));
+    let forkers: Vec<_> = (0..4)
+        .map(|_| {
+            let stop = Arc::clone(&stop);
+            std::thread::spawn(move || {
+                while !stop.load(Ordering::Relaxed) {
+                    let _ = std::process::Command::new("/bin/true").status();
+                }
+            })
+        })
+        .collect();
+    let writers: Vec<_> = (0..4)
+        .map(|t| {
+            let dir = tmp.path().to_owned();
+            std::thread::spawn(move || {
+                for i in 0..50 {
+                    let bin =
+                        write_tool_script(&dir, &format!("tool-{t}-{i}"), "exit 0\n").unwrap();
+                    let status = std::process::Command::new(&bin).status().unwrap();
+                    assert!(status.success());
+                }
+            })
+        })
+        .collect();
+    for w in writers {
+        w.join().unwrap();
+    }
+    stop.store(true, Ordering::Relaxed);
+    for f in forkers {
+        f.join().unwrap();
+    }
+}

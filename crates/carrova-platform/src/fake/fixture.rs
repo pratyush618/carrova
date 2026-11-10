@@ -30,12 +30,11 @@ pub fn pin_umask(mask: u16) {
 }
 
 /// Write an executable `#!/bin/sh` script `dir/name` with body `sh_body`
-/// (a fake external tool for handler tests). The file is fsynced and closed
-/// before returning; unix only.
+/// (a fake external tool for handler tests); fails if it exists. Unix only.
 ///
-/// Exec of a just-written script can fail with `ETXTBSY` if another thread
-/// forks while the write fd is open: write tool scripts from one test
-/// thread (e.g. a single test function per test binary).
+/// A short-lived `sh` writes it, so this process never holds a write fd on
+/// the script: a fork elsewhere in the test binary would inherit that fd
+/// until its exec, and running the script meanwhile fails with `ETXTBSY`.
 #[cfg(unix)]
 pub fn write_tool_script(
     dir: impl AsRef<Path>,
@@ -43,18 +42,27 @@ pub fn write_tool_script(
     sh_body: &str,
 ) -> std::io::Result<std::path::PathBuf> {
     use std::io::Write;
-    use std::os::unix::fs::OpenOptionsExt;
+    use std::process::{Command, Stdio};
     let path = dir.as_ref().join(name);
-    let mut f = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o755)
-        .open(&path)?;
-    f.write_all(b"#!/bin/sh\n")?;
-    f.write_all(sh_body.as_bytes())?;
-    f.sync_all()?;
-    drop(f);
-    // Exact mode regardless of umask.
-    std::fs::set_permissions(&path, std::os::unix::fs::PermissionsExt::from_mode(0o755))?;
+    // `set -C`: refuse an existing file; chmod gives the exact mode.
+    let mut sh = Command::new("/bin/sh")
+        .args(["-c", r#"set -C && cat > "$1" && chmod 755 "$1""#, "sh"])
+        .arg(&path)
+        .stdin(Stdio::piped())
+        .spawn()?;
+    let mut stdin = sh
+        .stdin
+        .take()
+        .ok_or_else(|| std::io::Error::other("no stdin"))?;
+    stdin.write_all(b"#!/bin/sh\n")?;
+    stdin.write_all(sh_body.as_bytes())?;
+    drop(stdin);
+    let status = sh.wait()?;
+    if !status.success() {
+        return Err(std::io::Error::other(format!(
+            "could not write tool script {}: sh {status}",
+            path.display()
+        )));
+    }
     Ok(path)
 }
