@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Lint the commit message with the repo's commitlint config (opt-in: `just hooks`).
+set -euo pipefail
+exec pnpm exec commitlint --edit "$1"
