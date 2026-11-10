@@ -299,4 +299,18 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         let _ = bin;
         Err(PlatformError::Unsupported("tool_command"))
     }
+
+    /// Make the tool `cmd` starts the head of its own process tree (Unix:
+    /// a new process group), so [`Platform::kill_tool`] also ends whatever
+    /// it spawned. Only for tools that never read the terminal.
+    fn isolate_tool(&self, cmd: &mut Command) {
+        crate::sys::isolate_tool(cmd);
+    }
+
+    /// Kill `child`, started from an [`isolated`](Platform::isolate_tool)
+    /// command, with every process still in its tree. Call before reaping
+    /// `child`, while its id cannot be reused.
+    fn kill_tool(&self, child: &mut Child) -> io::Result<()> {
+        crate::sys::kill_tool(child)
+    }
 }
