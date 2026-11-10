@@ -3,7 +3,7 @@
 Source of truth for *what* Carrova is: `Porter — High-Level Design.pdf` (project root, Nov 8 2026; Porter was the working name).
 This document covers *how and in what order* it gets built.
 
-**Status:** Phase 1 complete (exit gate passed 2026-11-08) · Phase 2 complete (exit gate passed 2026-11-08) · Phase 3 implementation complete, hardware exit gate pending · Phase 4 implementation complete, v0.1 exit gate pending · **Updated:** 2026-11-09
+**Status:** Phase 1 complete (exit gate passed 2026-11-08) · Phase 2 complete (exit gate passed 2026-11-08) · Phase 3 implementation complete, hardware exit gate pending · Phase 4 implementation complete, v0.1 exit gate pending · Phase 5 in progress (cross-OS + plugins engine done; desktop rebuilt to the v2 design) · **Updated:** 2026-11-10
 
 ## Ground rules
 
