@@ -7,6 +7,7 @@ import type {
   Settings,
   UpdateStatus,
 } from '../../engine/types';
+import type { RecipesCheck } from '../../bindings/RecipesCheck';
 import type {
   AboutModel,
   RecipeCheck,
@@ -23,8 +24,29 @@ export function recipeSource(status: RecipesStatus): RecipeSource {
     : { kind: status.origin.kind, version: status.origin.version };
 }
 
-/** The outcome of "Check now", including "try again later" when the feed is unreachable. */
-export function recipeCheck(check: Remote<RecipesUpdate>): RecipeCheck {
+/**
+ * "Check now" and, once a newer list is offered, "Install update": the
+ * install's outcome wins once it has started. Feed unreachable = "try again later".
+ */
+export function recipeCheck(
+  check: Remote<RecipesCheck>,
+  install: Remote<RecipesUpdate>,
+): RecipeCheck {
+  const offered = current(check);
+  switch (install.status) {
+    case 'loading':
+      return offered?.kind === 'available'
+        ? { status: 'installing', version: offered.version }
+        : { status: 'checking' };
+    case 'failed':
+      return { status: 'failed', error: install.error };
+    case 'ready':
+      return install.value.kind === 'updated'
+        ? { status: 'updated', version: install.value.version }
+        : { status: install.value.kind };
+    case 'idle':
+      break;
+  }
   switch (check.status) {
     case 'idle':
       return { status: 'idle' };
@@ -32,10 +54,12 @@ export function recipeCheck(check: Remote<RecipesUpdate>): RecipeCheck {
       return { status: 'checking' };
     case 'failed':
       return { status: 'failed', error: check.error };
-    case 'ready':
-      return check.value.kind === 'updated'
-        ? { status: 'updated', version: check.value.version }
-        : { status: check.value.kind };
+    case 'ready': {
+      const v = check.value;
+      return v.kind === 'available' || v.kind === 'refused'
+        ? { status: v.kind, version: v.version }
+        : { status: v.kind };
+    }
   }
 }
 
@@ -44,7 +68,8 @@ export interface SettingsSources {
   readonly consent: ReportConsent;
   readonly reports: readonly ReportSummary[];
   readonly recipes: RecipesStatus | null;
-  readonly check: Remote<RecipesUpdate>;
+  readonly check: Remote<RecipesCheck>;
+  readonly install: Remote<RecipesUpdate>;
   readonly update: Remote<UpdateStatus>;
 }
 
@@ -65,7 +90,7 @@ export function settingsModel(s: SettingsSources, now: Date): SettingsModel {
             verified: s.recipes.verified,
             community: s.recipes.community,
             unverified: s.recipes.unverified,
-            check: recipeCheck(s.check),
+            check: recipeCheck(s.check, s.install),
           },
     errorReports: s.consent === 'allowed',
     reports: s.reports.map((r) => ({

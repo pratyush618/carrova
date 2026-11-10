@@ -7,10 +7,13 @@ export type MotionChoice = 'system' | 'reduce';
 export type RecipeSource =
   { readonly kind: 'dev' } | { readonly kind: 'installed' | 'shipped'; readonly version: number };
 
-/** The last "Check now" for recipes. */
+/** The last "Check now" for recipes, and the install of a list it offered. */
 export type RecipeCheck =
   | { readonly status: 'idle' | 'checking' | 'up_to_date' | 'retry_later' }
-  | { readonly status: 'updated'; readonly version: number }
+  | {
+      readonly status: 'available' | 'installing' | 'updated' | 'refused';
+      readonly version: number;
+    }
   | { readonly status: 'failed'; readonly error: BridgeError };
 
 /** One stored error report (redacted by the engine). */
@@ -50,6 +53,8 @@ export interface SettingsIntents {
   readonly onAutoCheckRecipes: (on: boolean) => void;
   readonly onAutoCheckApp: (on: boolean) => void;
   readonly onCheckRecipes: () => void;
+  /** Installs the newer list the last check offered. */
+  readonly onInstallRecipes: () => void;
   readonly onErrorReports: (on: boolean) => void;
   readonly onOpenReport: (id: string) => void;
   readonly onClearReports: () => void;

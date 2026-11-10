@@ -25,7 +25,9 @@ export type SelectionChange =
   /** Include an unmovable item anyway, after the override dialog. */
   | { readonly kind: 'force'; readonly key: ItemKey }
   /** Every movable, non-sensitive item under the cache root. */
-  | { readonly kind: 'caches'; readonly included: boolean };
+  | { readonly kind: 'caches'; readonly included: boolean }
+  /** The answer for a plugin that changes files here before they leave; "no" leaves its items behind. */
+  | { readonly kind: 'plugin'; readonly plugin: string; readonly allow: boolean };
 
 /** `change` as the engine's edits of `selection`. */
 export function toEdits(change: SelectionChange, selection: Selection): SelectionEdit[] {
@@ -54,6 +56,19 @@ export function toEdits(change: SelectionChange, selection: Selection): Selectio
         { kind: 'confirm_sensitive', item: change.key, confirmed: change.bring },
         { kind: 'item', item: change.key, included: change.bring },
       ];
+    case 'plugin': {
+      const answer: SelectionEdit = {
+        kind: 'allow_plugin',
+        plugin: change.plugin,
+        allow: change.allow,
+      };
+      if (change.allow) return [answer];
+      const items = selection.export_plugins.find((p) => p.plugin === change.plugin)?.items ?? [];
+      return [
+        answer,
+        ...items.map((item): SelectionEdit => ({ kind: 'item', item, included: false })),
+      ];
+    }
     case 'force':
       return [
         { kind: 'force_unmovable', item: change.key },

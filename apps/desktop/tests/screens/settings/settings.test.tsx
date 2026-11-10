@@ -12,6 +12,7 @@ const settingsOn = (): SettingsIntents => ({
   onAutoCheckRecipes: vi.fn(),
   onAutoCheckApp: vi.fn(),
   onCheckRecipes: vi.fn(),
+  onInstallRecipes: vi.fn(),
   onErrorReports: vi.fn(),
   onOpenReport: vi.fn(),
   onClearReports: vi.fn(),
@@ -36,5 +37,39 @@ describe('Settings', () => {
     screen.getByRole('radiogroup', { name: 'Keep the undo point' });
     await user.click(screen.getByRole('radio', { name: 'Until the move succeeds' }));
     expect(on.onMoveDefaults).toHaveBeenCalledWith({ retention: 'discard_on_success' });
+    await user.click(screen.getByRole('radio', { name: 'For 30 days' }));
+    expect(on.onMoveDefaults).toHaveBeenCalledWith({ retention: { keep_for: { days: 30 } } });
+  });
+
+  it('offers a newer recipe list inline and installs it only on request', async () => {
+    const user = userEvent.setup();
+    const on = settingsOn();
+    const recipes = settingsModel.recipes;
+    if (recipes === null) throw new Error('fixture');
+    const model = {
+      ...settingsModel,
+      recipes: { ...recipes, check: { status: 'available', version: 13 } as const },
+    };
+    renderScreen(<SettingsScreen model={model} on={on} />);
+    expect(screen.getByRole('status')).toHaveTextContent('List 13 is ready.');
+    expect(screen.queryByRole('button', { name: 'Check now' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Install update' }));
+    expect(on.onInstallRecipes).toHaveBeenCalledOnce();
+    expect(on.onCheckRecipes).not.toHaveBeenCalled();
+  });
+
+  it('explains a rolled-back recipe list and still offers "Check now"', () => {
+    const recipes = settingsModel.recipes;
+    if (recipes === null) throw new Error('fixture');
+    const model = {
+      ...settingsModel,
+      recipes: { ...recipes, check: { status: 'refused', version: 5 } as const },
+    };
+    renderScreen(<SettingsScreen model={model} on={settingsOn()} />);
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "Version 5 was rolled back, so it isn't offered again.",
+    );
+    expect(screen.queryByRole('button', { name: 'Install update' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check now' })).toBeEnabled();
   });
 });

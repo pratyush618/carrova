@@ -17,7 +17,13 @@ export interface AppState {
 /** Everything that can change {@link AppState}. Bridge events arrive via {@link bridgeAction}. */
 export type AppAction =
   | { readonly type: 'engine'; readonly session: SessionId; readonly event: EngineEvent }
-  | { readonly type: 'pairing_code'; readonly session: SessionId; readonly code: CodeView }
+  | {
+      readonly type: 'pairing_code';
+      readonly session: SessionId;
+      readonly code: CodeView;
+      /** When it arrived (ms since epoch): the code's lifetime counts from here. */
+      readonly receivedAt: number;
+    }
   | {
       readonly type: 'confirm_new_code';
       readonly session: SessionId;
@@ -30,13 +36,13 @@ export type AppAction =
 
 export const initialAppState: AppState = { sessions: {} };
 
-/** The app action for one bridge event. */
-export function bridgeAction(event: BridgeEvent): AppAction {
+/** The app action for one bridge event, received at `now` (ms since epoch). */
+export function bridgeAction(event: BridgeEvent, now: number): AppAction {
   switch (event.kind) {
     case 'engine':
       return { type: 'engine', session: event.session, event: event.event };
     case 'pairing_code':
-      return { type: 'pairing_code', session: event.session, code: event.code };
+      return { type: 'pairing_code', session: event.session, code: event.code, receivedAt: now };
     case 'confirm_new_code':
       return {
         type: 'confirm_new_code',
@@ -56,7 +62,15 @@ function fold(
     case 'engine':
       return applyEvent(s, action.event);
     case 'pairing_code':
-      return { ...s, code: action.code, newCodePrompt: null };
+      return {
+        ...s,
+        code: {
+          view: action.code,
+          expiresAt: action.receivedAt + action.code.expires_in_secs * 1000,
+        },
+        checking: false,
+        newCodePrompt: null,
+      };
     case 'confirm_new_code':
       return { ...s, newCodePrompt: action.prompt };
     case 'pairing_answered':

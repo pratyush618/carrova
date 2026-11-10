@@ -49,8 +49,22 @@ export const SECRETS: readonly SecretItem[] = [
     key: 'ssh/keys',
     app: APPS.ssh,
     label: 'SSH key pairs (private keys)',
-    why: 'They log you in to servers and GitHub. Anyone with a copy can do the same, as you.',
-    paths: ['~/.ssh/id_ed25519', '~/.ssh/id_ed25519_work'],
+    why: 'login',
+    paths: ['~/.ssh'],
+    keys: [
+      {
+        path: '~/.ssh/id_ed25519',
+        kind: 'ed25519',
+        fingerprint: 'SHA256:qX3fT0dVb8yZ1kJm4pR7sWc2eHn5uLa9gQ6iO3xY9LmA',
+        comment: 'ana@ana-laptop',
+      },
+      {
+        path: '~/.ssh/id_ed25519_work',
+        kind: 'ed25519',
+        fingerprint: 'SHA256:7PkcR2wN8vB4tE6yH1jM9sL3qF5dA0zX2gK7nU4oUe2w',
+        comment: null,
+      },
+    ],
     bytes: 6 * KB,
     brought: false,
   },
@@ -58,8 +72,9 @@ export const SECRETS: readonly SecretItem[] = [
     key: 'gpg/secret-keys',
     app: APPS.gpg,
     label: 'GnuPG secret keys',
-    why: 'They sign your commits and open mail sent to you. Anyone with a copy can do both.',
+    why: 'signing',
     paths: ['~/.gnupg/private-keys-v1.d'],
+    keys: [],
     bytes: 12 * KB,
     brought: false,
   },
@@ -67,8 +82,9 @@ export const SECRETS: readonly SecretItem[] = [
     key: 'git/credentials',
     app: APPS.git,
     label: 'Stored Git credentials',
-    why: null,
+    why: 'token',
     paths: ['~/.git-credentials'],
+    keys: [],
     bytes: 1 * KB,
     brought: false,
   },
@@ -94,6 +110,7 @@ export const foundReady = {
   unrecognised: 3,
   facts: FACTS,
   issues: [],
+  plugins: [],
 } satisfies FoundModel;
 export const foundNothing: FoundModel = { status: 'nothing', knownApps: 15 };
 
@@ -243,17 +260,24 @@ export const unrecognised: UnrecognisedModel = {
 const CODE = ['7', 'zebra', 'lemon'];
 const ADDRESS = '7-zebra-lemon@192.168.1.20:47822';
 
-export const pairingWaiting: PairingModel = { status: 'waiting', code: CODE, address: ADDRESS };
-export const pairingCantConnect: PairingModel = {
-  status: 'cant-connect',
+/** The code's deadline: 4:52 from when the fixtures load (the gallery counts down from there). */
+const EXPIRES_AT = Date.now() + 292_000;
+
+export const pairingWaiting: PairingModel = {
+  status: 'waiting',
   code: CODE,
   address: ADDRESS,
+  expiresAt: EXPIRES_AT,
 };
+export const pairingCantConnect: PairingModel = { ...pairingWaiting, status: 'cant-connect' };
 export const pairingRenewed: PairingModel = {
   status: 'renewed',
   code: ['7', 'acorn', 'maple'],
   address: '7-acorn-maple@192.168.1.20:47822',
+  expiresAt: EXPIRES_AT,
 };
+export const pairingExpired: PairingModel = { ...pairingRenewed, status: 'expired' };
+export const pairingChecking: PairingModel = { status: 'checking' };
 export const pairingLocked: PairingModel = { status: 'locked' };
 
 /** Paired with a Mac: the cross-OS banner shows. */

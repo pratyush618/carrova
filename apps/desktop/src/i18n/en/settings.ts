@@ -27,6 +27,10 @@ export const settings = {
     upToDate: 'You have the newest list.',
     retryLater: "Couldn't check right now. Carrova tries again later.",
     updated: 'Updated to list {{version}}.',
+    available: 'List {{version}} is ready.',
+    refused: "Version {{version}} was rolled back, so it isn't offered again.",
+    installing: 'Installing list {{version}}…',
+    install: 'Install update',
   },
   privacy: {
     group: 'Privacy',
@@ -53,6 +57,8 @@ export const settings = {
     retentions: {
       until_dismissed: 'Until I remove it',
       discard_on_success: 'Until the move succeeds',
+      keep_for_one: 'For {{count}} day',
+      keep_for_other: 'For {{count}} days',
     },
     caches: 'Bring caches',
     cachesSub: 'Larger moves; apps rebuild caches on their own.',

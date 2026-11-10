@@ -17,8 +17,24 @@ import {
   Stack,
   Status,
 } from '../../ui';
+import { clock, minutesLeft, useSecondsLeft } from './countdown';
 import type { PairingIntents, PairingModel, SendMove } from './model';
 import { RouteChip, SendRail } from './SendRail';
+
+/** "New code in 4:52" for the eye; whole minutes, once a minute, for screen readers. */
+function Countdown({ expiresAt }: { readonly expiresAt: number }) {
+  const { t } = useTranslation();
+  const seconds = useSecondsLeft(expiresAt);
+  const minutes = minutesLeft(seconds);
+  return (
+    <>
+      <span aria-hidden="true">{t('send.code.newCodeIn', { time: clock(seconds) })}</span>
+      <span className="p-vh" role="status">
+        {minutes > 0 ? t('send.code.changesIn', { count: minutes }) : t('send.code.changesSoon')}
+      </span>
+    </>
+  );
+}
 
 export interface SendCodeScreenProps {
   readonly model: PairingModel;
@@ -90,7 +106,8 @@ export function SendCodeScreen({ model, move, on }: SendCodeScreenProps) {
     );
   }
 
-  if (model.status === 'preparing') {
+  if (model.status === 'preparing' || model.status === 'checking') {
+    const checking = model.status === 'checking';
     return (
       <FlowLayout
         actions={
@@ -104,8 +121,11 @@ export function SendCodeScreen({ model, move, on }: SendCodeScreenProps) {
         }
       >
         <FlowCenter>
-          <Head center title={t('send.code.preparingTitle')} />
-          <Status>{t('send.code.preparing')}</Status>
+          <Head
+            center
+            title={checking ? t('send.code.checkingTitle') : t('send.code.preparingTitle')}
+          />
+          <Status>{checking ? t('send.code.checking') : t('send.code.preparing')}</Status>
         </FlowCenter>
       </FlowLayout>
     );
@@ -137,10 +157,15 @@ export function SendCodeScreen({ model, move, on }: SendCodeScreenProps) {
       )}
       <Card>
         <FlowCenter>
+          {model.status === 'expired' && (
+            <Note center>
+              <span role="status">{t('send.code.expired')}</span>
+            </Note>
+          )}
           <CodeDisplay words={model.code} reveal />
-          {/* shortcut: no "New code in m:ss" countdown, CodeView has no expiry; add it when the engine sends one. */}
           {/* No Copy link on purpose: the code stays off the clipboard (and its history). */}
           <Note center>
+            <Countdown expiresAt={model.expiresAt} />{' '}
             <LinkButton onClick={on.onNewCode}>{t('send.code.newCode')}</LinkButton>
           </Note>
           {!cantConnect && <Status>{t('send.code.waiting')}</Status>}

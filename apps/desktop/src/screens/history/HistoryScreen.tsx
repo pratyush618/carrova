@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { isNearDay } from '../../i18n/format';
 import { useFormat } from '../../i18n/useFormat';
-import { Badge, Button, Empty, Head, HubLayout, Icon, MoveCard } from '../../ui';
+import { Badge, Button, Empty, Head, HubLayout, Icon, MoveCard, OsBadge } from '../../ui';
 import type { HistoryEntry, HistoryIntents, HistoryModel } from './model';
 import { MoveDetail } from './MoveDetail';
 import { groupMoves, KIND_ICON, moveSub, moveTag, moveTitle } from './moveWords';
@@ -25,6 +25,9 @@ function Card({
         <>
           <Icon name={KIND_ICON[entry.kind]} size="sm" />
           {moveTitle(entry, t)}
+          {entry.peerOs !== null && (
+            <OsBadge os={entry.peerOs} label={t(`settings.about.os.${entry.peerOs}`)} size="sm" />
+          )}
         </>
       }
       when={isNearDay(entry.when, model.now) ? format.time(entry.when) : format.date(entry.when)}

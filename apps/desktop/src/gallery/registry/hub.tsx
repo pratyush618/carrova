@@ -21,6 +21,7 @@ const settingsOn = noops(
   'onAutoCheckRecipes',
   'onAutoCheckApp',
   'onCheckRecipes',
+  'onInstallRecipes',
   'onErrorReports',
   'onOpenReport',
   'onClearReports',

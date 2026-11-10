@@ -38,6 +38,7 @@ export function historyEntry(record: SessionRecord): HistoryEntry {
     kind: kindOf(record),
     state: record.state,
     peer: source?.kind === 'archive' ? baseName(source.path) : (source?.peer_name ?? null),
+    peerOs: record.peer_os ?? null,
     when: fromUnix(record.updated_at),
     moved:
       moved.length === 0
@@ -68,6 +69,7 @@ export function sessionModel(record: SessionRecord, preview: RollbackPreview | n
       ...skipped.map((s) => `${s.what}: ${s.reason}`),
     ],
     undoCounts: undoCounts(preview),
+    undoUntil: record.expires_at == null ? null : fromUnix(record.expires_at),
   };
 }
 

@@ -129,6 +129,7 @@ export function SettingsRoute() {
           settings.save({ auto_check_app: on });
         },
         onCheckRecipes: settings.checkRecipes,
+        onInstallRecipes: settings.installRecipes,
         onErrorReports: settings.setConsent,
         onOpenReport: (id) => {
           report.open(id);

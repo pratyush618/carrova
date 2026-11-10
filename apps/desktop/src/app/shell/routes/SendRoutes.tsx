@@ -16,6 +16,7 @@ import { SaveDoneScreen } from '../../../screens/file/SaveDoneScreen';
 import { SaveLockScreen } from '../../../screens/file/SaveLockScreen';
 import { SendCodeScreen } from '../../../screens/send/SendCodeScreen';
 import { SendDoneScreen } from '../../../screens/send/SendDoneScreen';
+import { PluginConsentDialog } from '../../../screens/receive/PluginConsentDialog';
 import { KeyConfirmDialog } from '../../../screens/send/KeyConfirmDialog';
 import { SendFoundScreen } from '../../../screens/send/SendFoundScreen';
 import { SendLinkedScreen } from '../../../screens/send/SendLinkedScreen';
@@ -48,6 +49,7 @@ function FoundRoute({
   const nav = useNav();
   const here = useHere();
   const [confirming, setConfirming] = useState<ItemKey | null>(null);
+  const [consenting, setConsenting] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const home = () => {
     nav.go({ type: 'closeFlow' });
@@ -58,6 +60,12 @@ function FoundRoute({
   const model = foundModel(send.state, filter);
   const secret =
     model.status === 'found' ? model.secrets.find((s) => s.key === confirming) : undefined;
+  const consent =
+    model.status === 'found' ? model.plugins.find((p) => p.plugin === consenting) : undefined;
+  const answer = (plugin: string, allow: boolean) => {
+    send.edit({ kind: 'plugin', plugin, allow });
+    setConsenting(null);
+  };
   const bring = (key: ItemKey, yes: boolean) => {
     send.edit({ kind: 'sensitive', key, bring: yes });
   };
@@ -66,6 +74,7 @@ function FoundRoute({
       send.edit({ kind: 'app', app, included });
     },
     onConfirmKey: setConfirming,
+    onReviewPlugin: setConsenting,
     onLeaveKey: (key) => {
       bring(key, false);
     },
@@ -106,6 +115,22 @@ function FoundRoute({
               close();
             },
             onLeave: close,
+          }}
+        />
+      )}
+      {consent && (
+        <PluginConsentDialog
+          model={consent}
+          on={{
+            onAllow: () => {
+              answer(consent.plugin, true);
+            },
+            onDecline: () => {
+              answer(consent.plugin, false);
+            },
+            onClose: () => {
+              setConsenting(null);
+            },
           }}
         />
       )}

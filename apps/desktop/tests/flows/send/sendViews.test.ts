@@ -14,6 +14,7 @@ import {
   secretItems,
 } from '@/flows/send/sendViews';
 import { displayPath } from '@/flows/shared/paths';
+import { sensitiveWhy } from '@/screens/shared/sensitiveWhy';
 
 const t = i18n.t.bind(i18n);
 
@@ -34,6 +35,40 @@ describe('send views', () => {
     const keys = secrets.find((s) => s.key === 'ssh/keys');
     expect(keys?.paths.length).toBeGreaterThan(0);
     expect(keys?.paths.every((p) => !p.includes(':'))).toBe(true);
+  });
+
+  it('says why each secret matters in plain words, never the recipe flag', () => {
+    const why = Object.fromEntries(secretItems(scan).map((s) => [s.key, s.why]));
+    expect(why).toMatchObject({
+      'ssh/keys': 'login',
+      'ssh/authorized-keys': 'authorized',
+      'git/credentials': 'token',
+    });
+    expect(sensitiveWhy('someapp/secret')).toBe('secret');
+  });
+
+  it('lists the key files found in a secret with their fingerprints', () => {
+    const key = {
+      path: 'home:.ssh/id_ed25519',
+      kind: 'ed25519',
+      fingerprint: 'SHA256:qX3fAbc',
+      comment: 'ana@laptop',
+    } as const;
+    const withKeys = {
+      ...scan,
+      report: {
+        ...scan.report,
+        apps: scan.report.apps.map((a) => ({
+          ...a,
+          items: a.items.map((i) => (`${a.id}/${i.id}` === 'ssh/keys' ? { ...i, keys: [key] } : i)),
+        })),
+      },
+    };
+    const ssh = secretItems(withKeys).find((s) => s.key === 'ssh/keys');
+    expect(ssh?.keys).toEqual([
+      { ...key, path: displayPath(key.path, scan.report.platform.roots) },
+    ]);
+    expect(ssh?.keys[0]?.path).not.toContain(':');
   });
 
   it('counts a secret as brought once the user confirms it', () => {
@@ -104,6 +139,7 @@ describe('send views', () => {
   it('names the preset the selection matches, ignoring keys (they are asked one by one)', () => {
     const { items } = select.selection;
     const every = (pick: (c: (typeof items)[string]) => boolean) => ({
+      ...select.selection,
       items: Object.fromEntries(
         Object.entries(items).map(([k, c]) => [k, { ...c, included: pick(c) }]),
       ),

@@ -27,7 +27,7 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
     let live = true;
     void port
       .subscribe((event) => {
-        dispatch(bridgeAction(event));
+        dispatch(bridgeAction(event, Date.now()));
       })
       .then((unsubscribe) => {
         if (live) stop = unsubscribe;

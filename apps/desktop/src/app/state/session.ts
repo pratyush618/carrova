@@ -41,8 +41,13 @@ export interface SessionProgress {
   readonly peerPlan: PlanSummary | null;
   readonly paused: PauseReason | null;
   readonly pairingFailures: number;
-  /** Sender: the code to show (held in memory only, never logged). */
-  readonly code: CodeView | null;
+  /**
+   * Sender: the code to show (held in memory only, never logged) and when it
+   * stops working (ms since epoch, counted from its arrival).
+   */
+  readonly code: { readonly view: CodeView; readonly expiresAt: number } | null;
+  /** Sender: the receiver typed the code and the handshake is checking it. */
+  readonly checking: boolean;
   readonly newCodePrompt: NewCodePrompt | null;
   readonly warnings: readonly string[];
   readonly rollback: Readonly<Record<RollbackOutcome, number>>;
@@ -79,6 +84,7 @@ export function emptySession(id: SessionId): SessionProgress {
     paused: null,
     pairingFailures: 0,
     code: null,
+    checking: false,
     newCodePrompt: null,
     warnings: [],
     rollback: NO_ROLLBACK,
@@ -131,7 +137,9 @@ export function applyEvent(session: SessionProgress, event: EngineEvent): Sessio
     case 'transfer_resumed':
       return { ...session, paused: null };
     case 'pairing_failed':
-      return { ...session, pairingFailures: session.pairingFailures + 1 };
+      return { ...session, pairingFailures: session.pairingFailures + 1, checking: false };
+    case 'pairing_in_progress':
+      return { ...session, checking: true };
     case 'recaptured':
     case 'conflict_found':
     case 'action_applied':

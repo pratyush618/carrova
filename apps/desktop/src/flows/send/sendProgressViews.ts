@@ -18,6 +18,7 @@ import {
   foundApps,
   foundGroups,
   moveFacts,
+  pluginAsks,
   secretItems,
   selectionIssues,
 } from './sendViews';
@@ -55,6 +56,7 @@ export function foundModel(state: SendFlowState, filter = ''): FoundModel {
     preset: activePreset(scan.selection),
     unrecognised,
     facts: moveFacts(scan),
+    plugins: pluginAsks(scan.view),
     issues: [
       ...selectionIssues(scan.view),
       ...(state.selectError === null ? [] : [state.selectError.message]),
@@ -75,12 +77,14 @@ export function pairingModel(state: SendFlowState, progress: SessionProgress): P
       ? { status: 'locked' }
       : { status: 'failed', error: state.run.error };
   }
-  const code = progress.code;
-  if (code === null) return { status: 'preparing' };
+  if (progress.checking) return { status: 'checking' };
+  if (progress.code === null) return { status: 'preparing' };
+  const { view, expiresAt } = progress.code;
   return {
-    status: code.renewed ? 'renewed' : 'waiting',
-    code: code.code.split('-'),
-    address: code.fallback,
+    status: view.renewed ? 'renewed' : view.expired ? 'expired' : 'waiting',
+    code: view.code.split('-'),
+    address: view.fallback,
+    expiresAt,
   };
 }
 
