@@ -1,8 +1,9 @@
 # Carrova
 
 Move your app settings, keys and data to a new Linux computer over your local
-network, or as an encrypted file. You pick exactly what moves. Apps are
-reinstalled, never copied.
+network, or as an encrypted file. You pick exactly what moves. Apps themselves
+are never copied: Carrova lists the ones to install, and their settings are
+already waiting when you do.
 
 ![Home](docs/screenshots/home.png)
 
