@@ -71,7 +71,7 @@ export const receive = {
     leftBehind: 'Left behind',
     safePicks: 'Files and folders the sender picked',
     safePicksWhy:
-      'Carrova has no recipe for them, so each arrives unticked. None holds keys or runs at login.',
+      'Carrova has no recipe for them, so each arrives unticked. None lands where keys or passwords usually live, or anywhere that runs at login.',
     acceptAll_one: 'Accept {{count}} file',
     acceptAll_other: 'Accept all {{count}} files',
     accepted: 'Accepted',
