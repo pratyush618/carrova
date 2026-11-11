@@ -12,6 +12,7 @@ fn tray_menu_puts_request_first() {
             peer: "Ana's laptop".into(),
         }),
         paused: false,
+        moving: false,
     };
     assert_eq!(
         ids(&model),
@@ -28,6 +29,7 @@ fn tray_menu_without_request_starts_with_open() {
     let model = TrayModel {
         request: None,
         paused: false,
+        moving: false,
     };
     assert_eq!(ids(&model), ["open", "send", "pause", "quit"]);
     assert!(!tray_menu(&model)[0].separated);
@@ -39,6 +41,7 @@ fn tray_menu_offers_to_resume_paused_alerts() {
         tray_menu(&TrayModel {
             request: None,
             paused,
+            moving: false,
         })
         .into_iter()
         .find(|item| item.id == "pause")
@@ -46,6 +49,35 @@ fn tray_menu_offers_to_resume_paused_alerts() {
     };
     assert_eq!(label(false).as_deref(), Some("Pause alerts for 1 hour"));
     assert_eq!(label(true).as_deref(), Some("Resume alerts"));
+}
+
+#[test]
+fn tray_menu_leads_with_a_running_move() {
+    let model = TrayModel {
+        request: None,
+        paused: false,
+        moving: true,
+    };
+    assert_eq!(ids(&model), ["moving", "open", "send", "pause", "quit"]);
+    let menu = tray_menu(&model);
+    assert_eq!(menu[0].label, "Moving files…");
+    assert!(!menu[0].enabled, "a status line, not an action");
+    assert!(menu[1].enabled && menu[1].separated);
+}
+
+#[test]
+fn tray_tooltip_says_a_move_is_running() {
+    let idle = TrayModel {
+        request: None,
+        paused: false,
+        moving: false,
+    };
+    assert_eq!(tray_tooltip(&idle), "Carrova");
+    let moving = TrayModel {
+        moving: true,
+        ..idle
+    };
+    assert_eq!(tray_tooltip(&moving), "Carrova · Moving files");
 }
 
 #[test]

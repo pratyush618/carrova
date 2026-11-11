@@ -134,3 +134,18 @@ fn about_says_whether_closing_can_go_to_the_tray() {
     platform.set_status_tray(false);
     assert!(!crate::ops::about::about(&state).status_tray);
 }
+
+#[test]
+fn the_tray_shows_a_running_move() {
+    let machine = Machine::new();
+    let (state, _) = with_fake(&machine);
+    assert!(!background::tray_model(&state).moving);
+
+    let id = carrova_core::SessionId("20261112-101500-a1b2c3".into());
+    state
+        .sessions
+        .opening(id.clone(), carrova_core::Cancel::default());
+    assert!(background::tray_model(&state).moving);
+    state.sessions.abandon(&id);
+    assert!(!background::tray_model(&state).moving);
+}

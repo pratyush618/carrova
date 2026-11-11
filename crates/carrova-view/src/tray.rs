@@ -18,6 +18,8 @@ pub struct TrayModel {
     pub request: Option<TrayRequest>,
     /// Pop-ups are held back now ([`alerts_paused`]).
     pub paused: bool,
+    /// A move is running in the background.
+    pub moving: bool,
 }
 
 /// A computer asking to send you files.
@@ -30,29 +32,39 @@ pub struct TrayRequest {
 /// One tray menu item.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrayItem {
-    /// Stable id the front-end dispatches on: `review`, `decline`, `open`,
-    /// `send`, `pause`, `quit`.
+    /// Stable id the front-end dispatches on: `moving` (a status line),
+    /// `review`, `decline`, `open`, `send`, `pause`, `quit`.
     pub id: &'static str,
     /// What the item says.
     pub label: String,
     /// A separator goes before this item.
     pub separated: bool,
+    /// Can be chosen; `false` for a status line.
+    pub enabled: bool,
 }
 
-/// The tray menu: the waiting request first, then the everyday items.
+/// The tray menu: a running move's status line, the waiting request, then
+/// the everyday items.
 #[must_use]
 pub fn tray_menu(model: &TrayModel) -> Vec<TrayItem> {
     let item = |id, label: &str, separated| TrayItem {
         id,
         label: label.to_owned(),
         separated,
+        enabled: true,
     };
     let mut menu = Vec::new();
+    if model.moving {
+        menu.push(TrayItem {
+            enabled: false,
+            ..item("moving", "Moving files…", false)
+        });
+    }
     if let Some(request) = &model.request {
         menu.push(item(
             "review",
             &format!("Review files from {}", request.peer),
-            false,
+            !menu.is_empty(),
         ));
         menu.push(item("decline", "Decline", false));
     }
@@ -68,6 +80,16 @@ pub fn tray_menu(model: &TrayModel) -> Vec<TrayItem> {
         item("quit", "Quit Carrova", true),
     ]);
     menu
+}
+
+/// The tray icon's tooltip.
+#[must_use]
+pub fn tray_tooltip(model: &TrayModel) -> &'static str {
+    if model.moving {
+        "Carrova · Moving files"
+    } else {
+        "Carrova"
+    }
 }
 
 /// Whether pop-ups are held back at `now` (Unix seconds); a pause that has

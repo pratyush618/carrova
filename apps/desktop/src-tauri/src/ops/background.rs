@@ -61,7 +61,7 @@ pub fn close_action(state: &AppState) -> CloseAction {
 
 /// What the tray shows now.
 pub fn tray_model(state: &AppState) -> TrayModel {
-    model_of(&settings_or_default(state), now())
+    model_of(state, &settings_or_default(state), now())
 }
 
 /// The tray's pause item: pause pop-ups for an hour, or end a running
@@ -75,13 +75,14 @@ pub fn toggle_pause(state: &AppState) -> Result<TrayModel, CommandError> {
     let now = now();
     settings.alerts.paused_until = tray::toggled_pause(&settings.alerts, now);
     state.settings.save(&settings)?;
-    Ok(model_of(&settings, now))
+    Ok(model_of(state, &settings, now))
 }
 
-fn model_of(settings: &Settings, now: u64) -> TrayModel {
+fn model_of(state: &AppState, settings: &Settings, now: u64) -> TrayModel {
     TrayModel {
         request: None,
         paused: tray::alerts_paused(&settings.alerts, now),
+        moving: state.sessions.busy(),
     }
 }
 

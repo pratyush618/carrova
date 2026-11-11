@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use carrova_view::ipc::EVENT_CHANNEL;
-use carrova_view::tray::{CloseAction, TrayModel, tray_menu};
+use carrova_view::tray::{CloseAction, TrayModel, tray_menu, tray_tooltip};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{
@@ -32,17 +32,21 @@ pub const BACKGROUND_FLAG: &str = "--background";
 /// The label of the app's one window (also the tray icon's id).
 const MAIN_WINDOW: &str = "main";
 
-/// Whether the tray icon shows. It is built once, then only hidden: Tauri
-/// keeps a handle to it, so dropping ours would not remove it.
+/// Whether the tray icon shows, and whether its menu says a move runs. It
+/// is built once, then only hidden: Tauri keeps a handle to it, so dropping
+/// ours would not remove it.
 #[derive(Default)]
-struct TrayShown(AtomicBool);
+struct TrayShown {
+    shown: AtomicBool,
+    moving: AtomicBool,
+}
 
 /// Start-up: open the window, or with `--background` do what closing it
 /// would (to the tray or minimised; with "Keep running" off, open it).
 pub fn start(app: &AppHandle, state: &AppState, in_background: bool) {
     app.manage(TrayShown::default());
     let handle = app.clone();
-    app.listen_any(EVENT_CHANNEL, move |_| close_hidden_when_idle(&handle));
+    app.listen_any(EVENT_CHANNEL, move |_| on_bridge_event(&handle));
     let action = if in_background {
         background::close_action(state)
     } else {
@@ -117,13 +121,22 @@ pub fn on_window_event(window: &Window, event: &WindowEvent) {
     }
 }
 
-/// On each bridge event: a window hidden while a move ran (window and tray
-/// both up) is closed again once nothing runs, which decides anew.
-fn close_hidden_when_idle(app: &AppHandle) {
+/// On each bridge event while the tray shows: follow a move starting or
+/// ending, and close a window hidden while one ran (window and tray both
+/// up) once nothing runs, which decides anew.
+fn on_bridge_event(app: &AppHandle) {
     let Some(state) = app.try_state::<AppState>() else {
         return;
     };
-    if !tray_shown(app) || state.sessions.busy() {
+    if !tray_shown(app) {
+        return;
+    }
+    let busy = state.sessions.busy();
+    if busy != tray_flags(app).is_some_and(|t| t.moving.load(Ordering::SeqCst)) {
+        // Logged inside; the icon stays as it was.
+        let _ = show_tray(app, &state);
+    }
+    if busy {
         return;
     }
     if let Some(window) = app.get_webview_window(MAIN_WINDOW)
@@ -169,24 +182,31 @@ fn show_tray(app: &AppHandle, state: &AppState) -> tauri::Result<()> {
     shown
 }
 
-fn tray_shown(app: &AppHandle) -> bool {
+fn tray_flags(app: &AppHandle) -> Option<tauri::State<'_, TrayShown>> {
     app.try_state::<TrayShown>()
-        .is_some_and(|shown| shown.0.load(Ordering::SeqCst))
+}
+
+fn tray_shown(app: &AppHandle) -> bool {
+    tray_flags(app).is_some_and(|t| t.shown.load(Ordering::SeqCst))
 }
 
 fn set_tray_shown(app: &AppHandle, shown: bool) {
-    if let Some(state) = app.try_state::<TrayShown>() {
-        state.0.store(shown, Ordering::SeqCst);
+    if let Some(flags) = tray_flags(app) {
+        flags.shown.store(shown, Ordering::SeqCst);
     }
 }
 
 fn set_menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<()> {
     let menu = menu(app, model)?;
+    if let Some(flags) = tray_flags(app) {
+        flags.moving.store(model.moving, Ordering::SeqCst);
+    }
     if let Some(tray) = app.tray_by_id(MAIN_WINDOW) {
+        tray.set_tooltip(Some(tray_tooltip(model)))?;
         return tray.set_menu(Some(menu));
     }
     let mut tray = TrayIconBuilder::with_id(MAIN_WINDOW)
-        .tooltip("Carrova")
+        .tooltip(tray_tooltip(model))
         .menu(&menu)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()));
     if let Some(icon) = app.default_window_icon() {
@@ -203,7 +223,13 @@ fn menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<Menu<tauri::Wry>> {
         }
         // `&` marks a keyboard mnemonic in menu labels; `&&` is a literal one.
         let label = item.label.replace('&', "&&");
-        menu.append(&MenuItem::with_id(app, item.id, label, true, None::<&str>)?)?;
+        menu.append(&MenuItem::with_id(
+            app,
+            item.id,
+            label,
+            item.enabled,
+            None::<&str>,
+        )?)?;
     }
     Ok(menu)
 }
@@ -228,7 +254,7 @@ fn on_menu(app: &AppHandle, id: &str) {
             }
         }
         "quit" => app.exit(0),
-        // `review` and `decline` come with send requests.
+        // `moving` is a status line; `review` and `decline` come with requests.
         _ => {}
     }
 }
