@@ -10,7 +10,8 @@ already waiting when you do.
 ## Why Carrova
 
 - **You choose.** Carrova finds your apps and suggests what to bring. Change
-  any of it. SSH and GPG keys stay off until you say otherwise.
+  any of it. SSH keys, GPG secret keys and stored tokens stay off until you
+  confirm each one.
 - **Nothing changes until you approve.** The new computer shows a plan first:
   new files, replaced files (backed up), space needed.
 - **Every move can be undone.** Files are staged, checked, then placed.
