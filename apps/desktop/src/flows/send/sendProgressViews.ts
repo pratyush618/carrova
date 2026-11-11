@@ -59,7 +59,7 @@ function manualModel(state: SendFlowState): FoundModel {
     ...pickNotes(state.outcomes, scan),
     facts:
       scan === null
-        ? { apps: 0, totalApps: 0, bytes: 0, keys: 0, caches: false, picks: 0 }
+        ? { apps: 0, totalApps: 0, bytes: 0, keys: 0, caches: false, picks: 0, secrets: 0 }
         : manualFacts(scan),
     issues: scan === null ? [] : issuesOf(state, scan),
   };

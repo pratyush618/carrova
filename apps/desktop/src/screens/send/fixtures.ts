@@ -141,7 +141,14 @@ export const PICKS: readonly ManualPick[] = [
   },
 ];
 
-const MANUAL_FACTS: MoveFacts = { ...FACTS, apps: 0, totalApps: 0, bytes: 1.2 * GB, picks: 1 };
+const MANUAL_FACTS: MoveFacts = {
+  ...FACTS,
+  apps: 0,
+  totalApps: 0,
+  bytes: 1.2 * GB,
+  picks: 1,
+  secrets: 0,
+};
 
 export const manualEmpty = {
   status: 'manual',
@@ -172,7 +179,7 @@ export const manualRejected = {
 export const manualSensitive = {
   ...manualPicks,
   picks: PICKS.map((p) => (p.sensitive ? { ...p, included: true } : p)),
-  facts: { ...MANUAL_FACTS, picks: 2, keys: 1 },
+  facts: { ...MANUAL_FACTS, picks: 2, secrets: 1 },
 } satisfies FoundModel;
 
 export const customize: CustomizeModel = {

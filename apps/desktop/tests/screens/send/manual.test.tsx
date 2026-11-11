@@ -5,12 +5,14 @@ import type { PickRejection } from '@/bindings/PickRejection';
 import { i18n } from '@/i18n/i18n';
 import { renderScreen } from '../../support/render';
 import { SendFoundScreen } from '@/screens/send/SendFoundScreen';
+import { SendRail } from '@/screens/send/SendRail';
 import {
   HERE,
   manualEmpty,
   manualMeasuring,
   manualPicks,
   manualRejected,
+  manualSensitive,
   MODE_AUTO,
   MODE_MANUAL,
   foundReady,
@@ -76,6 +78,13 @@ describe('Send · Manual mode', () => {
     expect(intents.onConfirmKey).toHaveBeenCalledWith('raw:home/work/api/.env');
     await user.click(screen.getByRole('button', { name: 'Include ~/work/api/.env…' }));
     expect(intents.onConfirmKey).toHaveBeenCalledTimes(2);
+  });
+
+  it('counts brought sensitive picks under their own rail label, not keys', () => {
+    renderScreen(<SendRail move={{ here: HERE, facts: manualSensitive.facts }} purpose="send" />);
+    expect(screen.getByText('Sensitive files')).toBeInTheDocument();
+    expect(screen.getByText('1 brought')).toBeInTheDocument();
+    expect(screen.queryByText('Keys and secrets')).not.toBeInTheDocument();
   });
 
   it('shows a row while the engine measures a pick', () => {

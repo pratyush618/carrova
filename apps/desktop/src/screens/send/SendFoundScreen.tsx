@@ -240,9 +240,9 @@ export function SendFoundScreen({ model, purpose, here = null, mode, on }: SendF
             <ActionBar
               start={saveInstead}
               note={
-                facts.keys === 0
+                !facts.secrets
                   ? t('send.manual.noteNoKeys', note)
-                  : t('send.manual.noteWithKeys', { ...note, count: facts.keys })
+                  : t('send.manual.noteWithKeys', { ...note, count: facts.secrets })
               }
               end={
                 <Button

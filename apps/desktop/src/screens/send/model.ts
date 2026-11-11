@@ -61,6 +61,8 @@ export interface MoveFacts {
   readonly caches: boolean;
   /** Manual mode: picks ticked (the rail lists them instead of apps and caches). */
   readonly picks?: number;
+  /** Manual mode: sensitive picks being brought (listed instead of keys). */
+  readonly secrets?: number;
 }
 
 /** One Manual pick (`carrova-view` `PickRow`). */

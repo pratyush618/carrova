@@ -296,16 +296,17 @@ export const manualPicks = (result: ScanResult): ManualPick[] =>
     included: p.included,
   }));
 
-/** The rail's facts in Manual mode: picks ticked, their bytes, sensitive ones brought. */
+/** The rail's facts in Manual mode: picks ticked, their bytes, sensitive ones brought (not keys). */
 export function manualFacts(result: ScanResult): MoveFacts {
   const ticked = manualPicks(result).filter((p) => p.included);
   return {
     apps: 0,
     totalApps: 0,
     bytes: ticked.reduce((n, p) => n + p.bytes, 0),
-    keys: ticked.filter((p) => p.sensitive).length,
+    keys: 0,
     caches: false,
     picks: ticked.length,
+    secrets: ticked.filter((p) => p.sensitive).length,
   };
 }
 

@@ -29,6 +29,8 @@ export function SendRail({ move, purpose, to, onChange }: SendRailProps) {
   const { t } = useTranslation();
   const format = useFormat();
   const { facts } = move;
+  // Manual picks hold sensitive files, not recognised keys.
+  const brought = facts?.secrets ?? facts?.keys ?? 0;
   const change = onChange === undefined ? {} : { onChange };
   return (
     <Manifest
@@ -58,11 +60,11 @@ export function SendRail({ move, purpose, to, onChange }: SendRailProps) {
                   },
               { label: t('send.rail.size'), value: format.bytes(facts.bytes) },
               {
-                label: t('send.rail.keys'),
+                label: facts.secrets === undefined ? t('send.rail.keys') : t('send.rail.secrets'),
                 value:
-                  facts.keys === 0
+                  brought === 0
                     ? t('send.rail.keysLeft')
-                    : t('send.rail.keysBrought', { count: facts.keys }),
+                    : t('send.rail.keysBrought', { count: brought }),
                 ...change,
               },
               ...(facts.picks === undefined

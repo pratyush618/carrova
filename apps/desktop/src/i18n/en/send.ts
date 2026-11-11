@@ -110,6 +110,7 @@ export const send = {
     apps: 'Apps',
     size: 'Size',
     keys: 'Keys and secrets',
+    secrets: 'Sensitive files',
     keysLeft: 'Left behind',
     keysBrought_one: '{{count}} brought',
     keysBrought_other: '{{count}} brought',
