@@ -38,7 +38,7 @@ pub struct PlanArgs {
     confirm_sensitive: Vec<ItemKey>,
     /// Also import every picked file or folder that is neither sensitive
     /// nor a risky place (e.g. ~/.bashrc): the desktop app's "Accept all".
-    /// Those still need --confirm-sensitive each.
+    /// Sensitive items still need --confirm-sensitive each.
     #[arg(long)]
     accept_safe_picks: bool,
     /// Restore a same-OS item although the source is another OS family
