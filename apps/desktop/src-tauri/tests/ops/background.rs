@@ -149,3 +149,15 @@ fn the_tray_shows_a_running_move() {
     state.sessions.abandon(&id);
     assert!(!background::tray_model(&state).moving);
 }
+
+#[test]
+fn closing_keeps_the_window_when_lean_is_off() {
+    let machine = Machine::new();
+    let (state, _platform) = with_fake(&machine);
+    let kept = BackgroundSettings {
+        lean: false,
+        ..BackgroundSettings::default()
+    };
+    block_on(background::set_background(&state, kept)).unwrap();
+    assert_eq!(background::close_action(&state), CloseAction::HideToTray);
+}

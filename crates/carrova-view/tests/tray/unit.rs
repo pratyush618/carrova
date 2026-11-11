@@ -105,36 +105,63 @@ fn a_pause_that_ran_out_is_over() {
 
 #[test]
 fn close_with_keep_running_and_tray_hides() {
-    assert_eq!(close_action(true, true, false), CloseAction::CloseToTray);
+    assert_eq!(
+        close_action(true, true, false, true),
+        CloseAction::CloseToTray
+    );
 }
 
 #[test]
 fn close_without_tray_minimises() {
-    assert_eq!(close_action(true, false, false), CloseAction::Minimise);
-    assert_eq!(close_action(true, false, true), CloseAction::Minimise);
+    assert_eq!(
+        close_action(true, false, false, true),
+        CloseAction::Minimise
+    );
+    assert_eq!(close_action(true, false, true, true), CloseAction::Minimise);
 }
 
 #[test]
 fn close_with_keep_running_off_exits() {
-    assert_eq!(close_action(false, true, false), CloseAction::Exit);
-    assert_eq!(close_action(false, false, true), CloseAction::Exit);
+    assert_eq!(close_action(false, true, false, true), CloseAction::Exit);
+    assert_eq!(close_action(false, false, true, true), CloseAction::Exit);
 }
 
 /// A move is running: the window only hides, so reopening shows the flow
 /// exactly as it was.
 #[test]
 fn reopen_during_transfer_restores_flow() {
-    assert_eq!(close_action(true, true, true), CloseAction::HideToTray);
+    assert_eq!(
+        close_action(true, true, true, true),
+        CloseAction::HideToTray
+    );
 }
 
 /// Hidden while busy, then the last move ended: deciding again frees the
 /// webview.
 #[test]
 fn idle_after_a_busy_close_frees_the_window() {
-    let busy = close_action(true, true, true);
-    let idle = close_action(true, true, false);
+    let busy = close_action(true, true, true, true);
+    let idle = close_action(true, true, false, true);
     assert_eq!(
         (busy, idle),
         (CloseAction::HideToTray, CloseAction::CloseToTray)
     );
+}
+
+/// "Use as little as possible" off: the window is kept (hidden) even idle.
+#[test]
+fn closing_keeps_the_window_when_lean_is_off() {
+    assert_eq!(
+        close_action(true, true, false, false),
+        CloseAction::HideToTray
+    );
+    assert_eq!(
+        close_action(true, true, true, false),
+        CloseAction::HideToTray
+    );
+    assert_eq!(
+        close_action(true, false, false, false),
+        CloseAction::Minimise
+    );
+    assert_eq!(close_action(false, true, false, false), CloseAction::Exit);
 }

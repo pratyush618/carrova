@@ -146,7 +146,8 @@ fn on_bridge_event(app: &AppHandle) {
         // Logged inside; the icon stays as it was.
         let _ = show_tray(app, &state);
     }
-    if busy {
+    // Not while busy, nor when "lean" is off and the window is kept.
+    if background::close_action(&state) != CloseAction::CloseToTray {
         return;
     }
     if let Some(window) = app.get_webview_window(MAIN_WINDOW)

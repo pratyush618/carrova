@@ -121,14 +121,16 @@ pub enum CloseAction {
 }
 
 /// What closing the window does, given the user's "Keep running" choice,
-/// whether the desktop shows a status tray and whether a move is running
-/// (its screen cannot be rebuilt, so the webview stays until it ends).
+/// whether the desktop shows a status tray, whether a move is running (its
+/// screen cannot be rebuilt, so the webview stays until it ends) and
+/// whether to run `lean` (free the webview when idle; otherwise keep the
+/// window hidden so reopening is instant).
 #[must_use]
-pub fn close_action(keep_running: bool, has_tray: bool, busy: bool) -> CloseAction {
-    match (keep_running, has_tray, busy) {
-        (false, _, _) => CloseAction::Exit,
-        (true, false, _) => CloseAction::Minimise,
-        (true, true, true) => CloseAction::HideToTray,
-        (true, true, false) => CloseAction::CloseToTray,
+pub fn close_action(keep_running: bool, has_tray: bool, busy: bool, lean: bool) -> CloseAction {
+    match (keep_running, has_tray) {
+        (false, _) => CloseAction::Exit,
+        (true, false) => CloseAction::Minimise,
+        (true, true) if busy || !lean => CloseAction::HideToTray,
+        (true, true) => CloseAction::CloseToTray,
     }
 }

@@ -52,10 +52,12 @@ pub fn refresh_autostart(state: &AppState) {
 
 /// What closing the main window does now.
 pub fn close_action(state: &AppState) -> CloseAction {
+    let background = settings_or_default(state).background;
     tray::close_action(
-        settings_or_default(state).background.keep_running,
+        background.keep_running,
         state.platform.has_status_tray(),
         state.sessions.busy(),
+        background.lean,
     )
 }
 
