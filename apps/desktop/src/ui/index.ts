@@ -29,7 +29,7 @@ export { Segmented, type SegmentOption } from './Segmented/Segmented';
 export { Stat, Stats } from './Stat/Stat';
 export { Kbd, LockLine, Status } from './Status/Status';
 export { Stepper } from './Stepper/Stepper';
-export { GroupHead, Head, Muted, Note, Path, Stack } from './Text/Text';
+export { GroupHead, Head, Marked, Muted, Note, Path, Stack } from './Text/Text';
 export { Tick, type TickState } from './Tick/Tick';
 export { Log, MoveCard, Timeline, type TimelineEntry } from './Timeline/Timeline';
 export { Toast } from './Toast/Toast';

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { HubLayout, LinkRow } from '../../ui';
+import { HubLayout, LinkRow, Marked } from '../../ui';
 import { AlertsGroup } from './AlertsGroup';
 import { BackgroundGroup } from './BackgroundGroup';
 import { Group } from './Group';
@@ -76,7 +76,7 @@ export function SettingsScreen({
           {hits.map(({ section: target, row, title }) => (
             <LinkRow
               key={row}
-              title={title}
+              title={<Marked text={title} query={query} />}
               sub={t(`settings.sections.${target}`)}
               onClick={() => {
                 open(target);

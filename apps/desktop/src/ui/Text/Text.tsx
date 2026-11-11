@@ -72,3 +72,17 @@ export function Path({ children }: { readonly children: ReactNode }) {
     </span>
   );
 }
+
+/** `text` with the first match of `query` (any case) marked, for search hits. */
+export function Marked({ text, query }: { readonly text: string; readonly query: string }) {
+  const needle = query.trim();
+  const at = needle === '' ? -1 : text.toLocaleLowerCase().indexOf(needle.toLocaleLowerCase());
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      <mark className="p-hit">{text.slice(at, at + needle.length)}</mark>
+      {text.slice(at + needle.length)}
+    </>
+  );
+}

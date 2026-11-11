@@ -82,6 +82,13 @@ describe('Settings', () => {
     expect(screen.getByRole('switch', { name: 'System notifications' })).toBeEnabled();
   });
 
+  it('shows when a running pause ends', () => {
+    const pausedUntil = new Date(settingsModel.now.getTime() + 3_600_000);
+    renderScreen(inSection('notifications', settingsOn(), { pausedUntil }));
+    expect(screen.getByRole('radio', { name: 'Off' })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByText(/Paused until/)).toBeInTheDocument();
+  });
+
   it('picks how each kind of alert reaches you', async () => {
     const user = userEvent.setup();
     const on = settingsOn();
@@ -103,6 +110,9 @@ describe('Settings', () => {
     renderScreen(<SettingsScreen section="general" model={settingsModel} on={on} />);
     await user.type(screen.getByRole('searchbox', { name: 'Search settings' }), 'wake');
     expect(screen.getByText('1 result for “wake”')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Wake the screen/ }).querySelector('mark'),
+    ).toHaveTextContent('Wake');
     expect(screen.queryByText('Reduce motion')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Wake the screen/ }));
     expect(on.onSection).toHaveBeenCalledWith('notifications');
