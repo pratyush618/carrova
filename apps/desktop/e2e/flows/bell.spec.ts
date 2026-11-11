@@ -7,7 +7,7 @@ test('the bell opens over the page it is on, and a request can be reviewed', asy
   const errors = consoleErrors(page);
   await openApp(page);
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  const onSettings = page.getByRole('button', { name: 'Check now' });
+  const onSettings = page.getByRole('navigation', { name: 'Settings sections' });
   await expect(onSettings).toBeVisible();
   const url = page.url();
 
