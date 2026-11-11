@@ -22,7 +22,6 @@ export type Overlay =
   /** What a plugin may do, and whether to allow it for this move. */
   | { readonly kind: 'plugin-consent'; readonly plugin: string }
   | { readonly kind: 'undo-confirm' }
-  | { readonly kind: 'recipe'; readonly id: string }
   | { readonly kind: 'update' }
   | { readonly kind: 'report'; readonly id: string }
   | { readonly kind: 'about' }

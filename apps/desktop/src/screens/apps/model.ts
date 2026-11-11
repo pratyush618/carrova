@@ -8,22 +8,15 @@ export type TierFilter = 'all' | 'verified' | 'community';
 export interface CatalogEntry extends AppRef {
   readonly tier: Tier;
   /** Detected on this computer. */
-  readonly installed: boolean;
+  readonly here: boolean;
 }
 
-export interface CatalogModel {
-  readonly now: Date;
-  readonly filter: TierFilter;
-  readonly query: string;
-  readonly entries: readonly CatalogEntry[];
-  /** When the recipe bundle was built; `null` for unsigned development recipes. */
-  readonly bundle: { readonly updated: Date | null };
-}
-
-export interface CatalogIntents {
-  readonly onFilter: (filter: TierFilter) => void;
-  readonly onQuery: (query: string) => void;
-  readonly onOpen: (id: string) => void;
+/** One category of the list: its first rows, and how many apps it holds in all. */
+export interface CatalogGroup {
+  /** Recipe category id (`dev-tools`). */
+  readonly category: string;
+  readonly total: number;
+  readonly shown: readonly CatalogEntry[];
 }
 
 export interface RecipeItem {
@@ -32,13 +25,26 @@ export interface RecipeItem {
   readonly tag: 'suggested' | 'sensitive' | 'unmovable' | null;
 }
 
-export interface RecipeModel extends AppRef {
+/** The selected app: what its recipe moves and what it leaves out. */
+export interface CatalogDetail extends CatalogEntry {
   readonly description: string;
-  readonly tier: Tier;
-  readonly installed: boolean;
-  readonly items: readonly RecipeItem[];
+  readonly moves: readonly RecipeItem[];
+  readonly leftOut: readonly RecipeItem[];
 }
 
-export interface RecipeIntents {
-  readonly onClose: () => void;
+export interface CatalogModel {
+  readonly now: Date;
+  readonly filter: TierFilter;
+  readonly query: string;
+  readonly groups: readonly CatalogGroup[];
+  readonly selected: CatalogDetail | null;
+  /** When the recipe bundle was built; `null` for unsigned development recipes. */
+  readonly bundle: { readonly updated: Date | null };
+}
+
+export interface CatalogIntents {
+  readonly onFilter: (filter: TierFilter) => void;
+  readonly onQuery: (query: string) => void;
+  readonly onSelect: (id: string) => void;
+  readonly onShowAll: (category: string) => void;
 }

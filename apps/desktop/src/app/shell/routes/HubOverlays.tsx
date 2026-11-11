@@ -1,6 +1,4 @@
-import { recipeModel } from '../../../flows/catalog/catalogViews';
 import { historyEntry } from '../../../flows/history/historyViews';
-import { RecipeSheet } from '../../../screens/apps/RecipeSheet';
 import { ForgetDialog } from '../../../screens/history/ForgetDialog';
 import { aboutModel } from '../../../flows/settings/settingsViews';
 import { AboutSheet, CrashDialog, UpdateDialog } from '../../../screens/settings/SettingsDialogs';
@@ -42,13 +40,6 @@ export function UndoConfirmOverlay() {
       }}
     />
   );
-}
-
-export function RecipeOverlay({ id }: { readonly id: string }) {
-  const { catalog } = useControllers();
-  const nav = useNav();
-  const model = recipeModel(catalog.entries ?? [], id);
-  return model === null ? null : <RecipeSheet model={model} on={{ onClose: nav.close }} />;
 }
 
 export function UpdateOverlay() {

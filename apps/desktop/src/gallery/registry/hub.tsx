@@ -1,6 +1,12 @@
 import { AppsScreen } from '../../screens/apps/AppsScreen';
-import { RecipeSheet } from '../../screens/apps/RecipeSheet';
-import { catalogAll, catalogCommunity, recipeSsh } from '../../screens/apps/fixtures';
+import {
+  catalogAll,
+  catalogCommunity,
+  catalogSearch,
+  catalogSelected,
+  catalogSensitive,
+} from '../../screens/apps/fixtures';
+import type { CatalogModel } from '../../screens/apps/model';
 import { HistoryScreen } from '../../screens/history/HistoryScreen';
 import { historyEmpty, historyTimeline, historyUndone } from '../../screens/history/fixtures';
 import { AboutSheet, CrashDialog, UpdateDialog } from '../../screens/settings/SettingsDialogs';
@@ -21,7 +27,13 @@ import { states, type GalleryScreen } from '../types';
 
 const historyOn = noops('onSelect', 'onUndo', 'onResume', 'onForget', 'onReceive');
 const HISTORY = { empty: historyEmpty, undone: historyUndone } as const;
-const catalogOn = noops('onFilter', 'onQuery', 'onOpen');
+const catalogOn = noops('onFilter', 'onQuery', 'onSelect', 'onShowAll');
+const APPS: Readonly<Record<string, CatalogModel>> = {
+  detail: catalogSelected,
+  sensitive: catalogSensitive,
+  search: catalogSearch,
+  community: catalogCommunity,
+};
 const settingsOn = noops(
   'onAppearance',
   'onMotion',
@@ -75,20 +87,15 @@ export const hubScreens: readonly GalleryScreen[] = [
     group: 'Apps',
     title: 'Apps',
     view: { kind: 'hub', page: 'apps' },
-    states: states(['verified', 'All'], ['community', 'Community']),
+    states: states(
+      ['list', 'List'],
+      ['detail', 'App selected'],
+      ['sensitive', 'Sensitive app'],
+      ['search', 'Search “vs”'],
+      ['community', 'Community only'],
+    ),
     render: (s) => ({
-      base: <AppsScreen model={s === 'community' ? catalogCommunity : catalogAll} on={catalogOn} />,
-    }),
-  },
-  {
-    id: 'recipe',
-    group: 'Apps',
-    title: 'App detail (sheet)',
-    view: { kind: 'hub', page: 'apps' },
-    states: [],
-    render: () => ({
-      base: <AppsScreen model={catalogAll} on={catalogOn} />,
-      overlays: [<RecipeSheet key="r" model={recipeSsh} on={noops('onClose')} />],
+      base: <AppsScreen model={APPS[s] ?? catalogAll} on={catalogOn} />,
     }),
   },
   {

@@ -94,8 +94,12 @@ export function HistoryRoute() {
 
 export function AppsRoute() {
   const { catalog } = useControllers();
-  const nav = useNav();
-  const [ui, setUi] = useState<CatalogUi>({ filter: 'all', query: '' });
+  const [ui, setUi] = useState<CatalogUi>({
+    filter: 'all',
+    query: '',
+    selected: null,
+    expanded: [],
+  });
   const model = catalogModel(catalog.entries ?? [], catalog.status, ui, new Date());
   return (
     <AppsScreen
@@ -107,8 +111,11 @@ export function AppsRoute() {
         onQuery: (query) => {
           setUi((u) => ({ ...u, query }));
         },
-        onOpen: (id) => {
-          nav.open({ kind: 'recipe', id });
+        onSelect: (selected) => {
+          setUi((u) => ({ ...u, selected }));
+        },
+        onShowAll: (category) => {
+          setUi((u) => ({ ...u, expanded: [...u.expanded, category] }));
         },
       }}
     />

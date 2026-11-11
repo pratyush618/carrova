@@ -58,17 +58,18 @@ describe('history', () => {
 });
 
 describe('apps and settings', () => {
-  it('opens a recipe with its tier and items', async () => {
+  it('opens a recipe in the detail pane with its tier and items', async () => {
     const user = userEvent.setup();
     await renderApp({ returning: true });
     await openHub(user, 'Apps');
-    const grid = await screen.findByRole('list', { name: 'Apps' });
-    const [first] = within(grid).getAllByRole('button');
+    const list = await screen.findByRole('list', { name: 'Apps' });
+    const [first] = within(list).getAllByRole('button', { pressed: false });
     if (first === undefined) throw new Error('empty catalogue');
     await user.click(first);
-    const sheet = screen.getByRole('dialog');
-    expect(within(sheet).getByText('Trust')).toBeInTheDocument();
-    expect(within(sheet).getByRole('list', { name: 'What moves' })).toBeInTheDocument();
+    const detail = screen.getByRole('complementary', { name: 'App details' });
+    expect(within(detail).getByText(/signed\.$|not signed\.$/)).toBeInTheDocument();
+    expect(within(detail).getByRole('list', { name: 'What moves' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('saves a theme choice and checks recipes on request', async () => {
