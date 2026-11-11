@@ -30,7 +30,7 @@ Download from the [latest release](https://github.com/pratyush618/carrova/releas
 | Distro | Package | Install |
 |---|---|---|
 | Ubuntu, Debian, Mint, Pop!_OS | `.deb` | `sudo apt install ./Carrova_*.deb` |
-| Fedora, openSUSE | `.rpm` | `sudo dnf install ./Carrova-*.rpm` |
+| Fedora / openSUSE | `.rpm` | `sudo dnf install ./Carrova-*.rpm` / `sudo zypper install ./Carrova-*.rpm` |
 | Any distro | `.AppImage` | `chmod +x Carrova_*.AppImage && ./Carrova_*.AppImage` |
 
 Needs glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+). The AppImage updates
