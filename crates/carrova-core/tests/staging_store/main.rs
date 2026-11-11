@@ -166,6 +166,7 @@ fn fixture(home: &Path, specs: &[Spec<'_>]) -> Fixture {
         blockers: Vec::new(),
         warnings: Vec::new(),
         sensitive: BTreeMap::new(),
+        safe_picks: Vec::new(),
     };
     Fixture {
         plan,

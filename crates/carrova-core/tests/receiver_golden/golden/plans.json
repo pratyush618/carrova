@@ -35,7 +35,9 @@
       "import_trust": false,
       "keep_group_write": false,
       "allow_cross_os": [],
-      "confirmed_plugins": []
+      "confirmed_plugins": [],
+      "accept_safe_picks": false,
+      "declined": []
     },
     "actions": [
       {
@@ -449,7 +451,10 @@
       "ghost/x": "marked sensitive in the archive; unrecognised data from the archive (recipe `ghost` is not known here)",
       "home/.bashrc": "unrecognised data from the archive; can run code at login (home:.bashrc)",
       "user_data/raw": "unrecognised data from the archive"
-    }
+    },
+    "safe_picks": [
+      "user_data/raw"
+    ]
   },
   {
     "session": "20261108-000000-abcdef",
@@ -487,7 +492,9 @@
       "import_trust": true,
       "keep_group_write": true,
       "allow_cross_os": [],
-      "confirmed_plugins": []
+      "confirmed_plugins": [],
+      "accept_safe_picks": false,
+      "declined": []
     },
     "actions": [
       {
@@ -895,7 +902,10 @@
       "ghost/x": "marked sensitive in the archive; unrecognised data from the archive (recipe `ghost` is not known here)",
       "home/.bashrc": "unrecognised data from the archive; can run code at login (home:.bashrc)",
       "user_data/raw": "unrecognised data from the archive"
-    }
+    },
+    "safe_picks": [
+      "user_data/raw"
+    ]
   },
   {
     "session": "20261108-000000-abcdef",
@@ -913,7 +923,9 @@
       "import_trust": false,
       "keep_group_write": false,
       "allow_cross_os": [],
-      "confirmed_plugins": []
+      "confirmed_plugins": [],
+      "accept_safe_picks": false,
+      "declined": []
     },
     "actions": [
       {
@@ -1235,7 +1247,10 @@
       "ghost/x": "marked sensitive in the archive; unrecognised data from the archive (recipe `ghost` is not known here)",
       "home/.bashrc": "unrecognised data from the archive; can run code at login (home:.bashrc)",
       "user_data/raw": "unrecognised data from the archive"
-    }
+    },
+    "safe_picks": [
+      "user_data/raw"
+    ]
   },
   {
     "session": "20261108-000000-abcdef",
@@ -1253,7 +1268,9 @@
       "import_trust": false,
       "keep_group_write": false,
       "allow_cross_os": [],
-      "confirmed_plugins": []
+      "confirmed_plugins": [],
+      "accept_safe_picks": false,
+      "declined": []
     },
     "actions": [
       {
@@ -1583,6 +1600,9 @@
       "ghost/x": "marked sensitive in the archive; unrecognised data from the archive (recipe `ghost` is not known here)",
       "home/.bashrc": "unrecognised data from the archive; can run code at login (home:.bashrc)",
       "user_data/raw": "unrecognised data from the archive"
-    }
+    },
+    "safe_picks": [
+      "user_data/raw"
+    ]
   }
 ]

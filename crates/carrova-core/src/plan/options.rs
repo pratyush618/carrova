@@ -98,31 +98,45 @@ pub struct PlanOptions {
     #[serde(default)]
     #[cfg_attr(feature = "ts", ts(as = "Vec<String>"))]
     pub confirmed_plugins: Vec<PluginId>,
+    /// "Accept all": confirm every [`super::Plan::safe_picks`] item. Which
+    /// items are safe is judged afresh by each plan on the final targets
+    /// (after remaps), so a pick moved somewhere risky is not covered.
+    #[serde(default)]
+    pub accept_safe_picks: bool,
+    /// Items the user explicitly left behind ([`super::PlanEdit::AnswerSensitive`]):
+    /// "Accept all" never brings them back.
+    #[serde(default)]
+    pub declined: Vec<ItemKey>,
 }
 
 impl PlanOptions {
     /// Whether these options pick item `key` for import — the one rule the
     /// planner, the checklist and every front-end share. `sensitive` is
-    /// why the item needs explicit confirmation (`None`: it does not). With
+    /// why the item needs explicit confirmation (`None`: it does not);
+    /// `safe_pick` whether the plan counts it among its safe picks. With
     /// an explicit [`Self::items`] list: exactly the listed items. Without
     /// one: every item except a sensitive one the user has not confirmed
-    /// ([`Self::is_confirmed`]).
+    /// ([`Self::confirms`]).
     #[must_use]
-    pub fn picks(&self, key: &ItemKey, sensitive: Option<&str>) -> bool {
+    pub fn picks(&self, key: &ItemKey, sensitive: Option<&str>, safe_pick: bool) -> bool {
         match &self.items {
             Some(list) => list.contains(key),
-            None => !self.awaits_confirmation(key, sensitive),
+            None => sensitive.is_none() || self.confirms(key, safe_pick),
         }
     }
 
-    /// Whether item `key` is sensitive (`sensitive` holds why) and the user
-    /// has not confirmed it yet: importing it needs that confirmation.
+    /// Whether importing sensitive item `key` is confirmed: one by one
+    /// ([`Self::is_confirmed`]), or by "Accept all" when the current plan
+    /// counts it among its safe picks (`safe_pick`) and the user did not
+    /// leave it ([`Self::declined`]).
     #[must_use]
-    pub fn awaits_confirmation(&self, key: &ItemKey, sensitive: Option<&str>) -> bool {
-        sensitive.is_some() && !self.is_confirmed(key)
+    pub fn confirms(&self, key: &ItemKey, safe_pick: bool) -> bool {
+        self.is_confirmed(key)
+            || (self.accept_safe_picks && safe_pick && !self.declined.contains(key))
     }
 
-    /// Whether the user explicitly confirmed importing sensitive item `key`.
+    /// Whether the user explicitly confirmed importing sensitive item `key`
+    /// on its own ([`Self::confirmed_sensitive`]).
     #[must_use]
     pub fn is_confirmed(&self, key: &ItemKey) -> bool {
         self.confirmed_sensitive.contains(key)
@@ -156,6 +170,8 @@ impl Default for PlanOptions {
             keep_group_write: false,
             allow_cross_os: Vec::new(),
             confirmed_plugins: Vec::new(),
+            accept_safe_picks: false,
+            declined: Vec::new(),
         }
     }
 }

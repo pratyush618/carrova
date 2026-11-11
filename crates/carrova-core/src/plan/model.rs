@@ -229,6 +229,11 @@ pub struct Plan {
     /// from the archive alone. Item key → reason.
     #[serde(default)]
     pub sensitive: BTreeMap<ItemKey, String>,
+    /// Recipe-less items whose only sensitivity reason is "unrecognised
+    /// data", judged on their final targets: what "Accept all"
+    /// ([`PlanOptions::accept_safe_picks`]) confirms. Same-OS archives only.
+    #[serde(default)]
+    pub safe_picks: Vec<ItemKey>,
 }
 
 impl Plan {
@@ -248,8 +253,16 @@ impl Plan {
     /// ([`PlanOptions::picks`] with [`Self::sensitivity`]).
     #[must_use]
     pub fn picks(&self, item: &ManifestItem) -> bool {
+        let key = ItemKey::of(item);
         self.options
-            .picks(&ItemKey::of(item), self.sensitivity(item))
+            .picks(&key, self.sensitivity(item), self.safe_picks.contains(&key))
+    }
+
+    /// Whether importing item `key` is confirmed ([`PlanOptions::confirms`]
+    /// with [`Self::safe_picks`]).
+    #[must_use]
+    pub fn confirms(&self, key: &ItemKey) -> bool {
+        self.options.confirms(key, self.safe_picks.contains(key))
     }
 
     /// Display name of app `id` ([`Self::app_names`], else the id).

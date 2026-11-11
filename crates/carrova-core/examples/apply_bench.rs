@@ -127,6 +127,7 @@ fn run(
         blockers: Vec::new(),
         warnings: Vec::new(),
         sensitive: Default::default(),
+        safe_picks: Vec::new(),
     };
     let start = Instant::now();
     apply(

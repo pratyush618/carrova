@@ -59,6 +59,8 @@ pub(super) struct Planner<'a> {
     warnings: Vec<PlanWarning>,
     /// Receiver-side sensitive items (key → reason).
     sensitive: BTreeMap<ItemKey, String>,
+    /// Recipe-less items whose only reason is "unrecognised data".
+    safe_picks: Vec<ItemKey>,
     /// Cross-OS items rebased onto this OS's slots (foreign archives).
     rebased: HashMap<ItemKey, Rebased>,
     /// Cross-OS items that cannot be rebased (key → why).
@@ -98,6 +100,7 @@ impl<'a> Planner<'a> {
             blockers: Vec::new(),
             warnings: Vec::new(),
             sensitive: BTreeMap::new(),
+            safe_picks: Vec::new(),
             rebased: HashMap::new(),
             unmapped: HashMap::new(),
             plugin_items: HashMap::new(),
@@ -133,6 +136,7 @@ impl<'a> Planner<'a> {
             blockers: Vec::new(),
             warnings: Vec::new(),
             sensitive: std::mem::take(&mut self.sensitive),
+            safe_picks: std::mem::take(&mut self.safe_picks),
         };
         // Space: exactly what staging will write (one source of truth).
         let layout = StageLayout::new(&plan, self.manifest)?;

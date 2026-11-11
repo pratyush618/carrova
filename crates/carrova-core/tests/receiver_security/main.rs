@@ -11,7 +11,7 @@ mod common;
 use std::path::{Path, PathBuf};
 
 use carrova_core::ItemKey;
-use carrova_core::plan::{Action, Plan, PlanOptions, Remap, plan_on_date};
+use carrova_core::plan::{Action, Plan, PlanEdit, PlanOptions, Remap, plan_on_date};
 use carrova_core::session::SessionId;
 use carrova_manifest::{
     Artifact, DEFAULT_CHUNK_PARAMS, Entry, ItemFlags, Manifest, ManifestItem, SourceInfo,
@@ -671,4 +671,334 @@ fn symlink_target_through_existing_link_is_skipped() {
         "{:?}",
         p.actions[0].action
     );
+}
+
+// ------------------------------------------------------------- safe picks
+
+fn safe(p: &Plan) -> Vec<&str> {
+    p.safe_picks.iter().map(ItemKey::as_str).collect()
+}
+
+#[test]
+fn raw_item_with_only_raw_reason_is_a_safe_pick() {
+    let e = env();
+    let m = manifest(vec![
+        item(
+            None,
+            "raw:home/notes.txt",
+            vec![file(&e, SemanticRoot::Home, "notes.txt", 0o644)],
+        ),
+        item(
+            Some("app"),
+            "config",
+            vec![file(&e, SemanticRoot::UserConfig, "app/a.json", 0o644)],
+        ),
+    ]);
+    let p = run(&e, &m, &PlanOptions::default());
+    assert_eq!(safe(&p), ["raw:home/notes.txt"]);
+    assert!(
+        !has_action(&p, "raw:home/notes.txt"),
+        "picks arrive unticked"
+    );
+}
+
+#[test]
+fn raw_item_matching_secret_table_is_not_safe() {
+    let e = env();
+    // The sender did not flag it; the receiver's own table does.
+    let m = manifest(vec![item(
+        None,
+        "raw:home/proj",
+        vec![file(&e, SemanticRoot::Home, "proj/.env", 0o600)],
+    )]);
+    let p = run(&e, &m, &PlanOptions::default());
+    let why = reason(&p, "raw:home/proj");
+    assert!(
+        why.contains("environment secrets") && why.contains("proj/.env"),
+        "{why}"
+    );
+    assert!(safe(&p).is_empty());
+}
+
+#[test]
+fn raw_item_in_dangerous_path_is_not_safe() {
+    let e = env();
+    let m = manifest(vec![item(
+        None,
+        "raw:home/.bashrc",
+        vec![file(&e, SemanticRoot::Home, ".bashrc", 0o644)],
+    )]);
+    let p = run(&e, &m, &PlanOptions::default());
+    assert!(reason(&p, "raw:home/.bashrc").contains(".bashrc"));
+    assert!(safe(&p).is_empty());
+}
+
+#[test]
+fn archive_flagged_raw_item_is_not_safe() {
+    let e = env();
+    let mut flagged = item(
+        None,
+        "raw:home/notes.txt",
+        vec![file(&e, SemanticRoot::Home, "notes.txt", 0o644)],
+    );
+    flagged.flags.sensitive = true;
+    let p = run(&e, &manifest(vec![flagged]), &PlanOptions::default());
+    assert!(reason(&p, "raw:home/notes.txt").contains("marked sensitive"));
+    assert!(safe(&p).is_empty());
+}
+
+#[test]
+fn raw_item_remapped_into_secret_location_is_not_safe() {
+    let e = env();
+    let m = manifest(vec![item(
+        None,
+        "raw:home/notes.txt",
+        vec![file(&e, SemanticRoot::Home, "notes.txt", 0o644)],
+    )]);
+    let mut o = PlanOptions::default();
+    o.remaps.insert(
+        "raw:home/notes.txt".into(),
+        Remap {
+            root: None,
+            rel_prefix: Some(".aws".into()),
+        },
+    );
+    let p = run(&e, &m, &o);
+    assert!(reason(&p, "raw:home/notes.txt").contains("cloud credentials"));
+    assert!(safe(&p).is_empty());
+}
+
+#[test]
+fn raw_item_from_another_os_is_not_safe() {
+    let e = env();
+    let mut m = manifest(vec![item(
+        None,
+        "raw:home/notes.txt",
+        vec![file(&e, SemanticRoot::Home, "notes.txt", 0o644)],
+    )]);
+    m.source.os = OsKind::Windows;
+    let p = run(&e, &m, &PlanOptions::default());
+    assert!(safe(&p).is_empty());
+}
+
+#[test]
+fn recipe_items_unchanged_by_secret_table() {
+    let e = env();
+    let m = manifest(vec![item(
+        Some("app"),
+        "config",
+        vec![file(&e, SemanticRoot::UserConfig, "app/.env", 0o644)],
+    )]);
+    let p = run(&e, &m, &PlanOptions::default());
+    assert!(p.sensitive.is_empty(), "{:?}", p.sensitive);
+    assert!(safe(&p).is_empty());
+}
+
+/// Apply `edit` the way a front-end does: against the plan's offered items.
+fn edit(p: &Plan, m: &Manifest, edit: PlanEdit) -> PlanOptions {
+    let mut o = p.options.clone();
+    o.apply(edit, &p.offered(m)).unwrap();
+    o
+}
+
+fn remap_to(item: &str, root: SemanticRoot, prefix: &str) -> PlanEdit {
+    PlanEdit::Remap {
+        item: item.into(),
+        remap: Some(Remap {
+            root: Some(root),
+            rel_prefix: Some(prefix.into()),
+        }),
+    }
+}
+
+#[test]
+fn accepted_safe_pick_remapped_into_secret_location_needs_confirmation_again() {
+    let e = env();
+    let key = "raw:home/notes.txt";
+    let m = manifest(vec![item(
+        None,
+        key,
+        vec![file(&e, SemanticRoot::Home, "notes.txt", 0o644)],
+    )]);
+    let p = run(&e, &m, &select(&[]));
+    let p = run(&e, &m, &edit(&p, &m, PlanEdit::AcceptSafePicks));
+    assert!(p.blockers.is_empty() && has_action(&p, key));
+
+    let p = run(
+        &e,
+        &m,
+        &edit(&p, &m, remap_to(key, SemanticRoot::Home, ".aws")),
+    );
+    assert!(reason(&p, key).contains("cloud credentials"));
+    assert!(!p.options.is_confirmed(&key.into()));
+    assert!(p.blockers.iter().any(|b| b.to_string().contains(key)));
+}
+
+#[test]
+fn confirmed_item_remapped_into_dangerous_path_needs_confirmation_again() {
+    let e = env();
+    let key = "raw:documents/notes";
+    let m = manifest(vec![item(
+        None,
+        key,
+        vec![file(&e, SemanticRoot::Documents, "notes/todo.txt", 0o644)],
+    )]);
+    let p = run(&e, &m, &confirm(&[key]));
+    assert!(has_action(&p, key));
+
+    let o = edit(&p, &m, remap_to(key, SemanticRoot::UserConfig, "autostart"));
+    let p = run(&e, &m, &o);
+    assert!(reason(&p, key).contains("autostart"));
+    assert!(!has_action(&p, key), "not ticked any more");
+}
+
+/// A raw `home/authorized_keys` pick, its first plan with `start`, and
+/// the plan's offered items *before* any edit (what a front-end holds).
+fn authorized_keys_pick(e: &Env, start: &PlanOptions) -> (Manifest, Plan) {
+    let m = manifest(vec![item(
+        None,
+        "raw:home/authorized_keys",
+        vec![file(e, SemanticRoot::Home, "authorized_keys", 0o644)],
+    )]);
+    let p = run(e, &m, start);
+    assert_eq!(safe(&p), ["raw:home/authorized_keys"]);
+    (m, p)
+}
+
+#[test]
+fn accept_all_after_a_remap_into_ssh_in_one_batch_does_not_confirm_it() {
+    let e = env();
+    let key = "raw:home/authorized_keys";
+    let (m, p) = authorized_keys_pick(&e, &select(&[]));
+    let mut o = p.options.clone();
+    o.apply_all(
+        [
+            remap_to(key, SemanticRoot::Home, ".ssh"),
+            PlanEdit::AcceptSafePicks,
+        ],
+        &p.offered(&m),
+    )
+    .unwrap();
+    let p = run(&e, &m, &o);
+    assert!(
+        reason(&p, key).contains("home:.ssh/authorized_keys"),
+        "{}",
+        reason(&p, key)
+    );
+    assert!(safe(&p).is_empty());
+    assert!(!p.options.is_confirmed(&key.into()));
+    assert!(
+        p.blockers.iter().any(|b| b.to_string().contains(key)),
+        "{:?}",
+        p.blockers
+    );
+}
+
+#[test]
+fn accept_all_by_default_leaves_a_pick_remapped_into_ssh_behind() {
+    let e = env();
+    let key = "raw:home/authorized_keys";
+    let (m, p) = authorized_keys_pick(&e, &PlanOptions::default());
+    let mut o = p.options.clone();
+    o.apply_all(
+        [
+            remap_to(key, SemanticRoot::Home, ".ssh"),
+            PlanEdit::AcceptSafePicks,
+        ],
+        &p.offered(&m),
+    )
+    .unwrap();
+    let p = run(&e, &m, &o);
+    assert!(reason(&p, key).contains(".ssh"));
+    assert!(!has_action(&p, key), "not imported unconfirmed");
+}
+
+#[test]
+fn accept_all_brings_plain_picks_and_stays_judged_on_later_plans() {
+    let e = env();
+    let m = manifest(vec![
+        item(
+            None,
+            "raw:home/notes.txt",
+            vec![file(&e, SemanticRoot::Home, "notes.txt", 0o644)],
+        ),
+        item(
+            None,
+            "raw:home/.bashrc",
+            vec![file(&e, SemanticRoot::Home, ".bashrc", 0o644)],
+        ),
+    ]);
+    let p = run(&e, &m, &PlanOptions::default());
+    let p = run(&e, &m, &edit(&p, &m, PlanEdit::AcceptSafePicks));
+    assert!(p.blockers.is_empty(), "{:?}", p.blockers);
+    assert!(has_action(&p, "raw:home/notes.txt"));
+    assert!(
+        !has_action(&p, "raw:home/.bashrc"),
+        "risky place needs its own tick"
+    );
+}
+
+// ------------------------------------------------------------- case
+
+#[test]
+fn raw_item_in_an_upper_case_ssh_folder_is_sensitive() {
+    let e = env();
+    let key = "raw:home/.SSH";
+    let m = manifest(vec![item(
+        None,
+        key,
+        vec![file(&e, SemanticRoot::Home, ".SSH/authorized_keys", 0o644)],
+    )]);
+    let p = run(&e, &m, &PlanOptions::default());
+    let why = reason(&p, key);
+    assert!(
+        why.contains("SSH keys") && why.contains("controls SSH logins"),
+        "{why}"
+    );
+    assert!(safe(&p).is_empty());
+}
+
+#[test]
+fn dangerous_paths_match_whatever_the_case() {
+    let e = env();
+    let key = "raw:home/.BASHRC";
+    let m = manifest(vec![item(
+        None,
+        key,
+        vec![file(&e, SemanticRoot::Home, ".BASHRC", 0o644)],
+    )]);
+    let p = run(&e, &m, &PlanOptions::default());
+    assert!(
+        reason(&p, key).contains("can run code at login"),
+        "{}",
+        reason(&p, key)
+    );
+    assert!(safe(&p).is_empty());
+}
+
+#[test]
+fn accept_all_does_not_bring_back_a_declined_safe_pick() {
+    let e = env();
+    let m = manifest(vec![
+        item(
+            None,
+            "raw:home/a.txt",
+            vec![file(&e, SemanticRoot::Home, "a.txt", 0o644)],
+        ),
+        item(
+            None,
+            "raw:home/b.txt",
+            vec![file(&e, SemanticRoot::Home, "b.txt", 0o644)],
+        ),
+    ]);
+    let p = run(&e, &m, &PlanOptions::default());
+    let leave_a = PlanEdit::AnswerSensitive {
+        item: "raw:home/a.txt".into(),
+        bring: false,
+    };
+    let p = run(&e, &m, &edit(&p, &m, leave_a));
+    let p = run(&e, &m, &edit(&p, &m, PlanEdit::AcceptSafePicks));
+    assert!(!has_action(&p, "raw:home/a.txt"), "the user left it");
+    assert!(has_action(&p, "raw:home/b.txt"));
+    assert!(p.blockers.is_empty(), "{:?}", p.blockers);
 }

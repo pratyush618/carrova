@@ -7,6 +7,7 @@ fn offer(key: &str, app: Option<&str>, sensitive: bool) -> Offered {
         app: app.map(Into::into),
         sensitive,
         plugins: Vec::new(),
+        safe_pick: false,
     }
 }
 
@@ -245,4 +246,134 @@ fn a_plugin_no_longer_in_use_can_still_be_withdrawn() {
         }],
     );
     assert!(options.confirmed_plugins.is_empty());
+}
+
+/// [`offered`] plus two raw picks: `home/todo` (safe) and `home/.bashrc`
+/// (sensitive for another reason); `home/notes` is safe too.
+fn with_safe_picks() -> Vec<Offered> {
+    let mut items = offered();
+    for o in &mut items {
+        o.safe_pick = o.key == "home/notes";
+    }
+    let mut todo = offer("home/todo", None, true);
+    todo.safe_pick = true;
+    items.push(todo);
+    items.push(offer("home/.bashrc", None, true));
+    items
+}
+
+fn accept_safe(options: &PlanOptions) -> PlanOptions {
+    let mut options = options.clone();
+    options
+        .apply(PlanEdit::AcceptSafePicks, &with_safe_picks())
+        .unwrap();
+    options
+}
+
+#[test]
+fn accept_safe_picks_sets_the_flag_without_confirming_items_one_by_one() {
+    let options = accept_safe(&PlanOptions::default());
+    assert_eq!(options.items, None);
+    assert!(options.accept_safe_picks);
+    assert!(options.confirmed_sensitive.is_empty());
+}
+
+#[test]
+fn accept_safe_picks_adds_to_explicit_list() {
+    let start = PlanOptions {
+        items: keys(&["git/config"]),
+        ..PlanOptions::default()
+    };
+    let options = accept_safe(&start);
+    assert_eq!(
+        options.items,
+        keys(&["git/config", "home/notes", "home/todo"])
+    );
+    assert!(options.confirmed_sensitive.is_empty());
+}
+
+#[test]
+fn accept_safe_picks_twice_is_idempotent() {
+    let start = PlanOptions {
+        items: keys(&["home/notes"]),
+        ..PlanOptions::default()
+    };
+    let once = accept_safe(&start);
+    assert_eq!(accept_safe(&once), once);
+}
+
+fn remap(item: &str, to: Option<&str>) -> PlanEdit {
+    PlanEdit::Remap {
+        item: item.into(),
+        remap: to.map(|p| Remap {
+            root: None,
+            rel_prefix: Some(p.into()),
+        }),
+    }
+}
+
+#[test]
+fn moving_a_confirmed_item_drops_its_confirmation() {
+    let start = edited(&PlanOptions::default(), vec![bring("git/token", true)]);
+    let moved = edited(&start, vec![remap("git/token", Some("elsewhere"))]);
+    assert!(moved.confirmed_sensitive.is_empty());
+
+    let confirmed = edited(&moved, vec![bring("git/token", true)]);
+    let back = edited(&confirmed, vec![remap("git/token", None)]);
+    assert!(back.confirmed_sensitive.is_empty());
+}
+
+#[test]
+fn leaving_one_safe_pick_after_accept_all_keeps_the_others() {
+    let mut options = accept_safe(&PlanOptions::default());
+    options
+        .apply(bring("home/todo", false), &with_safe_picks())
+        .unwrap();
+    assert_eq!(options.items, keys(&["git/config", "home/notes"]));
+}
+
+#[test]
+fn moving_an_item_to_the_same_place_again_keeps_its_confirmation() {
+    let start = edited(
+        &PlanOptions::default(),
+        vec![remap("git/token", Some("moved")), bring("git/token", true)],
+    );
+    assert_eq!(
+        edited(&start, vec![remap("git/token", Some("moved"))]),
+        start
+    );
+}
+
+#[test]
+fn leaving_a_safe_pick_records_the_decline_and_bringing_it_clears_it() {
+    let left = edited(&PlanOptions::default(), vec![bring("home/notes", false)]);
+    assert_eq!(left.declined, vec![ItemKey::from("home/notes")]);
+    let brought = edited(&left, vec![bring("home/notes", true)]);
+    assert!(brought.declined.is_empty());
+}
+
+#[test]
+fn accept_all_skips_a_declined_safe_pick() {
+    let mut options = PlanOptions::default();
+    options
+        .apply_all(
+            [bring("home/todo", false), PlanEdit::AcceptSafePicks],
+            &with_safe_picks(),
+        )
+        .unwrap();
+    assert!(
+        !options
+            .items
+            .as_ref()
+            .unwrap()
+            .contains(&"home/todo".into())
+    );
+    assert!(
+        options
+            .items
+            .as_ref()
+            .unwrap()
+            .contains(&"home/notes".into())
+    );
+    assert!(!options.confirms(&"home/todo".into(), true));
 }
