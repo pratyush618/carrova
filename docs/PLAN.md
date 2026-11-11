@@ -3,7 +3,7 @@
 Source of truth for *what* Carrova is: `Porter — High-Level Design.pdf` (project root, Nov 8 2026; Porter was the working name).
 This document covers *how and in what order* it gets built.
 
-**Status:** Phase 1 complete (exit gate passed 2026-11-08) · Phase 2 complete (exit gate passed 2026-11-08) · Phase 3 implementation complete, hardware exit gate pending · Phase 4 implementation complete, v0.1 exit gate pending · Phase 5 in progress (cross-OS + plugins engine done; desktop rebuilt to the v2 design) · **Updated:** 2026-11-10
+**Status:** Phase 1 complete (exit gate passed 2026-11-08) · Phase 2 complete (exit gate passed 2026-11-08) · Phase 3 complete (exit gate passed 2026-11-11) · Phase 4 implementation complete, v0.1 exit gate pending · Phase 5 implementation complete except notarization and Flathub, exit gate pending · **Updated:** 2026-11-11
 
 ## Ground rules
 
@@ -95,17 +95,17 @@ This document covers *how and in what order* it gets built.
 **Goal:** the same migration directly between two machines.
 
 **Deliverables**
-- [ ] Discovery: mDNS plus UDP broadcast
-- [ ] Fallback typed code encoding receiver LAN address + pairing secret
-- [ ] PAKE pairing from the short code shown on both screens; session keys derived from it; no long-lived trust by default
-- [ ] `carrova-transport`: QUIC with TLS keyed from the PAKE result; multiplexed parallel streams
-- [ ] Receiver inventory exchange (OS, installed apps + versions, free space)
-- [ ] Conflict detection on the receiver (see open item below)
-- [ ] Priority ordering: small config items first, bulk data after
-- [ ] Resume from the last verified chunk across sleep, Wi-Fi drops and restarts; per-chunk re-request on hash mismatch
-- [ ] Disk-full handling: pause with a clear message
-- [ ] CLI: `carrova send`, `carrova receive`
-- [ ] E2E tests: two containers on a virtual network, including interruption and rollback
+- [x] Discovery: mDNS plus UDP broadcast
+- [x] Fallback typed ticket: the pairing code plus the sender's LAN address (`<code>@<ipv4>:<port>`), shown by the sender, typed on the receiver
+- [x] PAKE pairing from the short code shown on both screens; session keys derived from it; no long-lived trust by default
+- [x] `carrova-transport`: PAKE inside QUIC (TLS 1.3 over throwaway certs), key confirmation bound to that connection; multiplexed parallel streams
+- [x] Receiver inventory exchange (OS, detected apps, free space; app versions unavailable in v1)
+- [x] Conflict detection on the receiver (see open item below)
+- [x] Priority ordering: small config items first, bulk data after
+- [x] Resume from the last verified chunk across sleep, Wi-Fi drops and restarts; per-chunk re-request on hash mismatch
+- [x] Disk-full handling: pause with a clear message
+- [x] CLI: `carrova send`, `carrova receive`
+- [x] E2E tests: two containers on a virtual network, including interruption and rollback
 
 **Decisions (made 2026-11-08, details in `tasks/todo.md`)**
 - PAKE: SPAKE2 (RustCrypto `spake2`) run inside QUIC over throwaway self-signed certs; key confirmation bound to the TLS exporter + both cert hashes; one guess per code (sender burns code on failure) — security review required before exit
@@ -154,11 +154,11 @@ This document covers *how and in what order* it gets built.
 **Goal:** beyond Ubuntu, and beyond declarative recipes.
 
 **Deliverables**
-- [ ] Windows adapter for `carrova-platform`; Windows paths in recipes; consumer recipes
-- [ ] macOS adapter; notarized builds
-- [ ] `carrova-plugin`: WASM runtime with declared permission manifest shown to the user; core-maintainer review; signed plugins
-- [ ] Cross-OS restore driven by the portability flag and per-item semantic mapping
-- [ ] CI build matrix: Ubuntu, Windows, macOS runners; Flathub listing
+- [x] Windows adapter for `carrova-platform`; Windows paths in recipes; consumer recipes
+- [ ] macOS adapter; notarized builds (adapter done; notarization CI wired, needs the Apple account)
+- [x] `carrova-plugin`: WASM runtime with declared permission manifest shown to the user; core-maintainer review; signed plugins
+- [x] Cross-OS restore driven by the portability flag and per-item semantic mapping
+- [ ] CI build matrix: Ubuntu, Windows, macOS runners; Flathub listing (matrix done; Flathub deferred)
 
 **Exit gate:** Windows beta stable; macOS notarized builds; at least one cross-OS restore path (e.g. VS Code settings Linux → Windows) verified end to end.
 

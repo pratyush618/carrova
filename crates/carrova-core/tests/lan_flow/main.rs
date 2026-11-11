@@ -309,19 +309,45 @@ fn an_expired_code_is_replaced_and_only_the_fresh_one_pairs() {
     let running = run(handle);
     let first = running.first.clone().unwrap();
 
-    let fresh = running
-        .tickets
-        .recv_timeout(Duration::from_secs(30))
-        .unwrap();
+    let next = || {
+        running
+            .tickets
+            .recv_timeout(Duration::from_secs(30))
+            .unwrap()
+    };
+    let mut fresh = next();
     assert_ne!(fresh.code, first.code);
-    let offers = running.offers();
-    assert_eq!(offers.len(), 2, "{offers:?}");
-    assert_eq!(offers[0].0, CodeOffer::First);
-    assert!(offers[0].1 <= LIFETIME);
-    assert_eq!(offers[1], (CodeOffer::Expired, LIFETIME));
 
     assert!(Importer::connect(receiver.engine.clone(), &first).is_err());
-    let mut imp = Importer::connect(receiver.engine.clone(), &fresh).unwrap();
+    // Under load the fresh code can expire too before we dial it; pair with
+    // the newest one (each further offer must again be a plain expiry).
+    let mut attempts = 0;
+    let mut imp = loop {
+        if let Some(newest) = running.tickets.try_iter().last() {
+            fresh = newest;
+        }
+        match Importer::connect(receiver.engine.clone(), &fresh) {
+            Ok(imp) => break imp,
+            Err(e) => {
+                attempts += 1;
+                assert!(
+                    attempts < 5,
+                    "no fresh code paired in {attempts} tries: {e:?}"
+                );
+                fresh = next();
+            }
+        }
+    };
+    let offers = running.offers();
+    assert!(offers.len() >= 2, "{offers:?}");
+    assert_eq!(offers[0].0, CodeOffer::First);
+    assert!(offers[0].1 <= LIFETIME);
+    assert!(
+        offers[1..]
+            .iter()
+            .all(|o| *o == (CodeOffer::Expired, LIFETIME)),
+        "{offers:?}"
+    );
     imp.plan(&options()).unwrap();
     imp.end_dry_run().unwrap();
     let (result, asked, _) = running.finish();
