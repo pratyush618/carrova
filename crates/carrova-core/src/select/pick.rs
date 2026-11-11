@@ -10,7 +10,7 @@ use carrova_platform::{FileKind, Platform, PlatformError, SemanticRoot};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
-use super::{ItemChoice, Selection};
+use super::Selection;
 use crate::key::{ItemKey, ItemTarget, RootedPath};
 use crate::secrets::secret_in;
 
@@ -327,8 +327,9 @@ fn rejection(e: PlatformError) -> PickRejection {
 
 impl Selection {
     /// Add `pick` as a raw item: folded into a picked folder that holds
-    /// it, replacing picks it holds, or ignored as a duplicate. A
-    /// sensitive pick starts unticked.
+    /// it, replacing picks it holds, or ignored as a duplicate of an
+    /// earlier pick. A scanned raw row at the same path becomes the pick.
+    /// A sensitive pick starts unticked unless already confirmed.
     pub fn add_pick(&mut self, pick: Pick) -> PickResult {
         let Pick {
             root,
@@ -338,7 +339,7 @@ impl Selection {
         } = pick;
         let path = RootedPath::new(root, &rel);
         let key = ItemKey::raw(path);
-        if self.items.contains_key(&key) {
+        if self.items.get(&key).is_some_and(|c| c.pick.is_some()) {
             return PickResult::Duplicate { item: key };
         }
         if let Some((into, _)) = self.picks().find(|(_, p)| path.is_within(*p)) {
@@ -352,14 +353,11 @@ impl Selection {
         for k in &replaced {
             self.items.remove(k);
         }
-        let choice = ItemChoice {
-            included: !sensitive,
-            sensitive,
-            paths: vec![path.to_string()],
-            pick: Some(facts),
-            ..ItemChoice::default()
-        };
-        self.items.insert(key.clone(), choice);
+        let choice = self.items.entry(key.clone()).or_default();
+        choice.sensitive |= sensitive;
+        choice.included = !choice.sensitive || choice.confirmed_sensitive;
+        choice.paths = vec![path.to_string()];
+        choice.pick = Some(facts);
         PickResult::Added {
             item: key,
             replaced,

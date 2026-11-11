@@ -118,6 +118,7 @@ fn pick_outside_roots_is_refused() {
 }
 
 #[test]
+#[cfg(unix)] // Windows splits names at `\` and refuses control characters itself
 fn pick_with_control_char_name_is_refused() {
     let home = Home::new();
 
@@ -276,6 +277,47 @@ fn add_pick_twice_is_duplicate() {
     let result = sel.add_pick(pick("p", false));
 
     assert_eq!(result, PickResult::Duplicate { item: raw("p") });
+}
+
+#[test]
+fn picking_a_scanned_raw_row_promotes_it_to_a_pick() {
+    let mut sel = Selection::default();
+    sel.items.insert(raw("p"), ItemChoice::default());
+    sel.items.insert(raw("keys"), ItemChoice::default());
+
+    let p = sel.add_pick(pick("p", false));
+    let keys = sel.add_pick(pick("keys", true));
+
+    let added = |item| PickResult::Added {
+        item,
+        replaced: Vec::new(),
+    };
+    assert_eq!((p, keys), (added(raw("p")), added(raw("keys"))));
+    let (p, keys) = (&sel.items[&raw("p")], &sel.items[&raw("keys")]);
+    assert_eq!(p.pick, Some(pick("p", false).facts));
+    assert!(p.included && !p.sensitive);
+    assert!(keys.pick.is_some() && keys.sensitive && !keys.included);
+    assert_eq!(
+        sel.add_pick(pick("p", false)),
+        PickResult::Duplicate { item: raw("p") }
+    );
+}
+
+#[test]
+fn picking_a_confirmed_scanned_raw_row_keeps_it_ticked() {
+    let mut sel = Selection::default();
+    let confirmed = ItemChoice {
+        included: true,
+        sensitive: true,
+        confirmed_sensitive: true,
+        ..ItemChoice::default()
+    };
+    sel.items.insert(raw("keys"), confirmed);
+
+    sel.add_pick(pick("keys", true));
+
+    let keys = &sel.items[&raw("keys")];
+    assert!(keys.pick.is_some() && keys.included && keys.confirmed_sensitive);
 }
 
 #[test]
