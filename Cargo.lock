@@ -628,7 +628,7 @@ dependencies = [
 
 [[package]]
 name = "carrova-archive"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "carrova-crypto",
  "carrova-manifest",
@@ -642,7 +642,7 @@ dependencies = [
 
 [[package]]
 name = "carrova-bundle"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "blake3",
  "carrova-crypto",
@@ -661,7 +661,7 @@ dependencies = [
 
 [[package]]
 name = "carrova-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "carrova-bundle",
@@ -685,7 +685,7 @@ dependencies = [
 
 [[package]]
 name = "carrova-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "blake3",
  "carrova-archive",
@@ -715,7 +715,7 @@ dependencies = [
 
 [[package]]
 name = "carrova-crypto"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aead-stream",
  "argon2",
@@ -736,7 +736,7 @@ dependencies = [
 
 [[package]]
 name = "carrova-desktop"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "carrova-bundle",
  "carrova-core",
@@ -759,7 +759,7 @@ dependencies = [
 
 [[package]]
 name = "carrova-manifest"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "blake3",
  "carrova-platform",
@@ -773,7 +773,7 @@ dependencies = [
 
 [[package]]
 name = "carrova-platform"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "if-addrs",
  "known-folders",
@@ -789,7 +789,7 @@ dependencies = [
 
 [[package]]
 name = "carrova-plugin"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "carrova-manifest",
  "carrova-platform",
@@ -806,7 +806,7 @@ dependencies = [
 
 [[package]]
 name = "carrova-recipe"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "carrova-platform",
  "globset",
@@ -822,7 +822,7 @@ dependencies = [
 
 [[package]]
 name = "carrova-report"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -833,7 +833,7 @@ dependencies = [
 
 [[package]]
 name = "carrova-transport"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "carrova-crypto",
  "carrova-manifest",
@@ -852,7 +852,7 @@ dependencies = [
 
 [[package]]
 name = "carrova-view"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "carrova-bundle",
  "carrova-core",
@@ -6858,7 +6858,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "carrova-bundle",
