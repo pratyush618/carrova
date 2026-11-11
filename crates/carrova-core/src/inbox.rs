@@ -58,6 +58,12 @@ pub struct Notice {
     pub summary: String,
 }
 
+/// Drop notices older than [`RETENTION_DAYS`] as of `now` (Unix seconds).
+fn prune(notices: &mut Vec<Notice>, now: u64) {
+    let oldest = now.saturating_sub(RETENTION_DAYS * SECS_PER_DAY);
+    notices.retain(|n| n.at >= oldest);
+}
+
 /// The persisted notices. Cheap to share: clones see the same list.
 #[derive(Debug, Clone)]
 pub struct Inbox {
@@ -97,8 +103,7 @@ impl Inbox {
                 Ok::<_, CoreError>(Vec::new())
             })?,
         };
-        let oldest = now.saturating_sub(RETENTION_DAYS * SECS_PER_DAY);
-        notices.retain(|n| n.at >= oldest);
+        prune(&mut notices, now);
         let inbox = Self {
             platform,
             notices: Arc::new(Mutex::new(notices)),
@@ -119,6 +124,8 @@ impl Inbox {
         summary: String,
     ) -> Result<Notice> {
         let mut notices = self.lock();
+        // Background mode runs for weeks: expire old notices here, not only on load.
+        prune(&mut notices, at);
         let id = NoticeId(notices.iter().map(|n| n.id.0).max().map_or(0, |m| m + 1));
         let notice = Notice {
             id,

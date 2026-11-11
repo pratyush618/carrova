@@ -68,6 +68,22 @@ fn inbox_drops_entries_older_than_30_days() {
 }
 
 #[test]
+fn inbox_drops_old_entries_while_running() {
+    let home = TempDir::new().unwrap();
+    let old = NOW - RETENTION_DAYS * SECS_PER_DAY - 1;
+    let inbox = open(&home, old);
+    inbox
+        .push(NoticeKind::UpdateReady, old, None, "old".into())
+        .unwrap();
+    inbox
+        .push(NoticeKind::DeviceNearby, NOW, None, "new".into())
+        .unwrap();
+
+    let summaries: Vec<_> = inbox.list().into_iter().map(|n| n.summary).collect();
+    assert_eq!(summaries, ["new"]);
+}
+
+#[test]
 fn inbox_file_is_0600() {
     let home = TempDir::new().unwrap();
     let inbox = open(&home, NOW);
