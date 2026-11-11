@@ -52,6 +52,22 @@ describe('send flow', () => {
     expect(selectionReady(refused)).toBe(false);
   });
 
+  it("keeps a refused edit with its mode's list", () => {
+    const failed = sendFlowReducer(scanned, {
+      type: 'selectFailed',
+      mode: 'manual',
+      error: error('network'),
+    });
+    expect(selectionReady(failed)).toBe(true);
+    const manual = sendFlowReducer(failed, { type: 'mode', mode: 'manual' });
+    expect(manual.selectErrors.manual).toEqual(error('network'));
+    const back = sendFlowReducer(manual, { type: 'mode', mode: 'auto' });
+    expect(selectionReady(back)).toBe(true);
+    expect(sendFlowReducer(back, { type: 'mode', mode: 'manual' }).selectErrors.manual).toEqual(
+      error('network'),
+    );
+  });
+
   it('shows the code until the receiver connects, then live, then done', () => {
     const pairing = sendFlowReducer(scanned, { type: 'run', action: { type: 'start' } });
     const session = emptySession(scan.session);

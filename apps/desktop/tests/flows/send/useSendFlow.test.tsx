@@ -5,6 +5,7 @@ import { EngineStateProvider } from '@/app/state/EngineState';
 import type { DesktopHost } from '@/engine/host';
 import { PortProvider } from '@/engine/port';
 import type { CarrovaPort } from '@/engine/types';
+import { selectionReady } from '@/flows/send/sendFlow';
 import { foundModel } from '@/flows/send/sendProgressViews';
 import { useSendFlow } from '@/flows/send/useSendFlow';
 import { createFakePort } from '@/ipc/fake';
@@ -218,7 +219,8 @@ describe('useSendFlow: stale replies and failures', () => {
       ok = await flow.result.current.confirmSelection();
     });
     expect(ok).toBe(false);
-    expect(flow.result.current.state.selectError).toMatchObject({ code: 'network' });
+    const { state } = flow.result.current;
+    expect(state.selectErrors[state.mode]).toMatchObject({ code: 'network' });
   });
 
   it("send does not run a former session's send after a new start", async () => {
@@ -249,7 +251,7 @@ describe('useSendFlow: stale replies and failures', () => {
       flow.result.current.switchMode('manual');
     });
     await waitFor(() => {
-      expect(flow.result.current.state.selectError).not.toBeNull();
+      expect(flow.result.current.state.selectErrors.manual).not.toBeNull();
     });
     act(() => {
       flow.result.current.switchMode('auto');
@@ -260,6 +262,28 @@ describe('useSendFlow: stale replies and failures', () => {
     await waitFor(() => {
       expect(picks(flow)).toEqual(['~/projects/site']);
     });
+  });
+
+  it('keeps a Manual pick failure with Manual after switching to Auto', async () => {
+    const { port, flow } = setup();
+    await started(flow);
+    const late = gate();
+    vi.spyOn(port, 'pick').mockImplementationOnce(() => late.opened.then(() => raise(refused)));
+    act(() => {
+      flow.result.current.addPaths([SITE]);
+    });
+    act(() => {
+      flow.result.current.switchMode('auto');
+    });
+    await act(async () => {
+      late.open();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(selectionReady(flow.result.current.state)).toBe(true);
+    act(() => {
+      flow.result.current.switchMode('manual');
+    });
+    expect(flow.result.current.state.selectErrors.manual).toMatchObject(refused);
   });
 
   it('shows a hidden app scan failure on returning to Auto, without scanning again', async () => {

@@ -43,10 +43,10 @@ export function sendStep(state: SendFlowState, progress: SessionProgress): FlowS
 }
 
 /** Why the visible selection can't be used yet: the engine's view, then a refused edit. */
-const issuesOf = (state: SendFlowState, scan: ScanResult): string[] => [
-  ...selectionIssues(scan.view),
-  ...(state.selectError === null ? [] : [state.selectError.message]),
-];
+const issuesOf = (state: SendFlowState, scan: ScanResult): string[] => {
+  const refused = state.selectErrors[state.mode];
+  return [...selectionIssues(scan.view), ...(refused === null ? [] : [refused.message])];
+};
 
 /** Manual mode: the picks, paths still being measured, and what the latest picks refused. */
 function manualModel(state: SendFlowState): FoundModel {

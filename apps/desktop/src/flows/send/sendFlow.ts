@@ -38,8 +38,8 @@ export interface SendFlowState {
   readonly selection: Selection | null;
   /** The engine's view of that selection (issues, totals). */
   readonly view: SelectionView | null;
-  /** The engine refused the latest edit (the selection is unchanged). */
-  readonly selectError: BridgeError | null;
+  /** Per mode: the engine refused its latest edit (its selection is unchanged). */
+  readonly selectErrors: Readonly<Record<SendMode, BridgeError | null>>;
   readonly step: 'found' | 'pairing' | 'done';
   readonly run: Remote<SendReport>;
 }
@@ -61,7 +61,7 @@ export type SendFlowAction =
       readonly result: ScanResult | null;
       readonly outcomes: readonly PickOutcome[];
     }
-  | { readonly type: 'selectFailed'; readonly error: BridgeError }
+  | { readonly type: 'selectFailed'; readonly mode?: SendMode; readonly error: BridgeError }
   | { readonly type: 'resumed'; readonly session: SessionId }
   | { readonly type: 'run'; readonly action: RemoteAction<SendReport> }
   | { readonly type: 'back' }
@@ -77,7 +77,7 @@ export const initialSendFlow: SendFlowState = {
   scan: idle,
   selection: null,
   view: null,
-  selectError: null,
+  selectErrors: { auto: null, manual: null },
   step: 'found',
   run: idle,
 };
@@ -85,12 +85,16 @@ export const initialSendFlow: SendFlowState = {
 /** `state` holding the engine's reply `result`. */
 function withResult(state: SendFlowState, result: ScanResult): SendFlowState {
   const { session, selection, view } = result;
-  return { ...state, session, selection, view, selectError: null };
+  return { ...state, session, selection, view };
 }
 
 /** `state` with `result` as `mode`'s reply (shown when `mode` is). */
 function store(state: SendFlowState, mode: SendMode, result: ScanResult): SendFlowState {
-  const next = { ...state, byMode: { ...state.byMode, [mode]: result } };
+  const next = {
+    ...state,
+    byMode: { ...state.byMode, [mode]: result },
+    selectErrors: { ...state.selectErrors, [mode]: null },
+  };
   return mode === state.mode
     ? withResult({ ...next, scan: { status: 'ready', value: result } }, result)
     : next;
@@ -100,7 +104,7 @@ function store(state: SendFlowState, mode: SendMode, result: ScanResult): SendFl
 function show(state: SendFlowState, mode: SendMode): SendFlowState {
   const result = state.byMode[mode];
   const error = state.failures[mode];
-  const next = { ...state, mode, selectError: null };
+  const next = { ...state, mode };
   if (result !== null)
     return withResult({ ...next, scan: { status: 'ready', value: result } }, result);
   const scan: Remote<ScanResult> = error === null ? idle : { status: 'failed', error, last: null };
@@ -132,7 +136,10 @@ export function sendFlowReducer(state: SendFlowState, action: SendFlowAction): S
       return action.result === null ? next : store(next, 'manual', action.result);
     }
     case 'selectFailed':
-      return { ...state, selectError: action.error };
+      return {
+        ...state,
+        selectErrors: { ...state.selectErrors, [action.mode ?? state.mode]: action.error },
+      };
     case 'resumed':
       return { ...initialSendFlow, session: action.session };
     case 'run': {
@@ -154,7 +161,7 @@ export function selectionReady(state: SendFlowState): boolean {
     state.selection !== null &&
     state.view !== null &&
     state.view.issues.length === 0 &&
-    state.selectError === null
+    state.selectErrors[state.mode] === null
   );
 }
 

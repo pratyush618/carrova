@@ -84,7 +84,7 @@ export function useSendFlow(
     (
       on: SendMode,
       request: Request,
-      failed: Outlet['failed'] = (error) => ({ type: 'selectFailed', error }),
+      failed: Outlet['failed'] = (error) => ({ type: 'selectFailed', mode: on, error }),
     ): Promise<boolean> => {
       const id = session.current;
       if (id === null) return Promise.resolve(false);
