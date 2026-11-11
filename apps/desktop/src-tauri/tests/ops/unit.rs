@@ -4,6 +4,7 @@
 
 mod archive;
 mod contract;
+mod inbox;
 mod record;
 mod selection;
 mod services;

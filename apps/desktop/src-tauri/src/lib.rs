@@ -72,6 +72,7 @@ pub fn run() -> tauri::Result<()> {
             send_request::on_second_instance(app, &early_sends, argv, &cwd);
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(move |app| {
@@ -80,7 +81,7 @@ pub fn run() -> tauri::Result<()> {
             let reports = Reports::from_platform(Arc::clone(&platform))?;
             reports.install_panic_hook();
             app.manage(reports);
-            let state = app_state(app.handle(), platform, pending_send);
+            let state = app_state(app.handle(), platform, pending_send)?;
             refresh_entries(state.clone());
             send_request::forward(&state, &launch_send_paths());
             app.manage(state);
@@ -124,6 +125,8 @@ pub fn run() -> tauri::Result<()> {
             commands::recipes::recipes_update,
             commands::recipes::recipes_check,
             commands::recipes::recipes_reset,
+            commands::inbox::notices,
+            commands::inbox::mark_notices_read,
             commands::settings::settings,
             commands::settings::save_settings,
             commands::integration::file_manager_status,
@@ -165,19 +168,19 @@ fn app_state(
     app: &AppHandle,
     platform: Arc<dyn carrova_platform::Platform>,
     pending_send: send_request::SendRequests,
-) -> AppState {
+) -> Result<AppState, command_error::CommandError> {
     let resources = app
         .path()
         .resource_dir()
         .inspect_err(|e| tracing::warn!(error = %e, "no resource directory"))
         .ok();
-    AppState {
+    Ok(AppState {
         pending_send,
         ..AppState::new(
             platform,
             recipes::app_locations(resources.as_deref()),
             Arc::new(app.clone()),
             BridgeConfig::default(),
-        )
-    }
+        )?
+    })
 }

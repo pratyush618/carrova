@@ -8,6 +8,7 @@ import { navigate, type Nav, type NavEvent } from '../nav/navMachine';
 import { useSession } from '../state/EngineState';
 import { buildChrome } from './chrome';
 import { useForwardedSends } from './forward';
+import { useBell } from './useBell';
 import { liveView, viewKey } from './liveView';
 import { NavContext, type NavApi } from './nav';
 import { useAutoOverlays } from './routes/autoOverlays';
@@ -70,9 +71,10 @@ export function Shell({ initial }: { readonly initial: Nav }) {
   );
   const forwarded = useForwardedSends(go, nav.view);
   const recipes = controllers.settings.recipes;
+  const bell = useBell(go);
   const chrome = useMemo(
-    () => buildChrome(view, t, go, bundleStatus(recipes, t)),
-    [view, t, go, recipes],
+    () => buildChrome(view, t, go, bundleStatus(recipes, t), bell),
+    [view, t, go, recipes, bell],
   );
   useScreenFocus(viewKey(view), root);
 

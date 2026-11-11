@@ -70,6 +70,9 @@ export function createTauriPort(): CarrovaPort {
     rollbackPreview: (session) => call('rollback_preview', { session }),
     dismiss: (session) => call('dismiss', { session }),
 
+    notices: () => call('notices'),
+    markNoticesRead: (ids) => call('mark_notices_read', { ids: ids === 'all' ? null : ids }),
+
     catalog: () => call('catalog'),
     recipesStatus: () => call('recipes_status'),
     recipesCheck: () => call('recipes_check'),

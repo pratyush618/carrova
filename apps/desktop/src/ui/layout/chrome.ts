@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import type { BellModel } from '../Bell/Bell';
 import type { IconName } from '../Icon/icons';
 
 /** One entry of the hub's sidebar. */
@@ -43,6 +44,8 @@ export interface Chrome {
   /** `null` until the bundle state is known. */
   readonly hubStatus: HubStatus | null;
   readonly flow: FlowFrame | null;
+  /** The header bar's bell; none where there are no notices (the gallery). */
+  readonly bell?: BellModel;
 }
 
 export const ChromeContext = createContext<Chrome | null>(null);

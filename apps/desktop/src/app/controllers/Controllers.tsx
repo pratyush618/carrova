@@ -4,6 +4,7 @@ import { usePort } from '../../engine/port';
 import type { MoveDefaults } from '../../engine/types';
 import { useSaveFlow, type SaveController } from '../../flows/archive/useSaveFlow';
 import { useCatalog, type CatalogController } from '../../flows/catalog/useCatalog';
+import { useInbox, type InboxController } from '../../flows/inbox/useInbox';
 import { useHistory, type HistoryController } from '../../flows/history/useHistory';
 import { useReceiveFlow, type ReceiveController } from '../../flows/receive/useReceiveFlow';
 import { useSendFlow, type SendController } from '../../flows/send/useSendFlow';
@@ -18,6 +19,7 @@ export interface Controllers {
   readonly save: SaveController;
   readonly receive: ReceiveController;
   readonly history: HistoryController;
+  readonly inbox: InboxController;
   readonly catalog: CatalogController;
   readonly settings: SettingsController;
   readonly update: AppUpdateController;
@@ -45,12 +47,13 @@ export function ControllersProvider({ children }: { readonly children: ReactNode
   const save = useSaveFlow(port, send, host);
   const receive = useReceiveFlow(port, host, defaults);
   const history = useHistory(port);
+  const inbox = useInbox(port);
   const catalog = useCatalog(port);
   const report = useErrorReport(port, host, settings.reloadReports);
   const undo = useUndo(port, history.reload);
   const value = useMemo(
-    () => ({ send, save, receive, history, catalog, settings, update, report, undo }),
-    [send, save, receive, history, catalog, settings, update, report, undo],
+    () => ({ send, save, receive, history, inbox, catalog, settings, update, report, undo }),
+    [send, save, receive, history, inbox, catalog, settings, update, report, undo],
   );
   return <ControllersContext value={value}>{children}</ControllersContext>;
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Bell } from '../Bell/Bell';
 import { cx } from '../cx';
 import { Icon } from '../Icon/Icon';
 import { useChrome } from './chrome';
@@ -50,7 +51,7 @@ export function HeaderBar({
 /** Places: the sidebar (main navigation, bundle state at its foot), then the page. */
 export function HubLayout({ variant = 'page', tools, side, children }: HubLayoutProps) {
   const { t } = useTranslation();
-  const { hubLinks, hubStatus } = useChrome();
+  const { hubLinks, hubStatus, bell } = useChrome();
   return (
     <div className="p-hub">
       {side ?? (
@@ -80,7 +81,7 @@ export function HubLayout({ variant = 'page', tools, side, children }: HubLayout
           )}
         </nav>
       )}
-      <HeaderBar tools={tools} bell={null} />
+      <HeaderBar tools={tools} bell={bell && <Bell model={bell} />} />
       <main
         className={cx('p-page', variant === 'flush' && 'p-page--flush')}
         aria-label={hubLinks.find((link) => link.current)?.label}

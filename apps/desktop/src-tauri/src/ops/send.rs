@@ -11,7 +11,7 @@ use carrova_view::ipc::{PickedReply, ScanReply};
 use carrova_view::passphrase::{self, PassphraseStrength, PassphraseUse, archive_passphrase};
 use zeroize::Zeroizing;
 
-use super::task_ended;
+use super::{inbox, task_ended};
 use crate::command_error::CommandError;
 use crate::pairing::BridgePrompt;
 use crate::registry::{Live, Sending};
@@ -274,7 +274,7 @@ pub async fn run_send(state: &AppState, id: &SessionId) -> Result<SendReport, Co
         )
         .await
         .and_then(|r| r);
-    task_ended(state, id, result)
+    inbox::moved(state, task_ended(state, id, result))
 }
 
 /// Answer a "show a new code?" question of a running send.

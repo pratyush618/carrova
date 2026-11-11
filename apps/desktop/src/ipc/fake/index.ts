@@ -8,6 +8,7 @@
  */
 import type { About } from '../../bindings/About';
 import type { FileManagerStatus } from '../../bindings/FileManagerStatus';
+import type { Notice } from '../../bindings/Notice';
 import type { ReportConsent } from '../../bindings/ReportConsent';
 import type { Settings } from '../../bindings/Settings';
 import type { CarrovaPort } from '../port';
@@ -60,6 +61,36 @@ const ABOUT: About = {
   os: 'linux',
 };
 
+/** The bell's notices at the start: a request, a finished move, an old one. */
+function seedNotices(nowSeconds: number): Notice[] {
+  return [
+    {
+      id: 3,
+      kind: 'send_request',
+      at: nowSeconds - 120,
+      read: false,
+      peer: "Ana's laptop",
+      summary: 'wants to send you 3 apps · 1.2 GB',
+    },
+    {
+      id: 2,
+      kind: 'move_finished',
+      at: nowSeconds - 1200,
+      read: false,
+      peer: null,
+      summary: 'The move finished.',
+    },
+    {
+      id: 1,
+      kind: 'update_ready',
+      at: nowSeconds - 3 * 86_400,
+      read: true,
+      peer: null,
+      summary: 'Carrova 0.3.0 is ready to install.',
+    },
+  ];
+}
+
 /** What the `forwarded` scenario's file manager sent (paths on the fake disk). */
 const FORWARDED = ['/home/ana/projects/site', '/home/ana/notes.txt'];
 
@@ -75,6 +106,7 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
   const receiver = new FakeReceiver(runtime, scenario);
   let settings = DEFAULT_SETTINGS;
   let consent: ReportConsent = 'unset';
+  let notices = seedNotices(Math.floor(Date.now() / 1000));
   // shortcut: an install doesn't change `recipesStatus`; make it stateful if a test needs the new version shown.
   let recipesInstalled = false;
   const newerRecipes = () => scenario === 'recipes-update' && !recipesInstalled;
@@ -180,6 +212,14 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
       later(() => {
         fileManager = { ...fileManager, installed: on };
         return fileManager;
+      }),
+
+    notices: () => later(() => notices),
+    markNoticesRead: (ids) =>
+      later(() => {
+        notices = notices.map((n) =>
+          ids === 'all' || ids.includes(n.id) ? { ...n, read: true } : n,
+        );
       }),
 
     checkUpdate: () => later(() => ({ status: 'up_to_date' }) as const),

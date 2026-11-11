@@ -68,6 +68,18 @@ export const common = {
     seeDetails: 'See details',
     later: 'Later',
   },
+  bell: {
+    label: 'Notifications',
+    labelUnread_one: 'Notifications, {{count}} new',
+    labelUnread_other: 'Notifications, {{count}} new',
+    markAllRead: 'Mark all read',
+    today: 'Today',
+    earlier: 'Earlier',
+    review: 'Review',
+    empty: 'Nothing yet. Requests, finished moves and updates show up here.',
+    kept: 'Kept for 30 days',
+    settings: 'Notification settings',
+  },
   count: {
     apps_one: '{{count}} app',
     apps_other: '{{count}} apps',

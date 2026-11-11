@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import type { Chrome, HubLink, HubStatus, IconName } from '../../ui';
+import type { BellModel, Chrome, HubLink, HubStatus, IconName } from '../../ui';
 import { STEP_LABELS, stepIndex } from '../nav/flows';
 import type { HubPage, NavEvent, View } from '../nav/navMachine';
 
@@ -12,13 +12,14 @@ const HUB: readonly { page: HubPage; icon: IconName }[] = [
 
 /**
  * The layouts' chrome for `view`: sidebar links (and the bundle state at its
- * foot, once known), or the flow's name and labelled steps.
+ * foot, once known) and the bell, or the flow's name and labelled steps.
  */
 export function buildChrome(
   view: View,
   t: TFunction,
   dispatch: (event: NavEvent) => void,
   hubStatus: HubStatus | null = null,
+  bell?: BellModel,
 ): Chrome {
   const current = view.kind === 'hub' ? view.page : null;
   const hubLinks: HubLink[] = HUB.map(({ page, icon }) => ({
@@ -41,5 +42,5 @@ export function buildChrome(
           },
         }
       : null;
-  return { hubLinks, hubStatus, flow };
+  return { hubLinks, hubStatus, flow, ...(bell && { bell }) };
 }

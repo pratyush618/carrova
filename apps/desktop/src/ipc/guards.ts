@@ -53,6 +53,9 @@ export function isBridgeEvent(value: unknown): value is BridgeEvent {
   if (value['kind'] === 'send_requested') {
     return true;
   }
+  if (value['kind'] === 'notice') {
+    return isRecord(value['notice']) && typeof value['notice']['summary'] === 'string';
+  }
   if (typeof value['session'] !== 'string') {
     return false;
   }

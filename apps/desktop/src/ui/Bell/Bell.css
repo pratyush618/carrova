@@ -1,0 +1,133 @@
+.p-bell {
+  position: relative;
+}
+
+.p-bell__btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 32px;
+  block-size: 32px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+}
+
+.p-bell__btn:hover,
+.p-bell__btn[aria-expanded='true'] {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.p-bell__dot {
+  position: absolute;
+  inset-block-start: -4px;
+  inset-inline-end: -4px;
+  min-inline-size: 18px;
+  block-size: 18px;
+  padding-inline: 5px;
+  border-radius: 9px;
+  border: 2px solid var(--surface-1);
+  background: var(--accent-fill);
+  color: var(--accent-on);
+  font: 700 11px/14px var(--font);
+  text-align: center;
+}
+
+.p-bell__pop {
+  position: absolute;
+  z-index: 12;
+  inset-block-start: calc(100% + 8px);
+  inset-inline-end: 0;
+  inline-size: 380px;
+  max-block-size: min(560px, 80vh);
+  overflow-y: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-card);
+  box-shadow: var(--e-3);
+}
+
+.p-bell__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 8px;
+}
+
+.p-bell__head b {
+  font-size: var(--t-md);
+}
+
+.p-bell__day {
+  padding: 8px 14px 4px;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.p-bell__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.p-bell__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.p-bell__note[data-unread] {
+  background: color-mix(in oklab, var(--accent-soft) 55%, transparent);
+}
+
+.p-bell__note[data-unread]::after {
+  content: '';
+  inline-size: 8px;
+  block-size: 8px;
+  margin-block-start: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+
+.p-bell__body {
+  flex: 1;
+  min-inline-size: 0;
+  font-size: var(--t-sm);
+}
+
+.p-bell__body p {
+  margin: 0;
+}
+
+.p-bell__body b {
+  font-weight: 650;
+}
+
+.p-bell__body .p-btn {
+  margin-block-start: 8px;
+}
+
+.p-bell__when {
+  margin-block-start: 2px;
+  color: var(--text-muted);
+  font-size: var(--t-xs);
+}
+
+.p-bell__empty {
+  margin: 0;
+  padding: 16px 14px;
+  color: var(--text-muted);
+  font-size: var(--t-sm);
+}
+
+.p-bell__foot {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-block-start: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--t-sm);
+}

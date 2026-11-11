@@ -2,6 +2,7 @@
 export { AppGlyph } from './AppGlyph/AppGlyph';
 export { Badge, type Tone } from './Badge/Badge';
 export { Banner, type BannerTone } from './Banner/Banner';
+export { Bell, type BellGroup, type BellModel, type BellRow } from './Bell/Bell';
 export { Button, IconButton, LinkButton, type ButtonKind } from './Button/Button';
 export { Card } from './Card/Card';
 export { Check, LockedCheck, type CheckValue } from './Check/Check';

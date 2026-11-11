@@ -18,7 +18,7 @@ use carrova_view::passphrase::{PassphraseUse, archive_passphrase};
 use carrova_view::review;
 use zeroize::Zeroizing;
 
-use super::task_ended;
+use super::{inbox, task_ended};
 use crate::command_error::CommandError;
 use crate::registry::Live;
 use crate::state::AppState;
@@ -195,7 +195,7 @@ pub async fn apply(state: &AppState, id: &SessionId) -> Result<Checklist, Comman
         .call(|importer| Ok(importer.apply()?))
         .await
         .and_then(|r| r);
-    task_ended(state, id, result)
+    inbox::moved(state, task_ended(state, id, result))
 }
 
 /// Pause (`true`) or continue (`false`) the running LAN transfer of

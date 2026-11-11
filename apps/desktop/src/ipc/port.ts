@@ -23,6 +23,8 @@ import type { IssueDraft } from '../bindings/IssueDraft';
 import type { KdfStrength } from '../bindings/KdfStrength';
 import type { NearbyPeer } from '../bindings/NearbyPeer';
 import type { Picked } from '../bindings/Picked';
+import type { Notice } from '../bindings/Notice';
+import type { NoticeId } from '../bindings/NoticeId';
 import type { PlanEdit } from '../bindings/PlanEdit';
 import type { PlanOptions } from '../bindings/PlanOptions';
 import type { PassphraseStrength } from '../bindings/PassphraseStrength';
@@ -156,6 +158,12 @@ export interface CarrovaPort {
   rollbackPreview(session: SessionId | null): Promise<RollbackPreview>;
   /** Forget a session and its staged data. */
   dismiss(session: SessionId): Promise<void>;
+
+  // --- Notifications ------------------------------------------------------
+  /** The bell's notices (kept 30 days), newest first. */
+  notices(): Promise<Notice[]>;
+  /** Mark notices read: the given ones, or `'all'`. */
+  markNoticesRead(ids: NoticeId[] | 'all'): Promise<void>;
 
   // --- Recipes ------------------------------------------------------------
   /** Apps Carrova knows, with detection on this machine. */
