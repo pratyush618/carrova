@@ -322,3 +322,52 @@ fn tool_scripts_run_at_once_while_other_threads_fork() {
         f.join().unwrap();
     }
 }
+
+#[test]
+fn fake_counts_display_wakes_and_reports_the_lock_the_test_sets() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let fake = FakePlatform::with_home(tmp.path());
+    assert!(!fake.screen_locked());
+    fake.wake_display().unwrap();
+    fake.clone().wake_display().unwrap();
+    assert_eq!(fake.wakes(), 2);
+    fake.set_screen_locked(true);
+    assert!(fake.screen_locked());
+}
+
+#[test]
+fn adapters_without_a_display_to_wake_say_so_and_never_report_a_lock() {
+    #[derive(Debug)]
+    struct Bare;
+    impl Platform for Bare {
+        fn os(&self) -> OsKind {
+            OsKind::Linux
+        }
+        fn resolve_root(&self, _: SemanticRoot) -> Result<PathBuf, crate::PlatformError> {
+            unreachable!()
+        }
+        fn find_binary(&self, _: &str) -> Result<Option<PathBuf>, crate::PlatformError> {
+            unreachable!()
+        }
+        fn metadata(&self, _: &Path) -> Result<crate::FileMeta, crate::PlatformError> {
+            unreachable!()
+        }
+        fn running_processes(&self) -> Result<Vec<ProcessInfo>, crate::PlatformError> {
+            unreachable!()
+        }
+        fn free_space(&self, _: &Path) -> Result<u64, crate::PlatformError> {
+            unreachable!()
+        }
+        fn snapshot_capability(
+            &self,
+            _: &Path,
+        ) -> Result<SnapshotCapability, crate::PlatformError> {
+            unreachable!()
+        }
+    }
+    assert!(matches!(
+        Bare.wake_display(),
+        Err(crate::PlatformError::Unsupported(_))
+    ));
+    assert!(!Bare.screen_locked());
+}

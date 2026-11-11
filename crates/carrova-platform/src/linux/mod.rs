@@ -20,6 +20,7 @@ use crate::{
 mod file_manager;
 mod mounts;
 mod roots;
+mod screen;
 #[cfg(test)]
 #[path = "../../tests/linux/unit.rs"]
 mod tests;
@@ -147,6 +148,14 @@ impl Platform for LinuxPlatform {
 
     fn free_space(&self, path: &Path) -> Result<u64, PlatformError> {
         crate::sys::free_space(path)
+    }
+
+    fn wake_display(&self) -> Result<(), PlatformError> {
+        screen::wake()
+    }
+
+    fn screen_locked(&self) -> bool {
+        screen::locked()
     }
 
     fn disk(&self, path: &Path) -> Result<DiskInfo, PlatformError> {

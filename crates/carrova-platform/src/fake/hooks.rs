@@ -3,7 +3,7 @@
 
 use std::fmt;
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use crate::{FileMeta, PlatformError};
@@ -62,6 +62,8 @@ pub(super) struct HookState {
     pub(super) hooks: Hooks,
     free_space: Mutex<Option<u64>>,
     dir_syncs: AtomicUsize,
+    wakes: AtomicUsize,
+    screen_locked: AtomicBool,
 }
 
 impl HookState {
@@ -92,6 +94,22 @@ impl HookState {
 
     pub(super) fn dir_syncs(&self) -> usize {
         self.dir_syncs.load(Ordering::SeqCst)
+    }
+
+    pub(super) fn count_wake(&self) {
+        self.wakes.fetch_add(1, Ordering::SeqCst);
+    }
+
+    pub(super) fn wakes(&self) -> usize {
+        self.wakes.load(Ordering::SeqCst)
+    }
+
+    pub(super) fn screen_locked(&self) -> bool {
+        self.screen_locked.load(Ordering::SeqCst)
+    }
+
+    pub(super) fn set_screen_locked(&self, locked: bool) {
+        self.screen_locked.store(locked, Ordering::SeqCst);
     }
 
     /// Path metadata as the hooks want it reported.

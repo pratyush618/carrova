@@ -256,6 +256,15 @@ impl Platform for FakePlatform {
         ))
     }
 
+    fn wake_display(&self) -> Result<(), PlatformError> {
+        self.hooks.count_wake();
+        Ok(())
+    }
+
+    fn screen_locked(&self) -> bool {
+        self.hooks.screen_locked()
+    }
+
     fn file_manager_status(&self) -> Result<FileManagerStatus, PlatformError> {
         let status = self
             .entries

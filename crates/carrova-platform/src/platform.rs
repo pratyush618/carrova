@@ -342,4 +342,21 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     fn remove_file_manager_entries(&self) -> Result<FileManagerStatus, PlatformError> {
         Err(PlatformError::Unsupported("remove_file_manager_entries"))
     }
+
+    // ---- Notifications ------------------------------------------------------
+
+    /// Light the display up, as if the user had touched the computer, so an
+    /// alert can be seen. Best effort: callers log a failure at debug level
+    /// and carry on. Defaults to [`PlatformError::Unsupported`]: adapters
+    /// without an unsafe-free way to do it stay honest.
+    fn wake_display(&self) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported("wake_display"))
+    }
+
+    /// Whether the screen is locked now. `false` when the OS cannot say
+    /// (the caller then treats names as visible, so adapters that can answer
+    /// should).
+    fn screen_locked(&self) -> bool {
+        false
+    }
 }

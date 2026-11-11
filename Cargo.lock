@@ -787,6 +787,7 @@ dependencies = [
  "ts-rs",
  "winapi-util",
  "winreg",
+ "zbus",
 ]
 
 [[package]]

@@ -229,6 +229,18 @@ impl FakePlatform {
         self.hooks.dir_syncs()
     }
 
+    /// [`Platform::wake_display`] calls since [`Self::with_hooks`].
+    #[must_use]
+    pub fn wakes(&self) -> usize {
+        self.hooks.wakes()
+    }
+
+    /// Make [`Platform::screen_locked`] report `locked` (changeable while
+    /// the platform is in use).
+    pub fn set_screen_locked(&self, locked: bool) {
+        self.hooks.set_screen_locked(locked);
+    }
+
     /// Pretend this OS has file-manager entries, `installed` or not at
     /// start. Installs and removes write nothing; they are recorded
     /// ([`Self::entries_writes`]) and decide what the status reports.
