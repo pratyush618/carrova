@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { View } from '@/app/nav/navMachine';
-import { forwardOf, type MoveStates } from '@/app/shell/forward';
+import { forwarder, forwardOf, type ForwardTarget, type MoveStates } from '@/app/shell/forward';
 import { initialSaveFlow } from '@/flows/archive/saveFlow';
 import { initialReceiveFlow } from '@/flows/receive/receiveFlow';
 import { initialSendFlow } from '@/flows/send/sendFlow';
@@ -41,5 +41,101 @@ describe('forwarded sends', () => {
     expect(receiving({ session: 'r-1', apply: { status: 'ready', value: {} as never } })).toBe(
       'start',
     );
+  });
+});
+
+describe('forwarded sends while a Manual send starts', () => {
+  const starting = { ...initialSendFlow, mode: 'manual', scan: loading } as const;
+
+  it('queue paths while the Manual session is still opening', () => {
+    expect(forwardOf({ ...idle, send: starting }, SEND)).toBe('queue');
+    expect(forwardOf({ ...idle, send: { ...starting, mode: 'auto' } }, SEND)).toBe('start');
+  });
+});
+
+/** A bridge whose `takeSendRequest` answers each call when the test says so. */
+function bridge() {
+  const answers: ((paths: string[]) => void)[] = [];
+  const take = vi.fn(
+    () =>
+      new Promise<string[]>((resolve) => {
+        answers.push(resolve);
+      }),
+  );
+  return { take, answer: (i: number, paths: string[]) => answers[i]?.(paths) };
+}
+
+function target(states: MoveStates, view: View) {
+  const send = { start: vi.fn(), addPaths: vi.fn() };
+  const go = vi.fn();
+  const now: { current: ForwardTarget } = { current: { states, view, send, go } };
+  return { send, go, now };
+}
+
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+describe('the forwarder', () => {
+  it('forwarded_drains_run_one_after_another', async () => {
+    const { take, answer } = bridge();
+    const { send, now } = target({ ...idle, send: { ...initialSendFlow, session: 's-1' } }, SEND);
+    const refused = vi.fn();
+    const forward = forwarder(take, () => now.current, refused);
+    void forward.drain();
+    void forward.drain();
+    await flush();
+    expect(take).toHaveBeenCalledTimes(1);
+    // The first request joins the open selection; the second arrives once it is sent.
+    answer(0, ['/a']);
+    await flush();
+    expect(send.addPaths).toHaveBeenCalledWith(['/a']);
+    expect(take).toHaveBeenCalledTimes(2);
+    now.current = {
+      ...now.current,
+      states: { ...idle, send: { ...initialSendFlow, run: loading } },
+    };
+    answer(1, ['/b']);
+    await flush();
+    expect(refused.mock.calls).toEqual([[false], [true]]);
+  });
+
+  it('forwarded_paths_join_the_manual_send_that_is_starting', async () => {
+    const { take, answer } = bridge();
+    const { send, go, now } = target(idle, HOME);
+    const forward = forwarder(take, () => now.current, vi.fn());
+    void forward.drain();
+    await flush();
+    answer(0, ['/a']);
+    await flush();
+    expect(send.start).toHaveBeenCalledWith('manual', ['/a']);
+    expect(go).toHaveBeenCalledOnce();
+    // The second request lands before the app re-renders the starting send.
+    void forward.drain();
+    await flush();
+    answer(1, ['/b']);
+    await flush();
+    forward.settle(null, 'loading');
+    expect(send.start).toHaveBeenCalledOnce();
+    expect(send.addPaths).not.toHaveBeenCalled();
+    forward.settle('s-1', 'ready');
+    expect(send.addPaths).toHaveBeenCalledWith(['/b']);
+    forward.settle('s-1', 'ready');
+    expect(send.addPaths).toHaveBeenCalledOnce();
+  });
+
+  it('drops queued paths when the Manual send fails to start', async () => {
+    const { take, answer } = bridge();
+    const { send, now } = target(
+      { ...idle, send: { ...initialSendFlow, mode: 'manual', scan: loading } },
+      SEND,
+    );
+    const forward = forwarder(take, () => now.current, vi.fn());
+    void forward.drain();
+    await flush();
+    answer(0, ['/b']);
+    await flush();
+    forward.settle(null, 'failed');
+    forward.settle('s-2', 'ready');
+    expect(send.addPaths).not.toHaveBeenCalled();
+    expect(send.start).not.toHaveBeenCalled();
   });
 });
