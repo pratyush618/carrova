@@ -27,10 +27,15 @@ describe('history words', () => {
     expect(moveTag(entry({ state: 'selected' }))).toBeNull();
   });
 
+  it('a failed move reads as interrupted, and a move without an undo point gets no tag', () => {
+    expect(moveTag(entry({ state: 'failed' }))).toBe('interrupted');
+    expect(moveTag(entry({ undoable: false }))).toBeNull();
+  });
+
   it('tags only exceptions: undone, interrupted, undo expired', () => {
     expect(moveTag(entry({ kind: 'undone', state: 'rolled_back' }))).toBe('undone');
     expect(moveTag(entry({ state: 'transferring', resumable: true }))).toBe('interrupted');
-    expect(moveTag(entry({ undoable: false }))).toBe('undo_expired');
+    expect(moveTag(entry({ undoExpired: true }))).toBe('undo_expired');
   });
 
   it('groups consecutive moves that share a label, in order', () => {

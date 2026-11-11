@@ -43,6 +43,26 @@ describe('history views', () => {
     expect(historyEntry(record({ state: 'rolled_back' })).kind).toBe('undone');
   });
 
+  it('flags an undo point as expired only when it once existed and its time has passed', () => {
+    const now = new Date(1_762_524_150_000 + 1_000_000);
+    const kept = record({ expires_at: 1_762_524_150 + 500 });
+    expect(historyEntry(kept, now).undoExpired).toBe(true);
+    expect(historyEntry(record({ expires_at: 1_762_524_150 + 5_000 }), now).undoExpired).toBe(
+      false,
+    );
+    expect(historyEntry(record({ expires_at: null }), now).undoExpired).toBe(false);
+    const never = record({
+      expires_at: null,
+      checklist: {
+        moved: ['git/config'],
+        skipped: [],
+        apps_to_install: [],
+        rollback_available: false,
+      },
+    });
+    expect(historyEntry(never, now).undoExpired).toBe(false);
+  });
+
   it('offers resume for interrupted sessions only', () => {
     expect(historyEntry(record({ state: 'transferring', checklist: null })).resumable).toBe(true);
     expect(historyEntry(record({ state: 'failed' })).resumable).toBe(false);

@@ -20,6 +20,8 @@ export interface HistoryEntry {
   readonly moved: { readonly apps: number; readonly bytes: Bytes | null } | null;
   /** A rollback point exists: Undo is possible. */
   readonly undoable: boolean;
+  /** The undo point is still kept but its time has passed (the engine removes it next). */
+  readonly undoExpired: boolean;
   /** Interrupted (not finished, failed or undone): it can be picked up again. */
   readonly resumable: boolean;
 }

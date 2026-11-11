@@ -72,7 +72,7 @@ export function HistoryRoute() {
     <HistoryScreen
       model={{
         now: new Date(),
-        entries: records.map(historyEntry),
+        entries: records.map((r) => historyEntry(r)),
         selected: record === undefined ? null : sessionModel(record, preview),
       }}
       on={{

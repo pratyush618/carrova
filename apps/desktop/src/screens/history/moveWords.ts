@@ -37,12 +37,14 @@ export function moveSub(entry: HistoryEntry, now: Date, t: TFunction, format: Fo
 /** The exceptions a History row calls out; a normal move carries none. */
 export type MoveTag = 'interrupted' | 'undone' | 'undo_expired';
 
-/** Interrupted, undone, or finished but its undo point is gone; `null` for any other move. */
+/**
+ * Undone, stopped (interrupted or failed), or an undo point past its time; `null`
+ * for any other move. A removed undo point is not told apart from one never made.
+ */
 export function moveTag(entry: HistoryEntry): MoveTag | null {
   if (entry.kind === 'undone') return 'undone';
-  if (entry.resumable) return 'interrupted';
-  const imported = entry.kind === 'received' || entry.kind === 'opened';
-  return imported && entry.state === 'done' && !entry.undoable ? 'undo_expired' : null;
+  if (entry.resumable || entry.state === 'failed') return 'interrupted';
+  return entry.undoExpired ? 'undo_expired' : null;
 }
 
 /** The History header's views of the list, in order. */

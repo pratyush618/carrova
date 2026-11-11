@@ -29,8 +29,8 @@ const RESUMABLE: Readonly<Record<SessionRecord['role'], readonly SessionState[]>
   export: ['transferring'],
 };
 
-/** One History row. */
-export function historyEntry(record: SessionRecord): HistoryEntry {
+/** One History row; `now` dates the undo point's expiry. */
+export function historyEntry(record: SessionRecord, now: Date = new Date()): HistoryEntry {
   const source = record.source;
   const moved = record.checklist?.moved ?? [];
   return {
@@ -48,6 +48,10 @@ export function historyEntry(record: SessionRecord): HistoryEntry {
       record.role === 'import' &&
       record.state === 'done' &&
       record.checklist?.rollback_available === true,
+    undoExpired:
+      record.checklist?.rollback_available === true &&
+      record.expires_at != null &&
+      fromUnix(record.expires_at) <= now,
     resumable: source !== null && RESUMABLE[record.role].includes(record.state),
   };
 }
@@ -90,7 +94,7 @@ export function homeModel(
 ): HomeModel {
   return {
     now,
-    recent: records.slice(0, RECENT).map(historyEntry),
+    recent: records.slice(0, RECENT).map((r) => historyEntry(r, now)),
     askReports: consent === 'unset',
     // One question at a time: the file manager waits for the error-report answer.
     askFileManager: fileManager.offer && consent !== null && consent !== 'unset',

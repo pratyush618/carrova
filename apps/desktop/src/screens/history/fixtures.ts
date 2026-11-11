@@ -12,6 +12,7 @@ const RECEIVED: HistoryEntry = {
   when: at(8, 9, 32),
   moved: { apps: 5, bytes: 1.2 * GB },
   undoable: true,
+  undoExpired: false,
   resumable: false,
 };
 
@@ -24,6 +25,7 @@ const SAVED: HistoryEntry = {
   when: at(2, 9, 15),
   moved: { apps: 3, bytes: 40 * MB },
   undoable: false,
+  undoExpired: false,
   resumable: false,
 };
 
@@ -36,6 +38,7 @@ const UNDONE: HistoryEntry = {
   when: new Date(2026, 9, 28, 18, 40),
   moved: { apps: 2, bytes: null },
   undoable: false,
+  undoExpired: false,
   resumable: false,
 };
 
@@ -59,6 +62,7 @@ const EXPIRED: HistoryEntry = {
   peerOs: 'linux',
   when: new Date(2026, 8, 28, 10, 5),
   undoable: false,
+  undoExpired: true,
 };
 
 const ENTRIES = [RECEIVED, SAVED, UNDONE, EXPIRED];
