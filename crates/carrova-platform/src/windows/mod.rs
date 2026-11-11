@@ -2,7 +2,8 @@
 //!
 //! Roots and the state dir come from known folders (`roots`), filesystem
 //! primitives from `fs` (shared with the fake via `crate::sys`), LAN
-//! networking from `netops`. Processes and free space use `sysinfo`.
+//! networking from `netops`, Explorer entries from `file_manager`.
+//! Processes and free space use `sysinfo`.
 //! Everything here is safe std or safe-wrapper crates: no FFI.
 
 use std::ffi::{OsStr, OsString};
@@ -10,10 +11,11 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::{
-    Allocation, DirEntry, DiskInfo, FileLock, FileMeta, FsId, LanInterface, OsKind, Platform,
-    PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
+    Allocation, DirEntry, DiskInfo, FileLock, FileManagerStatus, FileMeta, FsId, LanInterface,
+    OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
 };
 
+mod file_manager;
 pub(crate) mod fs;
 mod roots;
 #[cfg(test)]
@@ -263,5 +265,20 @@ impl Platform for WindowsPlatform {
         cmd.env("APPDATA", roots::root_path(SemanticRoot::UserConfig)?)
             .env("LOCALAPPDATA", roots::root_path(SemanticRoot::UserData)?);
         Ok(cmd)
+    }
+
+    fn file_manager_status(&self) -> Result<FileManagerStatus, PlatformError> {
+        file_manager::Entries::for_user()?.status()
+    }
+
+    fn install_file_manager_entries(
+        &self,
+        launcher: &Path,
+    ) -> Result<FileManagerStatus, PlatformError> {
+        file_manager::Entries::for_user()?.install(launcher)
+    }
+
+    fn remove_file_manager_entries(&self) -> Result<FileManagerStatus, PlatformError> {
+        file_manager::Entries::for_user()?.remove()
     }
 }
