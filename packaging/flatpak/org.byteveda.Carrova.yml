@@ -29,7 +29,7 @@ modules:
       - type: file
         dest-filename: carrova.deb
         only-arches: [x86_64]
-        url: https://github.com/pratyush618/carrova/releases/download/v0.1.0/Carrova_0.1.0_amd64.deb
+        url: https://github.com/pratyush618/carrova/releases/download/v0.1.1/Carrova_0.1.1_amd64.deb
         sha256: 0000000000000000000000000000000000000000000000000000000000000000 # set per release
     build-commands:
       - ar -x carrova.deb && tar -xf data.tar.gz
