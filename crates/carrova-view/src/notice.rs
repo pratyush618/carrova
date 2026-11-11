@@ -1,10 +1,13 @@
 //! Which surfaces of an alert fire, by the user's preferences. The bell
 //! always keeps the notice; this decides the rest.
 
-use carrova_core::NoticeKind;
+use carrova_core::{Notice, NoticeKind};
 use carrova_platform::ScreenLock;
 
-use crate::ipc::{AlertChannel, AlertSettings};
+use crate::ipc::{AlertChannel, AlertSettings, ErrorCode};
+
+/// Title of every system pop-up.
+pub const POPUP_TITLE: &str = "Carrova";
 
 /// What to do, beyond the bell, when a notice arrives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,5 +43,28 @@ pub fn route(
         wake: popup && prefs.wake_screen && kind == NoticeKind::SendRequest,
         // Fail closed: a screen that may be locked shows no names unless allowed.
         show_names: popup && (prefs.names_on_lock_screen || screen_lock() == ScreenLock::Unlocked),
+    }
+}
+
+/// The pop-up text of `notice`. `notice.summary` continues the peer's name;
+/// without `show_names` the device is not named.
+#[must_use]
+pub fn popup_text(notice: &Notice, show_names: bool) -> String {
+    match (&notice.peer, show_names) {
+        (Some(peer), true) => format!("{peer} {}", notice.summary),
+        (Some(_), false) => format!("A known device {}", notice.summary),
+        (None, _) => notice.summary.clone(),
+    }
+}
+
+/// What a move that ended with `error` (`None`: it finished) is worth
+/// telling the user: the kind and its words. A cancelled move is the
+/// user's own doing, so `None`.
+#[must_use]
+pub fn move_news(error: Option<ErrorCode>) -> Option<(NoticeKind, &'static str)> {
+    match error {
+        None => Some((NoticeKind::MoveFinished, "The move finished.")),
+        Some(ErrorCode::Cancelled) => None,
+        Some(_) => Some((NoticeKind::MoveFailed, "The move failed.")),
     }
 }

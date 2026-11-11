@@ -2,14 +2,11 @@
 //! beyond it (pop-up, screen wake) by the user's alert preferences.
 
 use carrova_core::{Notice, NoticeId, NoticeKind, time};
-use carrova_view::ipc::{AlertSettings, BridgeEvent, ErrorCode};
-use carrova_view::notice::route;
+use carrova_view::ipc::{AlertSettings, BridgeEvent};
+use carrova_view::notice::{POPUP_TITLE, move_news, popup_text, route};
 
 use crate::command_error::CommandError;
 use crate::state::AppState;
-
-/// Title of every pop-up.
-const POPUP_TITLE: &str = "Carrova";
 
 /// The notices, newest first.
 ///
@@ -59,7 +56,7 @@ pub fn notify(state: &AppState, kind: NoticeKind, peer: Option<String>, summary:
     if delivery.popup {
         state
             .out
-            .popup(POPUP_TITLE, &popup_body(&notice, delivery.show_names));
+            .popup(POPUP_TITLE, &popup_text(&notice, delivery.show_names));
     }
     if delivery.wake
         && let Err(error) = state.platform.wake_display()
@@ -73,23 +70,10 @@ pub fn notify(state: &AppState, kind: NoticeKind, peer: Option<String>, summary:
 /// delivered on a blocking thread: file and D-Bus calls never delay the
 /// command's reply.
 pub fn moved<T>(state: &AppState, result: Result<T, CommandError>) -> Result<T, CommandError> {
-    let news = match &result {
-        Ok(_) => Some((NoticeKind::MoveFinished, "The move finished.")),
-        Err(e) if e.bridge().code == ErrorCode::Cancelled => None,
-        Err(_) => Some((NoticeKind::MoveFailed, "The move failed.")),
-    };
+    let news = move_news(result.as_ref().err().map(|e| e.bridge().code));
     if let Some((kind, summary)) = news {
         let state = state.clone();
         tauri::async_runtime::spawn_blocking(move || notify(&state, kind, None, summary.into()));
     }
     result
-}
-
-/// The pop-up text: the peer's name only where the preferences allow.
-fn popup_body(notice: &Notice, show_names: bool) -> String {
-    match (&notice.peer, show_names) {
-        (Some(peer), true) => format!("{peer} {}", notice.summary),
-        (Some(_), false) => format!("A device {}", notice.summary),
-        (None, _) => notice.summary.clone(),
-    }
 }

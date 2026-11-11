@@ -99,7 +99,7 @@ fn a_send_request_wakes_the_screen_and_hides_the_name_when_locked() {
 
     assert_eq!(machine.platform.wakes(), 1);
     let popups = machine.events.recorded.of_kind("popup");
-    assert_eq!(popups[0]["body"], "A device wants to send you files.");
+    assert_eq!(popups[0]["body"], "A known device wants to send you files.");
 }
 
 #[test]
@@ -126,7 +126,7 @@ fn an_unknown_lock_state_hides_the_name_too() {
         "wants to send you files.".into(),
     );
     let popups = machine.events.recorded.of_kind("popup");
-    assert_eq!(popups[0]["body"], "A device wants to send you files.");
+    assert_eq!(popups[0]["body"], "A known device wants to send you files.");
 }
 
 #[test]
