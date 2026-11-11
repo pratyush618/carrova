@@ -69,22 +69,18 @@ pub fn notify(state: &AppState, kind: NoticeKind, peer: Option<String>, summary:
 }
 
 /// Pass `result` of a finished move through, noting how it ended (a
-/// cancelled move is the user's own doing: no news).
+/// cancelled move is the user's own doing: no news). The notice is
+/// delivered on a blocking thread: file and D-Bus calls never delay the
+/// command's reply.
 pub fn moved<T>(state: &AppState, result: Result<T, CommandError>) -> Result<T, CommandError> {
-    match &result {
-        Ok(_) => notify(
-            state,
-            NoticeKind::MoveFinished,
-            None,
-            "The move finished.".into(),
-        ),
-        Err(e) if e.bridge().code == ErrorCode::Cancelled => {}
-        Err(_) => notify(
-            state,
-            NoticeKind::MoveFailed,
-            None,
-            "The move failed.".into(),
-        ),
+    let news = match &result {
+        Ok(_) => Some((NoticeKind::MoveFinished, "The move finished.")),
+        Err(e) if e.bridge().code == ErrorCode::Cancelled => None,
+        Err(_) => Some((NoticeKind::MoveFailed, "The move failed.")),
+    };
+    if let Some((kind, summary)) = news {
+        let state = state.clone();
+        tauri::async_runtime::spawn_blocking(move || notify(&state, kind, None, summary.into()));
     }
     result
 }
