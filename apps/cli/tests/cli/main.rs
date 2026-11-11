@@ -253,3 +253,80 @@ fn scan_all_lists_undetected() {
         .collect();
     assert_eq!(ids, [("demo", true), ("absent", false)]);
 }
+
+/// `carrova integrate file-manager STATE` in a fake home whose PATH holds a
+/// `carrova-desktop` executable (when `desktop`).
+fn integrate(tmp: &TempDir, state: &str, desktop: bool) -> (Output, String) {
+    let home = tmp.path().join("home");
+    let bin = tmp.path().join("bin");
+    let exe = bin.join("carrova-desktop");
+    if desktop && !exe.exists() {
+        write(&exe, "#!/bin/sh\n");
+        let perms = fs::metadata(env!("CARGO_BIN_EXE_carrova"))
+            .unwrap()
+            .permissions();
+        fs::set_permissions(&exe, perms).unwrap();
+    }
+    fs::create_dir_all(&home).unwrap();
+    let out = carrova(&["integrate", "file-manager", state])
+        .env("HOME", &home)
+        .env(
+            "PATH",
+            if desktop {
+                bin
+            } else {
+                tmp.path().join("none")
+            },
+        )
+        .env_remove("XDG_CONFIG_HOME")
+        .env_remove("XDG_DATA_HOME")
+        .env_remove("APPIMAGE")
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+    (out, stdout)
+}
+
+#[test]
+fn integrate_file_manager_on_off_status_round_trip() {
+    if carrova_platform::current().os() != OsKind::Linux {
+        return;
+    }
+    let tmp = TempDir::new().unwrap();
+    let launcher = tmp.path().join("bin/carrova-desktop");
+    let entry = tmp
+        .path()
+        .join("home/.local/share/nemo/actions/carrova-send.nemo_action");
+
+    let (_, stdout) = integrate(&tmp, "status", true);
+    assert_eq!(stdout, "off\n");
+
+    let (out, stdout) = integrate(&tmp, "on", true);
+    assert!(out.status.success(), "{}", text(&out).1);
+    assert_eq!(stdout, "on\n");
+    let written = fs::read_to_string(&entry).unwrap();
+    assert!(written.contains(launcher.to_str().unwrap()), "{written}");
+    assert!(
+        !written.contains(env!("CARGO_BIN_EXE_carrova")),
+        "entries must launch the desktop app, not the CLI"
+    );
+    assert_eq!(integrate(&tmp, "status", true).1, "on\n");
+
+    let (out, stdout) = integrate(&tmp, "off", true);
+    assert!(out.status.success());
+    assert_eq!(stdout, "off\n");
+    assert!(!entry.exists());
+}
+
+#[test]
+fn integrate_on_without_desktop_app_points_to_its_settings() {
+    if carrova_platform::current().os() != OsKind::Linux {
+        return;
+    }
+    let tmp = TempDir::new().unwrap();
+    let (out, _) = integrate(&tmp, "on", false);
+    let (_, stderr) = text(&out);
+    assert!(!out.status.success());
+    assert!(stderr.contains("carrova-desktop"), "{stderr}");
+    assert!(stderr.contains("Settings"), "{stderr}");
+}

@@ -191,3 +191,62 @@ fn receive_help_shares_import_plan_flags() {
     }
     assert!(!help.contains("fail-after"), "{help}");
 }
+
+#[test]
+fn paths_conflict_with_explicit_preset() {
+    fails_with(
+        &["export", "-o", "x", "--preset", "minimal", "/tmp/notes"],
+        "cannot be used with",
+    );
+}
+
+#[test]
+fn paths_conflict_with_include() {
+    fails_with(
+        &["send", "--include", "git/config", "/tmp/notes"],
+        "cannot be used with",
+    );
+}
+
+#[test]
+fn paths_conflict_with_exclude() {
+    fails_with(
+        &["export", "-o", "x", "--exclude", "git/config", "/tmp/notes"],
+        "cannot be used with",
+    );
+}
+
+#[test]
+fn paths_allowed_with_default_preset_and_exclude_path_confirm_sensitive() {
+    // Parsing succeeds: it fails later, at the missing --yes.
+    fails_with(
+        &[
+            "export",
+            "-o",
+            "x",
+            "/tmp/notes",
+            "--exclude-path",
+            "raw:home/notes=home:notes/a",
+            "--confirm-sensitive",
+            "/tmp/notes",
+            "--force-unmovable",
+            "raw:home/notes",
+        ],
+        "re-run with --yes",
+    );
+}
+
+#[test]
+fn send_resume_conflicts_with_paths() {
+    fails_with(&["send", "/tmp/notes", "--resume"], "cannot be used with");
+}
+
+#[test]
+fn integrate_help_lists_on_off_status() {
+    let out = carrova(&["integrate", "file-manager", "--help"]);
+    assert!(out.status.success());
+    let help = String::from_utf8_lossy(&out.stdout);
+    for state in ["on", "off", "status"] {
+        assert!(help.contains(state), "{state}: {help}");
+    }
+}

@@ -17,7 +17,9 @@ use carrova_core::lan::{
     ActionCounts, CODE_LIFETIME, ConflictTarget, Inventory, InventoryApp, ItemPlanSummary,
     PlanSummary,
 };
-use carrova_core::select::Selection;
+use carrova_core::select::{
+    ItemChoice, PickFacts, PickKind, PickOutcome, PickRejection, PickResult, Selection,
+};
 use carrova_core::session::{PauseReason, Role, RollbackOutcome, SessionId};
 use carrova_core::{CodeOffer, CoreError};
 use carrova_platform::{OsKind, SemanticRoot};
@@ -25,7 +27,7 @@ use carrova_platform::{OsKind, SemanticRoot};
 use crate::render::lan as lan_render;
 use crate::render::plan::plan;
 use crate::render::scan::scan_report;
-use crate::render::selection::selection;
+use crate::render::selection::{pick_rejections, selection};
 use crate::render::session::{
     ChecklistOf, checklist, rollback, rollback_step, session_list, session_show,
 };
@@ -149,6 +151,76 @@ fn golden_selection() {
         "selection",
         &text(|o| selection(o, &selection_view(&sel, &scan))),
     );
+}
+
+#[test]
+fn golden_selection_manual() {
+    let scan = scan_fixture();
+    let mut sel = Selection::default();
+    let pick = |included: bool, kind: PickKind, size: u64, files: u64| ItemChoice {
+        pick: Some(PickFacts { kind, size, files }),
+        ..choice(included)
+    };
+    sel.items
+        .insert("raw:home/proj".into(), pick(true, PickKind::Dir, 2048, 3));
+    sel.items.insert(
+        "raw:home/notes.txt".into(),
+        pick(true, PickKind::File, 12, 1),
+    );
+    let mut key = pick(false, PickKind::File, 400, 1);
+    key.sensitive = true;
+    sel.items.insert("raw:home/.ssh/id_ed25519".into(), key);
+    let mut env = pick(true, PickKind::File, 30, 1);
+    env.sensitive = true;
+    env.confirmed_sensitive = true;
+    sel.items
+        .insert(format!("raw:home/app/.env{ESC}").into(), env);
+    sel.items.insert(
+        "raw:user_config/tool".into(),
+        pick(true, PickKind::Symlink, 0, 0),
+    );
+    golden(
+        "selection_manual",
+        &text(|o| selection(o, &selection_view(&sel, &scan))),
+    );
+}
+
+#[test]
+fn golden_pick_rejections() {
+    let rejected = |path: &str, reason| PickOutcome {
+        path: path.to_owned(),
+        result: PickResult::Rejected { reason },
+    };
+    let outcomes = [
+        rejected("/etc/hosts", PickRejection::OutsideRoots),
+        PickOutcome {
+            path: "/home/me/notes.txt".into(),
+            result: PickResult::Added {
+                item: "raw:home/notes.txt".into(),
+                replaced: Vec::new(),
+            },
+        },
+        rejected(
+            "/home/me",
+            PickRejection::IsRoot {
+                root: SemanticRoot::Home,
+            },
+        ),
+        rejected(
+            "/home/me/.local",
+            PickRejection::ContainsRoot {
+                root: SemanticRoot::UserData,
+            },
+        ),
+        rejected(&format!("/home/me/gone{ESC}"), PickRejection::NotFound),
+        rejected(
+            "/home/me/locked",
+            PickRejection::Unreadable {
+                reason: "permission denied".into(),
+            },
+        ),
+    ];
+    golden("pick_rejections", &text(|o| pick_rejections(o, &outcomes)));
 }
 
 #[test]

@@ -82,6 +82,7 @@ fn sample() -> (Plan, Manifest) {
             message: format!("w{ESC}"),
         }],
         sensitive: BTreeMap::from([("gnupg/keys".into(), "holds private keys".to_owned())]),
+        safe_picks: Vec::new(),
     };
     let manifest = Manifest::new(
         0,

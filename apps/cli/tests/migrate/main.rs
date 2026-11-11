@@ -10,6 +10,8 @@ use std::process::{Command, Output};
 use carrova_platform::OsKind;
 use tempfile::TempDir;
 
+mod manual;
+
 const PASS: &str = "correct horse battery staple";
 const KEY: &str = "-----BEGIN OPENSSH PRIVATE KEY-----\nfake\n-----END OPENSSH PRIVATE KEY-----\n";
 

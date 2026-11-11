@@ -139,3 +139,42 @@ fn keep_undo_for_sets_a_retention_of_that_many_days() {
     assert!(parse_err(&["--keep-undo-for", "0"]));
     assert!(parse_err(&["--keep-undo-for", "7", "--discard-rollback"]));
 }
+
+#[test]
+fn remapping_a_confirmed_item_elsewhere_needs_confirm_sensitive_again() {
+    let approved = options(&[
+        "--confirm-sensitive",
+        "ssh/keys",
+        "--confirm-sensitive",
+        "gpg/keys",
+    ]);
+    let resumed = parse(&["--remap", "ssh/keys=:elsewhere"]).options_over(approved);
+    assert!(!resumed.is_confirmed(&"ssh/keys".into()));
+    assert!(
+        resumed.is_confirmed(&"gpg/keys".into()),
+        "other items keep theirs"
+    );
+
+    let reconfirmed = options(&[
+        "--remap",
+        "ssh/keys=:elsewhere",
+        "--confirm-sensitive",
+        "ssh/keys",
+    ]);
+    assert!(
+        reconfirmed.is_confirmed(&"ssh/keys".into()),
+        "confirmed for the new place"
+    );
+}
+
+#[test]
+fn passing_the_same_remap_again_keeps_the_confirmation() {
+    let approved = options(&[
+        "--remap",
+        "ssh/keys=:moved",
+        "--confirm-sensitive",
+        "ssh/keys",
+    ]);
+    let resumed = parse(&["--remap", "ssh/keys=:moved"]).options_over(approved.clone());
+    assert_eq!(resumed, approved);
+}

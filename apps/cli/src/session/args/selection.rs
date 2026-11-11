@@ -1,6 +1,8 @@
-//! What to export or send (`--preset`, `--include`, …): shared by
-//! `carrova export` and `carrova send`, turned into engine
+//! What to export or send (`--preset`, `--include`, … or picked paths):
+//! shared by `carrova export` and `carrova send`, turned into engine
 //! [`SelectionEdit`]s.
+
+use std::path::PathBuf;
 
 use carrova_core::ItemKey;
 use carrova_core::select::{Preset, Selection, SelectionEdit};
@@ -36,6 +38,10 @@ impl From<PresetArg> for Preset {
 /// What to export or send: shared by `carrova export` and `carrova send`.
 #[derive(Debug, Args)]
 pub struct SelectionArgs {
+    /// Files or folders to move instead of the found apps (Manual mode: no
+    /// app scan). Each must be inside your home or app folders.
+    #[arg(value_name = "PATH", conflicts_with_all = ["preset", "include", "exclude"])]
+    paths: Vec<PathBuf>,
     /// Pre-fill the selection; edit it with --include/--exclude.
     #[arg(long, value_enum, default_value = "suggested")]
     preset: PresetArg,
@@ -48,8 +54,9 @@ pub struct SelectionArgs {
     /// Untick one path or file inside an item: `ITEM=ROOT:REL`.
     #[arg(long, value_name = "ITEM=ROOT:REL", value_parser = parse_exclude_path)]
     exclude_path: Vec<PathExclusion>,
-    /// Explicitly confirm exporting a sensitive item (keys, tokens).
-    #[arg(long, value_name = "ITEM")]
+    /// Explicitly confirm exporting a sensitive item (keys, tokens): its
+    /// key, or a picked PATH. `--yes` never confirms one.
+    #[arg(long, value_name = "ITEM|PATH")]
     confirm_sensitive: Vec<ItemKey>,
     /// Include an item the recipe marks unmovable (its reason is shown).
     #[arg(long, value_name = "ITEM")]
@@ -62,6 +69,21 @@ pub struct SelectionArgs {
 }
 
 impl SelectionArgs {
+    /// Paths were given: Manual mode.
+    pub fn is_manual(&self) -> bool {
+        !self.paths.is_empty()
+    }
+
+    /// The picked paths, as given.
+    pub fn paths(&self) -> &[PathBuf] {
+        &self.paths
+    }
+
+    /// `--confirm-sensitive` values, as given.
+    pub fn confirm_sensitive(&self) -> &[ItemKey] {
+        &self.confirm_sensitive
+    }
+
     /// The pre-fill chosen with `--preset`.
     pub fn preset(&self) -> Preset {
         self.preset.into()
@@ -71,6 +93,16 @@ impl SelectionArgs {
     /// `--include`, `--exclude`, `--exclude-path`, `--confirm-sensitive`,
     /// `--force-unmovable`, `--allow-plugin`.
     pub fn edits(&self) -> impl Iterator<Item = SelectionEdit> + '_ {
+        self.edits_confirming(&self.confirm_sensitive)
+    }
+
+    /// [`Self::edits`], confirming the items `confirmed` instead of the
+    /// `--confirm-sensitive` values as given (Manual mode resolves those
+    /// to picks).
+    pub fn edits_confirming<'a>(
+        &'a self,
+        confirmed: &'a [ItemKey],
+    ) -> impl Iterator<Item = SelectionEdit> + 'a {
         let tick = |included| {
             move |item: &ItemKey| SelectionEdit::Item {
                 item: item.clone(),
@@ -87,7 +119,7 @@ impl SelectionArgs {
                 included: false,
             }))
             .chain(
-                self.confirm_sensitive
+                confirmed
                     .iter()
                     .map(|item| SelectionEdit::ConfirmSensitive {
                         item: item.clone(),

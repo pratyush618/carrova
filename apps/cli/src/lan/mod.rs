@@ -58,7 +58,7 @@ pub struct SendArgs {
         num_args = 0..=1,
         value_parser = parse_session_id,
         conflicts_with_all = [
-            "preset", "include", "exclude", "exclude_path",
+            "paths", "preset", "include", "exclude", "exclude_path",
             "confirm_sensitive", "force_unmovable", "allow_plugin",
         ],
     )]
@@ -137,7 +137,7 @@ fn start_send(
     engine: Engine,
     a: &SendArgs,
 ) -> Result<Option<(SendHandle, SessionId)>> {
-    let mut exporter = start_exporter(engine, a.format())?;
+    let mut exporter = start_exporter(engine, a.format(), a.selection.is_manual())?;
     let n = choose(out, &mut exporter, &a.selection, a.format())?;
     if !confirm(a.consent(), &format!("Send {n} items to another machine?"))? {
         return Ok(None);

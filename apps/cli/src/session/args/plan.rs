@@ -36,6 +36,11 @@ pub struct PlanArgs {
     /// Explicitly confirm importing a sensitive item.
     #[arg(long, value_name = "ITEM")]
     confirm_sensitive: Vec<ItemKey>,
+    /// Also import every picked file or folder that is neither sensitive
+    /// nor a risky place (e.g. ~/.bashrc): the desktop app's "Accept all".
+    /// Those still need --confirm-sensitive each.
+    #[arg(long)]
+    accept_safe_picks: bool,
     /// Restore a same-OS item although the source is another OS family
     /// (the app may not read it here; warned).
     #[arg(long, value_name = "ITEM")]
@@ -101,6 +106,13 @@ impl PlanArgs {
         self.dry_run
     }
 
+    /// `--accept-safe-picks`: "Accept all"
+    /// ([`carrova_core::plan::PlanEdit::AcceptSafePicks`], which sets
+    /// [`PlanOptions::accept_safe_picks`]).
+    pub fn accept_safe_picks(&self) -> bool {
+        self.accept_safe_picks
+    }
+
     /// `--yes`: ask, or agreed up front.
     pub fn consent(&self) -> Consent {
         self.yes.into()
@@ -122,11 +134,18 @@ impl PlanArgs {
     /// ([`carrova_core::Importer::plan_options`]). Only flags the user
     /// passed change anything: a list flag (`--item`,
     /// `--confirm-sensitive`, `--allow-cross-os`, `--allow-plugin`)
-    /// replaces that list, `--rule` / `--remap` set their target, a switch
-    /// turns its option on. So a resume without
-    /// flags keeps the approved options, and with them the approval.
+    /// replaces that list, `--rule` sets its target, `--remap` moves its
+    /// item ([`PlanOptions::remap`]: a new place needs
+    /// `--confirm-sensitive` again), a switch turns its option on. So a
+    /// resume without flags keeps the approved options, and with them the
+    /// approval.
     pub fn options_over(&self, base: PlanOptions) -> PlanOptions {
         let mut o = base;
+        // Remaps first: they drop carried-over confirmations, which
+        // `--confirm-sensitive` in this same command may give again.
+        for r in &self.remap {
+            o.remap(r.item.clone(), Some(r.remap.clone()));
+        }
         if !self.item.is_empty() {
             o.items = Some(self.item.clone());
         }
@@ -149,9 +168,6 @@ impl PlanArgs {
                     o.path_rules.insert(k.clone(), r.rule);
                 }
             }
-        }
-        for r in &self.remap {
-            o.remaps.insert(r.item.clone(), r.remap.clone());
         }
         o.ignore_requires_closed |= self.ignore_running;
         o.ignore_free_space |= self.ignore_free_space;

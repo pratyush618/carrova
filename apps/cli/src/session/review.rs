@@ -6,7 +6,7 @@ use std::io::Write;
 use std::process::ExitCode;
 
 use anyhow::{Result, bail};
-use carrova_core::plan::Plan;
+use carrova_core::plan::{Plan, PlanEdit};
 use carrova_core::session::{Role, SessionId, State};
 use carrova_core::{CoreError, ErrorKind, Importer, PlanApproval};
 use carrova_platform::Platform;
@@ -95,17 +95,29 @@ struct Review {
 
 impl Review {
     /// The plan for the session's options changed by the flags in `a`
-    /// ([`PlanArgs::options_over`], [`carrova_view::review::prepare`]).
+    /// ([`PlanArgs::options_over`], [`carrova_view::review::prepare`]),
+    /// planned again with "Accept all" under `--accept-safe-picks`
+    /// ([`PlanEdit::AcceptSafePicks`]: each plan judges its own safe picks).
     fn prepare(
         importer: &mut Importer,
         platform: &dyn Platform,
         a: &PlanArgs,
         id: SessionId,
     ) -> Result<Self> {
-        let options = a.options_over(importer.plan_options().cloned().unwrap_or_default());
+        let mut options = a.options_over(importer.plan_options().cloned().unwrap_or_default());
+        let mut prepared = review::prepare(importer, platform, &options)?;
+        let offered = importer.manifest().map(|m| prepared.plan.offered(m));
+        if a.accept_safe_picks()
+            && let Some(offered) = offered
+        {
+            options
+                .apply(PlanEdit::AcceptSafePicks, &offered)
+                .map_err(CoreError::from)?;
+            prepared = review::prepare(importer, platform, &options)?;
+        }
         Ok(Self {
             id,
-            prepared: review::prepare(importer, platform, &options)?,
+            prepared,
             format: a.format(),
         })
     }

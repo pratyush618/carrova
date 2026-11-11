@@ -121,6 +121,7 @@ pub(super) fn sample_plan() -> (Plan, Manifest) {
             },
         ],
         sensitive: BTreeMap::from([("gnupg/keys".into(), "holds private keys".to_owned())]),
+        safe_picks: Vec::new(),
     };
     let manifest = Manifest::new(
         0,
@@ -177,6 +178,7 @@ pub(super) fn choice(included: bool) -> ItemChoice {
         force_unmovable: false,
         excluded_paths: Vec::new(),
         paths: Vec::new(),
+        pick: None,
     }
 }
 
