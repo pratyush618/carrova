@@ -100,7 +100,9 @@ export class FakeSender {
     this.runtime.slot(session);
     const scanned = await this.scan();
     const { selection } = scanned;
-    return scanWith({ ...selection, items: { ...selection.items, ...this.picked } });
+    const merged = scanWith({ ...selection, items: { ...selection.items, ...this.picked } });
+    this.usable = merged.view.issues.length === 0;
+    return merged;
   }
 
   /** Adds `paths` by the engine's pick rules, after a measuring step. */

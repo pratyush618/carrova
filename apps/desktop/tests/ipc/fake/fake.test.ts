@@ -248,6 +248,19 @@ describe('the fake port, Manual mode and the file manager', () => {
     expect(await rejection(port.runSend(session))).toMatchObject({ code: 'invalid_selection' });
   });
 
+  it('refuses to send after the app scan keeps an included sensitive pick unconfirmed', async () => {
+    const { port } = await fake();
+    const { session, selection } = await port.startManual();
+    const env = 'raw:home/work/api/.env';
+    const picked = await port.pick(session, selection, ['/home/ana/work/api/.env']);
+    await port.select(session, picked.scan.selection, [
+      { kind: 'item', item: env, included: true },
+    ]);
+    const scanned = await port.scanApps(session);
+    expect(scanned.view.issues.map((i) => i.item)).toContain(env);
+    expect(await rejection(port.runSend(session))).toMatchObject({ code: 'invalid_selection' });
+  });
+
   it('offers Manual picks unticked and accept all ticks only the safe ones (picks scenario)', async () => {
     const { port } = await fake('picks');
     const { session } = await port.openArchive('/tmp/a.carrova', 'pass');
