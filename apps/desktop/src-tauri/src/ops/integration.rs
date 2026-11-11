@@ -1,7 +1,7 @@
 //! "Send with Carrova" file-manager entries: the platform writes them,
 //! each launching this app ([`Platform::launcher`]) with `--send`.
 
-use std::sync::Arc;
+use std::sync::{Arc, PoisonError};
 
 use carrova_platform::{FileManagerStatus, Platform, PlatformError};
 
@@ -30,7 +30,9 @@ pub async fn set_file_manager_entries(
     on: bool,
 ) -> Result<FileManagerStatus, CommandError> {
     let platform = Arc::clone(&state.platform);
+    let lock = Arc::clone(&state.entries_lock);
     blocking(move || {
+        let _entries = lock.lock().unwrap_or_else(PoisonError::into_inner);
         Ok(if on {
             install(platform.as_ref())?
         } else {
@@ -42,8 +44,14 @@ pub async fn set_file_manager_entries(
 
 /// Rewrite installed entries for this app's current launcher (it moves
 /// on updates, e.g. a new AppImage). Blocking; failures are only logged,
-/// so start-up never waits on or fails because of it.
-pub fn refresh_file_manager_entries(platform: &dyn Platform) {
+/// so start-up never waits on or fails because of it. Checks and rewrites
+/// under [`AppState::entries_lock`], so a later on/off choice wins.
+pub fn refresh_file_manager_entries(state: &AppState) {
+    let _entries = state
+        .entries_lock
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    let platform = state.platform.as_ref();
     let refreshed = platform
         .file_manager_status()
         .and_then(|status| status.installed.then(|| install(platform)).transpose());

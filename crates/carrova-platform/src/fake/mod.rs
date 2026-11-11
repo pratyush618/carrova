@@ -6,7 +6,9 @@
 //! Windows).
 //!
 //! Faults (failing renames, racing swaps, changing metadata, another uid)
-//! are injected with [`FakePlatform::with_hooks`].
+//! are injected with [`FakePlatform::with_hooks`]. File-manager entries
+//! are unsupported unless [`FakePlatform::file_manager_entries`] pretends
+//! them.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -16,6 +18,7 @@ use std::sync::Arc;
 use crate::Platform;
 use crate::{FsId, OsKind, ProcessInfo, SemanticRoot};
 
+mod file_manager;
 mod fixture;
 mod hooks;
 mod platform;
@@ -23,11 +26,13 @@ mod platform;
 #[path = "../../tests/fake/unit.rs"]
 mod tests;
 
+pub use file_manager::EntriesWrite;
 pub use fixture::symlink;
 #[cfg(unix)]
 pub use fixture::{pin_umask, write_tool_script};
-pub use hooks::{Hooks, MetadataHook, OpenHook, RenameHook};
+pub use hooks::{Hooks, MetadataHook, OpenHook, RenameHook, StatusHook};
 
+use file_manager::FakeEntries;
 use hooks::HookState;
 
 /// Deterministic [`Platform`] for tests. Filesystem metadata and operations
@@ -50,6 +55,8 @@ pub struct FakePlatform {
     filesystems: Vec<FakeFs>,
     /// Injected faults and runtime knobs (shared by clones).
     hooks: Arc<HookState>,
+    /// Pretend file-manager entries (shared by clones); `None`: unsupported.
+    entries: Option<Arc<FakeEntries>>,
 }
 
 /// A pretend filesystem mounted at `mount` (see [`FakePlatform::filesystem`]).
@@ -88,6 +95,7 @@ impl FakePlatform {
             device_name: None,
             filesystems: Vec::new(),
             hooks: Arc::default(),
+            entries: None,
         }
     }
 
@@ -219,6 +227,24 @@ impl FakePlatform {
     #[must_use]
     pub fn dir_syncs(&self) -> usize {
         self.hooks.dir_syncs()
+    }
+
+    /// Pretend this OS has file-manager entries, `installed` or not at
+    /// start. Installs and removes write nothing; they are recorded
+    /// ([`Self::entries_writes`]) and decide what the status reports.
+    #[must_use]
+    pub fn file_manager_entries(mut self, installed: bool) -> Self {
+        self.entries = Some(Arc::new(FakeEntries::new(installed)));
+        self
+    }
+
+    /// Every install and remove of the file-manager entries, in call order.
+    #[must_use]
+    pub fn entries_writes(&self) -> Vec<EntriesWrite> {
+        self.entries
+            .as_ref()
+            .map(|e| e.writes())
+            .unwrap_or_default()
     }
 
     fn fake_fs(&self, path: &Path) -> Option<&FakeFs> {

@@ -17,6 +17,9 @@ pub type RenameHook = Arc<dyn Fn(&Path, &Path) -> Result<(), PlatformError> + Se
 /// Runs right after [`Platform::open_read_nofollow`](crate::Platform::open_read_nofollow)
 /// opened a path (e.g. to swap the file under the open fd).
 pub type OpenHook = Arc<dyn Fn(&Path) + Send + Sync>;
+/// Runs after [`Platform::file_manager_status`](crate::Platform::file_manager_status)
+/// read the entries, before it returns (e.g. to stall a reader mid-race).
+pub type StatusHook = Arc<dyn Fn() + Send + Sync>;
 
 /// Faults to inject; every field defaults to "behave normally".
 #[derive(Clone, Default)]
@@ -27,6 +30,8 @@ pub struct Hooks {
     pub on_rename: Option<RenameHook>,
     /// See [`OpenHook`].
     pub on_open: Option<OpenHook>,
+    /// See [`StatusHook`].
+    pub on_file_manager_status: Option<StatusHook>,
     /// Report this effective uid instead of the real one.
     pub uid: Option<u32>,
     /// Report no permission bits in path and fd metadata (an OS without
@@ -40,6 +45,10 @@ impl fmt::Debug for Hooks {
             .field("on_metadata", &self.on_metadata.is_some())
             .field("on_rename", &self.on_rename.is_some())
             .field("on_open", &self.on_open.is_some())
+            .field(
+                "on_file_manager_status",
+                &self.on_file_manager_status.is_some(),
+            )
             .field("uid", &self.uid)
             .field("hide_mode", &self.hide_mode)
             .finish()

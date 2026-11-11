@@ -1,11 +1,16 @@
 //! Settings, recipes, pairing answers and session bookkeeping through the
 //! bridge.
 
+use std::sync::{Arc, mpsc};
+use std::time::Duration;
+
 use carrova_core::{Selection, SessionId};
+use carrova_platform::fake::{EntriesWrite, FakePlatform, Hooks};
 use carrova_view::ipc::{ErrorCode, RecipeOrigin, RecipeTier, Settings, Theme};
 use tauri::async_runtime::block_on;
 
 use crate::ops::{integration, receive, recipes, send, sessions, settings};
+use crate::state::AppState;
 use crate::testing::Machine;
 
 fn unknown() -> SessionId {
@@ -115,4 +120,43 @@ fn file_manager_status_on_fake_is_unsupported() {
     let status = block_on(integration::file_manager_status(&machine.state)).unwrap();
     assert!(!status.supported && !status.installed);
     assert!(block_on(integration::set_file_manager_entries(&machine.state, true)).is_err());
+}
+
+/// The start-up refresh read "installed", then the user turned the entries
+/// off before it rewrote them: the user's choice still wins.
+#[test]
+fn turning_entries_off_during_refresh_leaves_them_off() {
+    let machine = Machine::new();
+    let (read, refresh_read) = mpsc::channel();
+    let platform = FakePlatform::with_home(&machine.home)
+        .file_manager_entries(true)
+        .with_hooks(Hooks {
+            on_file_manager_status: Some(Arc::new(move || {
+                let _ = read.send(());
+                std::thread::sleep(Duration::from_millis(200));
+            })),
+            ..Hooks::default()
+        });
+    let state = AppState {
+        platform: Arc::new(platform.clone()),
+        ..machine.state.clone()
+    };
+
+    let refresh = {
+        let state = state.clone();
+        std::thread::spawn(move || integration::refresh_file_manager_entries(&state))
+    };
+    refresh_read.recv().unwrap();
+    block_on(integration::set_file_manager_entries(&state, false)).unwrap();
+    refresh.join().unwrap();
+
+    assert_eq!(
+        platform.entries_writes(),
+        [EntriesWrite::Install, EntriesWrite::Remove]
+    );
+    assert!(
+        !block_on(integration::file_manager_status(&state))
+            .unwrap()
+            .installed
+    );
 }

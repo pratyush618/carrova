@@ -2,10 +2,10 @@
 
 use std::path::{Path, PathBuf};
 
-use super::FakePlatform;
+use super::{EntriesWrite, FakePlatform};
 use crate::{
-    DiskInfo, FileMeta, FsId, OsKind, PermissionModel, Platform, PlatformError, ProcessInfo,
-    SemanticRoot, SnapshotCapability,
+    DiskInfo, FileManagerStatus, FileMeta, FsId, OsKind, PermissionModel, Platform, PlatformError,
+    ProcessInfo, SemanticRoot, SnapshotCapability,
 };
 
 impl Platform for FakePlatform {
@@ -254,5 +254,32 @@ impl Platform for FakePlatform {
             &self.resolve_root(SemanticRoot::Home)?,
             path.as_deref(),
         ))
+    }
+
+    fn file_manager_status(&self) -> Result<FileManagerStatus, PlatformError> {
+        let status = self
+            .entries
+            .as_ref()
+            .map(|e| e.status())
+            .unwrap_or_default();
+        if let Some(hook) = &self.hooks.hooks.on_file_manager_status {
+            hook();
+        }
+        Ok(status)
+    }
+
+    fn install_file_manager_entries(
+        &self,
+        _launcher: &Path,
+    ) -> Result<FileManagerStatus, PlatformError> {
+        let entries = self.entries.as_ref();
+        let entries = entries.ok_or(PlatformError::Unsupported("install_file_manager_entries"))?;
+        Ok(entries.write(EntriesWrite::Install))
+    }
+
+    fn remove_file_manager_entries(&self) -> Result<FileManagerStatus, PlatformError> {
+        let entries = self.entries.as_ref();
+        let entries = entries.ok_or(PlatformError::Unsupported("remove_file_manager_entries"))?;
+        Ok(entries.write(EntriesWrite::Remove))
     }
 }

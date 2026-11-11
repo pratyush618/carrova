@@ -63,22 +63,25 @@ use updater::PendingUpdate;
 /// Returns [`tauri::Error`] if the runtime or the main window fails to
 /// start, or Carrova's state directory cannot be resolved.
 pub fn run() -> tauri::Result<()> {
+    // Before the builder: a second launch can arrive before `setup` runs.
+    let pending_send = send_request::SendRequests::default();
+    let early_sends = pending_send.clone();
     tauri::Builder::default()
         // First, so a second launch is caught before anything else starts.
-        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-            send_request::on_second_instance(app, argv, &cwd);
+        .plugin(tauri_plugin_single_instance::init(move |app, argv, cwd| {
+            send_request::on_second_instance(app, &early_sends, argv, &cwd);
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .setup(|app| {
+        .setup(move |app| {
             let platform: Arc<dyn carrova_platform::Platform> =
                 Arc::from(carrova_platform::current());
             let reports = Reports::from_platform(Arc::clone(&platform))?;
             reports.install_panic_hook();
             app.manage(reports);
-            refresh_entries(Arc::clone(&platform));
-            let state = app_state(app.handle(), platform);
+            let state = app_state(app.handle(), platform, pending_send);
+            refresh_entries(state.clone());
             send_request::forward(&state, &launch_send_paths());
             app.manage(state);
             Ok(())
@@ -149,24 +152,32 @@ fn launch_send_paths() -> Vec<PathBuf> {
 }
 
 /// Refresh the file-manager entries off the start-up path.
-fn refresh_entries(platform: Arc<dyn carrova_platform::Platform>) {
+fn refresh_entries(state: AppState) {
     tauri::async_runtime::spawn_blocking(move || {
-        ops::integration::refresh_file_manager_entries(platform.as_ref());
+        ops::integration::refresh_file_manager_entries(&state);
     });
 }
 
 /// The bridge state of the running app: recipes from the app's resources
-/// (see [`recipes::app_locations`]), events to the app's windows.
-fn app_state(app: &AppHandle, platform: Arc<dyn carrova_platform::Platform>) -> AppState {
+/// (see [`recipes::app_locations`]), events to the app's windows, sent
+/// paths queued in `pending_send`.
+fn app_state(
+    app: &AppHandle,
+    platform: Arc<dyn carrova_platform::Platform>,
+    pending_send: send_request::SendRequests,
+) -> AppState {
     let resources = app
         .path()
         .resource_dir()
         .inspect_err(|e| tracing::warn!(error = %e, "no resource directory"))
         .ok();
-    AppState::new(
-        platform,
-        recipes::app_locations(resources.as_deref()),
-        Arc::new(app.clone()),
-        BridgeConfig::default(),
-    )
+    AppState {
+        pending_send,
+        ..AppState::new(
+            platform,
+            recipes::app_locations(resources.as_deref()),
+            Arc::new(app.clone()),
+            BridgeConfig::default(),
+        )
+    }
 }

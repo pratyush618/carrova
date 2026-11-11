@@ -66,21 +66,25 @@ pub fn forward(state: &AppState, paths: &[PathBuf]) {
     state.out.emit(&BridgeEvent::SendRequested);
 }
 
-/// Forward `paths` to the running app and bring its window to the front.
-fn forward_to_app(app: &AppHandle, paths: &[PathBuf]) {
-    match app.try_state::<AppState>() {
-        Some(state) => forward(&state, paths),
-        None => tracing::warn!("a send request arrived before the app was ready; ignored"),
+/// [`forward`] once the app `state` exists; before that, only queue
+/// `paths` in `queue` (the one the state is built with), which the UI
+/// drains when it starts.
+fn deliver(state: Option<&AppState>, queue: &SendRequests, paths: &[PathBuf]) {
+    match state {
+        Some(state) => forward(state, paths),
+        None => queue.push(paths),
     }
-    show_main(app);
 }
 
 /// A second launch (argv and working directory, as text) reached the
-/// running app: forward its `--send` paths, if any, and show the window.
-pub fn on_second_instance(app: &AppHandle, argv: Vec<String>, cwd: &str) {
+/// running app: queue its `--send` paths, if any, in `queue` (shared with
+/// [`AppState::pending_send`], so none are lost while the app starts) and
+/// show the window.
+pub fn on_second_instance(app: &AppHandle, queue: &SendRequests, argv: Vec<String>, cwd: &str) {
     let argv: Vec<OsString> = argv.into_iter().map(OsString::from).collect();
     let paths = send_paths(&argv, Path::new(cwd)).unwrap_or_default();
-    forward_to_app(app, &paths);
+    deliver(app.try_state::<AppState>().as_deref(), queue, &paths);
+    show_main(app);
 }
 
 /// Unminimise, show and focus the main window.

@@ -2,7 +2,7 @@
 //! to clone (every part is shared), so a command can move a copy into a
 //! worker.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use carrova_bundle::RecipeLocations;
@@ -52,6 +52,9 @@ pub struct AppState {
     pub settings: SettingsStore,
     /// Paths sent from outside, until the UI takes them.
     pub pending_send: SendRequests,
+    /// Held across every check-and-write of the file-manager entries, so
+    /// the start-up refresh never undoes the user's latest choice.
+    pub entries_lock: Arc<Mutex<()>>,
     /// Where events go.
     pub out: Arc<dyn Emit>,
     /// Run options.
@@ -82,6 +85,7 @@ impl AppState {
             answers: Arc::new(PairingAnswers::default()),
             settings: SettingsStore::new(Arc::clone(&platform)),
             pending_send: SendRequests::default(),
+            entries_lock: Arc::default(),
             platform,
             out,
             config,

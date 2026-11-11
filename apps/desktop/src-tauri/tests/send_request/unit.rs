@@ -7,8 +7,9 @@ use std::path::{Path, PathBuf};
 use carrova_core::{PickRejection, PickResult, Selection};
 use tauri::async_runtime::block_on;
 
-use super::{forward, send_paths};
+use super::{SendRequests, deliver, forward, send_paths};
 use crate::ops::send;
+use crate::state::AppState;
 use crate::testing::Machine;
 
 fn argv(args: &[&str]) -> Vec<OsString> {
@@ -74,12 +75,33 @@ fn opening_nothing_forwards_nothing() {
     assert_eq!(send_requests(&machine), 0);
 }
 
+/// A second launch that lands before the app state exists keeps its paths:
+/// the state later shares the queue they went into.
+#[test]
+fn send_before_the_state_is_ready_is_kept_for_the_ui() {
+    let queue = SendRequests::default();
+    deliver(None, &queue, &[cwd().join("early.txt")]);
+
+    let machine = Machine::new();
+    let state = AppState {
+        pending_send: queue.clone(),
+        ..machine.state.clone()
+    };
+    deliver(Some(&state), &queue, &[cwd().join("late.txt")]);
+
+    let expected = ["early.txt", "late.txt"].map(|n| text(&cwd().join(n)));
+    assert_eq!(state.pending_send.take(), expected);
+    assert_eq!(send_requests(&machine), 1);
+}
+
 /// A name Carrova cannot carry reaches the engine (lossily, as text) and
-/// is refused there with a reason, instead of vanishing on the way.
+/// is refused there with a reason, instead of vanishing on the way. The
+/// name is judged before the file is looked at, so it need not exist.
 #[test]
 fn forwarded_non_utf8_path_is_refused_not_dropped() {
     let machine = Machine::new();
     let name = "bad\u{7}name.txt";
+    #[cfg(unix)] // Windows refuses control characters in file names
     machine.put(name, b"x");
     let paths = send_paths(&argv(&["carrova", "--send", name]), &machine.home).unwrap();
     forward(&machine.state, &paths);
