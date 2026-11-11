@@ -9,7 +9,8 @@
 #                          └─► recipes  (recipes-v*)
 #
 # REPO SETTINGS REQUIRED (not expressible in YAML): the `release` environment
-# must have required reviewers and deployment tag rules `v*` + `recipes-v*`,
+# must have deployment tag rules `v*` + `recipes-v*` (no required reviewers:
+# releases run unattended; the app lands as a draft for a manual smoke test),
 # and BUNDLE_SIGNER_* / TAURI_SIGNING_* (+ optional APPLE_* / WINDOWS_*
 # OS-signing secrets, see packaging/README.md) must be environment secrets
 # (not repo secrets). Add tag protection (rulesets) for both patterns as well.
