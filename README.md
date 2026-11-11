@@ -36,7 +36,10 @@ Download from the [latest release](https://github.com/pratyush618/carrova/releas
 | Fedora / openSUSE | `.rpm` | `sudo dnf install ./Carrova-*.rpm` / `sudo zypper install ./Carrova-*.rpm` |
 | Any distro | `.AppImage` | `chmod +x Carrova_*.AppImage && ./Carrova_*.AppImage` |
 
-Needs glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+). The AppImage updates
+Needs glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+). If the AppImage won't
+start on Ubuntu 24.04+, install FUSE 2: `sudo apt install libfuse2t64`.
+
+The AppImage updates
 itself; `.deb`/`.rpm` update by installing the new package.
 
 ## Use
