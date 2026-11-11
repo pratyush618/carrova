@@ -57,7 +57,7 @@ export function AppDetail({ app }: { readonly app: CatalogDetail | null }) {
           <Muted>{app.here ? t('apps.found') : t('apps.notFound')}</Muted>
         </div>
       </div>
-      <p className="s-detail__trust">
+      <p className={`s-detail__trust s-detail__trust--${app.tier}`}>
         <Icon name="shield" size="sm" />
         <TierBadge tier={app.tier} />
         {t(`apps.tiers.${app.tier}`)}

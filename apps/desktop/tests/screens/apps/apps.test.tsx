@@ -87,4 +87,19 @@ describe('Apps', () => {
     const hits = [...container.querySelectorAll('mark')].map((m) => m.textContent);
     expect(hits).toEqual(['VS', 'VS']);
   });
+
+  it('green trust box is for verified apps only', () => {
+    const trustOf = (tier: 'verified' | 'community' | 'unverified') => {
+      const selected = { ...catalogSelected.selected!, tier };
+      const { container, unmount } = renderScreen(
+        <AppsScreen model={{ ...catalogSelected, selected }} on={catalogOn()} />,
+      );
+      const cls = container.querySelector('.s-detail__trust')?.className;
+      unmount();
+      return cls;
+    };
+    expect(trustOf('verified')).toContain('s-detail__trust--verified');
+    expect(trustOf('community')).toContain('s-detail__trust--community');
+    expect(trustOf('unverified')).toContain('s-detail__trust--unverified');
+  });
 });

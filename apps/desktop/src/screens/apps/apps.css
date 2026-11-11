@@ -121,8 +121,16 @@
   gap: 8px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: var(--success-soft);
+  background: var(--well);
   font-size: var(--t-sm);
+}
+
+.s-detail__trust--verified {
+  background: var(--success-soft);
+}
+
+.s-detail__trust--unverified {
+  background: var(--warning-soft);
 }
 
 .s-detail__h {
