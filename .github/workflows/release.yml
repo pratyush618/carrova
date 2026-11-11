@@ -121,7 +121,8 @@ jobs:
       matrix:
         include:
           # Bundle targets per OS come from tauri.{macos,windows}.conf.json.
-          - { os: ubuntu-latest, args: "" } # AppImage + .deb
+          # Oldest supported Ubuntu: binaries need the build host's glibc or newer.
+          - { os: ubuntu-22.04, args: "" } # x86_64 AppImage + .deb
           # v0.1 is Ubuntu only; re-enable once the Phase 5 exit gate passes.
           # - { os: macos-latest, args: "--target universal-apple-darwin" } # .app + .dmg
           # - { os: windows-latest, args: "" } # .msi + NSIS .exe
