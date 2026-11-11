@@ -1,6 +1,9 @@
 /** History: every move, and the selected one step by step. */
 export const history = {
-  lede: 'Every move, and a way back from each one.',
+  search: 'Search moves',
+  show: 'Show',
+  filter: { all: 'All', sent: 'Sent', received: 'Received', files: 'Files' },
+  noMatch: 'No moves match this filter',
   emptyTitle: 'No moves yet',
   emptyBody: 'When you send or receive, it shows up here with a way to undo it.',
   emptyAction: 'Receive from another computer',
@@ -13,14 +16,7 @@ export const history = {
   },
   anotherComputer: 'another computer',
   when: '{{when}}. {{summary}}',
-  interrupted: 'Interrupted',
-  tag: {
-    arrived: 'Arrived',
-    sent: 'Sent',
-    saved: 'Saved',
-    undone: 'Undone',
-    failed: 'Failed',
-  },
+  tag: { interrupted: 'Interrupted', undone: 'Undone', undo_expired: 'Undo expired' },
   detail: 'This move',
   steps: 'This move, step by step',
   detailSub: '{{title}}, {{day}}',

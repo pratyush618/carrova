@@ -52,7 +52,16 @@ const session = (entry: HistoryEntry, started: Date): SessionModel => ({
   undoUntil: null,
 });
 
-const ENTRIES = [RECEIVED, SAVED, UNDONE];
+const EXPIRED: HistoryEntry = {
+  ...RECEIVED,
+  id: 's-0928',
+  peer: 'old-thinkpad',
+  peerOs: 'linux',
+  when: new Date(2026, 8, 28, 10, 5),
+  undoable: false,
+};
+
+const ENTRIES = [RECEIVED, SAVED, UNDONE, EXPIRED];
 
 /** The newest move selected: its steps, the undo point, Undo. */
 export const historyTimeline: HistoryModel = {

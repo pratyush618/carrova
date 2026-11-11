@@ -2,7 +2,6 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '../../support/render';
-import { i18n } from '@/i18n/i18n';
 import { HistoryScreen } from '@/screens/history/HistoryScreen';
 import { historyTimeline, historyUndone } from '@/screens/history/fixtures';
 import type { HistoryEntry } from '@/screens/history/model';
@@ -21,17 +20,17 @@ if (received === undefined) throw new Error('fixture');
 const entry = (patch: Partial<HistoryEntry>): HistoryEntry => ({ ...received, ...patch });
 
 describe('history words', () => {
-  const t = i18n.t.bind(i18n);
+  it('history rows carry no tag for a normal finished move', () => {
+    expect(moveTag(entry({}))).toBeNull();
+    expect(moveTag(entry({ kind: 'sent', undoable: false }))).toBeNull();
+    expect(moveTag(entry({ kind: 'saved', undoable: false }))).toBeNull();
+    expect(moveTag(entry({ state: 'selected' }))).toBeNull();
+  });
 
-  it('tags a move by how it ended: undone, failed, interrupted, then how it finished', () => {
-    expect(moveTag(entry({ kind: 'undone', state: 'rolled_back' }), t)?.label).toBe('Undone');
-    expect(moveTag(entry({ state: 'failed' }), t)?.tone).toBe('danger');
-    expect(moveTag(entry({ state: 'transferring', resumable: true }), t)?.label).toBe(
-      'Interrupted',
-    );
-    expect(moveTag(entry({ state: 'selected' }), t)).toBeNull();
-    expect(moveTag(entry({ kind: 'saved' }), t)?.label).toBe('Saved');
-    expect(moveTag(entry({}), t)).toMatchObject({ tone: 'success', label: 'Arrived' });
+  it('tags only exceptions: undone, interrupted, undo expired', () => {
+    expect(moveTag(entry({ kind: 'undone', state: 'rolled_back' }))).toBe('undone');
+    expect(moveTag(entry({ state: 'transferring', resumable: true }))).toBe('interrupted');
+    expect(moveTag(entry({ undoable: false }))).toBe('undo_expired');
   });
 
   it('groups consecutive moves that share a label, in order', () => {
@@ -81,6 +80,40 @@ describe('History', () => {
     expect(within(current).getByText('Linux')).toBeInTheDocument();
     const detail = screen.getByRole('complementary', { name: 'This move' });
     expect(within(detail).getByText('Undo available until Nov 22')).toBeInTheDocument();
+  });
+
+  it('history detail shows undo deadline once', () => {
+    const selected = historyTimeline.selected;
+    if (selected === null) throw new Error('fixture');
+    const model = {
+      ...historyTimeline,
+      selected: { ...selected, undoUntil: new Date(2026, 10, 22, 12, 0) },
+    };
+    renderScreen(<HistoryScreen model={model} on={historyOn()} />);
+    expect(screen.getAllByText(/Undo available until/)).toHaveLength(1);
+  });
+
+  it('rows show exceptions as words and nothing for a normal move', () => {
+    renderScreen(<HistoryScreen model={historyTimeline} on={historyOn()} />);
+    expect(screen.queryByText('Arrived')).not.toBeInTheDocument();
+    expect(screen.getByText('Undone')).toBeInTheDocument();
+    expect(screen.getByText('Undo expired')).toBeInTheDocument();
+  });
+
+  it('narrows the list from the header: search by name, then All, Sent, Received, Files', async () => {
+    const user = userEvent.setup();
+    renderScreen(<HistoryScreen model={historyTimeline} on={historyOn()} />);
+    await user.type(screen.getByRole('searchbox', { name: 'Search moves' }), 'lab');
+    expect(screen.getAllByRole('button', { name: /Undid a move from lab-desktop/ })).toHaveLength(
+      1,
+    );
+    expect(screen.queryByRole('button', { name: /Saved to a file/ })).not.toBeInTheDocument();
+    await user.clear(screen.getByRole('searchbox', { name: 'Search moves' }));
+    await user.click(screen.getByRole('radio', { name: 'Files' }));
+    expect(screen.getByRole('button', { name: /Saved to a file/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Received from/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'Sent' }));
+    expect(screen.getByText('No moves match this filter')).toBeInTheDocument();
   });
 
   it('shows an undone move rewound, newest step first, with nothing left to undo', () => {

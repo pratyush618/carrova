@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useFormat } from '../../i18n/useFormat';
 import {
   AppGlyph,
-  Badge,
   Button,
   GroupHead,
   Head,
@@ -15,6 +14,7 @@ import {
   Row,
 } from '../../ui';
 import type { HistoryEntry } from '../history/model';
+import { MoveTagBadge } from '../history/MoveTagBadge';
 import { KIND_ICON, moveSub, moveTag, moveTitle } from '../history/moveWords';
 import type { HomeIntents, HomeModel } from './model';
 import { FileManagerBanner } from './FileManagerBanner';
@@ -67,24 +67,15 @@ function RecentRow({
   const { t } = useTranslation();
   const format = useFormat();
   const title = moveTitle(entry, t);
-  const tag = moveTag(entry, t);
+  const tag = moveTag(entry);
   return (
     <Row
-      lead={
-        <AppGlyph
-          glyph={{ icon: KIND_ICON[entry.kind] }}
-          tone={tag?.tone === 'success' ? 'success' : 'neutral'}
-        />
-      }
+      lead={<AppGlyph glyph={{ icon: KIND_ICON[entry.kind] }} />}
       title={title}
       sub={moveSub(entry, now, t, format)}
       trail={
         <>
-          {tag && (
-            <Badge tone={tag.tone} {...(tag.icon && { icon: tag.icon })}>
-              {tag.label}
-            </Badge>
-          )}
+          {tag && <MoveTagBadge tag={tag} />}
           {entry.undoable && (
             <Button
               kind="quiet"
