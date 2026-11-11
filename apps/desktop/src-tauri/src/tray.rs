@@ -1,5 +1,5 @@
 //! The main window in background mode, and the tray icon that stands in
-//! for it while it is closed. What to do comes from [`ops::background`];
+//! for it while it is closed. What to do comes from [`crate::ops::background`];
 //! this only applies it to the window and the tray.
 //!
 //! Closing the window to the tray destroys it (its webview's memory goes
