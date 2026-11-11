@@ -4,6 +4,10 @@ Project renamed Porter → Carrova (2026-11-10); older notes use the old name.
 
 Active phase: **Phase 5 — Cross-platform + plugins** (started 2026-11-10). Phase 3 hardware gate and Phase 4 v0.1 gate still pending (user runs them in parallel, 2026-11-10). Phase 4 and earlier archived below.
 
+## Manual mode + "Send with Carrova" (in progress on `feat/manual-mode`, 2026-11-11)
+
+Spec `docs/superpowers/specs/2026-11-11-manual-mode-design.md`, plan + task checklist (T0–T9) `docs/superpowers/plans/2026-11-11-manual-mode.md`. Next release = Linux only; macOS/Windows release jobs stay off.
+
 ## Phase 5 decisions
 
 **User (2026-11-10):** start Phase 5 now, implement in parallel; user owns hardware gates. Hardware: M1 Air (macOS, aarch64) only — no Windows box, so Windows is verified by cross-`cargo check` locally + `windows-latest` CI.

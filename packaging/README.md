@@ -69,6 +69,39 @@ C build dependencies (`carrova-platform`, `-recipe`, `-crypto`, `-plugin`,
 that pulls in `ring` or `blake3` needs the target's C toolchain and is covered
 only by the macOS/Windows jobs in `engine.yml` (`just ci-portable`).
 
+## File-manager entries ("Send with Carrova")
+
+The right-click entries are **per user** and written by the app itself (or
+`carrova integrate file-manager on`), only after the user says yes on the
+Home card or in Settings. Package scripts never write or remove them, so the
+same code covers `.deb`, `.rpm`, AppImage and tarballs. Each entry launches
+the recorded binary (`$APPIMAGE` for the AppImage) with `--send <paths>`;
+the app refreshes the path on start if it moved.
+
+| OS / file manager | What is written |
+|---|---|
+| Nautilus | `~/.local/share/nautilus-python/extensions/carrova_send.py` (top-level item, needs `nautilus-python`) and `~/.local/share/nautilus/scripts/Send with Carrova` (Scripts submenu, always works) |
+| Nemo | `~/.local/share/nemo/actions/carrova-send.nemo_action` |
+| Dolphin | `~/.local/share/kio/servicemenus/carrova-send.desktop` |
+| Caja (needs `caja-actions`), PCManFM-Qt | `~/.local/share/file-manager/actions/carrova-send.desktop` |
+| Thunar | one action (id `carrova-send-with`) added to `~/.config/Thunar/uca.xml`; the user's other actions are kept as they are, and a malformed or linked file is left untouched |
+| Any other | nothing: the "Open With" entry was removed, since a per-user `MimeType=inode/directory` entry can become the default folder opener where no `mimeapps.list` default exists |
+| Windows Explorer | `HKCU\Software\Classes\*\shell\Carrova` and `HKCU\Software\Classes\Directory\shell\Carrova` (no admin; one launch per selected item, the running app collects them) |
+| macOS Finder | `~/Library/Services/Send with Carrova.workflow` (Quick Action opening the exact `.app` it was installed from) |
+
+Paths shown are the defaults; Linux uses `$XDG_DATA_HOME` / `$XDG_CONFIG_HOME`
+when set. `bundle.linux.deb.recommends` (`python3-nautilus`) and
+`bundle.linux.rpm.recommends` (`nautilus-python`) in `tauri.conf.json` pull in
+the Nautilus binding by default; without it Nautilus users get the Scripts
+entry. `packaging/linux/carrova.desktop` has no `MimeType` on purpose: Open
+With must stay opt-in.
+
+Uninstalling the package leaves these entries behind, but they are harmless:
+each one checks the binary still exists and otherwise does nothing.
+`carrova integrate file-manager off` (or the Settings toggle) removes exactly
+what Carrova wrote. Flatpak support for the entries is deferred with
+Flathub (the sandbox can't write these folders).
+
 ## Keys
 
 Two independent key systems; neither private key is ever committed.

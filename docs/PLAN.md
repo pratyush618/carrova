@@ -3,7 +3,7 @@
 Source of truth for *what* Carrova is: `Porter — High-Level Design.pdf` (project root, Nov 8 2026; Porter was the working name).
 This document covers *how and in what order* it gets built.
 
-**Status:** Phase 1 complete (exit gate passed 2026-11-08) · Phase 2 complete (exit gate passed 2026-11-08) · Phase 3 complete (exit gate passed 2026-11-11) · Phase 4 implementation complete, v0.1 exit gate pending · Phase 5 implementation complete except notarization and Flathub, exit gate pending · **Updated:** 2026-11-11
+**Status:** Phase 1 complete (exit gate passed 2026-11-08) · Phase 2 complete (exit gate passed 2026-11-08) · Phase 3 complete (exit gate passed 2026-11-11) · Phase 4 implementation complete, v0.1 exit gate pending · Phase 5 implementation complete except notarization and Flathub, exit gate pending · Manual mode + "Send with Carrova" in progress (`feat/manual-mode`) · **Updated:** 2026-11-11
 
 ## Ground rules
 
@@ -161,6 +161,14 @@ This document covers *how and in what order* it gets built.
 - [ ] CI build matrix: Ubuntu, Windows, macOS runners; Flathub listing (matrix done; Flathub deferred)
 
 **Exit gate:** Windows beta stable; macOS notarized builds; at least one cross-OS restore path (e.g. VS Code settings Linux → Windows) verified end to end.
+
+---
+
+## Feature — Manual mode and "Send with Carrova" (in progress, `feat/manual-mode`)
+
+**Goal:** the user picks exact files and folders (system picker, file-manager right-click, or `carrova send|export PATH...`); picks go through the same sensitive confirm, dry-run, staged apply and undo as Auto, and arrive unticked on the receiver with one "Accept all" for safe ones. Right-click entries on Linux, Windows and macOS are per-user and written only after the user agrees. Next release ships it for Linux; macOS/Windows release jobs stay off until signing is ready.
+
+Spec: `docs/superpowers/specs/2026-11-11-manual-mode-design.md` · Plan: `docs/superpowers/plans/2026-11-11-manual-mode.md`
 
 ---
 
