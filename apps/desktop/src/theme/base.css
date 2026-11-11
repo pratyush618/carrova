@@ -55,6 +55,8 @@ select {
 }
 
 button {
+  /* No UA buttonface: axe and the eye must see the surface behind the row. */
+  background: transparent;
   cursor: pointer;
 }
 
