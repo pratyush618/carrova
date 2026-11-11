@@ -379,6 +379,8 @@ fn thunar_malformed_file_is_skipped_not_overwritten() {
         // the next `</action>` would take the user's action with it.
         "<actions>\n<action><unique-id>carrova-send-with</unique-id>\n\
          <action><name>Mine</name></action>\n</actions>\n",
+        // A comment that never ends hides where the structure resumes.
+        "<actions>\n<!-- <action>\n</actions>\n",
     ] {
         let f = Fixture::new();
         fs::create_dir_all(f.uca().parent().unwrap()).unwrap();
@@ -447,6 +449,42 @@ fn thunar_missing_file_is_created() {
             .count(),
         1
     );
+}
+
+/// A user action whose comment mentions our id: only a live element is ours.
+const COMMENTED_UCA: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<actions>
+<action>
+\t<name>Mine</name>
+\t<!-- copied from <unique-id>carrova-send-with</unique-id> </action> -->
+\t<unique-id>1700000000000000-2</unique-id>
+</action>
+<!-- <actions><action><unique-id>carrova-send-with</unique-id></action></actions> -->
+</actions>
+";
+
+#[test]
+fn thunar_commented_id_is_not_ours_on_install_or_remove() {
+    let f = Fixture::new();
+    fs::create_dir_all(f.uca().parent().unwrap()).unwrap();
+    fs::write(f.uca(), COMMENTED_UCA).unwrap();
+    assert!(!f.platform.file_manager_status().unwrap().installed);
+
+    f.platform.remove_file_manager_entries().unwrap();
+    assert_eq!(f.read(&f.uca()), COMMENTED_UCA);
+
+    let status = f
+        .platform
+        .install_file_manager_entries(Path::new("/opt/carrova"))
+        .unwrap();
+    assert!(status.skipped.is_empty());
+    let merged = f.read(&f.uca());
+    let user_part = COMMENTED_UCA.strip_suffix("</actions>\n").unwrap();
+    assert!(merged.starts_with(user_part));
+    assert!(merged.ends_with("</action>\n</actions>\n"));
+
+    f.platform.remove_file_manager_entries().unwrap();
+    assert_eq!(f.read(&f.uca()), COMMENTED_UCA);
 }
 
 #[test]
