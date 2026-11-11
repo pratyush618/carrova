@@ -8,7 +8,7 @@ Open-source desktop app that moves app data (configs, keys, user data) between c
 
 ## Status
 
-Phase 1 (Foundation) and Phase 2 (Archive migration) complete. Phase 3 (LAN transfer) complete (`carrova send|receive`, resume, `just e2e --lan`; hardware exit gate passed 2026-11-11). Phase 4 (Desktop app + recipe ecosystem) implemented: Tauri 2 app over a typed IPC contract, signed recipe bundle (Ed25519, delta updates, `carrova recipes update|status|rollback|reset`), 15 recipes, opt-in error reports, AppImage/.deb + updater, local git + CI workflows; v0.1 exit gate pending (user: clean-Ubuntu install, wizard migration, bundle update) after replacing release placeholders (`just release-preflight`). Phase 5 (cross-OS + WASM plugins) implemented; exit gate pending (user: Windows beta, macOS notarized build, cross-OS restores).
+Phase 1 (Foundation) and Phase 2 (Archive migration) complete. Phase 3 (LAN transfer) complete (`carrova send|receive`, resume, `just e2e --lan`; hardware exit gate passed 2026-11-11). Phase 4 (Desktop app + recipe ecosystem) implemented: Tauri 2 app over a typed IPC contract, signed recipe bundle (Ed25519, delta updates, `carrova recipes update|status|rollback|reset`), 15 recipes, opt-in error reports, AppImage/.deb + updater, local git + CI workflows; v0.1 exit gate pending (user: clean-Ubuntu install, wizard migration, bundle update) after replacing release placeholders (`just release-preflight`). Phase 5 (cross-OS + WASM plugins) implemented except macOS notarization (needs Apple account) and Flathub (deferred); exit gate pending (user: Windows beta, macOS notarized build, cross-OS restores).
 
 ## Hard constraints
 

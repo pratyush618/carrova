@@ -3,7 +3,7 @@
 Source of truth for *what* Carrova is: `Porter — High-Level Design.pdf` (project root, Nov 8 2026; Porter was the working name).
 This document covers *how and in what order* it gets built.
 
-**Status:** Phase 1 complete (exit gate passed 2026-11-08) · Phase 2 complete (exit gate passed 2026-11-08) · Phase 3 complete (exit gate passed 2026-11-11) · Phase 4 implementation complete, v0.1 exit gate pending · Phase 5 in progress (cross-OS + plugins engine done; desktop rebuilt to the v2 design) · **Updated:** 2026-11-11
+**Status:** Phase 1 complete (exit gate passed 2026-11-08) · Phase 2 complete (exit gate passed 2026-11-08) · Phase 3 complete (exit gate passed 2026-11-11) · Phase 4 implementation complete, v0.1 exit gate pending · Phase 5 implementation complete except notarization and Flathub, exit gate pending · **Updated:** 2026-11-11
 
 ## Ground rules
 
@@ -154,11 +154,11 @@ This document covers *how and in what order* it gets built.
 **Goal:** beyond Ubuntu, and beyond declarative recipes.
 
 **Deliverables**
-- [ ] Windows adapter for `carrova-platform`; Windows paths in recipes; consumer recipes
-- [ ] macOS adapter; notarized builds
-- [ ] `carrova-plugin`: WASM runtime with declared permission manifest shown to the user; core-maintainer review; signed plugins
-- [ ] Cross-OS restore driven by the portability flag and per-item semantic mapping
-- [ ] CI build matrix: Ubuntu, Windows, macOS runners; Flathub listing
+- [x] Windows adapter for `carrova-platform`; Windows paths in recipes; consumer recipes
+- [ ] macOS adapter; notarized builds (adapter done; notarization CI wired, needs the Apple account)
+- [x] `carrova-plugin`: WASM runtime with declared permission manifest shown to the user; core-maintainer review; signed plugins
+- [x] Cross-OS restore driven by the portability flag and per-item semantic mapping
+- [ ] CI build matrix: Ubuntu, Windows, macOS runners; Flathub listing (matrix done; Flathub deferred)
 
 **Exit gate:** Windows beta stable; macOS notarized builds; at least one cross-OS restore path (e.g. VS Code settings Linux → Windows) verified end to end.
 
