@@ -1,0 +1,8 @@
+[Nemo Action]
+Name=Send with Carrova
+Comment=Send the selected items to another computer
+Exec={{exec}} --send %F
+Icon-Name=carrova-desktop
+Selection=notnone
+Extensions=any;
+Dependencies={{path_list}}

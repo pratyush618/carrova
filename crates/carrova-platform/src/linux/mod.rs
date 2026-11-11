@@ -5,17 +5,19 @@
 //! tempdir instead of the real machine.
 //!
 //! Semantic roots and the state dir are resolved in `roots`, mountinfo
-//! parsing and snapshot detection live in `mounts`.
+//! parsing and snapshot detection live in `mounts`, file-manager entries in
+//! `file_manager`.
 
 use std::ffi::OsString;
 use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::{
-    DirEntry, DiskInfo, FileMeta, OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot,
-    SnapshotCapability,
+    DirEntry, DiskInfo, FileManagerStatus, FileMeta, OsKind, Platform, PlatformError, ProcessInfo,
+    SemanticRoot, SnapshotCapability,
 };
 
+mod file_manager;
 mod mounts;
 mod roots;
 #[cfg(test)]
@@ -31,6 +33,8 @@ pub(crate) struct LinuxEnv {
     pub(crate) xdg_cache_home: Option<OsString>,
     pub(crate) xdg_state_home: Option<OsString>,
     pub(crate) path: Option<OsString>,
+    /// Set by the AppImage runtime to the image file.
+    pub(crate) appimage: Option<OsString>,
 }
 
 impl LinuxEnv {
@@ -42,6 +46,7 @@ impl LinuxEnv {
             xdg_cache_home: std::env::var_os("XDG_CACHE_HOME"),
             xdg_state_home: std::env::var_os("XDG_STATE_HOME"),
             path: std::env::var_os("PATH"),
+            appimage: std::env::var_os("APPIMAGE"),
         }
     }
 }
@@ -276,5 +281,25 @@ impl Platform for LinuxPlatform {
             &self.home()?,
             self.env.path.as_deref(),
         ))
+    }
+
+    /// `$APPIMAGE` when running from an AppImage, else this executable.
+    fn launcher(&self) -> Result<PathBuf, PlatformError> {
+        self.launcher_path()
+    }
+
+    fn file_manager_status(&self) -> Result<FileManagerStatus, PlatformError> {
+        self.entries_status()
+    }
+
+    fn install_file_manager_entries(
+        &self,
+        launcher: &Path,
+    ) -> Result<FileManagerStatus, PlatformError> {
+        self.install_entries(launcher)
+    }
+
+    fn remove_file_manager_entries(&self) -> Result<FileManagerStatus, PlatformError> {
+        self.remove_entries()
     }
 }

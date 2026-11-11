@@ -102,6 +102,7 @@ fn xdg_overrides() {
         xdg_cache_home: Some("/cache".into()),
         xdg_state_home: None,
         path: None,
+        appimage: None,
     });
     assert_eq!(root(&p, SemanticRoot::UserConfig), PathBuf::from("/cfg"));
     assert_eq!(root(&p, SemanticRoot::UserData), PathBuf::from("/data"));
@@ -117,6 +118,7 @@ fn relative_or_empty_xdg_ignored() {
         xdg_cache_home: Some("./c".into()),
         xdg_state_home: None,
         path: None,
+        appimage: None,
     });
     assert_eq!(
         root(&p, SemanticRoot::UserConfig),
@@ -226,6 +228,7 @@ fn filesystem_root_is_never_a_semantic_root() {
             xdg_cache_home: Some(v.into()),
             xdg_state_home: None,
             path: None,
+            appimage: None,
         });
         for r in [
             SemanticRoot::UserConfig,
