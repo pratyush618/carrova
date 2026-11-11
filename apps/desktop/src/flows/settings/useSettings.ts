@@ -74,22 +74,6 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
   );
 
   const reload = loaded.run;
-  // The backend changes settings too (the tray's pause) while a hidden window
-  // keeps its copy: take the stored ones whenever the window returns.
-  useEffect(() => {
-    const refresh = () => {
-      if (document.visibilityState !== 'visible') return;
-      void reload().then((stored) => {
-        if (stored !== null) setEdited(null);
-      });
-    };
-    document.addEventListener('visibilitychange', refresh);
-    window.addEventListener('focus', refresh);
-    return () => {
-      document.removeEventListener('visibilitychange', refresh);
-      window.removeEventListener('focus', refresh);
-    };
-  }, [reload]);
   const setBackground = useCallback(
     (patch: Partial<BackgroundSettings>) => {
       if (settings === null) return;
