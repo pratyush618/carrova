@@ -9,10 +9,11 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::{
-    DirEntry, DiskInfo, FileMeta, OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot,
-    SnapshotCapability,
+    DirEntry, DiskInfo, FileManagerStatus, FileMeta, OsKind, Platform, PlatformError, ProcessInfo,
+    SemanticRoot, SnapshotCapability,
 };
 
+mod file_manager;
 mod roots;
 #[cfg(test)]
 #[path = "../../tests/macos/unit.rs"]
@@ -250,5 +251,22 @@ impl Platform for MacPlatform {
             &self.home()?,
             self.env.path.as_deref(),
         ))
+    }
+
+    fn file_manager_status(&self) -> Result<FileManagerStatus, PlatformError> {
+        self.quick_action_status()
+    }
+
+    /// The Quick Action opens the `.app` bundle holding `launcher`;
+    /// [`PlatformError::Unsupported`] when there is none (a dev build).
+    fn install_file_manager_entries(
+        &self,
+        launcher: &Path,
+    ) -> Result<FileManagerStatus, PlatformError> {
+        self.install_quick_action(launcher)
+    }
+
+    fn remove_file_manager_entries(&self) -> Result<FileManagerStatus, PlatformError> {
+        self.remove_quick_action()
     }
 }
