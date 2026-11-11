@@ -75,3 +75,11 @@ fn matching_ignores_case() {
     assert!(secret_in("tls/SERVER.PEM").is_some());
     assert!(secret_in(".Config/GH/Hosts.yml").is_some());
 }
+
+#[test]
+fn env_file_variants_are_secret() {
+    for rel in ["app/.env.production", "app/.env.local", "app/.ENV.Local"] {
+        assert_eq!(secret_in(rel), Some("environment secrets"), "{rel}");
+    }
+    assert!(secret_in("app/env.local").is_none());
+}

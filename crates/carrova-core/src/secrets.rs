@@ -9,6 +9,8 @@
 pub enum SecretRule {
     /// The component is exactly this name.
     Name(&'static str),
+    /// The component starts with this prefix.
+    Prefix(&'static str),
     /// The component ends with this suffix.
     Suffix(&'static str),
     /// The component starts with this prefix and is not a public key
@@ -29,6 +31,7 @@ impl SecretRule {
         };
         match self {
             Self::Name(n) => name == n,
+            Self::Prefix(p) => name.starts_with(p),
             Self::Suffix(s) => name.ends_with(s),
             Self::PrivateKeyPrefix(p) => name.starts_with(p) && !name.ends_with(".pub"),
             Self::Components(c) => {
@@ -55,6 +58,7 @@ pub const SECRET_NAMES: &[(SecretRule, &str)] = &[
     (SecretRule::Suffix(".pem"), "a key or certificate"),
     (SecretRule::Suffix(".key"), "a private key"),
     (SecretRule::Name(".env"), "environment secrets"),
+    (SecretRule::Prefix(".env."), "environment secrets"),
     (SecretRule::Name(".netrc"), "saved passwords"),
     (SecretRule::Name(".pgpass"), "saved database passwords"),
     (SecretRule::Name(".git-credentials"), "saved git passwords"),

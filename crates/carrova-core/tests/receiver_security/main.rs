@@ -721,6 +721,20 @@ fn raw_item_matching_secret_table_is_not_safe() {
 }
 
 #[test]
+fn raw_item_holding_an_env_variant_is_not_safe() {
+    let e = env();
+    let m = manifest(vec![item(
+        None,
+        "raw:home/proj",
+        vec![file(&e, SemanticRoot::Home, "proj/.env.production", 0o600)],
+    )]);
+    let p = run(&e, &m, &PlanOptions::default());
+    let why = reason(&p, "raw:home/proj");
+    assert!(why.contains("environment secrets"), "{why}");
+    assert!(safe(&p).is_empty());
+}
+
+#[test]
 fn raw_item_in_dangerous_path_is_not_safe() {
     let e = env();
     let m = manifest(vec![item(
