@@ -1,3 +1,4 @@
+import type { SettingsSection } from '../../screens/settings/sections';
 import { flowStart, position, stepIndex, type FlowId, type FlowPosition } from './flows';
 
 /** Places reachable from the hub's top bar. */
@@ -5,7 +6,8 @@ export type HubPage = 'home' | 'history' | 'apps' | 'settings';
 
 /** What fills the window. */
 export type View =
-  | { readonly kind: 'hub'; readonly page: HubPage }
+  /** `section`: the open part of Settings (only on the settings page). */
+  | { readonly kind: 'hub'; readonly page: HubPage; readonly section?: SettingsSection }
   | { readonly kind: 'flow'; readonly at: FlowPosition };
 
 /** Why an override dialog is open: each names one rule the user may bend. */
@@ -42,7 +44,7 @@ export interface Nav {
 
 /** Every way navigation can change. Screens raise intents; the shell maps them to these. */
 export type NavEvent =
-  | { readonly type: 'openHub'; readonly page: HubPage }
+  | { readonly type: 'openHub'; readonly page: HubPage; readonly section?: SettingsSection }
   | { readonly type: 'startFlow'; readonly flow: FlowId }
   | { readonly type: 'enterFlow'; readonly at: FlowPosition }
   | { readonly type: 'next' }
@@ -69,7 +71,14 @@ function step(nav: Nav, delta: 1 | -1): Nav {
 export function navigate(nav: Nav, event: NavEvent): Nav {
   switch (event.type) {
     case 'openHub':
-      return { view: { kind: 'hub', page: event.page }, origin: event.page, overlays: [] };
+      // Settings is a detour: leaving it (back) lands on the page it was opened from.
+      return event.page === 'settings'
+        ? {
+            view: { kind: 'hub', page: 'settings', section: event.section ?? 'general' },
+            origin: nav.origin,
+            overlays: [],
+          }
+        : { view: { kind: 'hub', page: event.page }, origin: event.page, overlays: [] };
     case 'startFlow':
       return show(nav, { kind: 'flow', at: flowStart(event.flow) });
     case 'enterFlow':
@@ -77,7 +86,7 @@ export function navigate(nav: Nav, event: NavEvent): Nav {
     case 'next':
       return step(nav, 1);
     case 'back':
-      return step(nav, -1);
+      return nav.view.kind === 'hub' && nav.view.page === 'settings' ? leave(nav) : step(nav, -1);
     case 'closeFlow':
       return nav.view.kind === 'flow' ? leave(nav) : nav;
     case 'openOverlay':

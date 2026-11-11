@@ -18,3 +18,14 @@
   display: block;
   margin-block-start: 2px;
 }
+
+/* The sections list sits under the search, same rhythm as the main navigation. */
+.s-settings-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.s-settings-side .p-search {
+  margin-block: var(--sp-1);
+}

@@ -41,9 +41,11 @@ export interface RowContent {
   readonly trail?: ReactNode;
   /** Dimmed: shown but not moving. */
   readonly off?: boolean;
+  /** Depends on the row above: indented, and dimmed with it. */
+  readonly nested?: boolean;
 }
 
-function RowBody({ lead, title, sub, trail }: RowContent) {
+function RowBody({ lead, title, sub, trail }: Omit<RowContent, 'off' | 'nested'>) {
   return (
     <>
       <span className="p-row__lead">{lead}</span>
@@ -57,9 +59,9 @@ function RowBody({ lead, title, sub, trail }: RowContent) {
 }
 
 /** One list row: lead | title + sub | trail. Must sit inside a {@link List}. */
-export function Row({ off = false, ...content }: RowContent) {
+export function Row({ off = false, nested = false, ...content }: RowContent) {
   return (
-    <li className={cx('p-row', off && 'p-row--off')}>
+    <li className={cx('p-row', off && 'p-row--off', nested && 'p-row--nested')}>
       <RowBody {...content} />
     </li>
   );

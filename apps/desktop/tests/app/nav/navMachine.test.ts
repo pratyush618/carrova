@@ -91,4 +91,13 @@ describe('navigate', () => {
       overlays: [],
     });
   });
+
+  it('opens Settings on a section and back returns to the page it was opened from', () => {
+    const history = navigate(atHome, { type: 'openHub', page: 'history' });
+    const settings = navigate(history, { type: 'openHub', page: 'settings' });
+    expect(settings.view).toEqual({ kind: 'hub', page: 'settings', section: 'general' });
+    const moves = navigate(settings, { type: 'openHub', page: 'settings', section: 'moves' });
+    expect(moves.view).toEqual({ kind: 'hub', page: 'settings', section: 'moves' });
+    expect(navigate(moves, { type: 'back' }).view).toEqual({ kind: 'hub', page: 'history' });
+  });
 });

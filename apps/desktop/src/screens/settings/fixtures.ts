@@ -3,6 +3,17 @@ import type { AboutModel, CrashModel, SettingsModel, UpdateModel } from './model
 
 export const settingsModel: SettingsModel = {
   now: NOW,
+  background: { keep_running: true, start_at_login: false, lean: true },
+  alerts: {
+    system: true,
+    wake_screen: true,
+    names_on_lock_screen: false,
+    paused_until: null,
+    requests: 'popup_and_bell',
+    moves: 'popup_and_bell',
+    nearby: 'bell_only',
+    updates: 'bell_only',
+  },
   appearance: 'system',
   motion: 'system',
   autoCheckRecipes: true,

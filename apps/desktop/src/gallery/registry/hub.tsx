@@ -10,6 +10,7 @@ import type { CatalogModel } from '../../screens/apps/model';
 import { HistoryScreen } from '../../screens/history/HistoryScreen';
 import { historyEmpty, historyTimeline, historyUndone } from '../../screens/history/fixtures';
 import { AboutSheet, CrashDialog, UpdateDialog } from '../../screens/settings/SettingsDialogs';
+import { SECTIONS } from '../../screens/settings/sections';
 import { SettingsScreen } from '../../screens/settings/SettingsScreen';
 import {
   about,
@@ -21,6 +22,7 @@ import {
 } from '../../screens/settings/fixtures';
 import { UndoConfirmDialog } from '../../screens/undo/UndoConfirmDialog';
 import { undoPreview } from '../../screens/undo/fixtures';
+import { en } from '../../i18n/en';
 import { noops } from '../noops';
 import { homeBase } from './start';
 import { states, type GalleryScreen } from '../types';
@@ -49,12 +51,17 @@ const settingsOn = noops(
   'onMoveDefaults',
   'onStartInManual',
   'onFileManager',
+  'onBackground',
+  'onAlerts',
+  'onPause',
+  'onSection',
+  'onBack',
 );
 const SETTINGS = {
   notes: settingsFileManagerNotes,
   unsupported: settingsNoFileManager,
 } as const;
-const settingsBase = <SettingsScreen model={settingsModel} on={settingsOn} />;
+const settingsBase = <SettingsScreen section="general" model={settingsModel} on={settingsOn} />;
 
 export const hubScreens: readonly GalleryScreen[] = [
   {
@@ -103,19 +110,20 @@ export const hubScreens: readonly GalleryScreen[] = [
     group: 'Settings',
     title: 'Settings',
     view: { kind: 'hub', page: 'settings' },
-    states: states(
-      ['default', 'Default'],
-      ['notes', 'File manager: one skipped, change failed'],
-      ['unsupported', 'No file-manager entries on this system'],
-    ),
-    render: (s) => ({
-      base:
-        s === 'notes' || s === 'unsupported' ? (
-          <SettingsScreen model={SETTINGS[s]} on={settingsOn} />
-        ) : (
-          settingsBase
-        ),
-    }),
+    states: [
+      ...SECTIONS.map(({ id }) => ({ id, label: en.settings.sections[id] })),
+      ...states(
+        ['notes', 'Sending: one file manager skipped, change failed'],
+        ['unsupported', 'Sending: no file-manager entries on this system'],
+      ),
+    ],
+    render: (s) => {
+      const fixture = s === 'notes' || s === 'unsupported' ? SETTINGS[s] : settingsModel;
+      const section =
+        SECTIONS.find(({ id }) => id === s)?.id ??
+        (fixture === settingsModel ? 'general' : 'sending');
+      return { base: <SettingsScreen section={section} model={fixture} on={settingsOn} /> };
+    },
   },
   {
     id: 'update',

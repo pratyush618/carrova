@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { catalogModel, type CatalogUi } from '../../../flows/catalog/catalogViews';
 import { historyEntry, homeModel, sessionModel } from '../../../flows/history/historyViews';
+import { pausedUntil } from '../../../flows/settings/settingsViews';
 import { useUndoPreview } from '../../../flows/undo/useUndoPreview';
 import { current, type Remote } from '../../../flows/remote';
 import { AppsScreen } from '../../../screens/apps/AppsScreen';
 import { HistoryScreen } from '../../../screens/history/HistoryScreen';
+import type { SettingsSection } from '../../../screens/settings/sections';
 import { SettingsScreen } from '../../../screens/settings/SettingsScreen';
 import { HomeScreen } from '../../../screens/start/HomeScreen';
 import { HubLayout } from '../../../ui';
@@ -122,14 +124,33 @@ export function AppsRoute() {
   );
 }
 
-export function SettingsRoute() {
+export function SettingsRoute({ section }: { readonly section: SettingsSection }) {
   const { settings, update, report } = useControllers();
   const nav = useNav();
-  if (settings.model === null) return <HubLayout>{null}</HubLayout>;
+  const { model } = settings;
+  if (model === null) return <HubLayout>{null}</HubLayout>;
   return (
     <SettingsScreen
-      model={settings.model}
+      section={section}
+      model={model}
       on={{
+        onSection: (next) => {
+          nav.go({ type: 'openHub', page: 'settings', section: next });
+        },
+        onBack: () => {
+          nav.go({ type: 'back' });
+        },
+        onBackground: (patch) => {
+          settings.save({ background: { ...model.background, ...patch } });
+        },
+        onAlerts: (patch) => {
+          settings.save({ alerts: { ...model.alerts, ...patch } });
+        },
+        onPause: (choice) => {
+          settings.save({
+            alerts: { ...model.alerts, paused_until: pausedUntil(choice, new Date()) },
+          });
+        },
         onAppearance: (value) => {
           settings.save({ theme: value === 'system' ? null : value });
         },

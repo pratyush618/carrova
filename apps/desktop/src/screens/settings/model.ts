@@ -1,7 +1,13 @@
+import type { AlertSettings } from '../../bindings/AlertSettings';
+import type { BackgroundSettings } from '../../bindings/BackgroundSettings';
 import type { BridgeError, MoveDefaults, OsKind } from '../../engine/types';
+import type { SettingsSection } from './sections';
 
 export type Appearance = 'system' | 'light' | 'dark';
 export type MotionChoice = 'system' | 'reduce';
+
+/** How long "Pause all alerts" holds pop-ups back. */
+export type PauseChoice = 'off' | 'hour' | 'tomorrow';
 
 /** Where the recipes in use came from. */
 export type RecipeSource =
@@ -26,6 +32,8 @@ export interface ReportLine {
 /** Settings the bridge persists, plus recipes, updates and error reports. */
 export interface SettingsModel {
   readonly now: Date;
+  readonly background: BackgroundSettings;
+  readonly alerts: AlertSettings;
   readonly appearance: Appearance;
   readonly motion: MotionChoice;
   readonly autoCheckRecipes: boolean;
@@ -74,6 +82,12 @@ export interface SettingsIntents {
   readonly onStartInManual: (on: boolean) => void;
   /** Write (`true`) or remove the file-manager entries. */
   readonly onFileManager: (on: boolean) => void;
+  readonly onBackground: (patch: Partial<BackgroundSettings>) => void;
+  readonly onAlerts: (patch: Partial<AlertSettings>) => void;
+  readonly onPause: (choice: PauseChoice) => void;
+  readonly onSection: (section: SettingsSection) => void;
+  /** Leave Settings for the page it was opened from. */
+  readonly onBack: () => void;
 }
 
 /** The app update dialog: checking, nothing new, an offer, installing, or done. */

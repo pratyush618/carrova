@@ -83,6 +83,10 @@
   color: var(--text-secondary);
 }
 
+.p-row--nested {
+  padding-inline-start: 34px;
+}
+
 .p-row--off .p-row__title {
   color: var(--text-secondary);
 }

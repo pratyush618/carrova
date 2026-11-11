@@ -26,6 +26,8 @@ export interface HubLayoutProps {
   readonly variant?: 'page' | 'center' | 'flush';
   /** Page controls at the start of the header bar (a filter, a view switch). */
   readonly tools?: ReactNode;
+  /** Replaces the main navigation (Settings lists its sections here). */
+  readonly side?: ReactNode;
   readonly children: ReactNode;
 }
 
@@ -46,36 +48,38 @@ export function HeaderBar({
 }
 
 /** Places: the sidebar (main navigation, bundle state at its foot), then the page. */
-export function HubLayout({ variant = 'page', tools, children }: HubLayoutProps) {
+export function HubLayout({ variant = 'page', tools, side, children }: HubLayoutProps) {
   const { t } = useTranslation();
   const { hubLinks, hubStatus } = useChrome();
   return (
     <div className="p-hub">
-      <nav className="p-side" aria-label={t('nav.label')}>
-        {hubLinks.map((link) => (
-          <button
-            key={link.id}
-            type="button"
-            className="p-side__link"
-            aria-current={link.current ? 'page' : undefined}
-            onClick={link.onSelect}
-          >
-            <Icon name={link.icon} />
-            {link.label}
-            {link.live === true && <span className="p-side__live" aria-hidden="true" />}
-            {link.count !== undefined && <span className="p-side__count">{link.count}</span>}
-          </button>
-        ))}
-        {hubStatus && (
-          <p className={cx('p-side__foot', `p-side__foot--${hubStatus.tone}`)}>
-            <b>
-              <Icon name={hubStatus.tone === 'success' ? 'shield' : 'warn'} size="sm" />
-              {hubStatus.title}
-            </b>
-            {hubStatus.detail}
-          </p>
-        )}
-      </nav>
+      {side ?? (
+        <nav className="p-side" aria-label={t('nav.label')}>
+          {hubLinks.map((link) => (
+            <button
+              key={link.id}
+              type="button"
+              className="p-side__link"
+              aria-current={link.current ? 'page' : undefined}
+              onClick={link.onSelect}
+            >
+              <Icon name={link.icon} />
+              {link.label}
+              {link.live === true && <span className="p-side__live" aria-hidden="true" />}
+              {link.count !== undefined && <span className="p-side__count">{link.count}</span>}
+            </button>
+          ))}
+          {hubStatus && (
+            <p className={cx('p-side__foot', `p-side__foot--${hubStatus.tone}`)}>
+              <b>
+                <Icon name={hubStatus.tone === 'success' ? 'shield' : 'warn'} size="sm" />
+                {hubStatus.title}
+              </b>
+              {hubStatus.detail}
+            </p>
+          )}
+        </nav>
+      )}
       <HeaderBar tools={tools} bell={null} />
       <main
         className={cx('p-page', variant === 'flush' && 'p-page--flush')}

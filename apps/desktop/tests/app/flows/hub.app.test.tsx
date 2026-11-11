@@ -4,6 +4,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { importSession } from '@/ipc/fake/fixtures';
 import { renderApp } from '../../support/app';
 
+async function openSection(user: UserEvent, name: string): Promise<void> {
+  await user.click(
+    within(await screen.findByRole('navigation', { name: 'Settings sections' })).getByRole(
+      'button',
+      { name },
+    ),
+  );
+}
+
 async function openHub(user: UserEvent, page: 'History' | 'Apps' | 'Settings'): Promise<void> {
   await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
   await user.click(screen.getByRole('button', { name: page }));
@@ -82,6 +91,7 @@ describe('apps and settings', () => {
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark' }));
     expect(document.documentElement.dataset['theme']).toBe('dark');
 
+    await openSection(user, 'Updates');
     await user.click(screen.getByRole('button', { name: 'Check now' }));
     expect(await screen.findByText('You have the newest list.')).toBeInTheDocument();
   });
@@ -91,6 +101,7 @@ describe('apps and settings', () => {
     const { port } = await renderApp({ returning: true, scenario: 'recipes-update' });
     const install = vi.spyOn(port, 'recipesUpdate');
     await openHub(user, 'Settings');
+    await openSection(user, 'Updates');
     await user.click(await screen.findByRole('button', { name: 'Check now' }));
     expect(await screen.findByText('List 2 is ready.')).toBeInTheDocument();
     expect(install).not.toHaveBeenCalled();
@@ -104,8 +115,9 @@ describe('apps and settings', () => {
     const { port } = await renderApp({ returning: true });
     const check = vi.spyOn(port, 'checkUpdate');
     await openHub(user, 'Settings');
+    await openSection(user, 'Updates');
     expect(check).not.toHaveBeenCalled();
-    await user.click(await screen.findByRole('button', { name: /^Updates/ }));
+    await user.click(within(screen.getByRole('main')).getByRole('button', { name: /^Updates/ }));
     expect(check).toHaveBeenCalledOnce();
     expect(
       await screen.findByRole('dialog', { name: 'Carrova is up to date' }),
@@ -139,7 +151,7 @@ describe('the one-time file-manager question', () => {
     expect(entries).not.toHaveBeenCalled();
     expect(screen.queryByRole('region', { name: question })).not.toBeInTheDocument();
     await openHub(user, 'Settings');
-    await user.click(screen.getByRole('button', { name: 'Home' }));
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
     await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
     expect(screen.queryByRole('region', { name: question })).not.toBeInTheDocument();
   });
@@ -154,6 +166,7 @@ describe('the one-time file-manager question', () => {
     expect(entries).toHaveBeenCalledWith(true);
     expect(screen.queryByRole('region', { name: question })).not.toBeInTheDocument();
     await openHub(user, 'Settings');
+    await openSection(user, 'Sending');
     expect(
       await screen.findByRole('switch', { name: 'Show “Send with Carrova” in the file manager' }),
     ).toHaveAttribute('aria-checked', 'true');

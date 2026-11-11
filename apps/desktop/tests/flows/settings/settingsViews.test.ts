@@ -4,6 +4,7 @@ import type { FileManagerStatus } from '@/bindings/FileManagerStatus';
 import type { Settings } from '@/bindings/Settings';
 import {
   offerFileManager,
+  pausedUntil,
   recipeCheck,
   settingsModel,
   updateModel,
@@ -63,6 +64,14 @@ describe('settings views', () => {
       status: 'failed',
       error,
     });
+  });
+
+  it('pauses alerts for an hour or until the next local midnight', () => {
+    const now = new Date(2026, 10, 12, 21, 30);
+    const seconds = (d: Date) => d.getTime() / 1000;
+    expect(pausedUntil('off', now)).toBeNull();
+    expect(pausedUntil('hour', now)).toBe(seconds(now) + 3600);
+    expect(pausedUntil('tomorrow', now)).toBe(seconds(new Date(2026, 10, 13)));
   });
 
   it('follows the system theme and motion unless the user chose', () => {
