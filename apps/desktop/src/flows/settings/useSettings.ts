@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FileManagerStatus } from '../../bindings/FileManagerStatus';
 import type {
   About,
@@ -25,8 +25,10 @@ export interface SettingsController {
   readonly about: About | null;
   /** Home asks once about "Send with Carrova" in the file manager. */
   readonly offerFileManager: boolean;
+  /** The last write or removal of the file-manager entries failed. */
+  readonly fileManagerFailed: boolean;
   readonly save: (patch: Partial<Settings>) => void;
-  /** Write (`true`) or remove the file-manager entries; the one-time question counts as answered. */
+  /** Write (`true`) or remove the file-manager entries; once done, the one-time question counts as answered. */
   readonly setFileManager: (on: boolean) => void;
   readonly setConsent: (allowed: boolean) => void;
   readonly checkRecipes: () => void;
@@ -68,14 +70,22 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
     [port, settings],
   );
 
+  // The write answers later: save on top of the settings as they are then.
+  const saveLatest = useRef(save);
+  useEffect(() => {
+    saveLatest.current = save;
+  });
   const runSetEntries = setEntries.run;
   const setFileManager = useCallback(
     (on: boolean) => {
-      save({ file_manager_asked: true });
-      void runSetEntries(on);
+      // A failed write leaves the question open, so Home can offer it again.
+      void runSetEntries(on).then((status) => {
+        if (status !== null) saveLatest.current({ file_manager_asked: true });
+      });
     },
-    [save, runSetEntries],
+    [runSetEntries],
   );
+  const fileManagerFailed = setEntries.state.status === 'failed';
 
   const reloadConsent = consent.run;
   const setConsent = useCallback(
@@ -99,7 +109,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
             {
               settings,
               fileManager,
-              fileManagerFailed: setEntries.state.status === 'failed',
+              fileManagerFailed,
               consent: consentValue,
               reports: current(reports.state) ?? [],
               recipes: current(recipes.state),
@@ -112,7 +122,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
     [
       settings,
       fileManager,
-      setEntries.state.status,
+      fileManagerFailed,
       consentValue,
       reports.state,
       recipes.state,
@@ -138,6 +148,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       recipes: current(recipes.state),
       about: current(about.state),
       offerFileManager: offerFileManager(settings, fileManager),
+      fileManagerFailed,
       save,
       setFileManager,
       setConsent,
@@ -153,6 +164,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       recipes.state,
       about.state,
       fileManager,
+      fileManagerFailed,
       save,
       setFileManager,
       setConsent,

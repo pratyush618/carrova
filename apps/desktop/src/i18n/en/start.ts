@@ -51,6 +51,7 @@ export const start = {
     body: 'Right-click files or folders and choose Send with Carrova: Carrova opens with them picked. Only for you; you can turn it off in Settings.',
     yes: 'Add it',
     no: 'Not now',
+    failed: "Couldn't add it to the file manager. Try again, or restart Carrova.",
   },
   /** A file-manager send that arrived while another move runs. */
   forwarded: { busy: 'Finish or cancel the current move first' },

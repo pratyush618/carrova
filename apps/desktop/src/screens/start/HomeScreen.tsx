@@ -193,7 +193,9 @@ export function HomeScreen({ model, on }: HomeScreenProps) {
             </p>
           )}
           {model.askReports && <ReportsBanner onAnswer={on.onErrorReports} />}
-          {model.askFileManager && <FileManagerBanner onAnswer={on.onFileManager} />}
+          {model.askFileManager && (
+            <FileManagerBanner failed={model.fileManagerFailed} onAnswer={on.onFileManager} />
+          )}
         </div>
       )}
     </HubLayout>

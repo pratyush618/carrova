@@ -7,6 +7,7 @@ export const homeReturning: HomeModel = {
   recent: historyTimeline.entries.slice(0, 2),
   askReports: false,
   askFileManager: false,
+  fileManagerFailed: false,
 };
 
 /** Reports answered; "Send with Carrova" never offered yet. */
@@ -18,4 +19,5 @@ export const homeFirst: HomeModel = {
   recent: [],
   askReports: true,
   askFileManager: false,
+  fileManagerFailed: false,
 };

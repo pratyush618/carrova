@@ -5,9 +5,16 @@ import { Button, Icon, LinkButton } from '../../ui';
 /**
  * The one-time "Send with Carrova" question, the same one line as the
  * error-report question: nothing is written until the user says yes, either
- * answer dismisses it, and Settings keeps the switch.
+ * answer that went through dismisses it, and Settings keeps the switch.
+ * `failed`: adding the entry failed; the question stays so "Add it" can retry.
  */
-export function FileManagerBanner({ onAnswer }: { readonly onAnswer: (yes: boolean) => void }) {
+export function FileManagerBanner({
+  failed,
+  onAnswer,
+}: {
+  readonly failed: boolean;
+  readonly onAnswer: (yes: boolean) => void;
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const id = useId();
@@ -46,6 +53,11 @@ export function FileManagerBanner({ onAnswer }: { readonly onAnswer: (yes: boole
       <p id={`${id}-body`} className="s-home__ask-body" hidden={!open}>
         {t('start.fileManager.body')}
       </p>
+      {failed && (
+        <p role="alert" className="s-home__ask-body">
+          {t('start.fileManager.failed')}
+        </p>
+      )}
     </section>
   );
 }

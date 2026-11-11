@@ -27,7 +27,10 @@ export function HomeRoute() {
   if (!answered(sessions)) return <HubLayout variant="center">{null}</HubLayout>;
   return (
     <HomeScreen
-      model={homeModel(records, new Date(), settings.consent, settings.offerFileManager)}
+      model={homeModel(records, new Date(), settings.consent, {
+        offer: settings.offerFileManager,
+        failed: settings.fileManagerFailed,
+      })}
       on={{
         onSend: start.send,
         onReceive: start.receive,

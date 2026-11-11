@@ -9,6 +9,8 @@ export interface HomeModel {
   readonly askReports: boolean;
   /** "Send with Carrova" in the file manager was never offered: ask once (after the reports question). */
   readonly askFileManager: boolean;
+  /** Adding the file-manager entry failed: the question stays, with an error line. */
+  readonly fileManagerFailed: boolean;
 }
 
 export interface HomeIntents {

@@ -82,24 +82,29 @@ describe('history views', () => {
   it('lists the three newest moves on Home and asks for consent only while unanswered', () => {
     const now = new Date();
     const records = ['a', 'b', 'c', 'd'].map((id) => record({ id }));
-    const home = homeModel(records, now, 'unset', true);
+    const home = homeModel(records, now, 'unset', { offer: true, failed: false });
     expect(home.recent.map((e) => e.id)).toEqual(['a', 'b', 'c']);
     expect(home.askReports).toBe(true);
-    expect(homeModel([], now, 'denied', false)).toEqual({
+    expect(homeModel([], now, 'denied', { offer: false, failed: false })).toEqual({
       now,
       recent: [],
       askReports: false,
       askFileManager: false,
+      fileManagerFailed: false,
     });
-    expect(homeModel([], now, null, false).askReports).toBe(false);
+    expect(homeModel([], now, null, { offer: false, failed: false }).askReports).toBe(false);
   });
 
   it('asks about the file manager only once the error-report question is answered', () => {
     const now = new Date();
-    expect(homeModel([], now, 'unset', true).askFileManager).toBe(false);
-    expect(homeModel([], now, null, true).askFileManager).toBe(false);
-    expect(homeModel([], now, 'allowed', true).askFileManager).toBe(true);
-    expect(homeModel([], now, 'denied', false).askFileManager).toBe(false);
+    expect(homeModel([], now, 'unset', { offer: true, failed: false }).askFileManager).toBe(false);
+    expect(homeModel([], now, null, { offer: true, failed: false }).askFileManager).toBe(false);
+    expect(homeModel([], now, 'allowed', { offer: true, failed: false }).askFileManager).toBe(true);
+    expect(homeModel([], now, 'denied', { offer: false, failed: false }).askFileManager).toBe(
+      false,
+    );
+    const failed = homeModel([], now, 'allowed', { offer: true, failed: true });
+    expect(failed).toMatchObject({ askFileManager: true, fileManagerFailed: true });
   });
 
   it('summarises a rollback with the folder changed files went to', () => {

@@ -92,4 +92,20 @@ describe('Home', () => {
     await user.click(screen.getByRole('button', { name: 'Not now' }));
     expect(on.onFileManager).toHaveBeenCalledWith(false);
   });
+
+  it('home_file_manager_card_stays_with_an_error_when_adding_failed', async () => {
+    const user = userEvent.setup();
+    const on = homeOn();
+    renderScreen(
+      <HomeScreen
+        model={{ ...homeReturning, askFileManager: true, fileManagerFailed: true }}
+        on={on}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      "Couldn't add it to the file manager. Try again, or restart Carrova.",
+    );
+    await user.click(screen.getByRole('button', { name: 'Add it' }));
+    expect(on.onFileManager).toHaveBeenCalledWith(true);
+  });
 });
