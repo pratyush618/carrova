@@ -6,7 +6,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use carrova_bundle::RecipeLocations;
-use carrova_core::{Engine, Inbox, KdfParams, KdfStrength, SessionId};
+use carrova_core::time::now_unix;
+use carrova_core::{Engine, Inbox, KdfParams, KdfStrength, NoticeKind, SessionId};
 use carrova_platform::Platform;
 
 use crate::command_error::CommandError;
@@ -85,8 +86,19 @@ impl AppState {
         out: Arc<dyn Emit>,
         config: BridgeConfig,
     ) -> Result<Self, CommandError> {
+        let (inbox, set_aside) = Inbox::open(Arc::clone(&platform))?;
+        if set_aside.is_some()
+            && let Err(error) = inbox.push(
+                NoticeKind::MoveFailed,
+                now_unix(),
+                None,
+                "The notification list was damaged. It was set aside and started again.".into(),
+            )
+        {
+            tracing::warn!(%error, "could not tell the user the inbox was set aside");
+        }
         Ok(Self {
-            inbox: Inbox::open(Arc::clone(&platform))?,
+            inbox,
             recipes: Arc::new(RecipeService::new(Arc::clone(&platform), locations)),
             sessions: Arc::new(Registry::default()),
             answers: Arc::new(PairingAnswers::default()),

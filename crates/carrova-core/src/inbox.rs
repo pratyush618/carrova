@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use carrova_platform::Platform;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{CoreError, Corruption, EncodeError, Result};
+use crate::error::{CoreError, EncodeError, Result};
 use crate::store::{ensure_dir, read_file, write_atomic};
 use crate::time::{SECS_PER_DAY, now_unix};
 
@@ -67,12 +67,15 @@ pub struct Inbox {
 
 impl Inbox {
     /// The inbox of `platform`'s state directory, without notices older
-    /// than [`RETENTION_DAYS`].
+    /// than [`RETENTION_DAYS`]. A file that cannot be parsed is renamed
+    /// aside (`inbox.json.corrupt-<unix seconds>`) and the inbox starts
+    /// empty; the second value is where it went, for the caller to tell
+    /// the user.
     ///
     /// # Errors
     ///
-    /// The file exists but cannot be read or parsed.
-    pub fn open(platform: Arc<dyn Platform>) -> Result<Self> {
+    /// The file cannot be read, or cannot be set aside.
+    pub fn open(platform: Arc<dyn Platform>) -> Result<(Self, Option<PathBuf>)> {
         Self::open_at(platform, now_unix())
     }
 
@@ -81,21 +84,26 @@ impl Inbox {
     /// # Errors
     ///
     /// As [`Self::open`].
-    pub fn open_at(platform: Arc<dyn Platform>, now: u64) -> Result<Self> {
+    pub fn open_at(platform: Arc<dyn Platform>, now: u64) -> Result<(Self, Option<PathBuf>)> {
         let path = file(&*platform)?;
+        let mut set_aside = None;
         let mut notices: Vec<Notice> = match read_file(&*platform, &path)? {
             None => Vec::new(),
-            Some(bytes) => serde_json::from_slice(&bytes).map_err(|e| CoreError::CorruptFile {
-                file: INBOX_FILE.to_owned(),
-                reason: Corruption::from(e),
+            Some(bytes) => serde_json::from_slice(&bytes).or_else(|_| {
+                let aside = path.with_file_name(format!("{INBOX_FILE}.corrupt-{now}"));
+                platform.rename_noreplace(&path, &aside)?;
+                tracing::warn!(file = %aside.display(), "inbox was unreadable and was set aside");
+                set_aside = Some(aside);
+                Ok::<_, CoreError>(Vec::new())
             })?,
         };
         let oldest = now.saturating_sub(RETENTION_DAYS * SECS_PER_DAY);
         notices.retain(|n| n.at >= oldest);
-        Ok(Self {
+        let inbox = Self {
             platform,
             notices: Arc::new(Mutex::new(notices)),
-        })
+        };
+        Ok((inbox, set_aside))
     }
 
     /// Add an unread notice and save the inbox.
