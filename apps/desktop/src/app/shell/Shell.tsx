@@ -14,7 +14,10 @@ import { useAutoOverlays } from './routes/autoOverlays';
 import { OverlayRoute } from './routes/OverlayRoute';
 import { ViewRoute } from './routes/ViewRoute';
 
-/** Moves focus to the new screen's heading on every navigation (not on first paint). */
+/**
+ * Moves focus to the new screen's heading on every navigation (not on first
+ * paint); a hub page without one falls back to its main region.
+ */
 function useScreenFocus(key: string, root: RefObject<HTMLDivElement | null>): void {
   const first = useRef(true);
   useEffect(() => {
@@ -22,7 +25,10 @@ function useScreenFocus(key: string, root: RefObject<HTMLDivElement | null>): vo
       first.current = false;
       return;
     }
-    root.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus({ preventScroll: true });
+    const target =
+      root.current?.querySelector<HTMLElement>('[data-autofocus]') ??
+      root.current?.querySelector<HTMLElement>('[data-autofocus-fallback]');
+    target?.focus({ preventScroll: true });
   }, [key, root]);
 }
 

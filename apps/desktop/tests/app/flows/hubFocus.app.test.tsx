@@ -11,4 +11,13 @@ describe('hub navigation', () => {
     await user.click(screen.getByRole('button', { name: label }));
     expect(await screen.findByRole('main', { name: label })).toHaveFocus();
   });
+
+  it("keeps a page's own heading as the focus target (Home)", async () => {
+    const user = userEvent.setup();
+    await renderApp({ returning: true });
+    await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
+    await user.click(screen.getByRole('button', { name: 'History' }));
+    await user.click(screen.getByRole('button', { name: 'Home' }));
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveFocus();
+  });
 });

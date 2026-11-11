@@ -81,7 +81,7 @@ export function HubLayout({ variant = 'page', tools, children }: HubLayoutProps)
         className={cx('p-page', variant === 'flush' && 'p-page--flush')}
         aria-label={hubLinks.find((link) => link.current)?.label}
         tabIndex={-1}
-        data-autofocus
+        data-autofocus-fallback
       >
         {variant === 'flush' ? (
           children
