@@ -3,6 +3,7 @@
 
 mod args;
 mod events;
+mod integrate;
 mod interrupt;
 mod lan;
 mod output;
@@ -86,6 +87,12 @@ enum Command {
     Rollback(session::RollbackArgs),
     /// List, inspect and dismiss sessions.
     Sessions(session::SessionsArgs),
+    /// Add or remove "Send with Carrova" in the file manager's
+    /// right-click menu.
+    Integrate {
+        #[command(subcommand)]
+        command: integrate::IntegrateCommand,
+    },
     /// Opt-in local error reports: choose, list, inspect, delete, or turn
     /// one into a GitHub issue you file yourself.
     Report(report::ReportArgs),
@@ -133,6 +140,7 @@ fn run(cli: Cli, reports: &Result<Reports, PlatformError>) -> Result<ExitCode> {
         Command::Receive(a) => lan::receive(&mut out, &recipes, cli.verbose, &a),
         Command::Rollback(a) => session::rollback(&mut out, &recipes, cli.verbose, &a),
         Command::Sessions(a) => session::sessions(&mut out, &recipes, cli.verbose, a),
+        Command::Integrate { command } => integrate::integrate(&mut out, &command),
         Command::Report(a) => {
             let reports = reports
                 .as_ref()

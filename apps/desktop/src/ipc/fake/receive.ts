@@ -123,7 +123,8 @@ export class FakeReceiver {
       this.planned = options;
       this.approved = this.approvedOptions === JSON.stringify(options);
       const running = this.scenario === 'blocked';
-      const replanned = planUnder(fx.plan, options, {
+      const base = this.scenario === 'picks' ? fx.planWithPicks : fx.plan;
+      const replanned = planUnder(base, options, {
         runningApp: running ? RUNNING_APP : null,
         ...(this.scenario === 'cross-os' && { crossOs: FROM_A_MAC }),
         ...(this.scenario === 'plugin' && { plugin: fx.PATH_REWRITE }),

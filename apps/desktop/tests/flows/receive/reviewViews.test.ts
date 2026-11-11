@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { PlanOptions } from '@/bindings/PlanOptions';
 import type { PlanReview } from '@/bindings/PlanReview';
+import { ENGINE_DEFAULTS } from '@/bindings/constants';
+import { planWithPicks } from '@/ipc/fake/fixtures';
+import { editOptions, planUnder } from '@/ipc/fake/planner';
 import { plan } from '@/ipc/fixtures/plan';
 import { planUnconfirmed } from '@/ipc/fixtures/plan-unconfirmed';
 import {
@@ -217,5 +220,55 @@ describe('review views', () => {
     expect(model.failures).toEqual([{ what: 'gpg/trust', reason: 'locked' }]);
     expect(model.moved).toEqual(['git', 'neovim']);
     expect(model.route).toBe(route);
+  });
+});
+
+describe('Accept all (Manual picks)', () => {
+  const none = { runningApp: null };
+  const suggested = ENGINE_DEFAULTS.plan_options;
+  const offered = planUnder(planWithPicks, suggested, none);
+
+  it('accept all counts only safe unconfirmed picks and comes before the secrets', () => {
+    const [first, ...rest] = decisions(offered, inputs());
+    expect(first).toEqual({ kind: 'safe-picks', key: 'safe-picks', count: 2, answer: null });
+    expect(rest.filter((d) => d.kind === 'safe-picks')).toEqual([]);
+    expect(rest.some((d) => d.key === 'raw:home/.ssh/id_ed25519')).toBe(true);
+
+    const oneBrought = planUnder(
+      planWithPicks,
+      editOptions(offered, [{ kind: 'answer_sensitive', item: 'raw:home/notes.txt', bring: true }]),
+      none,
+    );
+    expect(decisions(oneBrought, inputs())[0]).toMatchObject({ kind: 'safe-picks', count: 1 });
+  });
+
+  it('shows Accept all answered once the plan accepts the safe picks', () => {
+    const accepted = planUnder(
+      planWithPicks,
+      editOptions(offered, [{ kind: 'accept_safe_picks' }]),
+      none,
+    );
+    expect(decisions(accepted, inputs())[0]).toEqual({
+      kind: 'safe-picks',
+      key: 'safe-picks',
+      count: 0,
+      answer: 'bring',
+    });
+  });
+
+  it('accept_all_count_leaves_out_declined_picks', () => {
+    const leave = { kind: 'answer_sensitive', item: 'raw:home/notes.txt', bring: false } as const;
+    const left = planUnder(planWithPicks, editOptions(offered, [leave]), none);
+    expect(decisions(left, inputs())[0]).toMatchObject({ kind: 'safe-picks', count: 1 });
+    const accepted = planUnder(
+      planWithPicks,
+      editOptions(left, [{ kind: 'accept_safe_picks' }]),
+      none,
+    );
+    expect(decisions(accepted, inputs())[0]).toMatchObject({ count: 0, answer: 'bring' });
+  });
+
+  it('asks nothing about picks when the move has none', () => {
+    expect(decisions(plan, inputs()).some((d) => d.kind === 'safe-picks')).toBe(false);
   });
 });

@@ -1,0 +1,7 @@
+Selection ([x] = exported):
+  [ ] ~/.ssh/id_ed25519        400 B    1 files  [sensitive: needs --confirm-sensitive raw:home/.ssh/id_ed25519]
+  [x] ~/app/.env\u{1b}[1A\u{1b}[2K        30 B    1 files  [sensitive, confirmed]
+  [x] ~/notes.txt               12 B    1 files
+  [x] ~/proj                  2.0 kB    3 files
+  [x] user_config:tool           0 B    0 files
+4 items, about 2.1 kB before exclusions

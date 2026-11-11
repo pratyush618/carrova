@@ -7,6 +7,10 @@ export interface HomeModel {
   readonly recent: readonly HistoryEntry[];
   /** Error-report consent was never answered: ask once, off until answered. */
   readonly askReports: boolean;
+  /** "Send with Carrova" in the file manager was never offered: ask once (after the reports question). */
+  readonly askFileManager: boolean;
+  /** Adding the file-manager entry failed: the question stays, with an error line. */
+  readonly fileManagerFailed: boolean;
 }
 
 export interface HomeIntents {
@@ -17,6 +21,8 @@ export interface HomeIntents {
   readonly onUndo: (id: string) => void;
   readonly onHistory: () => void;
   readonly onErrorReports: (on: boolean) => void;
+  /** Add the file-manager entries (`true`) or never ask again. */
+  readonly onFileManager: (yes: boolean) => void;
 }
 
 export interface FileChooseIntents {

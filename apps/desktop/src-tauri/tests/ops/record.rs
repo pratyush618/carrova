@@ -190,6 +190,7 @@ fn record_ipc_fixtures() {
         "BridgeEvent[]",
         &sender.events.recorded.events(),
     );
+    record_manual(&rec, &sender);
 
     let opened = block_on(receive::open_archive(&receiver.state, archive, PASS.into())).unwrap();
     // First look: nothing confirmed yet, so sensitive items wait for the user.
@@ -236,6 +237,32 @@ fn record_ipc_fixtures() {
     rec.write("rollback-preview", "RollbackPreview", &preview);
     let rollback = block_on(sessions::rollback(&receiver.state, Some(opened.session))).unwrap();
     rec.write("rollback", "RollbackReport", &rollback);
+}
+
+/// A Manual session on `sender`: its start, then picks that are added,
+/// absorbed, sensitive and refused.
+fn record_manual(rec: &Recorder, sender: &Machine) {
+    let manual = block_on(send::start_manual(&sender.state)).unwrap();
+    rec.write("manual", "ScanResult", &manual);
+    let result = manual.result();
+    let paths = [
+        ".config/nvim",
+        ".config/nvim/init.lua",
+        ".ssh/id_ed25519",
+        ".tmux.conf",
+    ]
+    .map(|rel| sender.home.join(rel))
+    .into_iter()
+    .chain([sender.root().join("laptop.carrova")])
+    .collect();
+    let picked = block_on(send::pick(
+        &sender.state,
+        &result.session,
+        result.selection.clone(),
+        paths,
+    ))
+    .unwrap();
+    rec.write("picked", "Picked", &picked);
 }
 
 /// Edits beyond ticking a sensitive item, for the fake port's contract

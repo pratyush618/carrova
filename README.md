@@ -51,6 +51,31 @@ The AppImage offers new versions in the app and installs them when you agree;
 No network between them? Choose **Use an encrypted file instead** and carry
 the file on a USB stick.
 
+### Pick exact files (Manual mode)
+
+On **Send**, switch from **Auto** (apps Carrova found) to **Manual** and use
+**Add files** / **Add folder** to pick exactly what moves, from anywhere in
+your home and app folders. Only the list you are looking at is sent. Picks
+get the same safety as apps: keys and secrets (`.ssh`, `.env`, `*.pem`, …)
+stay off until you confirm them, and the new computer reviews them before
+anything is written (**Accept all** ticks the safe ones at once). Settings →
+**Start sends in Manual mode** opens Send there every time.
+
+### Right-click "Send with Carrova"
+
+Carrova can add **Send with Carrova** to your file manager's right-click
+menu: the app opens on Send in Manual mode with those items already picked.
+It asks once on Home; change it any time in Settings or with
+`carrova integrate file-manager on|off|status`. Nothing is added until you
+say yes, and turning it off removes only what Carrova added.
+
+- **Linux:** Nautilus (Files), Nemo, Dolphin, Caja, PCManFM-Qt and Thunar
+  (no "Open With" fallback: it could take over opening folders). In Nautilus the item
+  sits in the main menu when `nautilus-python` is installed (the `.deb`/`.rpm`
+  recommend it), otherwise under **Scripts**.
+- **Windows:** in Explorer (Windows 11: under **Show more options**).
+- **macOS:** in Finder under **Quick Actions**.
+
 ### Command line
 
 ```sh
@@ -62,6 +87,9 @@ carrova send                      # old computer: prints a pairing code
 carrova receive                   # new computer: type the code, review, approve
 carrova export -o move.carrova    # or an encrypted file…
 carrova import move.carrova       # …restored on the other side
+carrova send ~/notes ~/work/app   # Manual mode: send just these paths
+carrova export -o move.carrova ~/notes  # …or put them in a file
+carrova integrate file-manager on # add "Send with Carrova" to the right-click menu
 carrova rollback                  # undo the last move
 ```
 

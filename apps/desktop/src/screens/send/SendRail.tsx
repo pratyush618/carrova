@@ -29,6 +29,8 @@ export function SendRail({ move, purpose, to, onChange }: SendRailProps) {
   const { t } = useTranslation();
   const format = useFormat();
   const { facts } = move;
+  // Manual picks hold sensitive files, not recognised keys.
+  const brought = facts?.secrets ?? facts?.keys ?? 0;
   const change = onChange === undefined ? {} : { onChange };
   return (
     <Manifest
@@ -47,24 +49,33 @@ export function SendRail({ move, purpose, to, onChange }: SendRailProps) {
         facts === null
           ? []
           : [
-              {
-                label: t('send.rail.apps'),
-                value: t('summary.ofTotal', { done: facts.apps, total: facts.totalApps }),
-              },
+              facts.picks === undefined
+                ? {
+                    label: t('send.rail.apps'),
+                    value: t('summary.ofTotal', { done: facts.apps, total: facts.totalApps }),
+                  }
+                : {
+                    label: t('send.manual.picked'),
+                    value: t('send.manual.items', { count: facts.picks }),
+                  },
               { label: t('send.rail.size'), value: format.bytes(facts.bytes) },
               {
-                label: t('send.rail.keys'),
+                label: facts.secrets === undefined ? t('send.rail.keys') : t('send.rail.secrets'),
                 value:
-                  facts.keys === 0
+                  brought === 0
                     ? t('send.rail.keysLeft')
-                    : t('send.rail.keysBrought', { count: facts.keys }),
+                    : t('send.rail.keysBrought', { count: brought }),
                 ...change,
               },
-              {
-                label: t('send.rail.caches'),
-                value: facts.caches ? t('send.rail.included') : t('send.rail.skipped'),
-                ...change,
-              },
+              ...(facts.picks === undefined
+                ? [
+                    {
+                      label: t('send.rail.caches'),
+                      value: facts.caches ? t('send.rail.included') : t('send.rail.skipped'),
+                      ...change,
+                    },
+                  ]
+                : []),
               {
                 label: t('send.rail.travels'),
                 value: purpose === 'save' ? t('send.rail.inFile') : t('send.rail.onNetwork'),

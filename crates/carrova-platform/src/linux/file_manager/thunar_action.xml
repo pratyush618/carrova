@@ -1,0 +1,16 @@
+<action>
+	<icon>carrova-desktop</icon>
+	<name>Send with Carrova</name>
+	<submenu></submenu>
+	<unique-id>carrova-send-with</unique-id>
+	<command>{{thunar}}</command>
+	<description>Send the selected items to another computer</description>
+	<range>*</range>
+	<patterns>*</patterns>
+	<directories/>
+	<audio-files/>
+	<image-files/>
+	<other-files/>
+	<text-files/>
+	<video-files/>
+</action>

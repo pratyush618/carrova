@@ -89,3 +89,15 @@ fn a_resumed_session_reports_the_options_it_was_approved_with() {
     let stored = imp.plan_options().cloned().unwrap();
     assert_eq!(imp.plan_for_review(&stored).unwrap().1, PlanApproval::Given);
 }
+
+#[test]
+fn accept_all_survives_resume() {
+    let approved = PlanOptions {
+        accept_safe_picks: true,
+        ..PlanOptions::default()
+    };
+    let (_r, mut imp) = resumed_with_approved(&approved);
+    assert!(imp.plan_options().is_some_and(|o| o.accept_safe_picks));
+    let stored = imp.plan_options().cloned().unwrap();
+    assert_eq!(imp.plan_for_review(&stored).unwrap().1, PlanApproval::Given);
+}

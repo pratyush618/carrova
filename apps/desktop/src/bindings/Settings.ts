@@ -26,4 +26,12 @@ reduce_motion: boolean | null,
  * Suggestions every new move starts from (each move can change them).
  * Settings saved before these existed read as the defaults.
  */
-move_defaults: MoveDefaults, };
+move_defaults: MoveDefaults, 
+/**
+ * Open the Send screen in Manual mode.
+ */
+start_in_manual: boolean, 
+/**
+ * The one-time "Send with Carrova" Home card was answered.
+ */
+file_manager_asked: boolean, };

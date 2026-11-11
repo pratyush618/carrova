@@ -1,0 +1,5 @@
+cannot pick /etc/hosts: it is outside your home and app folders; Carrova only moves files from those
+cannot pick /home/me: it is your whole home folder; pick folders inside it
+cannot pick /home/me/.local: it holds your data folder; pick folders inside it
+cannot pick /home/me/gone\u{1b}[1A\u{1b}[2K: it no longer exists
+cannot pick /home/me/locked: Carrova can't read it (permission denied)

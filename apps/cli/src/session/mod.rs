@@ -4,6 +4,7 @@
 //! `PlanOptions`), asks the user, calls the engine and renders its results.
 
 mod args;
+mod manual;
 mod review;
 
 use std::io::Write;
@@ -62,7 +63,7 @@ pub fn export(
     }
     let format = OutputFormat::from_json_flag(a.json);
     let engine = engine(recipes, Arc::new(CliSink::new(format, verbose)))?;
-    let mut exporter = start_exporter(engine, format)?;
+    let mut exporter = start_exporter(engine, format, a.selection.is_manual())?;
     let n = choose(out, &mut exporter, &a.selection, format)?;
     if !confirm(
         a.consent(),
@@ -82,15 +83,16 @@ pub fn export(
     Ok(ExitCode::SUCCESS)
 }
 
-/// Scan for `export` and `send`, cancellable with Ctrl-C.
-pub fn start_exporter(engine: Engine, format: OutputFormat) -> Result<Exporter> {
+/// Start `export` and `send`, cancellable with Ctrl-C: with the app scan,
+/// or without it in Manual mode (`manual`, paths given).
+pub fn start_exporter(engine: Engine, format: OutputFormat, manual: bool) -> Result<Exporter> {
     let cancel = Cancel::default();
     let _ctrl_c = interrupt::arm(&cancel, format);
-    Ok(Exporter::start_with(
-        engine,
-        ScanOptions::default(),
-        cancel,
-    )?)
+    Ok(if manual {
+        Exporter::start_manual(engine, cancel)?
+    } else {
+        Exporter::start_with(engine, ScanOptions::default(), cancel)?
+    })
 }
 
 /// The export result: the archive written and the checklist.
@@ -133,13 +135,17 @@ fn exported(
 
 /// The selection step of `export` and `send`: the suggested pre-fill,
 /// the user's edits from `a`, shown for review (human output only), handed
-/// to the engine. Returns the number of items selected.
+/// to the engine; the picked paths instead in Manual mode. Returns the
+/// number of items selected.
 pub fn choose(
     out: &mut impl Write,
     exporter: &mut Exporter,
     a: &SelectionArgs,
     format: OutputFormat,
 ) -> Result<usize> {
+    if a.is_manual() {
+        return manual::choose_manual(out, exporter, a, format);
+    }
     let mut sel = exporter.suggest(a.preset());
     a.edit(&mut sel)?;
     if format == OutputFormat::Human {

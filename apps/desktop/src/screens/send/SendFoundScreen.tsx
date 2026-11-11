@@ -13,10 +13,18 @@ import {
   Search,
   Segmented,
   Status,
+  Toggle,
   type RouteEnd,
 } from '../../ui';
 import { FoundSelection } from './FoundSelection';
-import { FOUND_PRESETS, type FoundIntents, type FoundModel, type FoundPurpose } from './model';
+import { ManualPicks } from './ManualPicks';
+import {
+  FOUND_PRESETS,
+  type FoundIntents,
+  type FoundModel,
+  type FoundPurpose,
+  type ModeSwitchModel,
+} from './model';
 import { RouteChip, SendRail } from './SendRail';
 import './send.css';
 
@@ -25,13 +33,51 @@ export interface SendFoundScreenProps {
   readonly purpose: FoundPurpose;
   /** This computer, once the engine has said (route chip and rail). */
   readonly here?: RouteEnd | null;
+  /** The Auto/Manual switch; absent where the screen offers none. */
+  readonly mode?: ModeSwitchModel;
   readonly on: FoundIntents;
 }
 
+/** "Manual" on/off, with what the other mode holds ("Manual · 2"). */
+function ModeSwitch({
+  mode,
+  onMode,
+}: {
+  readonly mode: ModeSwitchModel;
+  readonly onMode: (manual: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  const label =
+    mode.manual && mode.apps > 0
+      ? t('send.manual.switchApps', { apps: t('count.apps', { count: mode.apps }) })
+      : !mode.manual && mode.picks > 0
+        ? t('send.manual.switchPicks', { count: mode.picks })
+        : t('send.manual.switch');
+  return (
+    <span className="s-mode">
+      <span aria-hidden="true">{label}</span>
+      <Toggle on={mode.manual} label={label} disabled={mode.disabled} onChange={onMode} />
+    </span>
+  );
+}
+
 /** "Here's what we found": the one selection screen for sending and for saving a file. */
-export function SendFoundScreen({ model, purpose, here = null, on }: SendFoundScreenProps) {
+export function SendFoundScreen({ model, purpose, here = null, mode, on }: SendFoundScreenProps) {
   const { t } = useTranslation();
   const format = useFormat();
+  const modeSwitch = mode && on.onMode ? <ModeSwitch mode={mode} onMode={on.onMode} /> : null;
+  const route = (
+    <>
+      {modeSwitch}
+      {purpose === 'send' && <RouteChip here={here} />}
+    </>
+  );
+  const saveInstead = on.onSaveInstead && (
+    <Button kind="quiet" icon="archive" onClick={on.onSaveInstead}>
+      {t('send.found.saveInstead')}
+    </Button>
+  );
+  const continueLabel = purpose === 'save' ? t('action.continue') : t('send.found.toPairing');
   const back = (
     <Button kind="quiet" icon="back" onClick={on.onBack}>
       {t('action.back')}
@@ -42,6 +88,7 @@ export function SendFoundScreen({ model, purpose, here = null, on }: SendFoundSc
     case 'scanning':
       return (
         <FlowLayout
+          route={modeSwitch}
           actions={
             <ActionBar
               start={
@@ -65,7 +112,7 @@ export function SendFoundScreen({ model, purpose, here = null, on }: SendFoundSc
       );
     case 'nothing':
       return (
-        <FlowLayout actions={<ActionBar start={back} />}>
+        <FlowLayout route={modeSwitch} actions={<ActionBar start={back} />}>
           <Empty
             art="search"
             title={t('send.found.nothingTitle')}
@@ -90,18 +137,14 @@ export function SendFoundScreen({ model, purpose, here = null, on }: SendFoundSc
       };
       return (
         <FlowLayout
-          {...(purpose === 'send' && { route: <RouteChip here={here} /> })}
+          route={route}
           rail={<SendRail move={{ here, facts }} purpose={purpose} onChange={on.onCustomize} />}
           actions={
             <ActionBar
               start={
                 <>
                   <Button onClick={on.onCustomize}>{t('send.found.customize')}</Button>
-                  {on.onSaveInstead && (
-                    <Button kind="quiet" icon="archive" onClick={on.onSaveInstead}>
-                      {t('send.found.saveInstead')}
-                    </Button>
-                  )}
+                  {saveInstead}
                 </>
               }
               note={
@@ -115,7 +158,7 @@ export function SendFoundScreen({ model, purpose, here = null, on }: SendFoundSc
                   disabled={model.issues.length > 0 || model.plugins.length > 0}
                   onClick={on.onContinue}
                 >
-                  {purpose === 'save' ? t('action.continue') : t('send.found.toPairing')}
+                  {continueLabel}
                 </Button>
               }
             />
@@ -180,6 +223,44 @@ export function SendFoundScreen({ model, purpose, here = null, on }: SendFoundSc
               </LinkButton>
             </Note>
           )}
+        </FlowLayout>
+      );
+    }
+    case 'manual': {
+      const { facts } = model;
+      const note = {
+        items: t('send.manual.items', { count: facts.picks ?? 0 }),
+        size: format.bytes(facts.bytes),
+      };
+      return (
+        <FlowLayout
+          route={route}
+          rail={<SendRail move={{ here, facts }} purpose={purpose} />}
+          actions={
+            <ActionBar
+              start={saveInstead}
+              note={
+                !facts.secrets
+                  ? t('send.manual.noteNoKeys', note)
+                  : t('send.manual.noteWithKeys', { ...note, count: facts.secrets })
+              }
+              end={
+                <Button
+                  kind="primary"
+                  disabled={model.issues.length > 0 || facts.picks === 0}
+                  onClick={on.onContinue}
+                >
+                  {continueLabel}
+                </Button>
+              }
+            />
+          }
+        >
+          <Head title={t('send.manual.title')} lede={t('send.manual.lede')} />
+          {model.issues.map((issue) => (
+            <Banner key={issue} tone="danger" title={t('send.found.issue')} body={issue} />
+          ))}
+          <ManualPicks model={model} on={on} />
         </FlowLayout>
       );
     }

@@ -7,8 +7,9 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 
 use crate::{
-    Allocation, DirEntry, DiskInfo, FileLock, FileMeta, FsId, LanInterface, OsKind,
-    PermissionModel, PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
+    Allocation, DirEntry, DiskInfo, FileLock, FileManagerStatus, FileMeta, FsId, LanInterface,
+    OsKind, PermissionModel, PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability,
+    SocketBuffers,
 };
 
 /// OS abstraction used by every service crate.
@@ -312,5 +313,33 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     /// `child`, while its id cannot be reused.
     fn kill_tool(&self, child: &mut Child) -> io::Result<()> {
         crate::sys::kill_tool(child)
+    }
+
+    // ---- File-manager entries ("Send with Carrova") ----------------------
+
+    /// The executable file-manager entries launch (Linux AppImage: the
+    /// image, not its mount).
+    fn launcher(&self) -> Result<PathBuf, PlatformError> {
+        std::env::current_exe().map_err(|e| PlatformError::io("<current executable>", e))
+    }
+
+    /// Whether Carrova's file-manager entries are written for this user.
+    fn file_manager_status(&self) -> Result<FileManagerStatus, PlatformError> {
+        Ok(FileManagerStatus::default())
+    }
+
+    /// Write (or refresh) this user's file-manager entries, each launching
+    /// `launcher` with `--send` and the chosen paths.
+    fn install_file_manager_entries(
+        &self,
+        launcher: &Path,
+    ) -> Result<FileManagerStatus, PlatformError> {
+        let _ = launcher;
+        Err(PlatformError::Unsupported("install_file_manager_entries"))
+    }
+
+    /// Remove every file-manager entry Carrova wrote, and only those.
+    fn remove_file_manager_entries(&self) -> Result<FileManagerStatus, PlatformError> {
+        Err(PlatformError::Unsupported("remove_file_manager_entries"))
     }
 }

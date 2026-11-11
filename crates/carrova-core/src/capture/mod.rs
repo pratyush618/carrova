@@ -9,6 +9,10 @@
 //! [`crate::CoreError::Unstable`]. When the archive writer later re-reads a
 //! chunk, its hash is verified again.
 //!
+//! A raw item the user did not confirm as sensitive never carries a
+//! secret location that appeared after it was judged: it is left out and
+//! listed in [`Capture::failed`].
+//!
 //! One item failing (unstable file, unreadable path, handler error) never
 //! stops the others: it lands in [`Capture::failed`] with its reason.
 
@@ -115,7 +119,7 @@ pub fn capture_with_consent(
     let (planned, mut failed) = plan_items(selection, recipes, platform.os());
     warn_running(platform, &planned, sink);
     // Resolve everything first so progress has a byte total.
-    let resolved = walk_items(platform, &planned, sink);
+    let resolved = walk_items(platform, &planned, sink, &mut failed);
     let progress = ProgressMeter::new(
         sink,
         Phase::Capture,

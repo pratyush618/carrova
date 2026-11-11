@@ -19,6 +19,8 @@ const settingsOn = (): SettingsIntents => ({
   onUpdates: vi.fn(),
   onAbout: vi.fn(),
   onMoveDefaults: vi.fn(),
+  onStartInManual: vi.fn(),
+  onFileManager: vi.fn(),
 });
 
 describe('Settings', () => {
@@ -71,5 +73,46 @@ describe('Settings', () => {
     );
     expect(screen.queryByRole('button', { name: 'Install update' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Check now' })).toBeEnabled();
+  });
+  it('settings toggle reflects status and calls setFileManagerEntries', async () => {
+    const user = userEvent.setup();
+    const on = settingsOn();
+    const skipped = 'Thunar: uca.xml is not valid; left unchanged';
+    renderScreen(
+      <SettingsScreen
+        model={{ ...settingsModel, fileManager: { on: true, skipped: [skipped], failed: false } }}
+        on={on}
+      />,
+    );
+    const entries = screen.getByRole('switch', {
+      name: 'Show “Send with Carrova” in the file manager',
+    });
+    expect(entries).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText(skipped)).toBeInTheDocument();
+    await user.click(entries);
+    expect(on.onFileManager).toHaveBeenCalledWith(false);
+
+    const manual = screen.getByRole('switch', { name: 'Start sends in Manual mode' });
+    expect(manual).toHaveAttribute('aria-checked', 'false');
+    await user.click(manual);
+    expect(on.onStartInManual).toHaveBeenCalledWith(true);
+  });
+
+  it('hides the file-manager row where the system has none, and says when a change failed', () => {
+    const { unmount } = renderScreen(
+      <SettingsScreen model={{ ...settingsModel, fileManager: null }} on={settingsOn()} />,
+    );
+    expect(screen.queryByRole('switch', { name: /file manager/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Start sends in Manual mode' })).toBeInTheDocument();
+    unmount();
+    renderScreen(
+      <SettingsScreen
+        model={{ ...settingsModel, fileManager: { on: false, skipped: [], failed: true } }}
+        on={settingsOn()}
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "Couldn't change the file manager menu. Try again, or restart Carrova.",
+    );
   });
 });

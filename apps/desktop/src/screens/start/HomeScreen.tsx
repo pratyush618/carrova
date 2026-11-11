@@ -17,6 +17,7 @@ import {
 import type { HistoryEntry } from '../history/model';
 import { KIND_ICON, moveSub, moveTag, moveTitle } from '../history/moveWords';
 import type { HomeIntents, HomeModel } from './model';
+import { FileManagerBanner } from './FileManagerBanner';
 import { ReportsBanner } from './ReportsBanner';
 import { VerbTile } from './VerbTile';
 import './start.css';
@@ -182,8 +183,8 @@ export function HomeScreen({ model, on }: HomeScreenProps) {
           </List>
         </section>
       )}
-      {/* The question tucks under the promise: Home must fit 1100x720 whole. */}
-      {(first || model.askReports) && (
+      {/* The questions tuck under the promise, one at a time: Home must fit 1100x720 whole. */}
+      {(first || model.askReports || model.askFileManager) && (
         <div className="s-home__foot">
           {first && (
             <p className="s-home__promise">
@@ -192,6 +193,9 @@ export function HomeScreen({ model, on }: HomeScreenProps) {
             </p>
           )}
           {model.askReports && <ReportsBanner onAnswer={on.onErrorReports} />}
+          {model.askFileManager && (
+            <FileManagerBanner failed={model.fileManagerFailed} onAnswer={on.onFileManager} />
+          )}
         </div>
       )}
     </HubLayout>

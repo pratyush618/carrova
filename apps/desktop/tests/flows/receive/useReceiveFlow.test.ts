@@ -80,3 +80,33 @@ describe('resuming a lost transfer in place', () => {
     });
   });
 });
+
+describe('Accept all', () => {
+  it('accept_all_keeps_a_left_pick_left_in_the_answers', async () => {
+    const port = createFakePort({ scenario: 'picks', stepMs: 0 });
+    const flow = renderHook(() => useReceiveFlow(port, {}, DEFAULTS));
+    act(() => {
+      flow.result.current.start('lan');
+      flow.result.current.setCode('7-acid-lemon');
+    });
+    act(() => {
+      flow.result.current.open();
+    });
+    await waitFor(() => {
+      expect(flow.result.current.state.review.status).toBe('ready');
+    });
+    act(() => {
+      flow.result.current.answer('raw:home/notes.txt', 'leave');
+    });
+    await waitFor(() => {
+      expect(flow.result.current.state.review.status).toBe('ready');
+    });
+    act(() => {
+      flow.result.current.acceptSafePicks();
+    });
+    expect(flow.result.current.state.answers).toMatchObject({
+      'raw:home/notes.txt': 'leave',
+      'raw:home/projects/site': 'bring',
+    });
+  });
+});

@@ -10,6 +10,7 @@ use carrova_recipe::Item as RecipeItem;
 use super::Planner;
 use crate::key::{ItemKey, RootedPath};
 use crate::plan::{Blocker, recipe_sensitive};
+use crate::secrets::secret_in;
 
 /// One reason an item needs explicit confirmation.
 enum SensitiveReason<'a> {
@@ -30,6 +31,11 @@ enum SensitiveReason<'a> {
         example: String,
     },
     Dangerous {
+        why: &'static str,
+        at: String,
+    },
+    /// A recipe-less item landing in a well-known secret location.
+    Secret {
         why: &'static str,
         at: String,
     },
@@ -57,7 +63,7 @@ impl fmt::Display for SensitiveReason<'_> {
                 f,
                 "contains paths outside recipe {recipe}/{item} (e.g. {example})"
             ),
-            Self::Dangerous { why, at } => write!(f, "{why} ({at})"),
+            Self::Dangerous { why, at } | Self::Secret { why, at } => write!(f, "{why} ({at})"),
         }
     }
 }
@@ -67,27 +73,40 @@ impl<'a> Planner<'a> {
     /// [`crate::PlanOptions::picks`] (explicit `items`, or by default every
     /// non-sensitive item plus the confirmed ones), minus what a foreign
     /// archive cannot restore here. A selected, unconfirmed sensitive item
-    /// is a blocker.
+    /// is a blocker. Same-OS items whose only reason (on their final
+    /// targets) is "unrecognised data" become
+    /// [`crate::plan::Plan::safe_picks`], which "Accept all"
+    /// ([`crate::PlanOptions::accept_safe_picks`]) confirms.
     pub(super) fn select(&mut self) {
+        let same_os = self.manifest.source.os == self.platform.os();
         for idx in 0..self.manifest.items.len() {
             let reasons = self.sensitivity(idx);
-            if !reasons.is_empty() {
-                self.sensitive
-                    .insert(self.keys[idx].clone(), reasons.join("; "));
+            let safe = same_os && matches!(reasons[..], [SensitiveReason::Raw]);
+            let why = reasons
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join("; ");
+            if safe {
+                self.safe_picks.push(self.keys[idx].clone());
+            }
+            if !why.is_empty() {
+                self.sensitive.insert(self.keys[idx].clone(), why);
             }
         }
         let options = self.options;
+        let safe = |key: &ItemKey| self.safe_picks.contains(key);
         self.selected = (0..self.keys.len())
             .filter(|&i| {
                 let key = &self.keys[i];
-                options.picks(key, self.sensitive.get(key).map(String::as_str))
+                options.picks(key, self.sensitive.get(key).map(String::as_str), safe(key))
             })
             .collect();
         self.check_cross_os();
-        let (keys, sensitive) = (&self.keys, &self.sensitive);
+        let (keys, sensitive, safe) = (&self.keys, &self.sensitive, &self.safe_picks);
         for &i in &self.selected {
             if let Some(why) = sensitive.get(&keys[i])
-                && !options.is_confirmed(&keys[i])
+                && !options.confirms(&keys[i], safe.contains(&keys[i]))
             {
                 self.blockers.push(Blocker::UnconfirmedSensitive {
                     item: keys[i].clone(),
@@ -98,7 +117,7 @@ impl<'a> Planner<'a> {
     }
 
     /// Why item `idx` must be confirmed explicitly (empty = not sensitive).
-    fn sensitivity(&self, idx: usize) -> Vec<String> {
+    fn sensitivity(&self, idx: usize) -> Vec<SensitiveReason<'_>> {
         let item = &self.manifest.items[idx];
         let local = self.local_item(item);
         let mut reasons = Vec::new();
@@ -106,8 +125,26 @@ impl<'a> Planner<'a> {
             reasons.push(SensitiveReason::ArchiveFlag);
         }
         reasons.extend(self.recipe_reasons(&self.keys[idx], item, local));
+        reasons.extend(self.secret_reason(idx));
         reasons.extend(self.dangerous_reasons(idx, local));
-        reasons.iter().map(ToString::to_string).collect()
+        reasons
+    }
+
+    /// For a recipe-less item: the first final target (after remap) in a
+    /// well-known secret location, whatever the archive flag says.
+    fn secret_reason(&self, idx: usize) -> Option<SensitiveReason<'static>> {
+        let item = &self.manifest.items[idx];
+        if item.recipe_id.is_some() {
+            return None;
+        }
+        let key = &self.keys[idx];
+        item.entries.iter().enumerate().find_map(|(i, e)| {
+            let (root, rel) = self.remapped(key, i, e);
+            secret_in(&rel).map(|why| SensitiveReason::Secret {
+                why,
+                at: RootedPath::new(root, &rel).to_string(),
+            })
+        })
     }
 
     /// The local recipe item an archive item claims to be, if known here.

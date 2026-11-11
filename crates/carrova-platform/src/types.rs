@@ -127,3 +127,17 @@ pub struct SocketBuffers {
     /// `SO_RCVBUF`.
     pub recv: usize,
 }
+
+/// The "Send with Carrova" file-manager entries of this user
+/// ([`crate::Platform::file_manager_status`]).
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct FileManagerStatus {
+    /// This OS has file-manager entries Carrova can write.
+    pub supported: bool,
+    /// Carrova's entries are written.
+    pub installed: bool,
+    /// File managers left untouched and why, in the user's words (e.g.
+    /// "Thunar: uca.xml is not valid; left unchanged").
+    pub skipped: Vec<String>,
+}

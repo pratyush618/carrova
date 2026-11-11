@@ -103,6 +103,28 @@ const review = (answered: boolean): ReviewModel => ({
 export const reviewDecide = review(false);
 export const reviewReady = review(true);
 
+/** A Manual send: two safe picks (Accept all) and a key, each still unticked. */
+export const reviewPicks: ReviewModel = {
+  ...reviewDecide,
+  decisions: [
+    { kind: 'safe-picks', key: 'safe-picks', count: 2, answer: null },
+    ...['~/projects/site', '~/notes.txt'].map((title) => ({
+      kind: 'secret' as const,
+      key: `raw:home/${title.slice(2)}`,
+      title,
+      why: 'unrecognised data from the archive',
+      answer: null,
+    })),
+    {
+      kind: 'secret',
+      key: 'raw:home/.ssh/id_ed25519',
+      title: '~/.ssh/id_ed25519',
+      why: 'marked sensitive in the archive; unrecognised data from the archive',
+      answer: null,
+    },
+  ],
+};
+
 /** From a Mac: a Linux-only item to answer, a plugin to allow, and paths that change place. */
 export const reviewCrossOs: ReviewModel = {
   ...reviewDecide,

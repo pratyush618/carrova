@@ -6,6 +6,7 @@
 import type { CodeView } from '../../bindings/CodeView';
 import type { Inventory } from '../../bindings/Inventory';
 import type { PlannedPlugin } from '../../bindings/PlannedPlugin';
+import type { PlanReview } from '../../bindings/PlanReview';
 import type { PlanSummary } from '../../bindings/PlanSummary';
 import type { SessionId } from '../../bindings/SessionId';
 import { plan } from '../fixtures/plan';
@@ -81,3 +82,86 @@ export const PATH_REWRITE = {
   ],
   items: ['starship/config'],
 } satisfies PlannedPlugin;
+
+/** One Manual pick of the `picks` scenario: one file or folder under `home`. */
+interface FakePick {
+  readonly rel: string;
+  readonly kind: 'file' | 'dir';
+  readonly size: number;
+  /** Why the receiver treats it as sensitive (the engine's words). */
+  readonly reason: string;
+  /** Only "unrecognised data": Accept all ticks it. */
+  readonly safe: boolean;
+}
+
+const UNRECOGNISED = 'unrecognised data from the archive';
+
+const PICKS: readonly FakePick[] = [
+  { rel: 'projects/site', kind: 'dir', size: 0, reason: UNRECOGNISED, safe: true },
+  { rel: 'notes.txt', kind: 'file', size: 3_100, reason: UNRECOGNISED, safe: true },
+  {
+    rel: '.ssh/id_ed25519',
+    kind: 'file',
+    size: 411,
+    reason: `marked sensitive in the archive; ${UNRECOGNISED}`,
+    safe: false,
+  },
+];
+
+/**
+ * The `picks` scenario's plan: the recording plus three Manual picks, planned
+ * with every sensitive item confirmed like the recording (`planUnder` re-plans
+ * it under the user's options). Picks arrive unticked; two are safe.
+ */
+export const planWithPicks: PlanReview = (() => {
+  const keyOf = (p: FakePick) => `raw:home/${p.rel}`;
+  const actions = PICKS.map((p) => ({
+    abs: `/home/ana/${p.rel}`,
+    action: { action: 'create' as const },
+    entry_index: 0,
+    item: keyOf(p),
+    kind: p.kind,
+    link_target: null,
+    mode: p.kind === 'dir' ? 0o755 : 0o600,
+    mtime_ns: 1.79438244e18,
+    rel: p.rel,
+    root: 'home' as const,
+    size: p.size,
+  }));
+  return {
+    ...plan,
+    offered: [
+      ...plan.offered,
+      ...PICKS.map((p) => ({
+        key: keyOf(p),
+        label: `~/${p.rel}`,
+        picked: true,
+        safe_pick: p.safe,
+        sensitive: { confirmed: true, reason: p.reason },
+      })),
+    ],
+    plan: {
+      ...plan.plan,
+      actions: [...plan.plan.actions, ...actions],
+      safe_picks: PICKS.filter((p) => p.safe).map(keyOf),
+      sensitive: {
+        ...plan.plan.sensitive,
+        ...Object.fromEntries(PICKS.map((p) => [keyOf(p), p.reason])),
+      },
+    },
+    view: {
+      ...plan.view,
+      items: [
+        ...plan.view.items,
+        ...actions.map((a) => ({
+          key: a.item,
+          counts: {
+            actions: { create: 1, identical: 0, keep_both: 0, replace: 0, skip: 0 },
+            bytes: a.size,
+          },
+          lines: [{ line: 'action' as const, ...a }],
+        })),
+      ],
+    },
+  };
+})();

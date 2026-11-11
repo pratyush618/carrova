@@ -1,6 +1,8 @@
 import type { BridgeError } from '../../engine/types';
 import type { KeyKind } from '../../bindings/KeyKind';
 import type { OsKind } from '../../bindings/OsKind';
+import type { PickKind } from '../../bindings/PickKind';
+import type { PickRejection } from '../../bindings/PickRejection';
 import type { Preset } from '../../bindings/Preset';
 import type { RouteEnd } from '../../ui';
 import type { PluginConsentModel } from '../receive/model';
@@ -57,6 +59,46 @@ export interface MoveFacts {
   /** Secrets being brought. */
   readonly keys: number;
   readonly caches: boolean;
+  /** Manual mode: picks ticked (the rail lists them instead of apps and caches). */
+  readonly picks?: number;
+  /** Manual mode: sensitive picks being brought (listed instead of keys). */
+  readonly secrets?: number;
+}
+
+/** One Manual pick (`carrova-view` `PickRow`). */
+export interface ManualPick {
+  readonly key: ItemKey;
+  /** Where it is, as the user knows it (`~/projects/site`). */
+  readonly path: string;
+  readonly kind: PickKind;
+  readonly bytes: Bytes;
+  readonly files: number;
+  /** Holds keys or secrets: starts off, brought only after its own confirm. */
+  readonly sensitive: boolean;
+  readonly included: boolean;
+}
+
+/** A picked path the engine refused, with why. */
+export interface RejectedPick {
+  readonly path: string;
+  readonly reason: PickRejection;
+}
+
+/** A picked path already inside an earlier pick (not listed twice). */
+export interface AbsorbedPick {
+  readonly path: string;
+  readonly into: string;
+}
+
+/** The Auto/Manual switch: which mode shows, and what the other one holds. */
+export interface ModeSwitchModel {
+  readonly manual: boolean;
+  /** Picks waiting in Manual. */
+  readonly picks: number;
+  /** Apps ticked in Auto (0 until it has scanned). */
+  readonly apps: number;
+  /** No session yet (the first scan is still running). */
+  readonly disabled: boolean;
 }
 
 /** The presets the selection screen offers, in order ("Suggested · Everything · Nothing"). */
@@ -92,6 +134,19 @@ export type FoundModel =
       readonly issues: readonly string[];
       /** Plugins to allow (or leave their items) before anything leaves; Continue waits for none. */
       readonly plugins: readonly PluginConsentModel[];
+    }
+  | {
+      /** Manual mode: only the user's picks move. */
+      readonly status: 'manual';
+      readonly picks: readonly ManualPick[];
+      /** Picked paths the engine is still measuring, as the user knows them. */
+      readonly measuring: readonly string[];
+      /** From the latest picks: refused paths and ones already inside a pick. */
+      readonly rejected: readonly RejectedPick[];
+      readonly absorbed: readonly AbsorbedPick[];
+      readonly facts: MoveFacts;
+      /** Why the selection can't be used yet (engine wording); Continue waits for none. */
+      readonly issues: readonly string[];
     };
 
 /** Whether the selection leads to pairing (send) or a file (save). */
@@ -114,7 +169,16 @@ export interface FoundIntents {
   readonly onSaveInstead?: () => void;
   readonly onContinue: () => void;
   readonly onBack: () => void;
+  /** Flip Auto/Manual; absent where the screen offers no switch. */
+  readonly onMode?: (manual: boolean) => void;
+  /** Manual: the system pickers (absent when this host has none). */
+  readonly onAddFiles?: () => void;
+  readonly onAddFolders?: () => void;
+  readonly onRemovePick?: (key: ItemKey) => void;
 }
+
+/** What the secret's confirm shows: a recipe secret or a sensitive pick. */
+export type KeyConfirmModel = Pick<SecretItem, 'label' | 'why' | 'paths' | 'keys'>;
 
 /** The secret's confirm: bring it, or leave it (the safe choice). */
 export interface KeyConfirmIntents {

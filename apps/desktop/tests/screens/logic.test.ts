@@ -4,7 +4,7 @@ import { formatBytes } from '@/i18n/format';
 import { visibleEntries } from '@/screens/apps/visibleEntries';
 import { catalogAll } from '@/screens/apps/fixtures';
 import { unanswered } from '@/screens/receive/ReviewDecisions';
-import { reviewDecide, reviewReady } from '@/screens/receive/fixtures';
+import { reviewDecide, reviewPicks, reviewReady } from '@/screens/receive/fixtures';
 import { appCheck } from '@/screens/send/CustomizeTree';
 import { customize } from '@/screens/send/fixtures';
 import { chipText } from '@/screens/shared/chipText';
@@ -24,6 +24,8 @@ describe('selection rules', () => {
   it('counts unanswered decisions', () => {
     expect(unanswered(reviewDecide.decisions)).toBe(3);
     expect(unanswered(reviewReady.decisions)).toBe(0);
+    // Accept all is a shortcut, not a question: the picks' own rows count.
+    expect(unanswered(reviewPicks.decisions)).toBe(3);
   });
 });
 

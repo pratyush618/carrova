@@ -77,9 +77,7 @@ fn unselected_items<'a>(
     manifest.items.iter().filter_map(move |item| {
         let key = ItemKey::of(item);
         let selected = plan.picks(item);
-        let unconfirmed = plan
-            .options
-            .awaits_confirmation(&key, plan.sensitivity(item));
+        let unconfirmed = plan.sensitivity(item).is_some() && !plan.confirms(&key);
         (!selected).then(|| Skipped {
             reason: if unconfirmed {
                 "sensitive item not confirmed".into()

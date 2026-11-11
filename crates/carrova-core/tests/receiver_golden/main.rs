@@ -396,7 +396,12 @@ fn plans_written_with_string_blockers_still_read() {
     let old = std::fs::read_to_string(golden_path("plans-string-blockers.json")).unwrap();
     let plans: Vec<Plan> = serde_json::from_str(&old).unwrap();
     let current = std::fs::read_to_string(golden_path("plans.json")).unwrap();
-    assert_eq!(json(&plans), current);
+    let mut current: Vec<Plan> = serde_json::from_str(&current).unwrap();
+    // Old plans predate `safe_picks`: they read with none (Accept all is a no-op).
+    for plan in &mut current {
+        plan.safe_picks.clear();
+    }
+    assert_eq!(json(&plans), json(&current));
 }
 
 // ---------------------------------------------------------------- journal

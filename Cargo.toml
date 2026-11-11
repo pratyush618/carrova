@@ -79,6 +79,7 @@ tauri = { version = "2.12.5", features = [] }
 tauri-build = { version = "2.7.4", features = [] }
 tauri-plugin-dialog = "2.8.4"
 tauri-plugin-opener = "2.7.2"
+tauri-plugin-single-instance = "2.5.5"
 tauri-plugin-updater = "2.14.1"
 # Blocking HTTP for recipe bundle fetch (rustls + ring, no tokio).
 ureq = { version = "3.5.1", default-features = false, features = ["rustls", "gzip"] }
@@ -90,6 +91,8 @@ wasmi = { version = "2.0.0", default-features = false, features = ["std", "valid
 wat = "1.263.0"
 # Safe Win32 wrappers (file info, volume serials) for the Windows adapter.
 winapi-util = "0.1.11"
+# Safe Windows registry API for per-user Explorer verbs (carrova-platform only).
+winreg = "0.56.0"
 zeroize = { version = "1", features = ["derive"] }
 
 [workspace.lints.rust]

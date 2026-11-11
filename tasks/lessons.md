@@ -22,3 +22,7 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 ## 2026-11-10 — Pushed a commit commitlint had flagged
 - **What happened:** `just commitlint … | grep -c ✖; git push` — the count printed 2 but the push still ran, so a 74-char header reached the PR (force-push is denied, so it couldn't be fixed).
 - **Rule:** gate pushes on the lint exit code: `just commitlint origin/<branch> HEAD && git push …`. Never chain a push after a command whose failure only shows in output.
+
+## 2026-11-11 — setsid did not save the terminal from systemd-oomd
+- **What happened:** the terminal tab crashed twice during `just ci` + parallel agents. `journalctl --user` showed `systemd-oomd killed 29 process(es)` in the terminal's `vte-spawn-*.scope`; setsid'd CI lived in that cgroup, so oomd killed the terminal and CI together.
+- **Rule:** run heavy verification in its own memory-capped user unit, never in the terminal's cgroup: `systemd-run --user --unit=carrova-ci --collect -p MemoryHigh=5G -p MemoryMax=7G -p CPUWeight=20 -p IOWeight=20 --nice=19 --working-directory="$PWD" -E PATH="$PATH" -E HOME="$HOME" -E CARGO_BUILD_JOBS=3 bash -c 'just ci > /tmp/ci.log 2>&1; echo "CI EXIT $?" >> /tmp/ci.log'`. Watch MemAvailable (not just load); after a crash, check `journalctl --user | grep oom` first.

@@ -18,7 +18,22 @@ export const settingsModel: SettingsModel = {
   reports: [],
   update: { version: '0.2.0' },
   moveDefaults: { conflict_rule: 'replace', retention: 'until_dismissed', include_caches: false },
+  startInManual: false,
+  fileManager: { on: true, skipped: [], failed: false },
 };
+
+/** A desktop where one file manager was left alone, and the last change failed. */
+export const settingsFileManagerNotes: SettingsModel = {
+  ...settingsModel,
+  fileManager: {
+    on: true,
+    skipped: ['Thunar: uca.xml is not valid; left unchanged'],
+    failed: true,
+  },
+};
+
+/** A system without file-manager entries: the row is hidden. */
+export const settingsNoFileManager: SettingsModel = { ...settingsModel, fileManager: null };
 
 export const update: UpdateModel = {
   status: 'available',

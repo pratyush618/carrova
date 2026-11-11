@@ -19,6 +19,8 @@
 //!   UI as `BridgeEvent`s on `carrova://event`, progress throttled.
 //! - [`pairing`]: the `SendPrompt` (codes as events, "new code?" answered
 //!   by a command).
+//! - [`send_request`]: `--send PATH…` from a file manager or a second
+//!   launch (single-instance plugin), queued for the UI.
 //! - [`recipes`], [`settings`], [`error_report`], [`updater`]: services.
 //! - [`command_error`]: the one mapping of every failure to `BridgeError`.
 
@@ -30,6 +32,7 @@ pub mod ops;
 pub mod pairing;
 pub mod recipes;
 pub mod registry;
+pub mod send_request;
 pub mod settings;
 pub mod state;
 pub mod updater;
@@ -39,6 +42,7 @@ pub mod worker;
 #[path = "../tests/support/mod.rs"]
 mod testing;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use error_report::Reports;
@@ -49,29 +53,46 @@ use updater::PendingUpdate;
 /// Builds the Tauri application and runs it until the last window closes.
 ///
 /// Start-up installs the error-report panic hook (it records nothing
-/// unless the user has allowed reports) and the bridge state.
+/// unless the user has allowed reports) and the bridge state, queues this
+/// launch's `--send` paths and refreshes the file-manager entries in the
+/// background. A second launch only hands its `--send` paths to this one
+/// ([`send_request`]) and exits.
 ///
 /// # Errors
 ///
 /// Returns [`tauri::Error`] if the runtime or the main window fails to
 /// start, or Carrova's state directory cannot be resolved.
 pub fn run() -> tauri::Result<()> {
+    // Before the builder: a second launch can arrive before `setup` runs.
+    let pending_send = send_request::SendRequests::default();
+    let early_sends = pending_send.clone();
     tauri::Builder::default()
+        // First, so a second launch is caught before anything else starts.
+        .plugin(tauri_plugin_single_instance::init(move |app, argv, cwd| {
+            send_request::on_second_instance(app, &early_sends, argv, &cwd);
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .setup(|app| {
+        .setup(move |app| {
             let platform: Arc<dyn carrova_platform::Platform> =
                 Arc::from(carrova_platform::current());
             let reports = Reports::from_platform(Arc::clone(&platform))?;
             reports.install_panic_hook();
             app.manage(reports);
-            app.manage(app_state(app.handle(), platform));
+            let state = app_state(app.handle(), platform, pending_send);
+            refresh_entries(state.clone());
+            send_request::forward(&state, &launch_send_paths());
+            app.manage(state);
             Ok(())
         })
         .manage(PendingUpdate::default())
         .invoke_handler(tauri::generate_handler![
             commands::send::scan,
+            commands::send::start_manual,
+            commands::send::scan_apps,
+            commands::send::pick,
+            commands::send::take_send_request,
             commands::send::suggest,
             commands::send::select,
             commands::send::passphrase_strength,
@@ -105,6 +126,8 @@ pub fn run() -> tauri::Result<()> {
             commands::recipes::recipes_reset,
             commands::settings::settings,
             commands::settings::save_settings,
+            commands::integration::file_manager_status,
+            commands::integration::set_file_manager_entries,
             updater::check_update,
             updater::install_update,
             updater::restart_app,
@@ -119,18 +142,42 @@ pub fn run() -> tauri::Result<()> {
         .run(tauri::generate_context!())
 }
 
+/// The `--send` paths this launch was started with, if any.
+fn launch_send_paths() -> Vec<PathBuf> {
+    let argv: Vec<_> = std::env::args_os().collect();
+    let cwd = std::env::current_dir()
+        .inspect_err(|e| tracing::warn!(error = %e, "no working directory"))
+        .unwrap_or_default();
+    send_request::send_paths(&argv, &cwd).unwrap_or_default()
+}
+
+/// Refresh the file-manager entries off the start-up path.
+fn refresh_entries(state: AppState) {
+    tauri::async_runtime::spawn_blocking(move || {
+        ops::integration::refresh_file_manager_entries(&state);
+    });
+}
+
 /// The bridge state of the running app: recipes from the app's resources
-/// (see [`recipes::app_locations`]), events to the app's windows.
-fn app_state(app: &AppHandle, platform: Arc<dyn carrova_platform::Platform>) -> AppState {
+/// (see [`recipes::app_locations`]), events to the app's windows, sent
+/// paths queued in `pending_send`.
+fn app_state(
+    app: &AppHandle,
+    platform: Arc<dyn carrova_platform::Platform>,
+    pending_send: send_request::SendRequests,
+) -> AppState {
     let resources = app
         .path()
         .resource_dir()
         .inspect_err(|e| tracing::warn!(error = %e, "no resource directory"))
         .ok();
-    AppState::new(
-        platform,
-        recipes::app_locations(resources.as_deref()),
-        Arc::new(app.clone()),
-        BridgeConfig::default(),
-    )
+    AppState {
+        pending_send,
+        ..AppState::new(
+            platform,
+            recipes::app_locations(resources.as_deref()),
+            Arc::new(app.clone()),
+            BridgeConfig::default(),
+        )
+    }
 }

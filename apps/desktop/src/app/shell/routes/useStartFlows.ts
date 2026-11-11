@@ -5,12 +5,14 @@ import { useNav } from '../nav';
 
 /** Starting points shared by Home, History, sheets and dialogs: one place per intent. */
 export function useStartFlows() {
-  const { send, save, receive, undo } = useControllers();
+  const { send, save, receive, undo, settings } = useControllers();
+  const manual = settings.settings?.start_in_manual === true;
   const nav = useNav();
   return useMemo(
     () => ({
+      /** Send opens in the mode Settings chose. */
       send: () => {
-        send.start();
+        send.start(manual ? 'manual' : 'auto');
         nav.go({ type: 'startFlow', flow: 'send' });
       },
       receive: () => {
@@ -42,6 +44,6 @@ export function useStartFlows() {
         nav.open({ kind: 'undo-confirm' });
       },
     }),
-    [send, save, receive, undo, nav],
+    [send, save, receive, undo, nav, manual],
   );
 }

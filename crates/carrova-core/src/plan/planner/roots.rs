@@ -75,17 +75,22 @@ impl Roots {
         }
     }
 
-    /// First [`DANGEROUS_PATHS`] entry covering `(root, rel)`.
+    /// First [`DANGEROUS_PATHS`] entry covering `(root, rel)`, as spelled
+    /// or in lower case (the table's case): over-flagging is safe, and
+    /// `.SSH` is `.ssh` on a case-insensitive file system.
     pub(super) fn dangerous(
         &self,
         root: SemanticRoot,
         rel: &str,
     ) -> Option<&'static DangerousPath> {
-        let path = RootedPath::new(root, rel);
-        DANGEROUS_PATHS.iter().find(|d| {
-            self.within(path, RootedPath::new(d.root, d.rel))
-                || d.home_alias()
-                    .is_some_and(|a| self.within(path, RootedPath::new(SemanticRoot::Home, &a)))
+        let lower = rel.to_ascii_lowercase();
+        [rel, lower.as_str()].into_iter().find_map(|rel| {
+            let path = RootedPath::new(root, rel);
+            DANGEROUS_PATHS.iter().find(|d| {
+                self.within(path, RootedPath::new(d.root, d.rel))
+                    || d.home_alias()
+                        .is_some_and(|a| self.within(path, RootedPath::new(SemanticRoot::Home, &a)))
+            })
         })
     }
 }

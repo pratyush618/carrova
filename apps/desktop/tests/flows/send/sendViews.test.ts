@@ -3,12 +3,14 @@ import { i18n } from '@/i18n/i18n';
 import { scan } from '@/ipc/fixtures/scan';
 import { selectEdits } from '@/ipc/fixtures/select-edits';
 import { select } from '@/ipc/fixtures/select';
+import { createFakePort } from '@/ipc/fake';
 import {
   activePreset,
   customizeModel,
   filterFound,
   foundApps,
   foundGroups,
+  manualFacts,
   moveFacts,
   rawFolders,
   secretItems,
@@ -89,6 +91,19 @@ describe('send views', () => {
     const ticked = Object.entries(scan.selection.items).filter(([, c]) => c.included);
     expect(facts.bytes).toBeGreaterThan(0);
     expect(ticked.length).toBeGreaterThan(0);
+  });
+
+  it('counts brought sensitive Manual picks as secrets, not keys', async () => {
+    const port = createFakePort({ stepMs: 0 });
+    const { session, selection } = await port.startManual();
+    const env = '/home/ana/work/api/.env';
+    const picked = await port.pick(session, selection, [env]);
+    const item = 'raw:home/work/api/.env';
+    const brought = await port.select(session, picked.scan.selection, [
+      { kind: 'item', item, included: true },
+      { kind: 'confirm_sensitive', item, confirmed: true },
+    ]);
+    expect(manualFacts(brought)).toMatchObject({ picks: 1, keys: 0, secrets: 1 });
   });
 
   it('filters the Customize tree by app or item name and expands matches', () => {

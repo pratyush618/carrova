@@ -41,7 +41,7 @@ export function ControllersProvider({ children }: { readonly children: ReactNode
   const update = useAppUpdate(port);
   const settings = useSettings(port, update.check);
   const defaults = settings.settings?.move_defaults ?? DEFAULT_MOVE_DEFAULTS;
-  const send = useSendFlow(port, defaults.include_caches);
+  const send = useSendFlow(port, defaults.include_caches, host);
   const save = useSaveFlow(port, send, host);
   const receive = useReceiveFlow(port, host, defaults);
   const history = useHistory(port);

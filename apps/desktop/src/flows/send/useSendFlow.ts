@@ -1,18 +1,41 @@
 import { useCallback, useMemo, useReducer, useRef } from 'react';
 import { useEngineDispatch } from '../../app/state/EngineState';
 import { toBridgeError } from '../../engine/errors';
-import type { CarrovaPort, ScanResult, SendReport, SessionId } from '../../engine/types';
+import type { DesktopHost } from '../../engine/host';
+import type { CarrovaPort, ItemKey, SendReport, SessionId } from '../../engine/types';
+import { current } from '../remote';
+import { appsOnly, NO_PICKS, usable } from './modes';
 import { toEdits, type SelectionChange } from './selectionChange';
-import { initialSendFlow, sendFlowReducer, type SendFlowState } from './sendFlow';
+import {
+  enqueue as enqueueOn,
+  queueFrom,
+  type Outlet,
+  type Request,
+  type SelectionQueue,
+} from './selectionQueue';
+import { initialSendFlow, sendFlowReducer, type SendFlowState, type SendMode } from './sendFlow';
 
 /** Commands of the sending side; screens call these, never the port. */
 export interface SendController {
   readonly state: SendFlowState;
-  /** Fresh scan (also forgets any earlier selection). */
-  readonly start: () => void;
+  /**
+   * A fresh session (forgets any earlier one): Auto scans the apps; Manual
+   * skips the scan and picks `paths` (e.g. sent from the file manager).
+   */
+  readonly start: (mode?: SendMode, paths?: readonly string[]) => void;
+  /** Show the other mode; both keep their lists. The first Auto in a Manual session scans the apps. */
+  readonly switchMode: (mode: SendMode) => void;
+  /** After a failed scan: scan the apps again in this session (picks kept), or repeat the failed start. */
+  readonly retryScan: () => void;
+  /** The system pickers, starting in home; `null` when the host has none. */
+  readonly addFiles: (() => void) | null;
+  readonly addFolders: (() => void) | null;
+  /** Pick absolute `paths` (switches to Manual); the engine measures them. */
+  readonly addPaths: (paths: readonly string[]) => void;
+  readonly removePick: (key: ItemKey) => void;
   readonly edit: (change: SelectionChange) => void;
   readonly resetToSuggested: () => void;
-  /** Waits until the engine has seen the latest selection; `true` if it can be used. */
+  /** Waits until the engine holds the visible mode's latest selection; `true` if it can be used. */
   readonly confirmSelection: () => Promise<boolean>;
   readonly send: () => void;
   /** Stop the current code and start pairing again with a new one. */
@@ -26,93 +49,223 @@ export interface SendController {
   readonly resume: (session: SessionId) => void;
 }
 
-const usable = (result: ScanResult | null): boolean =>
-  result !== null && result.view.issues.length === 0;
-
 /**
  * The effect layer over {@link sendFlowReducer}: each command is one port call.
  * `includeCaches`: the user's suggested default (Settings) for a fresh scan.
  */
-export function useSendFlow(port: CarrovaPort, includeCaches: boolean): SendController {
+export function useSendFlow(
+  port: CarrovaPort,
+  includeCaches: boolean,
+  host: DesktopHost = {},
+): SendController {
   const [state, dispatch] = useReducer(sendFlowReducer, initialSendFlow);
   const engine = useEngineDispatch();
   const session = useRef<SessionId | null>(null);
-  /**
-   * The engine's latest reply for the session, once every queued request has
-   * answered. Selection requests run one after another, each on the result of
-   * the one before, so the engine applies the user's edits in order.
-   */
-  const latest = useRef<Promise<ScanResult | null>>(Promise.resolve(null));
+  const mode = useRef<SendMode>('auto');
+  /** Modes whose first reply was asked for in this session. */
+  const opened = useRef<Record<SendMode, boolean>>({ auto: false, manual: false });
+  const queue = useRef<SelectionQueue>(queueFrom(null));
   const ticket = useRef(0);
+  /** The latest start's mode and paths, for retrying it when it failed. */
+  const started = useRef<[SendMode, readonly string[]]>(['auto', []]);
+  /** Bumped by every stop: queued replies from before it are dropped. */
+  const generation = useRef(0);
   const running = useRef(false);
 
   const stop = useCallback(() => {
     ticket.current++;
+    generation.current++;
     if (running.current && session.current !== null) void port.cancel(session.current);
     running.current = false;
   }, [port]);
 
-  /** Queue a selection request on `base`; only the newest one's outcome is shown. */
+  /** Queue `request` for `on` in this session; `true` once it succeeded. */
   const enqueue = useCallback(
-    (request: (id: SessionId, base: ScanResult) => Promise<ScanResult>) => {
+    (
+      on: SendMode,
+      request: Request,
+      failed: Outlet['failed'] = (error) => ({ type: 'selectFailed', mode: on, error }),
+    ): Promise<boolean> => {
       const id = session.current;
-      if (id === null) return;
-      const queued: Promise<ScanResult | null> = latest.current.then(async (base) => {
-        if (base === null) return null;
-        try {
-          const result = await request(id, base);
-          if (latest.current === queued) dispatch({ type: 'selected', result });
-          return result;
-        } catch (reason: unknown) {
-          if (latest.current === queued) {
-            dispatch({ type: 'selectFailed', error: toBridgeError(reason) });
-          }
-          // Refused edits change nothing: the engine keeps the previous selection.
-          return base;
-        }
-      });
-      latest.current = queued;
+      if (id === null) return Promise.resolve(false);
+      const mine = generation.current;
+      const live = () => mine === generation.current;
+      return enqueueOn(queue.current, on, id, request, { dispatch, live, failed });
     },
     [],
   );
 
-  const edit = useCallback(
-    (change: SelectionChange) => {
-      enqueue((id, base) => port.select(id, base.selection, toEdits(change, base.selection)));
+  const editIn = useCallback(
+    (on: SendMode, change: SelectionChange) => {
+      void enqueue(on, (id, base) =>
+        base === null
+          ? Promise.resolve(null)
+          : port.select(id, base.selection, toEdits(change, base.selection)),
+      );
     },
     [port, enqueue],
   );
 
-  const start = useCallback(() => {
-    stop();
-    const mine = ticket.current;
-    dispatch({ type: 'reset' });
-    dispatch({ type: 'scan', action: { type: 'start' } });
-    port.scan().then(
-      (result) => {
-        if (mine !== ticket.current) return;
-        session.current = result.session;
-        latest.current = Promise.resolve(result);
-        dispatch({ type: 'scan', action: { type: 'ok', value: result } });
-        // The user's suggested default (Settings): still one tap to undo.
-        if (includeCaches) edit({ kind: 'caches', included: true });
+  const edit = useCallback(
+    (change: SelectionChange) => {
+      editIn(mode.current, change);
+    },
+    [editIn],
+  );
+
+  /** Scan the apps into Auto; a failure stays shown there (the reducer keeps it), with its retry. */
+  const scanApps = useCallback(() => {
+    dispatch({ type: 'scan', mode: 'auto', action: { type: 'start' } });
+    void enqueue(
+      'auto',
+      async (id) => {
+        const scanned = appsOnly(await port.scanApps(id));
+        const { selection } = scanned;
+        return includeCaches
+          ? port.select(id, selection, toEdits({ kind: 'caches', included: true }, selection))
+          : scanned;
       },
-      (reason: unknown) => {
-        if (mine === ticket.current) {
-          dispatch({ type: 'scan', action: { type: 'fail', error: toBridgeError(reason) } });
-        }
-      },
+      (error) => ({ type: 'scan', mode: 'auto', action: { type: 'fail', error } }),
     );
-  }, [port, stop, edit, includeCaches]);
+  }, [port, enqueue, includeCaches]);
+
+  /** Show `on`, asking for its first reply when this session hasn't yet. */
+  const switchMode = useCallback(
+    (on: SendMode) => {
+      if (on === mode.current) return;
+      mode.current = on;
+      dispatch({ type: 'mode', mode: on });
+      if (opened.current[on]) return;
+      opened.current[on] = true;
+      if (on === 'manual') {
+        const generationNow = generation.current;
+        // An Auto session's Manual list starts empty, in the engine's words.
+        void enqueue('manual', (id) =>
+          port.select(id, NO_PICKS, []).catch((reason: unknown) => {
+            // Ask again on the next switch: later picks need this base.
+            if (generationNow === generation.current) opened.current.manual = false;
+            throw reason;
+          }),
+        );
+        return;
+      }
+      // Manual sessions skip the app scan until Auto is first shown.
+      scanApps();
+    },
+    [port, enqueue, scanApps],
+  );
+
+  const addPaths = useCallback(
+    (paths: readonly string[]) => {
+      if (paths.length === 0 || session.current === null) return;
+      switchMode('manual');
+      dispatch({ type: 'measuring', paths });
+      void enqueue('manual', async (id, base, show) => {
+        const reply =
+          base === null
+            ? null
+            : await port.pick(id, base.selection, [...paths]).catch((reason: unknown) => {
+                show({ type: 'picked', paths, result: null, outcomes: [] });
+                throw reason;
+              });
+        const result = reply?.scan ?? null;
+        show({ type: 'picked', paths, result, outcomes: reply?.outcomes ?? [] });
+        return result;
+      });
+    },
+    [port, enqueue, switchMode],
+  );
+
+  const removePick = useCallback(
+    (key: ItemKey) => {
+      void enqueue('manual', (id, base) =>
+        base === null
+          ? Promise.resolve(null)
+          : port.select(id, base.selection, [{ kind: 'remove_pick', item: key }]),
+      );
+    },
+    [port, enqueue],
+  );
+
+  const home = current(state.scan)?.report.platform.roots.home ?? null;
+  const { pickFiles, pickFolders } = host;
+  /** A host picker that adds what the user chose; `null` when the host has none. */
+  const picker = useCallback(
+    (pick: DesktopHost['pickFiles']) =>
+      pick === undefined
+        ? null
+        : () => {
+            pick(home).then(
+              (paths) => {
+                if (paths !== null) addPaths(paths);
+              },
+              (reason: unknown) => {
+                dispatch({ type: 'selectFailed', error: toBridgeError(reason) });
+              },
+            );
+          },
+    [home, addPaths],
+  );
+  const addFiles = useMemo(() => picker(pickFiles), [picker, pickFiles]);
+  const addFolders = useMemo(() => picker(pickFolders), [picker, pickFolders]);
+
+  const start = useCallback(
+    (on: SendMode = 'auto', paths: readonly string[] = []) => {
+      stop();
+      const mine = ticket.current;
+      started.current = [on, paths];
+      session.current = null;
+      mode.current = on;
+      opened.current = { auto: on === 'auto', manual: on === 'manual' };
+      dispatch({ type: 'reset', mode: on });
+      dispatch({ type: 'scan', mode: on, action: { type: 'start' } });
+      (on === 'auto' ? port.scan() : port.startManual()).then(
+        (result) => {
+          if (mine !== ticket.current) return;
+          session.current = result.session;
+          queue.current = queueFrom({ auto: null, manual: null, [on]: result });
+          dispatch({ type: 'scan', mode: on, action: { type: 'ok', value: result } });
+          // The user's suggested default (Settings): still one tap to undo.
+          if (on === 'auto' && includeCaches) editIn('auto', { kind: 'caches', included: true });
+          addPaths(paths);
+        },
+        (reason: unknown) => {
+          if (mine === ticket.current) {
+            dispatch({
+              type: 'scan',
+              mode: on,
+              action: { type: 'fail', error: toBridgeError(reason) },
+            });
+          }
+        },
+      );
+    },
+    [port, stop, editIn, addPaths, includeCaches],
+  );
+
+  const retryScan = useCallback(() => {
+    if (session.current === null) start(...started.current);
+    else scanApps();
+  }, [start, scanApps]);
 
   const resetToSuggested = useCallback(() => {
-    enqueue(async (id) => {
+    void enqueue('auto', async (id) => {
       const suggested = await port.suggest(id, 'suggested');
-      return port.select(id, suggested.selection, []);
+      return port.select(id, appsOnly(suggested).selection, []);
     });
   }, [port, enqueue]);
 
-  const confirmSelection = useCallback(async () => usable(await latest.current), []);
+  const confirmSelection = useCallback(async () => {
+    const on = mode.current;
+    // With both modes open, the engine may hold the other one's selection: hand it this one.
+    const handed =
+      !(opened.current.auto && opened.current.manual) ||
+      enqueue(on, (id, base) =>
+        base === null ? Promise.resolve(null) : port.select(id, base.selection, []),
+      );
+    const result = (await queue.current.latest)?.[on] ?? null;
+    return (await handed) && usable(result);
+  }, [port, enqueue]);
 
   /** Runs a send task; only the newest one's outcome lands. */
   const track = useCallback((task: Promise<SendReport>) => {
@@ -143,7 +296,10 @@ export function useSendFlow(port: CarrovaPort, includeCaches: boolean): SendCont
   const send = useCallback(() => {
     void (async () => {
       const id = session.current;
-      if (id !== null && (await confirmSelection())) runSend(id);
+      const mine = generation.current;
+      if (id === null || !(await confirmSelection())) return;
+      // The user may have started over while the selection was handed over.
+      if (id === session.current && mine === generation.current) runSend(id);
     })();
   }, [confirmSelection, runSend]);
 
@@ -178,6 +334,9 @@ export function useSendFlow(port: CarrovaPort, includeCaches: boolean): SendCont
     (id: SessionId) => {
       stop();
       session.current = id;
+      // The reducer shows a resumed send in Auto, with neither mode's list asked for yet.
+      mode.current = 'auto';
+      opened.current = { auto: false, manual: false };
       dispatch({ type: 'resumed', session: id });
       track(
         port.resume(id).then((opened) => {
@@ -193,6 +352,12 @@ export function useSendFlow(port: CarrovaPort, includeCaches: boolean): SendCont
     () => ({
       state,
       start,
+      switchMode,
+      retryScan,
+      addFiles,
+      addFolders,
+      addPaths,
+      removePick,
       edit,
       resetToSuggested,
       confirmSelection,
@@ -206,6 +371,12 @@ export function useSendFlow(port: CarrovaPort, includeCaches: boolean): SendCont
     [
       state,
       start,
+      switchMode,
+      retryScan,
+      addFiles,
+      addFolders,
+      addPaths,
+      removePick,
       edit,
       resetToSuggested,
       confirmSelection,

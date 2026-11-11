@@ -122,3 +122,45 @@ describe('sidebar', () => {
     });
   });
 });
+
+describe('the one-time file-manager question', () => {
+  const question = 'Add “Send with Carrova” to your file manager?';
+
+  it('answer no never asks again', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true, settings: { file_manager_asked: false } });
+    const save = vi.spyOn(port, 'saveSettings');
+    const entries = vi.spyOn(port, 'setFileManagerEntries');
+    await screen.findByRole('region', { name: question });
+    await user.click(screen.getByRole('button', { name: 'Not now' }));
+
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ file_manager_asked: true }));
+    expect(entries).not.toHaveBeenCalled();
+    expect(screen.queryByRole('region', { name: question })).not.toBeInTheDocument();
+    await openHub(user, 'Settings');
+    await user.click(screen.getByRole('button', { name: 'Home' }));
+    await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
+    expect(screen.queryByRole('region', { name: question })).not.toBeInTheDocument();
+  });
+
+  it('writes the entries on yes, and Settings shows them on', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true, settings: { file_manager_asked: false } });
+    const entries = vi.spyOn(port, 'setFileManagerEntries');
+    await screen.findByRole('region', { name: question });
+    await user.click(screen.getByRole('button', { name: 'Add it' }));
+
+    expect(entries).toHaveBeenCalledWith(true);
+    expect(screen.queryByRole('region', { name: question })).not.toBeInTheDocument();
+    await openHub(user, 'Settings');
+    expect(
+      await screen.findByRole('switch', { name: 'Show “Send with Carrova” in the file manager' }),
+    ).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('hidden while reports question open', async () => {
+    await renderApp({ settings: { file_manager_asked: false } });
+    await screen.findByRole('heading', { name: 'Send error reports if Carrova crashes?' });
+    expect(screen.queryByRole('region', { name: question })).not.toBeInTheDocument();
+  });
+});

@@ -2,19 +2,23 @@ import { describe, expect, it } from 'vitest';
 import { emptySession } from '@/app/state/session';
 import { scan } from '@/ipc/fixtures/scan';
 import { selectIssues } from '@/ipc/fixtures/select-issues';
+import { createFakePort } from '@/ipc/fake';
 import {
   initialSendFlow,
   selectionReady,
+  sendBusy,
   sendFlowReducer,
   type SendFlowAction,
 } from '@/flows/send/sendFlow';
 import {
   foundModel,
   linkedModel,
+  modeSwitch,
   pairingModel,
   sendMove,
   sendStep,
 } from '@/flows/send/sendProgressViews';
+import { foundApps } from '@/flows/send/sendViews';
 
 const run = (...actions: SendFlowAction[]) => actions.reduce(sendFlowReducer, initialSendFlow);
 const scanned = run({ type: 'scan', action: { type: 'ok', value: scan } });
@@ -46,6 +50,22 @@ describe('send flow', () => {
     });
     expect(refused.selection).toEqual(selectIssues.selection);
     expect(selectionReady(refused)).toBe(false);
+  });
+
+  it("keeps a refused edit with its mode's list", () => {
+    const failed = sendFlowReducer(scanned, {
+      type: 'selectFailed',
+      mode: 'manual',
+      error: error('network'),
+    });
+    expect(selectionReady(failed)).toBe(true);
+    const manual = sendFlowReducer(failed, { type: 'mode', mode: 'manual' });
+    expect(manual.selectErrors.manual).toEqual(error('network'));
+    const back = sendFlowReducer(manual, { type: 'mode', mode: 'auto' });
+    expect(selectionReady(back)).toBe(true);
+    expect(sendFlowReducer(back, { type: 'mode', mode: 'manual' }).selectErrors.manual).toEqual(
+      error('network'),
+    );
   });
 
   it('shows the code until the receiver connects, then live, then done', () => {
@@ -136,5 +156,150 @@ describe('send flow', () => {
     );
     expect(back.step).toBe('found');
     expect(back.selection).toEqual(scan.selection);
+  });
+});
+
+/** A Manual session from the fake: opened, then `paths` picked. */
+async function manual(paths: string[]) {
+  const port = createFakePort({ stepMs: 0 });
+  const started = await port.startManual();
+  const picked = await port.pick(started.session, started.selection, paths);
+  return { started, picked };
+}
+
+describe('send flow: Manual mode', () => {
+  const SITE = '/home/ana/projects/site';
+
+  it('switching modes keeps both lists and shows the other count', async () => {
+    const { picked } = await manual([SITE, '/home/ana/notes.txt']);
+    const both = sendFlowReducer(sendFlowReducer(scanned, { type: 'mode', mode: 'manual' }), {
+      type: 'selected',
+      mode: 'manual',
+      result: picked.scan,
+    });
+    const apps = foundApps(scan).filter((a) => a.included).length;
+    expect(foundModel(both).status).toBe('manual');
+    expect(both.selection).toEqual(picked.scan.selection);
+    expect(modeSwitch(both)).toEqual({ manual: true, picks: 2, apps, disabled: false });
+
+    const auto = sendFlowReducer(both, { type: 'mode', mode: 'auto' });
+    expect(auto.selection).toEqual(scan.selection);
+    expect(foundModel(auto).status).toBe('found');
+    expect(modeSwitch(auto)).toEqual({ manual: false, picks: 2, apps, disabled: false });
+    expect(sendFlowReducer(auto, { type: 'mode', mode: 'manual' }).selection).toEqual(
+      picked.scan.selection,
+    );
+  });
+
+  it("keeps an edit's result for its own mode when the other one shows", async () => {
+    const { picked } = await manual([SITE]);
+    const state = run(
+      { type: 'scan', action: { type: 'ok', value: scan } },
+      { type: 'mode', mode: 'manual' },
+      { type: 'selected', mode: 'auto', result: selectIssues },
+      { type: 'selected', mode: 'manual', result: picked.scan },
+    );
+    expect(state.selection).toEqual(picked.scan.selection);
+    expect(sendFlowReducer(state, { type: 'mode', mode: 'auto' }).selection).toEqual(
+      selectIssues.selection,
+    );
+  });
+
+  it('pending_row_shows_while_engine_measures', async () => {
+    const { started, picked } = await manual([SITE]);
+    const measuring = run(
+      { type: 'reset', mode: 'manual' },
+      { type: 'scan', mode: 'manual', action: { type: 'ok', value: started } },
+      { type: 'measuring', paths: [SITE] },
+    );
+    const model = foundModel(measuring);
+    expect(model.status === 'manual' && model.measuring).toEqual(['~/projects/site']);
+    expect(model.status === 'manual' && model.picks).toEqual([]);
+
+    const done = sendFlowReducer(measuring, {
+      type: 'picked',
+      paths: [SITE],
+      result: picked.scan,
+      outcomes: picked.outcomes,
+    });
+    const after = foundModel(done);
+    expect(after.status === 'manual' && after.measuring).toEqual([]);
+    expect(after.status === 'manual' && after.picks.map((p) => p.path)).toEqual([
+      '~/projects/site',
+    ]);
+  });
+
+  it('rejected pick is listed with its reason kind', async () => {
+    const { picked } = await manual([SITE, '/etc/hosts', `${SITE}/index.html`]);
+    const state = run(
+      { type: 'reset', mode: 'manual' },
+      {
+        type: 'picked',
+        paths: [],
+        result: picked.scan,
+        outcomes: picked.outcomes,
+      },
+    );
+    const model = foundModel(state);
+    expect(model.status === 'manual' && model.rejected).toEqual([
+      { path: '/etc/hosts', reason: { kind: 'outside_roots' } },
+    ]);
+    expect(model.status === 'manual' && model.absorbed).toEqual([
+      { path: '~/projects/site/index.html', into: '~/projects/site' },
+    ]);
+  });
+
+  it('waits for a pick, and a sensitive one counts only once brought', async () => {
+    const { picked } = await manual(['/home/ana/.ssh/id_ed25519']);
+    const state = run(
+      { type: 'reset', mode: 'manual' },
+      { type: 'picked', paths: [], result: picked.scan, outcomes: picked.outcomes },
+    );
+    const model = foundModel(state);
+    expect(model.status === 'manual' && model.picks[0]).toMatchObject({
+      sensitive: true,
+      included: false,
+    });
+    expect(model.status === 'manual' && model.facts).toMatchObject({ picks: 0, keys: 0 });
+  });
+
+  it("keeps a hidden mode's scan failure and shows it when that mode is shown again", () => {
+    const hidden = run(
+      { type: 'reset', mode: 'manual' },
+      { type: 'scan', mode: 'manual', action: { type: 'ok', value: scan } },
+      { type: 'mode', mode: 'auto' },
+      { type: 'scan', mode: 'auto', action: { type: 'start' } },
+      { type: 'mode', mode: 'manual' },
+      { type: 'scan', mode: 'auto', action: { type: 'fail', error: error('network') } },
+    );
+    expect(hidden.scan.status).toBe('ready');
+    expect(sendFlowReducer(hidden, { type: 'mode', mode: 'auto' }).scan).toEqual({
+      status: 'failed',
+      error: error('network'),
+      last: null,
+    });
+    // Asking again forgets the failure.
+    const again = (
+      [
+        { type: 'scan', mode: 'auto', action: { type: 'start' } },
+        { type: 'mode', mode: 'manual' },
+        { type: 'mode', mode: 'auto' },
+      ] satisfies SendFlowAction[]
+    ).reduce(sendFlowReducer, hidden).scan;
+    expect(again.status).not.toBe('failed');
+  });
+
+  it('is busy only while a send runs', () => {
+    expect(sendBusy(scanned)).toBe(false);
+    const sending = sendFlowReducer(scanned, { type: 'run', action: { type: 'start' } });
+    expect(sendBusy(sending)).toBe(true);
+    expect(
+      sendBusy(
+        sendFlowReducer(sending, {
+          type: 'run',
+          action: { type: 'fail', error: error('network') },
+        }),
+      ),
+    ).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BridgeEvent } from '@/bindings/BridgeEvent';
+import { ENGINE_DEFAULTS } from '@/bindings/constants';
 import type { PlanOptions } from '@/bindings/PlanOptions';
 import type { CarrovaPort } from '@/ipc/port';
 import { createFakePort, scenarioFromSearch, WRONG_PASSPHRASE, type Scenario } from '@/ipc/fake';
@@ -189,6 +190,91 @@ describe('the fake port, receiving', () => {
     const connecting = rejection(port.connect('7-acid-lemon'));
     await port.cancelConnect();
     expect(await connecting).toMatchObject({ code: 'cancelled' });
+  });
+});
+
+describe('the fake port, Manual mode and the file manager', () => {
+  it('hands paths sent from the file manager over once (forwarded scenario)', async () => {
+    const { port } = await fake('forwarded');
+    expect(await port.takeSendRequest()).toEqual([
+      '/home/ana/projects/site',
+      '/home/ana/notes.txt',
+    ]);
+    expect(await port.takeSendRequest()).toEqual([]);
+    expect(await (await fake()).port.takeSendRequest()).toEqual([]);
+  });
+
+  it('writes and removes the file-manager entries on request', async () => {
+    const { port } = await fake();
+    expect(await port.fileManagerStatus()).toEqual({
+      supported: true,
+      installed: false,
+      skipped: [],
+    });
+    expect((await port.setFileManagerEntries(true)).installed).toBe(true);
+    expect((await port.fileManagerStatus()).installed).toBe(true);
+    expect((await port.setFileManagerEntries(false)).installed).toBe(false);
+  });
+
+  it("keeps the session's edited picks across the app scan", async () => {
+    const { port } = await fake();
+    const { session, selection } = await port.startManual();
+    const site = 'raw:home/projects/site';
+    const env = 'raw:home/work/api/.env';
+    const picked = await port.pick(session, selection, [
+      '/home/ana/projects/site',
+      '/home/ana/work/api/.env',
+    ]);
+    await port.select(session, picked.scan.selection, [
+      { kind: 'remove_pick', item: site },
+      { kind: 'item', item: env, included: true },
+      { kind: 'confirm_sensitive', item: env, confirmed: true },
+    ]);
+    const { items } = (await port.scanApps(session)).selection;
+    expect(items[site]).toBeUndefined();
+    expect(items[env]).toMatchObject({ included: true, confirmed_sensitive: true });
+  });
+
+  it('refuses to send after a pick that leaves an included sensitive pick unconfirmed', async () => {
+    const { port } = await fake();
+    const { session, selection } = await port.startManual();
+    const env = 'raw:home/work/api/.env';
+    const picked = await port.pick(session, selection, ['/home/ana/work/api/.env']);
+    const ticked = await port.select(session, picked.scan.selection, [
+      { kind: 'item', item: env, included: true },
+    ]);
+    const more = await port.pick(session, ticked.selection, ['/home/ana/projects/site']);
+    expect(more.scan.view.issues.map((i) => i.item)).toEqual([env]);
+    expect(await rejection(port.runSend(session))).toMatchObject({ code: 'invalid_selection' });
+  });
+
+  it('refuses to send after the app scan keeps an included sensitive pick unconfirmed', async () => {
+    const { port } = await fake();
+    const { session, selection } = await port.startManual();
+    const env = 'raw:home/work/api/.env';
+    const picked = await port.pick(session, selection, ['/home/ana/work/api/.env']);
+    await port.select(session, picked.scan.selection, [
+      { kind: 'item', item: env, included: true },
+    ]);
+    const scanned = await port.scanApps(session);
+    expect(scanned.view.issues.map((i) => i.item)).toContain(env);
+    expect(await rejection(port.runSend(session))).toMatchObject({ code: 'invalid_selection' });
+  });
+
+  it('offers Manual picks unticked and accept all ticks only the safe ones (picks scenario)', async () => {
+    const { port } = await fake('picks');
+    const { session } = await port.openArchive('/tmp/a.carrova', 'pass');
+    const options = ENGINE_DEFAULTS.plan_options;
+    const review = await port.plan(session, options);
+    const raw = review.offered.filter((o) => o.key.startsWith('raw:'));
+    expect(raw.map((o) => [o.key, o.picked, o.safe_pick])).toEqual([
+      ['raw:home/projects/site', false, true],
+      ['raw:home/notes.txt', false, true],
+      ['raw:home/.ssh/id_ed25519', false, false],
+    ]);
+    const accepted = await port.editPlan(session, [{ kind: 'accept_safe_picks' }]);
+    expect(accepted.offered.filter((o) => o.picked && o.key.startsWith('raw:'))).toHaveLength(2);
+    expect(accepted.plan.blockers).toEqual([]);
   });
 });
 

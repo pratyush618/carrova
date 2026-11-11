@@ -47,6 +47,18 @@ export interface CodeEntryIntents {
 
 /** A decision the receiver must answer before approving. */
 export type DecisionModel =
+  /**
+   * "Accept all" for the sender's own picks that are only "unrecognised
+   * data": a shortcut over their own rows, not a question of its own.
+   */
+  | {
+      readonly kind: 'safe-picks';
+      readonly key: 'safe-picks';
+      /** Safe picks not confirmed yet. */
+      readonly count: number;
+      /** `bring` once the plan accepts them all. */
+      readonly answer: 'bring' | null;
+    }
   | {
       readonly kind: 'secret';
       readonly key: ItemKey;
@@ -129,6 +141,8 @@ export interface ReviewRail {
 
 export interface ReviewIntents {
   readonly onAnswer: (key: ItemKey, answer: DecisionAnswer) => void;
+  /** Tick every safe pick ("Accept all N files"). */
+  readonly onAcceptSafePicks: () => void;
   readonly onApplyWhileOpen: (key: ItemKey) => void;
   readonly onIgnoreSpace: () => void;
   /** Bring a same-system item from another system anyway (opens its warning). */

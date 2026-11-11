@@ -1,3 +1,5 @@
+import type { PickRejection } from '../../bindings/PickRejection';
+
 /** The send flow: found, customize, pairing, live, delivered. */
 export const send = {
   found: {
@@ -48,6 +50,50 @@ export const send = {
     pluginReview: 'Review…',
     pluginReviewFor: 'Review… ({{plugin}} plugin)',
   },
+  manual: {
+    switch: 'Manual',
+    switchPicks_one: 'Manual · {{count}}',
+    switchPicks_other: 'Manual · {{count}}',
+    switchApps: 'Manual · Auto has {{apps}}',
+    title: 'Pick files and folders',
+    lede: 'Only what you pick moves. Anything in your home and app folders.',
+    addFiles: 'Add files',
+    addFolder: 'Add folder',
+    list: 'Your picks',
+    empty: 'Nothing picked yet. Add files or folders to send exactly those.',
+    remove: 'Remove {{path}}',
+    link: 'Link',
+    measuring: 'Measuring…',
+    sensitive: 'Anyone with a copy can act as you. Starts off until you say so.',
+    absorbed: '{{path}} is already inside {{into}}',
+    rejectedList: "Can't add",
+    picked: 'Picked',
+    items_one: '{{count}} item',
+    items_other: '{{count}} items',
+    noteNoKeys: '{{items}} · {{size}} · no keys',
+    noteWithKeys_one: '{{items}} · {{size}} · {{count}} secret',
+    noteWithKeys_other: '{{items}} · {{size}} · {{count}} secrets',
+    roots: {
+      home: 'home',
+      user_config: 'settings',
+      user_data: 'app data',
+      cache: 'cache',
+      documents: 'Documents',
+    },
+    /** Same meaning as `PickRejection`'s Display in carrova-core (`select/pick.rs`). */
+    rejected: {
+      not_found: 'It no longer exists.',
+      outside_roots:
+        'It is outside your home and app folders; Carrova only moves files from those.',
+      is_root: 'It is your whole {{root}} folder; pick folders inside it.',
+      contains_root: 'It holds your {{root}} folder; pick folders inside it.',
+      linked_parent: 'A folder on its path is a link; pick the real folder instead.',
+      symlink_outside: 'It is a link to a place outside your home and app folders.',
+      special: 'It is not a regular file or folder.',
+      unsupported_name: "Its name has characters Carrova can't carry.",
+      unreadable: "Carrova can't read it ({{reason}}).",
+    } satisfies Record<PickRejection['kind'], string>,
+  },
   keys: {
     title: 'Bring {{item}}?',
     travel: 'They travel encrypted and land with the same permissions they have now.',
@@ -64,6 +110,7 @@ export const send = {
     apps: 'Apps',
     size: 'Size',
     keys: 'Keys and secrets',
+    secrets: 'Sensitive files',
     keysLeft: 'Left behind',
     keysBrought_one: '{{count}} brought',
     keysBrought_other: '{{count}} brought',

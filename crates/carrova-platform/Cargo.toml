@@ -27,6 +27,8 @@ known-folders = { workspace = true }
 # `disk`: free space per volume.
 sysinfo = { workspace = true, features = ["disk"] }
 winapi-util = { workspace = true }
+# Explorer entries: per-user shell verbs.
+winreg = { workspace = true }
 
 [features]
 # In-memory/tempdir-backed Platform for tests (recipe fixtures, scan tests).

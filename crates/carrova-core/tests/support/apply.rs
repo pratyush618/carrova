@@ -225,6 +225,7 @@ pub fn plan(actions: Vec<PlannedAction>, handlers: Vec<PlannedHandler>) -> Plan 
         blockers: vec![],
         warnings: vec![],
         sensitive: Default::default(),
+        safe_picks: Vec::new(),
     }
 }
 

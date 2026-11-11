@@ -11,6 +11,10 @@ export interface DesktopHost {
   readonly pickSavePath?: (suggestedName: string) => Promise<string | null>;
   /** Native "open"; `null` when the user cancels. */
   readonly pickOpenPath?: () => Promise<string | null>;
+  /** Native multi-select file picker starting in `startIn` (home when `null`); `null` when cancelled. */
+  readonly pickFiles?: (startIn: string | null) => Promise<string[] | null>;
+  /** Native multi-select folder picker starting in `startIn` (home when `null`); `null` when cancelled. */
+  readonly pickFolders?: (startIn: string | null) => Promise<string[] | null>;
   /** Open a web page in the user's browser. */
   readonly openUrl?: (url: string) => Promise<void>;
   /** Show a file or folder in the file manager. */

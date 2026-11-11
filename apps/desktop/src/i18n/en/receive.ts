@@ -69,6 +69,12 @@ export const receive = {
     leaveBehind: 'Leave behind',
     leaveFor: 'Leave behind ({{what}})',
     leftBehind: 'Left behind',
+    safePicks: 'Files and folders the sender picked',
+    safePicksWhy:
+      'Carrova has no recipe for them, so each arrives unticked. None lands where keys or passwords usually live, or anywhere that runs at login.',
+    acceptAll_one: 'Accept {{count}} file',
+    acceptAll_other: 'Accept all {{count}} files',
+    accepted: 'Accepted',
     broughtAnyway: 'Bringing it anyway',
     plugin: 'The {{plugin}} plugin would change {{what}}',
     pluginReview: 'Review…',

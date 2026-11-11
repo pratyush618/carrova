@@ -34,6 +34,7 @@ mod mode;
 pub mod plan;
 mod rollback;
 pub mod scan;
+pub mod secrets;
 pub mod select;
 pub mod session;
 mod space;
@@ -99,7 +100,10 @@ pub use plan::{
 };
 pub use rollback::{Quarantined, RollbackFailure, RollbackPreview, RollbackReport};
 pub use scan::{ScanError, ScanOptions, ScanReport, scan};
-pub use select::{ItemChoice, Preset, Selection, SelectionEdit, SelectionIssue};
+pub use select::{
+    ItemChoice, Pick, PickFacts, PickKind, PickOutcome, PickRejection, PickResult, Preset,
+    Selection, SelectionEdit, SelectionIssue,
+};
 pub use session::{
     Event, EventSink, LogSink, NullSink, PauseReason, Phase, Role, RollbackOutcome, SessionId,
     State, VecSink,

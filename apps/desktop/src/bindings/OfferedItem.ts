@@ -21,4 +21,8 @@ picked: boolean,
 /**
  * Set when either side considers the item sensitive.
  */
-sensitive: Sensitivity | null, };
+sensitive: Sensitivity | null, 
+/**
+ * A safe pick: "Accept all" confirms it ([`Plan::safe_picks`]).
+ */
+safe_pick: boolean, };

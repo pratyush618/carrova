@@ -16,7 +16,7 @@ use crate::key::ItemKey;
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PlanEdit {
     /// The answer for a sensitive item: confirm and pick it, or leave it
-    /// behind.
+    /// behind ([`PlanOptions::declined`]).
     AnswerSensitive {
         /// The item.
         item: ItemKey,
@@ -64,7 +64,8 @@ pub enum PlanEdit {
         rule: Option<ConflictRule>,
     },
     /// Restore an item elsewhere (re-confined by the planner); `None` puts
-    /// it back where it was.
+    /// it back where it was ([`PlanOptions::remap`]: a new destination
+    /// needs a fresh sensitive confirmation).
     Remap {
         /// The item.
         item: ItemKey,
@@ -97,6 +98,11 @@ pub enum PlanEdit {
         /// Which check.
         check: PlanOverride,
     },
+    /// "Accept all": confirm every item of [`Plan::safe_picks`]
+    /// ([`PlanOptions::accept_safe_picks`]), judged afresh by each plan,
+    /// except the ones the user left ([`PlanOptions::declined`]); with an
+    /// explicit item list, the other offered safe picks are also ticked.
+    AcceptSafePicks,
 }
 
 /// Plan-level checks the user may override ([`PlanEdit::Override`]).
@@ -124,6 +130,8 @@ pub struct Offered {
     pub sensitive: bool,
     /// Plugins the plan runs over its files ([`Plan::plugins`]).
     pub plugins: Vec<PluginId>,
+    /// In [`Plan::safe_picks`]: "Accept all" confirms it.
+    pub safe_pick: bool,
 }
 
 /// An edit that cannot apply; the options are unchanged.
@@ -163,6 +171,7 @@ impl Plan {
                     app: item.recipe_id.clone(),
                     sensitive: self.sensitivity(item).is_some(),
                     plugins,
+                    safe_pick: self.safe_picks.contains(&key),
                     key,
                 }
             })
@@ -189,7 +198,8 @@ impl PlanOptions {
                 if let Some(items) = &mut self.items {
                     toggle(items, item.clone(), bring);
                 }
-                toggle(&mut self.confirmed_sensitive, item, bring);
+                toggle(&mut self.confirmed_sensitive, item.clone(), bring);
+                toggle(&mut self.declined, item, !bring);
             }
             PlanEdit::SkipApp { app, skip } => {
                 let of_app = |o: &&Offered| o.app.as_deref() == Some(app.as_str());
@@ -200,7 +210,7 @@ impl PlanOptions {
                         offered
                             .iter()
                             .filter(of_app)
-                            .filter(|o| !o.sensitive || self.is_confirmed(&o.key))
+                            .filter(|o| !o.sensitive || self.confirms(&o.key, o.safe_pick))
                             .map(|o| o.key.clone()),
                     );
                 }
@@ -230,10 +240,7 @@ impl PlanOptions {
             },
             PlanEdit::Remap { item, remap } => {
                 known(&item, offered)?;
-                match remap {
-                    Some(remap) => drop(self.remaps.insert(item, remap)),
-                    None => drop(self.remaps.remove(&item)),
-                }
+                self.remap(item, remap);
             }
             PlanEdit::KeepBothSuffix { suffix } => {
                 let suffix = suffix.trim();
@@ -248,6 +255,19 @@ impl PlanOptions {
                 PlanOverride::Running => self.ignore_requires_closed = true,
                 PlanOverride::Space => self.ignore_free_space = true,
             },
+            PlanEdit::AcceptSafePicks => {
+                // Ticking is harmless: the next plan confirms only its own safe picks.
+                if let Some(items) = &mut self.items {
+                    let declined = &self.declined;
+                    for o in offered
+                        .iter()
+                        .filter(|o| o.safe_pick && !declined.contains(&o.key))
+                    {
+                        toggle(items, o.key.clone(), true);
+                    }
+                }
+                self.accept_safe_picks = true;
+            }
         }
         Ok(())
     }
@@ -268,13 +288,28 @@ impl PlanOptions {
             .try_for_each(|edit| self.apply(edit, offered))
     }
 
+    /// Restore `item` elsewhere (`None`: where it was) — the one remap
+    /// rule every front-end shares. A confirmation covers the place it was
+    /// given for: a new place drops the item's sensitive confirmation, the
+    /// same place again keeps it.
+    pub fn remap(&mut self, item: ItemKey, remap: Option<Remap>) {
+        if self.remaps.get(&item) == remap.as_ref() {
+            return;
+        }
+        toggle(&mut self.confirmed_sensitive, item.clone(), false);
+        match remap {
+            Some(remap) => drop(self.remaps.insert(item, remap)),
+            None => drop(self.remaps.remove(&item)),
+        }
+    }
+
     /// The offered items these options pick, as an explicit list.
     fn picked(&self, offered: &[Offered]) -> Vec<ItemKey> {
         offered
             .iter()
             .filter(|o| match &self.items {
                 Some(list) => list.contains(&o.key),
-                None => !o.sensitive || self.is_confirmed(&o.key),
+                None => !o.sensitive || self.confirms(&o.key, o.safe_pick),
             })
             .map(|o| o.key.clone())
             .collect()

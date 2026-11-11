@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ENGINE_DEFAULTS } from '@/bindings/constants';
 import type { PlanReview } from '@/bindings/PlanReview';
 import { editOptions, planUnder, type PlanConditions } from '@/ipc/fake/planner';
+import { planWithPicks } from '@/ipc/fake/fixtures';
 import { plan } from '@/ipc/fixtures/plan';
 import { planVariants } from '@/ipc/fixtures/plan-variants';
 
@@ -10,7 +11,7 @@ const none: PlanConditions = { runningApp: null };
 /**
  * What the review screens read from a plan, minus dates in keep-both names and
  * the sensitivity of remapped items (the engine re-judges it at the new
- * target; the fake does not).
+ * target; the fake only against its short tables).
  */
 function shape(review: PlanReview) {
   const remapped = (key: string) => key in review.plan.options.remaps;
@@ -107,5 +108,87 @@ describe('the fake planner, editing options like PlanOptions::apply_all', () => 
     expect(() =>
       editOptions(base, [{ kind: 'allow_plugin', plugin: 'nope', allow: true }]),
     ).toThrow();
+  });
+  it('accept all picks and confirms every safe pick, even out of a frozen list, and nothing else', () => {
+    const picks = planUnder(planWithPicks, ENGINE_DEFAULTS.plan_options, none);
+    const safe = picks.offered.filter((o) => o.safe_pick).map((o) => o.key);
+    expect(safe).toHaveLength(2);
+    const options = editOptions(picks, [
+      { kind: 'answer_sensitive', item: 'ssh/keys', bring: false },
+      { kind: 'accept_safe_picks' },
+    ]);
+    expect(options.accept_safe_picks).toBe(true);
+    expect(options.confirmed_sensitive).toEqual([]);
+    const accepted = planUnder(planWithPicks, options, none).offered.filter((o) => o.picked);
+    expect(accepted.map((o) => o.key)).toEqual(expect.arrayContaining(safe));
+    expect(accepted.every((o) => o.sensitive === null || o.sensitive.confirmed)).toBe(true);
+    expect(accepted.map((o) => o.key)).not.toContain('raw:home/.ssh/id_ed25519');
+  });
+
+  it('accept all leaves a declined safe pick and brings the untouched one', () => {
+    const picks = planUnder(planWithPicks, ENGINE_DEFAULTS.plan_options, none);
+    const [left = '', untouched = ''] = picks.offered.filter((o) => o.safe_pick).map((o) => o.key);
+    const options = editOptions(picks, [
+      { kind: 'answer_sensitive', item: left, bring: false },
+      { kind: 'accept_safe_picks' },
+    ]);
+    expect(options.declined).toEqual([left]);
+    const picked = planUnder(planWithPicks, options, none).offered.filter((o) => o.picked);
+    expect(picked.map((o) => o.key)).not.toContain(left);
+    expect(picked.map((o) => o.key)).toContain(untouched);
+    const brought = editOptions(picks, [
+      { kind: 'answer_sensitive', item: left, bring: false },
+      { kind: 'answer_sensitive', item: left, bring: true },
+    ]);
+    expect(brought.declined).toEqual([]);
+  });
+
+  it('remapped_safe_pick_under_ssh_is_rejudged_and_blocks', () => {
+    const picks = planUnder(planWithPicks, ENGINE_DEFAULTS.plan_options, none);
+    const notes = 'raw:home/notes.txt';
+    const options = editOptions(picks, [
+      { kind: 'answer_sensitive', item: 'ssh/keys', bring: false },
+      { kind: 'accept_safe_picks' },
+      { kind: 'remap', item: notes, remap: { root: null, rel_prefix: '.ssh' } },
+    ]);
+    const review = planUnder(planWithPicks, options, none);
+    const item = review.offered.find((o) => o.key === notes);
+    expect(item).toMatchObject({ picked: true, safe_pick: false });
+    expect(item?.sensitive?.confirmed).toBe(false);
+    expect(item?.sensitive?.reason).toContain('SSH keys (home:.ssh/notes.txt)');
+    expect(review.plan.safe_picks).not.toContain(notes);
+    expect(review.plan.blockers).toContainEqual(
+      expect.objectContaining({ kind: 'unconfirmed_sensitive', item: notes }),
+    );
+  });
+
+  it('remapped_pick_into_a_login_place_is_dangerous', () => {
+    const site = 'raw:home/projects/site';
+    const options = editOptions(planUnder(planWithPicks, ENGINE_DEFAULTS.plan_options, none), [
+      { kind: 'remap', item: site, remap: { root: 'user_config', rel_prefix: 'autostart' } },
+    ]);
+    const item = planUnder(planWithPicks, options, none).offered.find((o) => o.key === site);
+    expect(item?.safe_pick).toBe(false);
+    expect(item?.sensitive?.reason).toContain('starts programs at login (autostart)');
+  });
+
+  it('remapping to the same place again keeps the confirmation', () => {
+    const remap = { root: null, rel_prefix: 'old' };
+    const moved = editOptions(base, [
+      { kind: 'remap', item: 'ssh/keys', remap },
+      { kind: 'answer_sensitive', item: 'ssh/keys', bring: true },
+    ]);
+    const again = editOptions({ ...base, plan: { ...base.plan, options: moved } }, [
+      { kind: 'remap', item: 'ssh/keys', remap: { ...remap } },
+    ]);
+    expect(again.confirmed_sensitive).toEqual(['ssh/keys']);
+  });
+
+  it('remapping a confirmed item drops its confirmation', () => {
+    const brought = editOptions(base, [
+      { kind: 'answer_sensitive', item: 'ssh/keys', bring: true },
+      { kind: 'remap', item: 'ssh/keys', remap: { root: null, rel_prefix: 'old' } },
+    ]);
+    expect(brought.confirmed_sensitive).toEqual([]);
   });
 });

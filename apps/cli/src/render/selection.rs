@@ -3,25 +3,30 @@
 use std::io::{self, Write};
 
 use carrova_core::ItemKey;
+use carrova_core::select::{PickOutcome, PickResult};
 
-use carrova_view::selection::{SelectionRow, SelectionTag, SelectionView};
+use carrova_view::selection::{PickRow, SelectionRow, SelectionTag, SelectionView};
 
 use super::plan::planned_plugin;
 use super::text::{human_size, safe};
 
 /// The export selection: every recipe item (ticked or not) with its marks,
-/// ticked raw dirs, a hint about the rest, the exporting plugins with
-/// their permissions, and the problems.
+/// ticked raw dirs, the Manual picks, a hint about the rest, the exporting
+/// plugins with their permissions, and the problems.
 pub fn selection(out: &mut impl Write, v: &SelectionView<'_>) -> io::Result<()> {
     let w = v
         .rows
         .iter()
         .map(|r| r.key.as_str().len())
+        .chain(v.picks.iter().map(|p| p.display.len()))
         .max()
         .unwrap_or(0);
     writeln!(out, "Selection ([x] = exported):")?;
     for row in &v.rows {
         selection_row(out, row, w)?;
+    }
+    for pick in &v.picks {
+        pick_row(out, pick, w)?;
     }
     if v.hidden_raw > 0 {
         writeln!(
@@ -70,6 +75,37 @@ fn selection_row(out: &mut impl Write, row: &SelectionRow<'_>, w: usize) -> io::
     writeln!(out)?;
     for ex in row.excluded_paths {
         writeln!(out, "        excluded: {}", safe(ex))?;
+    }
+    Ok(())
+}
+
+/// `  [x] ~/path  size  files  [tags]`. `w` is the path column width.
+fn pick_row(out: &mut impl Write, pick: &PickRow<'_>, w: usize) -> io::Result<()> {
+    let mark = if pick.included { "x" } else { " " };
+    let size = human_size(pick.facts.size);
+    let files = format!("{} files", pick.facts.files);
+    let path = safe(&pick.display);
+    write!(out, "  [{mark}] {path:<w$}  {size:>10}  {files:>9}")?;
+    if !pick.tags.is_empty() {
+        let tags: Vec<String> = pick.tags.iter().map(|t| tag(*t, pick.key)).collect();
+        write!(out, "  [{}]", tags.join("; "))?;
+    }
+    writeln!(out)
+}
+
+/// `cannot pick <path>: <why>` for each refused pick, in order; the words
+/// are the engine's ([`carrova_core::select::PickRejection`]), as in the
+/// desktop app.
+pub fn pick_rejections(out: &mut impl Write, outcomes: &[PickOutcome]) -> io::Result<()> {
+    for o in outcomes {
+        if let PickResult::Rejected { reason } = &o.result {
+            writeln!(
+                out,
+                "cannot pick {}: {}",
+                safe(&o.path),
+                safe(&reason.to_string())
+            )?;
+        }
     }
     Ok(())
 }

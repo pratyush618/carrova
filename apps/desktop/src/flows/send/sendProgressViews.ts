@@ -1,11 +1,12 @@
 import { peerLabel, type SessionProgress } from '../../app/state/session';
-import type { SendReport } from '../../engine/types';
+import type { ScanResult, SendReport } from '../../engine/types';
 import type { FlowStep } from '../../app/nav/flows';
 import type {
   DeliveredModel,
   FoundModel,
   LinkedModel,
   LiveModel,
+  ModeSwitchModel,
   PairingModel,
   SendMove,
 } from '../../screens/send/model';
@@ -17,7 +18,11 @@ import {
   filterFound,
   foundApps,
   foundGroups,
+  manualFacts,
+  manualPicks,
+  measuringPaths,
   moveFacts,
+  pickNotes,
   pluginAsks,
   secretItems,
   selectionIssues,
@@ -37,8 +42,43 @@ export function sendStep(state: SendFlowState, progress: SessionProgress): FlowS
   }
 }
 
-/** "Here's what we found", from the scan and the user's selection, narrowed to `filter`. */
+/** Why the visible selection can't be used yet: the engine's view, then a refused edit. */
+const issuesOf = (state: SendFlowState, scan: ScanResult): string[] => {
+  const refused = state.selectErrors[state.mode];
+  return [...selectionIssues(scan.view), ...(refused === null ? [] : [refused.message])];
+};
+
+/** Manual mode: the picks, paths still being measured, and what the latest picks refused. */
+function manualModel(state: SendFlowState): FoundModel {
+  const scan = state.byMode.manual;
+  const picks = scan === null ? [] : manualPicks(scan);
+  return {
+    status: 'manual',
+    picks,
+    measuring: measuringPaths(state.pending, scan),
+    ...pickNotes(state.outcomes, scan),
+    facts:
+      scan === null
+        ? { apps: 0, totalApps: 0, bytes: 0, keys: 0, caches: false, picks: 0, secrets: 0 }
+        : manualFacts(scan),
+    issues: scan === null ? [] : issuesOf(state, scan),
+  };
+}
+
+/** The Auto/Manual switch: the visible mode, and what the other one holds. */
+export function modeSwitch(state: SendFlowState): ModeSwitchModel {
+  const { auto, manual } = state.byMode;
+  return {
+    manual: state.mode === 'manual',
+    picks: manual === null ? 0 : manual.view.picks.length,
+    apps: auto === null ? 0 : foundApps(auto).filter((a) => a.included).length,
+    disabled: state.session === null,
+  };
+}
+
+/** "Here's what we found" (or the Manual picks), from the visible selection, narrowed to `filter`. */
 export function foundModel(state: SendFlowState, filter = ''): FoundModel {
+  if (state.mode === 'manual') return manualModel(state);
   const scan = current(state.scan);
   if (scan === null) {
     return { status: 'scanning', foundSoFar: [], progress: null };
@@ -57,17 +97,15 @@ export function foundModel(state: SendFlowState, filter = ''): FoundModel {
     unrecognised,
     facts: moveFacts(scan),
     plugins: pluginAsks(scan.view),
-    issues: [
-      ...selectionIssues(scan.view),
-      ...(state.selectError === null ? [] : [state.selectError.message]),
-    ],
+    issues: issuesOf(state, scan),
   };
 }
 
 /** The move as the rail shows it: this computer and, once scanned, what moves. */
 export function sendMove(state: SendFlowState, here: RouteEnd | null): SendMove {
   const scan = current(state.scan);
-  return { here, facts: scan === null ? null : moveFacts(scan) };
+  const facts = state.mode === 'manual' ? manualFacts : moveFacts;
+  return { here, facts: scan === null ? null : facts(scan) };
 }
 
 /** The pairing screen. Too many wrong codes locks pairing; any other failure says why. */

@@ -6,11 +6,11 @@ export const importEvents: BridgeEvent[] = [
     event: {
       event: 'state_changed',
       from: 'selected',
-      session: '20261110-115830-eb5c9f',
+      session: '20261111-080001-d0928e',
       to: 'planned',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -19,7 +19,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'home:.gitconfig',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -28,7 +28,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'home:.gitconfig',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -37,7 +37,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'home:.gitconfig',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -46,7 +46,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'home:.gitconfig',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -55,17 +55,17 @@ export const importEvents: BridgeEvent[] = [
       target: 'home:.gitconfig',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
       event: 'state_changed',
       from: 'planned',
-      session: '20261110-115830-eb5c9f',
+      session: '20261111-080001-d0928e',
       to: 'transferring',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -75,7 +75,7 @@ export const importEvents: BridgeEvent[] = [
       total: 250,
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -85,27 +85,27 @@ export const importEvents: BridgeEvent[] = [
       total: 250,
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
       event: 'state_changed',
       from: 'transferring',
-      session: '20261110-115830-eb5c9f',
+      session: '20261111-080001-d0928e',
       to: 'staged',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
       event: 'state_changed',
       from: 'staged',
-      session: '20261110-115830-eb5c9f',
+      session: '20261111-080001-d0928e',
       to: 'applying',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -115,7 +115,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'home:.bashrc',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -125,7 +125,7 @@ export const importEvents: BridgeEvent[] = [
       total: 250,
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -135,7 +135,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'home:.gitconfig',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -145,7 +145,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'user_config:nvim',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -155,7 +155,17 @@ export const importEvents: BridgeEvent[] = [
       target: 'home:.ssh',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
+  },
+  {
+    event: {
+      done: 81,
+      event: 'progress',
+      phase: 'apply',
+      total: 250,
+    },
+    kind: 'engine',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -165,7 +175,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'user_config:starship.toml',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -175,7 +185,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'home:.tmux.conf',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -185,7 +195,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'user_config:nvim/init.lua',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -195,7 +205,17 @@ export const importEvents: BridgeEvent[] = [
       target: 'user_config:nvim/lua',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
+  },
+  {
+    event: {
+      done: 137,
+      event: 'progress',
+      phase: 'apply',
+      total: 250,
+    },
+    kind: 'engine',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -205,7 +225,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'home:.ssh/config',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -215,7 +235,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'home:.ssh/id_ed25519',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -225,7 +245,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'home:.ssh/id_ed25519.pub',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -235,7 +255,7 @@ export const importEvents: BridgeEvent[] = [
       target: 'user_config:nvim/lua/plugins.lua',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -245,17 +265,17 @@ export const importEvents: BridgeEvent[] = [
       total: 250,
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
       event: 'state_changed',
       from: 'applying',
-      session: '20261110-115830-eb5c9f',
+      session: '20261111-080001-d0928e',
       to: 'done',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     event: {
@@ -276,11 +296,11 @@ export const importEvents: BridgeEvent[] = [
       event: 'finished',
     },
     kind: 'engine',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
   {
     error: null,
     kind: 'task_ended',
-    session: '20261110-115830-eb5c9f',
+    session: '20261111-080001-d0928e',
   },
 ];

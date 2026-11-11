@@ -78,17 +78,23 @@ const RECENT = 3;
 
 /**
  * Home: the newest moves (none = first run) and, while error-report consent
- * was never answered (`unset`; `null` = not loaded), the one-time question.
+ * was never answered (`unset`; `null` = not loaded), the one-time question;
+ * once it is, the one-time file-manager question if `fileManager.offer`
+ * (with its error line when adding failed).
  */
 export function homeModel(
   records: readonly SessionRecord[],
   now: Date,
   consent: ReportConsent | null,
+  fileManager: { readonly offer: boolean; readonly failed: boolean },
 ): HomeModel {
   return {
     now,
     recent: records.slice(0, RECENT).map(historyEntry),
     askReports: consent === 'unset',
+    // One question at a time: the file manager waits for the error-report answer.
+    askFileManager: fileManager.offer && consent !== null && consent !== 'unset',
+    fileManagerFailed: fileManager.failed,
   };
 }
 

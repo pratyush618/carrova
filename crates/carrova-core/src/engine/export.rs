@@ -1,7 +1,7 @@
 //! Sender session: scan → select → capture → archive file (here) or LAN
 //! send (`send.rs`).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use carrova_archive::{ArchiveSummary, WriteOptions};
 use carrova_crypto::Passphrase;
@@ -12,8 +12,11 @@ use super::session::{Session, absolute};
 use crate::cancel::Cancel;
 use crate::checklist::Checklist;
 use crate::error::{CoreError, Result};
-use crate::key::ItemKey;
-use crate::select::{self, Preset, Selection, SelectionIssue};
+use crate::key::{ItemKey, ItemTarget, RootedPath};
+use crate::secrets::secret_in;
+use crate::select::{
+    self, PickOutcome, PickRejection, PickResult, Preset, Selection, SelectionIssue,
+};
 use crate::session::{Event, Role, SessionId, State};
 use crate::store::{SELECTION_FILE, SessionRecord, Source};
 use crate::{ScanOptions, ScanReport, capture, export};
@@ -24,6 +27,9 @@ use crate::{ScanOptions, ScanReport, capture, export};
 pub struct Exporter {
     pub(super) s: Session,
     scan: ScanReport,
+    /// [`Self::scan`] holds the app scan (false only for a Manual start
+    /// before [`Self::scan_now`]).
+    apps_scanned: bool,
     pub(super) selection: Chosen,
     /// Stops [`Self::export`] / [`Self::prepare_send`] (and the send it
     /// prepares); see [`crate::cancel`].
@@ -70,13 +76,83 @@ impl Exporter {
     /// the scan, so a cancelled start leaves nothing behind.
     pub fn start_with(engine: Engine, scan_opts: ScanOptions, cancel: Cancel) -> Result<Self> {
         let scan = crate::scan::scan_with(&engine.recipes, &*engine.platform, scan_opts, &cancel)?;
+        Self::create(engine, scan, true, cancel)
+    }
+
+    /// Persist a new session (state `Scanned`) around `scan`.
+    fn create(
+        engine: Engine,
+        scan: ScanReport,
+        apps_scanned: bool,
+        cancel: Cancel,
+    ) -> Result<Self> {
         let s = Session::create(engine, Role::Export, State::Scanned, None)?;
         Ok(Self {
             s,
             scan,
+            apps_scanned,
             selection: Chosen::Nothing,
             cancel,
         })
+    }
+
+    /// New Manual export session: no app scan (the scan report stays
+    /// empty until [`Self::scan_now`]); the user adds picks
+    /// ([`Self::pick`]) to an empty selection. `cancel` becomes
+    /// [`Self::canceller`].
+    pub fn start_manual(engine: Engine, cancel: Cancel) -> Result<Self> {
+        // No recipes, no unrecognised walk: only the machine survey (roots).
+        let opts = ScanOptions {
+            include_undetected: false,
+            unrecognised: false,
+        };
+        let scan = crate::scan::scan_with(&[], &*engine.platform, opts, &cancel)?;
+        Self::create(engine, scan, false, cancel)
+    }
+
+    /// Run the app scan of a session started by [`Self::start_manual`]
+    /// (the first switch to Auto), or return the one already run.
+    ///
+    /// # Errors
+    ///
+    /// The scan failed or was cancelled ([`Self::canceller`]).
+    pub fn scan_now(&mut self, opts: ScanOptions) -> Result<&ScanReport> {
+        if !self.apps_scanned {
+            let engine = &self.s.engine;
+            self.scan =
+                crate::scan::scan_with(&engine.recipes, &*engine.platform, opts, &self.cancel)?;
+            self.apps_scanned = true;
+        }
+        Ok(&self.scan)
+    }
+
+    /// Resolve each of `paths` ([`select::resolve_pick`]) and add it to
+    /// `selection` ([`Selection::add_pick`]), one outcome per path, in
+    /// order.
+    #[must_use]
+    pub fn pick(&self, selection: &mut Selection, paths: &[PathBuf]) -> Vec<PickOutcome> {
+        let platform = self.s.platform();
+        paths
+            .iter()
+            .map(|path| PickOutcome {
+                path: path.to_string_lossy().into_owned(),
+                result: match select::resolve_pick(platform, path) {
+                    Ok(pick) => selection.add_pick(pick),
+                    Err(reason) => PickResult::Rejected { reason },
+                },
+            })
+            .collect()
+    }
+
+    /// The item key absolute `path` would be picked as (for naming a pick
+    /// by path, e.g. the CLI's `--confirm-sensitive PATH`).
+    ///
+    /// # Errors
+    ///
+    /// The path cannot be picked.
+    pub fn pick_key(&self, path: &Path) -> std::result::Result<ItemKey, PickRejection> {
+        let (root, rel) = select::locate_pick(self.s.platform(), path)?;
+        Ok(ItemKey::raw(RootedPath::new(root, &rel)))
     }
 
     /// Cancels this session's running (or next) blocking call from another
@@ -134,7 +210,9 @@ impl Exporter {
     /// replaces the earlier one: [`Self::export`] and
     /// [`Self::prepare_send`] refuse until a usable selection is selected.
     /// Which items a plugin exports is the engine's call: it is marked
-    /// afresh ([`Selection::mark_exports`]) before the check.
+    /// afresh ([`Selection::mark_exports`]) before the check, and so is a
+    /// raw pick lying in a secret location ([`crate::secrets::secret_in`]):
+    /// sensitive, so it needs its confirmation.
     pub fn select(&mut self, mut selection: Selection) -> Result<()> {
         let from = self.s.record.state;
         if !from.can_transition(State::Selected) {
@@ -144,6 +222,12 @@ impl Exporter {
             });
         }
         selection.mark_exports(self.s.engine.recipes(), self.s.engine.plugins());
+        // A raw pick in a secret location is sensitive whatever the front-end says.
+        for (key, choice) in &mut selection.items {
+            if let Some(ItemTarget::Raw(path)) = key.target() {
+                choice.sensitive |= secret_in(path.rel).is_some();
+            }
+        }
         let issues = selection.issues();
         if !issues.is_empty() {
             let refused = select::refusal(&issues);

@@ -7,6 +7,7 @@
  * look like `7-acid-lemon`.
  */
 import type { About } from '../../bindings/About';
+import type { FileManagerStatus } from '../../bindings/FileManagerStatus';
 import type { ReportConsent } from '../../bindings/ReportConsent';
 import type { Settings } from '../../bindings/Settings';
 import type { CarrovaPort } from '../port';
@@ -36,6 +37,8 @@ const DEFAULT_SETTINGS: Settings = {
   theme: null,
   reduce_motion: null,
   move_defaults: { conflict_rule: 'replace', retention: 'until_dismissed', include_caches: false },
+  start_in_manual: false,
+  file_manager_asked: false,
 };
 
 /** This (fake) machine, for the About sheet. */
@@ -45,6 +48,9 @@ const ABOUT: About = {
   device_name: 'ana-laptop',
   os: 'linux',
 };
+
+/** What the `forwarded` scenario's file manager sent (paths on the fake disk). */
+const FORWARDED = ['/home/ana/projects/site', '/home/ana/notes.txt'];
 
 /** The recipe list `recipes-update` offers. */
 const NEWER_RECIPES = 2;
@@ -62,11 +68,23 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
   let recipesInstalled = false;
   const newerRecipes = () => scenario === 'recipes-update' && !recipesInstalled;
   const noReport = () => later(() => raise(bridgeError('session', 'no such error report')));
+  let fileManager: FileManagerStatus = { supported: true, installed: false, skipped: [] };
+  /** Paths "sent from the file manager", handed over once. */
+  let forwarded = scenario === 'forwarded' ? [...FORWARDED] : [];
 
   return {
     subscribe: (listener) => later(() => runtime.subscribe(listener)),
 
     scan: () => sender.scan(),
+    startManual: () => sender.startManual(),
+    scanApps: (session) => sender.scanApps(session),
+    pick: (session, selection, paths) => sender.pick(session, selection, paths),
+    takeSendRequest: () =>
+      later(() => {
+        const paths = forwarded;
+        forwarded = [];
+        return paths;
+      }),
     suggest: (session, preset) => sender.suggest(session, preset),
     select: (session, selection, edits) => sender.select(session, selection, edits),
     passphraseStrength: (passphrase) => sender.passphraseStrength(passphrase),
@@ -145,6 +163,12 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
     saveSettings: (next) =>
       later(() => {
         settings = next;
+      }),
+    fileManagerStatus: () => later(() => fileManager),
+    setFileManagerEntries: (on) =>
+      later(() => {
+        fileManager = { ...fileManager, installed: on };
+        return fileManager;
       }),
 
     checkUpdate: () => later(() => ({ status: 'up_to_date' }) as const),

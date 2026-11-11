@@ -70,9 +70,11 @@
       "deb": {
         "section": "utils",
         "priority": "optional",
+        "recommends": ["python3-nautilus"],
         "desktopTemplate": "../../../packaging/linux/carrova.desktop"
       },
       "rpm": {
+        "recommends": ["nautilus-python"],
         "desktopTemplate": "../../../packaging/linux/carrova.desktop"
       },
       "appimage": {

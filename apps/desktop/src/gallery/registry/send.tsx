@@ -1,4 +1,5 @@
 import type { View } from '../../app/nav/navMachine';
+import { pickSecret } from '../../flows/send/sendViews';
 import { CustomizeSheet } from '../../screens/send/CustomizeSheet';
 import { KeyConfirmDialog } from '../../screens/send/KeyConfirmDialog';
 import { SendCodeScreen } from '../../screens/send/SendCodeScreen';
@@ -31,6 +32,10 @@ export const foundOn = noops(
   'onBack',
 );
 const sendFoundOn = { ...foundOn, ...noops('onSaveInstead') };
+const manualOn = {
+  ...sendFoundOn,
+  ...noops('onMode', 'onAddFiles', 'onAddFolders', 'onRemovePick'),
+};
 export const transferOn = noops(
   'onCancel',
   'onPause',
@@ -65,6 +70,13 @@ const PAIRING: Record<string, PairingModel> = {
   checking: fx.pairingChecking,
   locked: fx.pairingLocked,
 };
+const MANUAL: Record<string, FoundModel> = {
+  empty: fx.manualEmpty,
+  picks: fx.manualPicks,
+  rejected: fx.manualRejected,
+  measuring: fx.manualMeasuring,
+  sensitive: fx.manualPicks,
+};
 const LIVE: Record<string, typeof fx.liveMoving> = {
   moving: fx.liveMoving,
   reconnecting: fx.liveReconnecting,
@@ -75,6 +87,7 @@ const foundReady = (
 );
 const customize = <CustomizeSheet key="customize" model={fx.customize} on={customizeOn} />;
 const [firstSecret] = fx.SECRETS;
+const sensitivePick = fx.PICKS.find((p) => p.sensitive);
 
 export const sendScreens: readonly GalleryScreen[] = [
   {
@@ -105,6 +118,56 @@ export const sendScreens: readonly GalleryScreen[] = [
         };
       }
       return { base: foundReady, ...(s === 'customize' && { overlays: [customize] }) };
+    },
+  },
+  {
+    id: 'send-manual',
+    group: 'Send',
+    title: 'Send · Manual picks',
+    view: at('found'),
+    states: states(
+      ['empty', 'Nothing picked'],
+      ['picks', 'Picks'],
+      ['rejected', 'Refused paths'],
+      ['sensitive', 'Sensitive pick confirm'],
+      ['measuring', 'Measuring'],
+      ['auto', 'Auto with picks waiting'],
+    ),
+    render: (s) => {
+      if (s === 'auto') {
+        return {
+          base: (
+            <SendFoundScreen
+              model={fx.foundReady}
+              purpose="send"
+              here={fx.HERE}
+              mode={fx.MODE_AUTO}
+              on={manualOn}
+            />
+          ),
+        };
+      }
+      const base = (
+        <SendFoundScreen
+          model={MANUAL[s] ?? fx.manualEmpty}
+          purpose="send"
+          here={fx.HERE}
+          mode={fx.MODE_MANUAL}
+          on={manualOn}
+        />
+      );
+      return s === 'sensitive' && sensitivePick
+        ? {
+            base,
+            overlays: [
+              <KeyConfirmDialog
+                key="keys"
+                secret={pickSecret(sensitivePick)}
+                on={noops('onBring', 'onLeave')}
+              />,
+            ],
+          }
+        : { base };
     },
   },
   {

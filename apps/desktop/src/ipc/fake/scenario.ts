@@ -20,6 +20,10 @@ export const SCENARIOS = [
   'no-recipes',
   /** "Check now" finds a newer recipe list; it installs when asked. */
   'recipes-update',
+  /** The archive holds Manual picks: two safe ones ("Accept all") and an SSH key. */
+  'picks',
+  /** The app was opened from the file manager's "Send with Carrova" with two paths. */
+  'forwarded',
 ] as const;
 
 export type Scenario = (typeof SCENARIOS)[number];

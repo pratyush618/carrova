@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { consoleErrors, expectAccessible, openApp } from './support';
 
-/** Pairs, opens the review and brings every sensitive item; `ready`: nothing else is asked. */
-async function toReview(page: Page, ready = true): Promise<void> {
+/** Pairs and opens the review, nothing answered yet. */
+async function pair(page: Page): Promise<void> {
   await page.getByRole('button', { name: /^Receive/ }).click();
   const code = page.getByRole('textbox', { name: 'Pairing code' });
   await code.pressSequentially('7-aci');
@@ -12,12 +12,21 @@ async function toReview(page: Page, ready = true): Promise<void> {
   await expect(code).toHaveValue('7-acid-lemon');
   await expectAccessible(page, 'recv-code');
   await code.press('Enter');
-  const approve = page.getByRole('button', { name: 'Approve and move' });
-  await expect(approve).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approve and move' })).toBeVisible();
+}
+
+/** Brings every sensitive item still unanswered; `ready`: nothing else is asked. */
+async function bringAll(page: Page, ready = true): Promise<void> {
   // Sensitive items start unconfirmed: the user brings each one.
   const open = page.getByRole('radio', { name: 'Bring them', checked: false });
   while ((await open.count()) > 0) await open.first().click();
-  if (ready) await expect(approve).toBeEnabled();
+  if (ready) await expect(page.getByRole('button', { name: 'Approve and move' })).toBeEnabled();
+}
+
+/** Pairs, opens the review and brings every sensitive item; `ready`: nothing else is asked. */
+async function toReview(page: Page, ready = true): Promise<void> {
+  await pair(page);
+  await bringAll(page, ready);
 }
 
 test('receive: code → review (with a per-file rule) → progress → arrived', async ({ page }) => {
@@ -117,4 +126,23 @@ test('the "This move" rail folds into a header button below 960 px', async ({ pa
   await expectAccessible(page, 'rail-sheet');
   await page.keyboard.press('Escape');
   await expect(sheet).toHaveCount(0);
+});
+
+test('receive Manual picks: accept all safe picks then approve', async ({ page }) => {
+  const errors = consoleErrors(page);
+  await openApp(page, 'picks');
+  await pair(page);
+  const accept = page.getByRole('button', { name: 'Accept all 2 files' });
+  await expect(accept).toBeVisible();
+  await expectAccessible(page, 'recv-review-picks');
+  await accept.click();
+  await expect(page.getByText('Accepted')).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Bring them', checked: true })).toHaveCount(2);
+  // The SSH key pick and the recipe secrets still ask one by one.
+  await expect(page.getByRole('button', { name: 'Approve and move' })).toBeDisabled();
+  await bringAll(page);
+
+  await page.getByRole('button', { name: 'Approve and move' }).click();
+  await expect(page.getByText('Everything arrived.')).toBeVisible({ timeout: 15_000 });
+  expect(errors).toEqual([]);
 });

@@ -68,6 +68,7 @@ function ReviewRoute() {
       model={reviewModel(plan, receive.state, review, route)}
       on={{
         onAnswer: receive.answer,
+        onAcceptSafePicks: receive.acceptSafePicks,
         onApplyWhileOpen: (app) => {
           nav.open({ kind: 'override', reason: 'running', subject: app });
         },

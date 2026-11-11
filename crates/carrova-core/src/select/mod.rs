@@ -27,8 +27,12 @@ use crate::key::{ItemKey, ItemTarget, RootedPath};
 use crate::plan::PlannedPlugin;
 
 mod edit;
+mod pick;
 
 pub use edit::SelectionEdit;
+pub use pick::{
+    Pick, PickFacts, PickKind, PickOutcome, PickRejection, PickResult, locate_pick, resolve_pick,
+};
 
 /// Pre-fill shortcuts. They only set `included`; the user edits after.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -69,6 +73,10 @@ pub struct ItemChoice {
     /// and presets.
     #[serde(default)]
     pub paths: Vec<String>,
+    /// What the engine measured of a Manual pick; `Some` marks the item
+    /// as one ([`Selection::add_pick`]).
+    #[serde(default)]
+    pub pick: Option<PickFacts>,
 }
 
 /// A problem that stops a selection (or one edit of it) from being used.

@@ -19,18 +19,22 @@ use super::source::CaptureSource;
 use crate::checklist::Skipped;
 use crate::error::{CoreError, Result};
 use crate::key::RootedPath;
+use crate::secrets::secret_in;
 use crate::session::{Event, EventSink, ProgressMeter};
 
 /// The file entries of each planned item (empty for handler items), with
-/// exclusions applied; a path claimed by two items goes to the first.
-/// Resolve problems are reported as warnings.
+/// exclusions applied and secrets held back ([`held_back`]); a path
+/// claimed by two items goes to the first. Held-back paths no item took
+/// are reported in `skipped`; resolve problems as warnings.
 pub(super) fn walk_items(
     platform: &dyn Platform,
     planned: &[Planned<'_>],
     sink: &dyn EventSink,
+    skipped: &mut Vec<Skipped>,
 ) -> Vec<Vec<FileEntry>> {
     let mut seen: HashSet<(SemanticRoot, String)> = HashSet::new();
-    planned
+    let mut held = Vec::new();
+    let resolved = planned
         .iter()
         .map(|p| {
             if p.item.builtin_handler().is_some() {
@@ -55,10 +59,42 @@ pub(super) fn walk_items(
                     let path = RootedPath::new(e.root, &e.rel);
                     !p.excluded.iter().any(|ex| path.is_within(*ex))
                 })
+                // Before claiming: a held-back path stays free for an item that may take it.
+                .filter(|e| !(p.unconfirmed_raw && held_back(e, &mut held)))
                 .filter(|e| seen.insert((e.root, e.rel.clone())))
                 .collect()
         })
-        .collect()
+        .collect();
+    skipped.extend(
+        held.into_iter()
+            .filter(|path| !seen.contains(path))
+            .map(|(root, rel)| Skipped {
+                what: RootedPath::new(root, &rel).to_string(),
+                reason: HELD_BACK.into(),
+            }),
+    );
+    resolved
+}
+
+/// Why an entry of an unconfirmed raw item stays behind.
+const HELD_BACK: &str = "looks like a key or password and appeared after its folder was chosen; remove the folder and choose it again to confirm it";
+
+/// Whether an entry of an unconfirmed raw item ([`Planned::unconfirmed_raw`])
+/// lies in a secret location ([`secret_in`]) and so stays behind: nothing
+/// secret moves without the sender's confirmation. Each location is
+/// added to `held` once, at its outermost entry (entries come sorted).
+fn held_back(e: &FileEntry, held: &mut Vec<(SemanticRoot, String)>) -> bool {
+    if secret_in(&e.rel).is_none() {
+        return false;
+    }
+    let inside_reported = e
+        .rel
+        .rsplit_once('/')
+        .is_some_and(|(parent, _)| secret_in(parent).is_some());
+    if !inside_reported {
+        held.push((e.root, e.rel.clone()));
+    }
+    true
 }
 
 /// Bytes in the regular files of `resolved`.

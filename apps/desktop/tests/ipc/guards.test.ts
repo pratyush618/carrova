@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ErrorCode } from '@/bindings/ErrorCode';
-import { isBridgeError, toBridgeError } from '@/ipc/guards';
+import { isBridgeError, isBridgeEvent, toBridgeError } from '@/ipc/guards';
 
 describe('the IPC guards', () => {
   it('keep every error code the engine sends, including the newest', () => {
@@ -10,6 +10,11 @@ describe('the IPC guards', () => {
       expect(isBridgeError(error)).toBe(true);
       expect(toBridgeError(error)).toEqual(error);
     }
+  });
+
+  it('accept a send request, which names no session, but no other sessionless event', () => {
+    expect(isBridgeEvent({ kind: 'send_requested' })).toBe(true);
+    expect(isBridgeEvent({ kind: 'task_ended', error: null })).toBe(false);
   });
 
   it('turn an unknown code into an internal error', () => {
