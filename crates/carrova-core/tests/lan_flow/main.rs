@@ -321,13 +321,21 @@ fn an_expired_code_is_replaced_and_only_the_fresh_one_pairs() {
     assert!(Importer::connect(receiver.engine.clone(), &first).is_err());
     // Under load the fresh code can expire too before we dial it; pair with
     // the newest one (each further offer must again be a plain expiry).
+    let mut attempts = 0;
     let mut imp = loop {
         if let Some(newest) = running.tickets.try_iter().last() {
             fresh = newest;
         }
         match Importer::connect(receiver.engine.clone(), &fresh) {
             Ok(imp) => break imp,
-            Err(_) => fresh = next(),
+            Err(e) => {
+                attempts += 1;
+                assert!(
+                    attempts < 5,
+                    "no fresh code paired in {attempts} tries: {e:?}"
+                );
+                fresh = next();
+            }
         }
     };
     let offers = running.offers();
