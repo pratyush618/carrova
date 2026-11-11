@@ -4,6 +4,7 @@ import type { AboutModel, CrashModel, SettingsModel, UpdateModel } from './model
 export const settingsModel: SettingsModel = {
   now: NOW,
   background: { keep_running: true, start_at_login: false, lean: true },
+  minimisesOnClose: false,
   alerts: {
     system: true,
     wake_screen: true,

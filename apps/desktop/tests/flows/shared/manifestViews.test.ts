@@ -16,7 +16,13 @@ describe('manifest views', () => {
   });
 
   it('describes this computer once the engine answered', () => {
-    const about = { app_version: '1', engine_version: '1', device_name: 'ana-laptop', os: 'linux' };
+    const about = {
+      app_version: '1',
+      engine_version: '1',
+      device_name: 'ana-laptop',
+      os: 'linux',
+      status_tray: true,
+    };
     expect(thisComputer({ ...about, os: 'linux' })).toEqual({ name: 'ana-laptop', os: 'linux' });
     expect(thisComputer(null)).toEqual({ name: null, os: null });
   });

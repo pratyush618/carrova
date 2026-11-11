@@ -34,6 +34,38 @@ const SETTINGS: Settings = {
 const error = { code: 'network', message: 'Offline', hint: null } as const;
 
 describe('settings views', () => {
+  it('says closing minimises where the desktop has no tray', () => {
+    const about = {
+      app_version: '1',
+      engine_version: '1',
+      device_name: null,
+      os: 'linux',
+    } as const;
+    const model = (statusTray: boolean | null, keepRunning = true) =>
+      settingsModel(
+        {
+          settings: {
+            ...SETTINGS,
+            background: { ...SETTINGS.background, keep_running: keepRunning },
+          },
+          fileManager: null,
+          fileManagerFailed: false,
+          consent: 'unset',
+          reports: [],
+          recipes: null,
+          check: idle,
+          install: idle,
+          update: idle,
+          about: statusTray === null ? null : { ...about, status_tray: statusTray },
+        },
+        new Date(),
+      ).minimisesOnClose;
+    expect(model(false)).toBe(true);
+    expect(model(true)).toBe(false);
+    expect(model(null)).toBe(false);
+    expect(model(false, false)).toBe(false);
+  });
+
   it('says "try again later" when the recipe feed is unreachable', () => {
     expect(recipeCheck({ status: 'ready', value: { kind: 'retry_later' } }, idle)).toEqual({
       status: 'retry_later',
@@ -86,6 +118,7 @@ describe('settings views', () => {
       check: idle,
       install: idle,
       update: idle,
+      about: null,
     });
     const seconds = now.getTime() / 1000;
     expect(settingsModel(at(seconds - 60), now).pausedUntil).toBeNull();
@@ -116,6 +149,7 @@ describe('settings views', () => {
             date: null,
           },
         },
+        about: null,
       },
       new Date(),
     );
@@ -138,6 +172,7 @@ describe('settings views', () => {
           check: idle,
           install: idle,
           update: idle,
+          about: null,
         },
         new Date(),
       );

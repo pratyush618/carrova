@@ -6,7 +6,7 @@ import { ROW_TITLE } from './sections';
 
 /** Whether Carrova stays in the tray while the window is closed, and how little it then uses. */
 export function BackgroundGroup({
-  model: { background },
+  model: { background, minimisesOnClose },
   on,
 }: {
   readonly model: SettingsModel;
@@ -20,7 +20,9 @@ export function BackgroundGroup({
     <Group title={t('settings.background.group')}>
       <Row
         title={keepTitle}
-        sub={t('settings.background.keepRunningSub')}
+        sub={t(
+          minimisesOnClose ? 'settings.background.noTray' : 'settings.background.keepRunningSub',
+        )}
         trail={
           <Toggle
             on={background.keep_running}

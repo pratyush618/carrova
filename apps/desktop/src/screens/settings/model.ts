@@ -33,6 +33,8 @@ export interface ReportLine {
 export interface SettingsModel {
   readonly now: Date;
   readonly background: BackgroundSettings;
+  /** Keep running is on but the desktop has no tray: closing minimises instead. */
+  readonly minimisesOnClose: boolean;
   readonly alerts: AlertSettings;
   /** When pop-ups resume; `null` when not paused (a pause that has run out is over). */
   readonly pausedUntil: Date | null;

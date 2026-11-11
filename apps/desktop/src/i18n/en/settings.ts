@@ -31,6 +31,7 @@ export const settings = {
     keepRunning: 'Keep running when the window closes',
     keepRunningSub:
       'Carrova moves to the tray while closed and leaves it when you open the window. Off: closing quits.',
+    noTray: 'No tray on this desktop, so closing minimises Carrova instead.',
     startAtLogin: 'Start at login',
     startAtLoginSub: 'Starts closed, in the tray, ready for known devices.',
     lean: 'Use as little as possible in the background',

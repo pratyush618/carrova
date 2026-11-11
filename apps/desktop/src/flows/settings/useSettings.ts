@@ -133,6 +133,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
               check: check.state,
               install: install.state,
               update,
+              about: current(about.state),
             },
             new Date(),
           ),
@@ -146,6 +147,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       check.state,
       install.state,
       update,
+      about.state,
     ],
   );
 

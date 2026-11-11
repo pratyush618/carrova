@@ -77,6 +77,8 @@ export interface SettingsSources {
   readonly check: Remote<RecipesCheck>;
   readonly install: Remote<RecipesUpdate>;
   readonly update: Remote<UpdateStatus>;
+  /** This app and computer; `null` until the engine answered. */
+  readonly about: About | null;
 }
 
 const HOUR = 3600;
@@ -102,6 +104,7 @@ export function settingsModel(s: SettingsSources, now: Date): SettingsModel {
   return {
     now,
     background: s.settings.background,
+    minimisesOnClose: s.settings.background.keep_running && s.about?.status_tray === false,
     alerts: s.settings.alerts,
     pausedUntil:
       s.settings.alerts.paused_until !== null &&

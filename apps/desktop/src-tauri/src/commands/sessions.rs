@@ -8,6 +8,7 @@ use super::reply;
 use crate::command_error::CommandError;
 use crate::ops;
 use crate::state::AppState;
+use crate::worker::blocking;
 
 /// `CarrovaPort.cancel`.
 #[tauri::command]
@@ -68,7 +69,8 @@ pub async fn rollback_preview(
 /// `CarrovaPort.about`.
 #[tauri::command]
 pub async fn about(state: State<'_, AppState>) -> Result<About, CommandError> {
-    Ok(ops::about::about(&state))
+    let state = state.inner().clone();
+    blocking(move || Ok(ops::about::about(&state))).await
 }
 
 /// `CarrovaPort.dismiss`.

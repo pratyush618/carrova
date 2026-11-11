@@ -64,6 +64,14 @@ describe('Settings', () => {
     expect(screen.queryByText('Bring caches')).not.toBeInTheDocument();
   });
 
+  it('explains that closing minimises where there is no tray', () => {
+    renderScreen(inSection('general', settingsOn(), { minimisesOnClose: true }));
+    expect(
+      screen.getByText('No tray on this desktop, so closing minimises Carrova instead.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/moves to the tray/)).not.toBeInTheDocument();
+  });
+
   it('saves background changes as a patch', async () => {
     const user = userEvent.setup();
     const on = settingsOn();

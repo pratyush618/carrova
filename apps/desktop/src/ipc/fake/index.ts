@@ -59,6 +59,7 @@ const ABOUT: About = {
   engine_version: '0.1.0',
   device_name: 'ana-laptop',
   os: 'linux',
+  status_tray: true,
 };
 
 /** The bell's notices at the start: a request, a finished move, an old one. */

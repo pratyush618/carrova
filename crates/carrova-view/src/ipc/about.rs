@@ -16,6 +16,9 @@ pub struct About {
     pub device_name: Option<String>,
     /// OS family.
     pub os: OsKind,
+    /// The desktop shows status-tray icons; without one, closing the
+    /// window minimises it instead of going to the tray.
+    pub status_tray: bool,
 }
 
 /// An app update announced by the release feed.

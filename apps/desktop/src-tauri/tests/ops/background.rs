@@ -125,3 +125,12 @@ fn the_tray_pause_item_pauses_then_resumes() {
         None
     );
 }
+
+#[test]
+fn about_says_whether_closing_can_go_to_the_tray() {
+    let machine = Machine::new();
+    let (state, platform) = with_fake(&machine);
+    assert!(crate::ops::about::about(&state).status_tray);
+    platform.set_status_tray(false);
+    assert!(!crate::ops::about::about(&state).status_tray);
+}
