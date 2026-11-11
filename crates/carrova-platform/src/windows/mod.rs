@@ -2,7 +2,8 @@
 //!
 //! Roots and the state dir come from known folders (`roots`), filesystem
 //! primitives from `fs` (shared with the fake via `crate::sys`), LAN
-//! networking from `netops`, Explorer entries from `file_manager`.
+//! networking from `netops`, Explorer entries from `file_manager`, start at
+//! sign-in from `background`.
 //! Processes and free space use `sysinfo`.
 //! Everything here is safe std or safe-wrapper crates: no FFI.
 
@@ -15,6 +16,7 @@ use crate::{
     OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
 };
 
+mod background;
 mod file_manager;
 pub(crate) mod fs;
 mod roots;
@@ -280,5 +282,13 @@ impl Platform for WindowsPlatform {
 
     fn remove_file_manager_entries(&self) -> Result<FileManagerStatus, PlatformError> {
         file_manager::Entries::for_user()?.remove()
+    }
+
+    fn autostart_status(&self) -> Result<bool, PlatformError> {
+        background::autostart_on()
+    }
+
+    fn set_autostart(&self, launcher: &Path, on: bool) -> Result<bool, PlatformError> {
+        background::set_autostart(launcher, on)
     }
 }

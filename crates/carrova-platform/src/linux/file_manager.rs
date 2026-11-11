@@ -110,11 +110,7 @@ impl LinuxPlatform {
         &self,
         launcher: &Path,
     ) -> Result<FileManagerStatus, PlatformError> {
-        let launcher = launcher
-            .to_str()
-            // `%`: not every file manager un-doubles `%%` in `Exec` (Nemo).
-            .filter(|l| l.starts_with('/') && !l.chars().any(|c| c == '%' || c.is_control()))
-            .ok_or(PlatformError::Unsupported("launcher path"))?;
+        let launcher = exec_launcher(launcher)?;
         let data = self.root_path(SemanticRoot::UserData)?;
         for entry in &ENTRIES {
             self.write_atomic(
@@ -183,7 +179,12 @@ impl LinuxPlatform {
     }
 
     /// Temp file beside `path`, then rename over it; parents are created.
-    fn write_atomic(&self, path: &Path, contents: &str, mode: u32) -> Result<(), PlatformError> {
+    pub(super) fn write_atomic(
+        &self,
+        path: &Path,
+        contents: &str,
+        mode: u32,
+    ) -> Result<(), PlatformError> {
         let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else {
             return Err(PlatformError::io(path, io::ErrorKind::InvalidInput.into()));
         };
@@ -202,11 +203,21 @@ impl LinuxPlatform {
     }
 }
 
-fn remove_if_exists(platform: &LinuxPlatform, path: &Path) -> Result<(), PlatformError> {
+pub(super) fn remove_if_exists(platform: &LinuxPlatform, path: &Path) -> Result<(), PlatformError> {
     match platform.remove_file(path) {
         Err(PlatformError::Io { source, .. }) if source.kind() == io::ErrorKind::NotFound => Ok(()),
         other => other,
     }
+}
+
+/// `launcher` as text a desktop entry's `Exec` may start: absolute, with
+/// no `%` (not every file manager un-doubles `%%` in `Exec`: Nemo) and no
+/// control characters.
+pub(super) fn exec_launcher(launcher: &Path) -> Result<&str, PlatformError> {
+    launcher
+        .to_str()
+        .filter(|l| l.starts_with('/') && !l.chars().any(|c| c == '%' || c.is_control()))
+        .ok_or(PlatformError::Unsupported("launcher path"))
 }
 
 /// Fill `{{key}}` placeholders in one pass, so a launcher path that itself
@@ -244,7 +255,7 @@ fn placeholder(key: &str, launcher: &str) -> Option<String> {
 
 /// One Desktop Entry `Exec` argument: always double-quoted with `"`, `` ` ``,
 /// `$` and `\` backslash-escaped and `%` doubled, then key-file escaped.
-fn exec_quote(arg: &str) -> String {
+pub(super) fn exec_quote(arg: &str) -> String {
     let mut quoted = String::from('"');
     for c in arg.chars() {
         match c {
@@ -261,7 +272,7 @@ fn exec_quote(arg: &str) -> String {
 }
 
 /// A key-file string value (the launcher has no control characters).
-fn key_string(value: &str) -> String {
+pub(super) fn key_string(value: &str) -> String {
     value.replace('\\', "\\\\")
 }
 

@@ -8,7 +8,8 @@
 //! Faults (failing renames, racing swaps, changing metadata, another uid)
 //! are injected with [`FakePlatform::with_hooks`]. File-manager entries
 //! are unsupported unless [`FakePlatform::file_manager_entries`] pretends
-//! them.
+//! them. A status tray is shown until [`FakePlatform::set_status_tray`]
+//! takes it away; autostart is kept in memory.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -18,6 +19,7 @@ use std::sync::Arc;
 use crate::Platform;
 use crate::{FsId, OsKind, ProcessInfo, ScreenLock, SemanticRoot};
 
+mod background;
 mod file_manager;
 mod fixture;
 mod hooks;
@@ -32,6 +34,7 @@ pub use fixture::symlink;
 pub use fixture::{pin_umask, write_tool_script};
 pub use hooks::{Hooks, MetadataHook, OpenHook, RenameHook, StatusHook};
 
+use background::FakeBackground;
 use file_manager::FakeEntries;
 use hooks::HookState;
 
@@ -57,6 +60,8 @@ pub struct FakePlatform {
     hooks: Arc<HookState>,
     /// Pretend file-manager entries (shared by clones); `None`: unsupported.
     entries: Option<Arc<FakeEntries>>,
+    /// Pretend status tray and autostart entry (shared by clones).
+    background: Arc<FakeBackground>,
 }
 
 /// A pretend filesystem mounted at `mount` (see [`FakePlatform::filesystem`]).
@@ -96,6 +101,7 @@ impl FakePlatform {
             filesystems: Vec::new(),
             hooks: Arc::default(),
             entries: None,
+            background: Arc::default(),
         }
     }
 

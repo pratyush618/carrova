@@ -13,6 +13,7 @@ use crate::{
     SemanticRoot, SnapshotCapability,
 };
 
+mod background;
 mod file_manager;
 mod roots;
 #[cfg(test)]
@@ -268,5 +269,13 @@ impl Platform for MacPlatform {
 
     fn remove_file_manager_entries(&self) -> Result<FileManagerStatus, PlatformError> {
         self.remove_quick_action()
+    }
+
+    fn autostart_status(&self) -> Result<bool, PlatformError> {
+        self.launch_agent_on()
+    }
+
+    fn set_autostart(&self, launcher: &Path, on: bool) -> Result<bool, PlatformError> {
+        self.write_launch_agent(launcher, on)
     }
 }

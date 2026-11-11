@@ -94,7 +94,7 @@ fn registry_error(key: &str, e: io::Error) -> PlatformError {
 
 /// `launcher` as text for the quoted registry command: absolute, and free
 /// of `"` and control characters, which would break the quoting.
-fn command_path(launcher: &Path) -> Option<&str> {
+pub(super) fn command_path(launcher: &Path) -> Option<&str> {
     let exe = launcher.to_str()?;
     (launcher.is_absolute() && !exe.chars().any(|c| c == '"' || c.is_control())).then_some(exe)
 }

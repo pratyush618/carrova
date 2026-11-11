@@ -13,10 +13,12 @@ use crate::{PlatformError, ScreenLock};
 const LOCK_SERVICES: [&str; 2] = ["org.gnome.ScreenSaver", "org.freedesktop.ScreenSaver"];
 const WAKE_SERVICE: &str = "org.freedesktop.ScreenSaver";
 
-/// How long a screensaver service may take to answer.
+/// How long a session-bus service may take to answer.
 const REPLY_TIMEOUT: Duration = Duration::from_secs(1);
 
-fn session() -> zbus::Result<Connection> {
+/// The session bus, with replies bounded by [`REPLY_TIMEOUT`] (some callers
+/// run on the UI thread).
+pub(super) fn session() -> zbus::Result<Connection> {
     Builder::session()?.method_timeout(REPLY_TIMEOUT).build()
 }
 

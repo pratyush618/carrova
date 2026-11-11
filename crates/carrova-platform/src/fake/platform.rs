@@ -291,4 +291,16 @@ impl Platform for FakePlatform {
         let entries = entries.ok_or(PlatformError::Unsupported("remove_file_manager_entries"))?;
         Ok(entries.write(EntriesWrite::Remove))
     }
+
+    fn has_status_tray(&self) -> bool {
+        self.background.tray()
+    }
+
+    fn autostart_status(&self) -> Result<bool, PlatformError> {
+        Ok(self.background.autostart().is_some())
+    }
+
+    fn set_autostart(&self, launcher: &Path, on: bool) -> Result<bool, PlatformError> {
+        Ok(self.background.set_autostart(launcher, on))
+    }
 }

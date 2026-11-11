@@ -95,7 +95,7 @@ winapi-util = "0.1.11"
 # Safe Windows registry API for per-user Explorer verbs (carrova-platform only).
 winreg = "0.56.0"
 zeroize = { version = "1", features = ["derive"] }
-# Linux screen wake and lock query over the session bus (already in the tree via Tauri).
+# Linux session bus: tray-host detection, screen wake and lock query (already in the tree via Tauri).
 zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
 
 [workspace.lints.rust]

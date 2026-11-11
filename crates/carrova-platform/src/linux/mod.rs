@@ -6,7 +6,7 @@
 //!
 //! Semantic roots and the state dir are resolved in `roots`, mountinfo
 //! parsing and snapshot detection live in `mounts`, file-manager entries in
-//! `file_manager`.
+//! `file_manager`, autostart and tray detection in `background`.
 
 use std::ffi::OsString;
 use std::io;
@@ -17,6 +17,7 @@ use crate::{
     SemanticRoot, SnapshotCapability,
 };
 
+mod background;
 mod file_manager;
 mod mounts;
 mod roots;
@@ -310,5 +311,17 @@ impl Platform for LinuxPlatform {
 
     fn remove_file_manager_entries(&self) -> Result<FileManagerStatus, PlatformError> {
         self.remove_entries()
+    }
+
+    fn has_status_tray(&self) -> bool {
+        background::status_tray()
+    }
+
+    fn autostart_status(&self) -> Result<bool, PlatformError> {
+        self.autostart_on()
+    }
+
+    fn set_autostart(&self, launcher: &Path, on: bool) -> Result<bool, PlatformError> {
+        self.write_autostart(launcher, on)
     }
 }
