@@ -80,3 +80,24 @@ describe('background settings', () => {
     });
   });
 });
+
+describe('settings changed while the window was away', () => {
+  it('reloads when the window becomes visible again', async () => {
+    const port = createFakePort({ stepMs: 0 });
+    const settings = renderHook(() => useSettings(port, idle));
+    await waitFor(() => {
+      expect(settings.result.current.settings).not.toBeNull();
+    });
+    const stored = settings.result.current.settings;
+    if (stored === null) throw new Error('settings not loaded');
+    // The tray paused alerts on the backend while this webview kept the old copy.
+    const paused = { ...stored, alerts: { ...stored.alerts, paused_until: 4_000_000_000 } };
+    vi.spyOn(port, 'settings').mockResolvedValue(paused);
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await waitFor(() => {
+      expect(settings.result.current.settings?.alerts.paused_until).toBe(4_000_000_000);
+    });
+  });
+});
