@@ -21,8 +21,8 @@ and tests must not need `dist/recipes`.
 
 ## Build locally
 
-Prerequisites: `just setup-ubuntu`, `just ui-install`, the dev keys in
-`~/.config/carrova-dev/` (see below). A release build compiles ~500 crates:
+Prerequisites: `just setup-ubuntu`, `just ui-install`, the signer and updater
+keys in `~/.config/carrova-release/` (see below; the root key is not needed). A release build compiles ~500 crates:
 check `uptime`/`df -h .` first and keep ≥ 15 GiB free.
 
 ```sh
@@ -37,12 +37,12 @@ bundle to `dist/recipes`, mapped to `recipes/` inside the app) and then
 `linuxdeploy` on first use (network).
 
 Because `bundle.createUpdaterArtifacts` is on, every `tauri build` needs the
-updater private key in the environment (`just package` reads the dev key by
+updater private key in the environment (`just package` reads the local release key by
 default):
 
 ```sh
-export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.config/carrova-dev/updater.key)"
-export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(cat ~/.config/carrova-dev/updater.key.password)"
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.config/carrova-release/updater.key)"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(cat ~/.config/carrova-release/updater.key.password)"
 ```
 
 The CLI: `cargo install --path apps/cli` (binary `carrova`).
@@ -54,7 +54,7 @@ packages: macOS needs Xcode command-line tools, Windows the MSVC build tools
 and WebView2 (preinstalled on Windows 10/11).
 
 ```sh
-just package 1 app,dmg     # macOS, host arch (release CI builds universal)
+just package 1 app,dmg     # macOS, host arch (release CI is Linux-only for v0.1)
 just package 1 msi,nsis    # Windows, from Git Bash
 ```
 
@@ -73,11 +73,11 @@ only by the macOS/Windows jobs in `engine.yml` (`just ci-portable`).
 
 Two independent key systems; neither private key is ever committed.
 
-| Key | Signs | Dev copy | Public half lives in |
+| Key | Signs | Local copy | Public half lives in |
 |---|---|---|---|
-| Updater (minisign, Tauri) | app updates (`latest.json`, `.sig`) | `~/.config/carrova-dev/updater.key` + `updater.key.password` (0600) | `tauri.conf.json` → `plugins.updater.pubkey` |
-| Recipe bundle root (Ed25519, offline) | short-lived signer certificates | `~/.config/carrova-dev/bundle-root.key` | `keys/bundle-roots.json` |
-| Recipe bundle signer (Ed25519, CI) | each recipe bundle | `~/.config/carrova-dev/bundle-signer.key` + `.cert.json` | certified by the root |
+| Updater (minisign, Tauri) | app updates (`latest.json`, `.sig`) | `~/.config/carrova-release/updater.key` + `updater.key.password` (0600) | `tauri.conf.json` → `plugins.updater.pubkey` |
+| Recipe bundle root (Ed25519, offline) | short-lived signer certificates | offline only, never on a packaging host (needed only for `bundle certify`) | `keys/bundle-roots.json` |
+| Recipe bundle signer (Ed25519, CI) | each recipe bundle | `~/.config/carrova-release/bundle-signer.key` + `.cert.json` | certified by the root |
 
 Generate a fresh updater key pair (password from a 0600 file, no prompt):
 
@@ -187,9 +187,9 @@ must list `linux-x86_64`, `darwin-aarch64`, `darwin-x86_64` and
 
 ## Flathub
 
-`packaging/flatpak/dev.carrova.app.yml` repackages the release `.deb`
+`packaging/flatpak/org.byteveda.Carrova.yml` repackages the release `.deb`
 (Tauri's documented route) on the GNOME runtime, which provides
-WebKitGTK 4.1. `dev.carrova.app.metainfo.xml` is the AppStream file; the
+WebKitGTK 4.1. `org.byteveda.Carrova.metainfo.xml` is the AppStream file; the
 desktop entry is the one Tauri renders from `packaging/linux/carrova.desktop`
 into the `.deb`, renamed to the app id.
 
@@ -202,10 +202,10 @@ AppImage have none of these limits.
 Local check:
 
 ```sh
-appstreamcli validate packaging/flatpak/dev.carrova.app.metainfo.xml
+appstreamcli validate packaging/flatpak/org.byteveda.Carrova.metainfo.xml
 flatpak install flathub org.gnome.Platform//49 org.gnome.Sdk//49
-flatpak-builder --user --install --force-clean build-dir packaging/flatpak/dev.carrova.app.yml
-flatpak run dev.carrova.app
+flatpak-builder --user --install --force-clean build-dir packaging/flatpak/org.byteveda.Carrova.yml
+flatpak run org.byteveda.Carrova
 ```
 
 Submission (user):
@@ -213,10 +213,10 @@ Submission (user):
 1. Publish a `v*` release; set `url` + `sha256` (`sha256sum Carrova_<ver>_amd64.deb`)
    in the manifest and add a `<release>` entry plus `<screenshots>` to the
    metainfo. Bump `runtime-version` to the current GNOME runtime.
-2. Verify the domain `carrova.dev` (the app id `dev.carrova.app` implies it)
-   or switch to `io.github.pratyush618.carrova` (app id, file names, Tauri
-   `identifier`) if you don't own it.
+2. Verify `byteveda.org` for Flathub (the app id `org.byteveda.Carrova`
+   implies it): serve the token Flathub gives you at
+   `https://byteveda.org/.well-known/org.flathub.VerifiedApps.txt`.
 3. Fork <https://github.com/flathub/flathub>, branch from `new-pr`, add the
    manifest + metainfo, open a PR against `new-pr`, and follow review.
-4. After merge, Flathub creates `flathub/dev.carrova.app`; each release is a
+4. After merge, Flathub creates `flathub/org.byteveda.Carrova`; each release is a
    PR there bumping `url`/`sha256` (or enable `x-checker-data` later).

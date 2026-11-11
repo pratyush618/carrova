@@ -121,12 +121,12 @@ tauri *args:
     pnpm --filter desktop tauri {{args}}
 
 # Release packages (AppImage + .deb) with the signed recipe bundle embedded.
-# Dev keys by default; CI passes TAURI_SIGNING_* and its own signer.
+# Local release keys by default; CI passes TAURI_SIGNING_* and its own signer.
 package version="1" bundles="appimage,deb":
     just bundle {{version}}
     just bundle-sign
     just bundle-verify
-    CARROVA_SHIPPED_INDEX_HASH="$(cargo xtask bundle pin --dir dist/recipes)" TAURI_SIGNING_PRIVATE_KEY="${TAURI_SIGNING_PRIVATE_KEY:-$(cat ~/.config/carrova-dev/updater.key)}" TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-$(cat ~/.config/carrova-dev/updater.key.password)}" just tauri build --bundles {{bundles}} --config src-tauri/tauri.release.conf.json
+    CARROVA_SHIPPED_INDEX_HASH="$(cargo xtask bundle pin --dir dist/recipes)" TAURI_SIGNING_PRIVATE_KEY="${TAURI_SIGNING_PRIVATE_KEY:-$(cat ~/.config/carrova-release/updater.key)}" TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-$(cat ~/.config/carrova-release/updater.key.password)}" just tauri build --bundles {{bundles}} --config src-tauri/tauri.release.conf.json
 
 # Alias kept for muscle memory: release packages
 desktop-build: package
@@ -148,8 +148,8 @@ e2e-ui *args:
 bundle version:
     cargo xtask bundle build --recipes recipes --out dist/recipes --version {{version}}
 
-# Sign dist/recipes with a signer key + root-issued cert (defaults: dev keys)
-bundle-sign signer="~/.config/carrova-dev/bundle-signer.key" cert="~/.config/carrova-dev/bundle-signer.cert.json":
+# Sign dist/recipes with a signer key + root-issued cert (defaults: local release keys)
+bundle-sign signer="~/.config/carrova-release/bundle-signer.key" cert="~/.config/carrova-release/bundle-signer.cert.json":
     cargo xtask bundle sign --dir dist/recipes --signer {{signer}} --cert {{cert}}
 
 # Verify dist/recipes against the embedded trust roots

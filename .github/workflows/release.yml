@@ -1,5 +1,5 @@
 # Two release trains from one repo, separated by tag:
-#   v*          desktop app: AppImage + .deb, .dmg (universal), .msi + NSIS,
+#   v*          desktop app: AppImage + .deb (v0.1; .dmg/.msi/NSIS off until Phase 5),
 #               one updater latest.json for all three OSes
 #   recipes-v*  recipe bundle: immutable `recipes-vN` release + the
 #               `recipes-latest` pointer (latest.json = {"version": N})
@@ -122,8 +122,9 @@ jobs:
         include:
           # Bundle targets per OS come from tauri.{macos,windows}.conf.json.
           - { os: ubuntu-latest, args: "" } # AppImage + .deb
-          - { os: macos-latest, args: "--target universal-apple-darwin" } # .app + .dmg
-          - { os: windows-latest, args: "" } # .msi + NSIS .exe
+          # v0.1 is Ubuntu only; re-enable once the Phase 5 exit gate passes.
+          # - { os: macos-latest, args: "--target universal-apple-darwin" } # .app + .dmg
+          # - { os: windows-latest, args: "" } # .msi + NSIS .exe
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     environment: release

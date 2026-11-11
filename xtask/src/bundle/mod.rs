@@ -3,8 +3,8 @@
 //! Typical release flow (see `keys/README.md`):
 //!
 //! ```text
-//! keygen --role root   --out ~/.config/carrova-dev/bundle-root.key     (offline, once)
-//! keygen --role signer --out ~/.config/carrova-dev/bundle-signer.key   (CI secret)
+//! keygen --role root   --out ~/.config/carrova-release/bundle-root.key     (offline, once)
+//! keygen --role signer --out ~/.config/carrova-release/bundle-signer.key   (CI secret)
 //! certify --root ROOT.key --signer-pub HEX --days 90 --out signer.cert.json
 //! build  --recipes recipes --out dist/recipes --version N   (+ ../plugins; `just plugins` first)
 //! sign   --dir dist/recipes --signer SIGNER.key --cert signer.cert.json

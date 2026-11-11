@@ -1,8 +1,8 @@
 # Flathub manifest: repackages the release .deb (Tauri's recommended route;
 # Flathub accepts prebuilt binaries for apps whose release CI is public).
 # Release checklist: bump `url` + `sha256` to the new Carrova_<ver>_amd64.deb,
-# add a <release> to dev.carrova.app.metainfo.xml. See packaging/README.md.
-id: dev.carrova.app
+# add a <release> to org.byteveda.Carrova.metainfo.xml. See packaging/README.md.
+id: org.byteveda.Carrova
 runtime: org.gnome.Platform # ships webkit2gtk-4.1, which Tauri 2 links against
 runtime-version: "49"
 sdk: org.gnome.Sdk
@@ -25,7 +25,7 @@ modules:
     buildsystem: simple
     sources:
       - type: file
-        path: dev.carrova.app.metainfo.xml
+        path: org.byteveda.Carrova.metainfo.xml
       - type: file
         dest-filename: carrova.deb
         only-arches: [x86_64]
@@ -36,11 +36,11 @@ modules:
       - install -Dm755 usr/bin/carrova-desktop /app/bin/carrova-desktop
       # Signed recipe bundle shipped with the app (tauri resource dir).
       - mkdir -p /app/lib && cp -r usr/lib/Carrova /app/lib/
-      - install -Dm644 usr/share/applications/*.desktop /app/share/applications/dev.carrova.app.desktop
-      - desktop-file-edit --set-icon=dev.carrova.app /app/share/applications/dev.carrova.app.desktop
+      - install -Dm644 usr/share/applications/*.desktop /app/share/applications/org.byteveda.Carrova.desktop
+      - desktop-file-edit --set-icon=org.byteveda.Carrova /app/share/applications/org.byteveda.Carrova.desktop
       - |
         for icon in usr/share/icons/hicolor/*/apps/carrova-desktop.png; do
           size="$(basename "$(dirname "$(dirname "$icon")")")"
-          install -Dm644 "$icon" "/app/share/icons/hicolor/$size/apps/dev.carrova.app.png"
+          install -Dm644 "$icon" "/app/share/icons/hicolor/$size/apps/org.byteveda.Carrova.png"
         done
-      - install -Dm644 dev.carrova.app.metainfo.xml /app/share/metainfo/dev.carrova.app.metainfo.xml
+      - install -Dm644 org.byteveda.Carrova.metainfo.xml /app/share/metainfo/org.byteveda.Carrova.metainfo.xml

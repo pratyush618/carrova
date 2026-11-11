@@ -18,3 +18,7 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 ## 2026-11-10 — Session crashes killed CI and agents mid-run
 - **What happened:** the Claude process crashed twice during W4 (heavy `just ci` + agents, load ~17); background builds and agents died with it, forcing restarts and partial-edit recovery.
 - **Rule:** long verification (`just ci`, e2e suites) runs detached and niced: `setsid nohup nice -n 15 bash -c 'just ci > /tmp/ci.log 2>&1; echo "CI EXIT $?" >> /tmp/ci.log' &`, then wait on the log with an until-loop. Never run a full CI alongside compiling agents; after a crash, check `git status` and resume agents with SendMessage rather than restarting from scratch.
+
+## 2026-11-10 — Pushed a commit commitlint had flagged
+- **What happened:** `just commitlint … | grep -c ✖; git push` — the count printed 2 but the push still ran, so a 74-char header reached the PR (force-push is denied, so it couldn't be fixed).
+- **Rule:** gate pushes on the lint exit code: `just commitlint origin/<branch> HEAD && git push …`. Never chain a push after a command whose failure only shows in output.
