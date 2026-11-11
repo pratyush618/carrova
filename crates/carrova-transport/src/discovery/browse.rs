@@ -9,8 +9,8 @@ use carrova_platform::Platform;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
+use super::query::{broadcast_query, mdns_browse};
 use super::seek::{Seek, SeekKey};
-use super::{broadcast_query, mdns_browse};
 use crate::error::Result;
 use crate::runtime::runtime;
 use crate::{BROADCAST_BROWSE, PROTOCOL_VERSION, TXT_VERSION};
