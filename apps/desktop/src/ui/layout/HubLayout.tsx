@@ -77,7 +77,12 @@ export function HubLayout({ variant = 'page', tools, children }: HubLayoutProps)
         )}
       </nav>
       <HeaderBar tools={tools} bell={null} />
-      <main className={cx('p-page', variant === 'flush' && 'p-page--flush')}>
+      <main
+        className={cx('p-page', variant === 'flush' && 'p-page--flush')}
+        aria-label={hubLinks.find((link) => link.current)?.label}
+        tabIndex={-1}
+        data-autofocus
+      >
         {variant === 'flush' ? (
           children
         ) : (

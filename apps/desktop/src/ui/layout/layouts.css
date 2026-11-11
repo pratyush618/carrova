@@ -138,6 +138,10 @@
   min-block-size: 0;
 }
 
+.p-page:focus {
+  outline: none;
+}
+
 .p-page--flush {
   overflow: hidden;
 }
