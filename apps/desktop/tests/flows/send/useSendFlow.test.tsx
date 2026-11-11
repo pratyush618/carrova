@@ -318,6 +318,24 @@ describe('useSendFlow: retrying a failed app scan', () => {
     expect(picks(flow)).toEqual(['~/projects/site']);
   });
 
+  it('retries a failed Manual start as Manual, with its paths', async () => {
+    const { port, flow } = setup();
+    vi.spyOn(port, 'startManual').mockRejectedValueOnce(refused);
+    act(() => {
+      flow.result.current.start('manual', [SITE]);
+    });
+    await waitFor(() => {
+      expect(flow.result.current.state.scan.status).toBe('failed');
+    });
+    act(() => {
+      flow.result.current.retryScan();
+    });
+    await waitFor(() => {
+      expect(picks(flow)).toEqual(['~/projects/site']);
+    });
+    expect(flow.result.current.state.mode).toBe('manual');
+  });
+
   it('starts over when no session was opened', async () => {
     const { port, flow } = setup();
     vi.spyOn(port, 'scan').mockRejectedValueOnce(refused);

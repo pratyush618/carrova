@@ -25,7 +25,7 @@ export interface SendController {
   readonly start: (mode?: SendMode, paths?: readonly string[]) => void;
   /** Show the other mode; both keep their lists. The first Auto in a Manual session scans the apps. */
   readonly switchMode: (mode: SendMode) => void;
-  /** After a failed scan: scan the apps again in this session (picks kept), or start over without one. */
+  /** After a failed scan: scan the apps again in this session (picks kept), or repeat the failed start. */
   readonly retryScan: () => void;
   /** The system pickers, starting in home; `null` when the host has none. */
   readonly addFiles: (() => void) | null;
@@ -66,6 +66,8 @@ export function useSendFlow(
   const opened = useRef<Record<SendMode, boolean>>({ auto: false, manual: false });
   const queue = useRef<SelectionQueue>(queueFrom(null));
   const ticket = useRef(0);
+  /** The latest start's mode and paths, for retrying it when it failed. */
+  const started = useRef<[SendMode, readonly string[]]>(['auto', []]);
   /** Bumped by every stop: queued replies from before it are dropped. */
   const generation = useRef(0);
   const running = useRef(false);
@@ -211,6 +213,7 @@ export function useSendFlow(
     (on: SendMode = 'auto', paths: readonly string[] = []) => {
       stop();
       const mine = ticket.current;
+      started.current = [on, paths];
       session.current = null;
       mode.current = on;
       opened.current = { auto: on === 'auto', manual: on === 'manual' };
@@ -241,7 +244,7 @@ export function useSendFlow(
   );
 
   const retryScan = useCallback(() => {
-    if (session.current === null) start();
+    if (session.current === null) start(...started.current);
     else scanApps();
   }, [start, scanApps]);
 
