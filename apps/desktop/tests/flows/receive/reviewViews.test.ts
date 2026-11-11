@@ -256,6 +256,18 @@ describe('Accept all (Manual picks)', () => {
     });
   });
 
+  it('accept_all_count_leaves_out_declined_picks', () => {
+    const leave = { kind: 'answer_sensitive', item: 'raw:home/notes.txt', bring: false } as const;
+    const left = planUnder(planWithPicks, editOptions(offered, [leave]), none);
+    expect(decisions(left, inputs())[0]).toMatchObject({ kind: 'safe-picks', count: 1 });
+    const accepted = planUnder(
+      planWithPicks,
+      editOptions(left, [{ kind: 'accept_safe_picks' }]),
+      none,
+    );
+    expect(decisions(accepted, inputs())[0]).toMatchObject({ count: 0, answer: 'bring' });
+  });
+
   it('asks nothing about picks when the move has none', () => {
     expect(decisions(plan, inputs()).some((d) => d.kind === 'safe-picks')).toBe(false);
   });

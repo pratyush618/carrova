@@ -256,7 +256,9 @@ export function useReceiveFlow(
         edit(answerEdits(key, answer), { [key]: answer });
       },
       acceptSafePicks: () => {
-        const safe = review?.offered.filter((o) => o.safe_pick) ?? [];
+        // Like the engine: Accept all leaves what the user left.
+        const declined = review?.plan.options.declined ?? [];
+        const safe = review?.offered.filter((o) => o.safe_pick && !declined.includes(o.key)) ?? [];
         edit(
           [{ kind: 'accept_safe_picks' }],
           Object.fromEntries(safe.map((o) => [o.key, 'bring' as const])),

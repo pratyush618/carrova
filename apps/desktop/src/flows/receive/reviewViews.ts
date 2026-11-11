@@ -95,7 +95,10 @@ export function decisions(review: PlanReview, inputs: ReviewInputs): DecisionMod
     ];
   });
   const accepted = options.accept_safe_picks;
-  const count = review.offered.filter((o) => o.safe_pick && o.sensitive?.confirmed !== true).length;
+  // What Accept all would confirm: unconfirmed safe picks the user did not leave.
+  const count = review.offered.filter(
+    (o) => o.safe_pick && o.sensitive?.confirmed !== true && !options.declined.includes(o.key),
+  ).length;
   // Shown while a safe pick is unconfirmed, and (answered) once Accept all was used.
   const safePicks: DecisionModel[] =
     count > 0 || accepted
