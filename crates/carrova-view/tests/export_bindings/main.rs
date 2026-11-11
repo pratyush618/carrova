@@ -22,8 +22,8 @@ use std::path::{Path, PathBuf};
 use carrova_core::lan::{Inventory, PlanSummary};
 use carrova_core::plan::SpaceNeed;
 use carrova_core::{
-    ArchiveSummary, Checklist, CodeOffer, Event, KdfStrength, PickFacts, PickKind, PickOutcome,
-    PickRejection, PickResult, Plan, PlanEdit, PlanOptions, Preset, RollbackPreview,
+    ArchiveSummary, Checklist, CodeOffer, Event, KdfStrength, Notice, PickFacts, PickKind,
+    PickOutcome, PickRejection, PickResult, Plan, PlanEdit, PlanOptions, Preset, RollbackPreview,
     RollbackReport, ScanOptions, ScanReport, Selection, SelectionEdit, SelectionIssue, SendReport,
     SessionRecord,
 };
@@ -125,6 +125,7 @@ fn export_typescript_bindings() {
         EngineDefaults::export_all,
         Picked::<'static>::export_all,
         FileManagerStatus::export_all,
+        Notice::export_all,
         // Error reports (carrova-report).
         ErrorReport::export_all,
         ReportSummary::export_all,

@@ -4,6 +4,7 @@
 
 pub mod ipc;
 pub mod lan;
+pub mod notice;
 pub mod offer;
 pub mod passphrase;
 pub mod plan;

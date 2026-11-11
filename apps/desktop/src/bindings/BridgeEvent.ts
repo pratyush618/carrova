@@ -2,6 +2,7 @@
 import type { BridgeError } from "./BridgeError";
 import type { CodeView } from "./CodeView";
 import type { Event } from "./Event";
+import type { Notice } from "./Notice";
 import type { SessionId } from "./SessionId";
 
 /**
@@ -43,4 +44,8 @@ session: SessionId,
 /**
  * Failure, if the task did not succeed.
  */
-error: BridgeError | null, } | { "kind": "send_requested" };
+error: BridgeError | null, } | { "kind": "send_requested" } | { "kind": "notice", 
+/**
+ * The new, unread notice.
+ */
+notice: Notice, };

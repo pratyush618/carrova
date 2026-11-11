@@ -8,7 +8,7 @@
 //! [`BridgeError`]. Nothing here carries a secret except
 //! [`BridgeEvent::PairingCode`], whose code is meant to be shown on screen.
 
-use carrova_core::{ErrorKind, Event, SessionId};
+use carrova_core::{ErrorKind, Event, Notice, SessionId};
 use serde::{Deserialize, Serialize};
 
 use crate::lan::CodeView;
@@ -72,6 +72,11 @@ pub enum BridgeEvent {
     /// Paths to send arrived from outside (file manager, a second
     /// launch): fetch them with the `take_send_request` command.
     SendRequested,
+    /// Something new reached the notification inbox (the bell).
+    Notice {
+        /// The new, unread notice.
+        notice: Notice,
+    },
 }
 
 /// Why a command failed: a stable `code` for UI logic plus a message and an
