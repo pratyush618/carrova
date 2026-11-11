@@ -55,6 +55,7 @@ the file on a USB stick.
 
 ```sh
 cargo install --git https://github.com/pratyush618/carrova carrova-cli
+carrova recipes update            # fetch the signed recipe bundle (once)
 
 carrova scan                      # what Carrova found
 carrova send                      # old computer: prints a pairing code
