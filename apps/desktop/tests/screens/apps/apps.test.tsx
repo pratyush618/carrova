@@ -90,7 +90,8 @@ describe('Apps', () => {
 
   it('green trust box is for verified apps only', () => {
     const trustOf = (tier: 'verified' | 'community' | 'unverified') => {
-      const selected = { ...catalogSelected.selected!, tier };
+      if (catalogSelected.selected === null) throw new Error('fixture has no selection');
+      const selected = { ...catalogSelected.selected, tier };
       const { container, unmount } = renderScreen(
         <AppsScreen model={{ ...catalogSelected, selected }} on={catalogOn()} />,
       );
