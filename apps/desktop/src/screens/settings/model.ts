@@ -34,6 +34,8 @@ export interface SettingsModel {
   readonly now: Date;
   readonly background: BackgroundSettings;
   readonly alerts: AlertSettings;
+  /** When pop-ups resume; `null` when not paused (a pause that has run out is over). */
+  readonly pausedUntil: Date | null;
   readonly appearance: Appearance;
   readonly motion: MotionChoice;
   readonly autoCheckRecipes: boolean;

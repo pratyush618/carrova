@@ -74,6 +74,27 @@ describe('settings views', () => {
     expect(pausedUntil('tomorrow', now)).toBe(seconds(new Date(2026, 10, 13)));
   });
 
+  it('treats a pause as over once its time has passed', () => {
+    const now = new Date(2026, 10, 12, 21, 30);
+    const at = (seconds: number) => ({
+      settings: { ...SETTINGS, alerts: { ...SETTINGS.alerts, paused_until: seconds } },
+      fileManager: null,
+      fileManagerFailed: false,
+      consent: 'unset' as const,
+      reports: [],
+      recipes: null,
+      check: idle,
+      install: idle,
+      update: idle,
+    });
+    const seconds = now.getTime() / 1000;
+    expect(settingsModel(at(seconds - 60), now).pausedUntil).toBeNull();
+    expect(settingsModel(at(seconds), now).pausedUntil).toBeNull();
+    expect(settingsModel(at(seconds + 60), now).pausedUntil).toEqual(
+      new Date((seconds + 60) * 1000),
+    );
+  });
+
   it('follows the system theme and motion unless the user chose', () => {
     const model = settingsModel(
       {

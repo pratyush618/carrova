@@ -14,6 +14,7 @@ export const settingsModel: SettingsModel = {
     nearby: 'bell_only',
     updates: 'bell_only',
   },
+  pausedUntil: null,
   appearance: 'system',
   motion: 'system',
   autoCheckRecipes: true,

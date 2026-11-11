@@ -103,6 +103,11 @@ export function settingsModel(s: SettingsSources, now: Date): SettingsModel {
     now,
     background: s.settings.background,
     alerts: s.settings.alerts,
+    pausedUntil:
+      s.settings.alerts.paused_until !== null &&
+      s.settings.alerts.paused_until * 1000 > now.getTime()
+        ? new Date(s.settings.alerts.paused_until * 1000)
+        : null,
     appearance: s.settings.theme ?? 'system',
     motion: s.settings.reduce_motion === true ? 'reduce' : 'system',
     autoCheckRecipes: s.settings.auto_check_recipes,

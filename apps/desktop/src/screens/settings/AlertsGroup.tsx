@@ -16,7 +16,7 @@ const KINDS = ['requests', 'moves', 'nearby', 'updates'] as const satisfies read
 
 /** What reaches you and how: system notifications, what depends on them, a pause, and a channel per kind. */
 export function AlertsGroup({
-  model: { alerts },
+  model: { alerts, pausedUntil },
   on,
 }: {
   readonly model: SettingsModel;
@@ -32,7 +32,6 @@ export function AlertsGroup({
     value,
     label: t(`settings.alerts.channels.${value}`),
   }));
-  const paused = alerts.paused_until === null ? null : new Date(alerts.paused_until * 1000);
   return (
     <>
       <Group title={t('settings.alerts.group')}>
@@ -84,15 +83,15 @@ export function AlertsGroup({
         <Row
           title={t(ROW_TITLE.pause)}
           sub={
-            paused === null
+            pausedUntil === null
               ? t('settings.alerts.pauseSub')
-              : t('settings.alerts.pausedUntil', { time: format.time(paused) })
+              : t('settings.alerts.pausedUntil', { time: format.time(pausedUntil) })
           }
           trail={
             <Segmented
               label={t(ROW_TITLE.pause)}
               options={pauses}
-              value={paused === null ? 'off' : null}
+              value={pausedUntil === null ? 'off' : null}
               onChange={on.onPause}
             />
           }
