@@ -19,6 +19,8 @@
 //!   UI as `BridgeEvent`s on `carrova://event`, progress throttled.
 //! - [`pairing`]: the `SendPrompt` (codes as events, "new code?" answered
 //!   by a command).
+//! - [`send_request`]: `--send PATH…` from a file manager or a second
+//!   launch (single-instance plugin), queued for the UI.
 //! - [`recipes`], [`settings`], [`error_report`], [`updater`]: services.
 //! - [`command_error`]: the one mapping of every failure to `BridgeError`.
 
@@ -30,6 +32,7 @@ pub mod ops;
 pub mod pairing;
 pub mod recipes;
 pub mod registry;
+pub mod send_request;
 pub mod settings;
 pub mod state;
 pub mod updater;
@@ -39,6 +42,7 @@ pub mod worker;
 #[path = "../tests/support/mod.rs"]
 mod testing;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use error_report::Reports;
@@ -49,7 +53,10 @@ use updater::PendingUpdate;
 /// Builds the Tauri application and runs it until the last window closes.
 ///
 /// Start-up installs the error-report panic hook (it records nothing
-/// unless the user has allowed reports) and the bridge state.
+/// unless the user has allowed reports) and the bridge state, queues this
+/// launch's `--send` paths and refreshes the file-manager entries in the
+/// background. A second launch only hands its `--send` paths to this one
+/// ([`send_request`]) and exits.
 ///
 /// # Errors
 ///
@@ -57,6 +64,10 @@ use updater::PendingUpdate;
 /// start, or Carrova's state directory cannot be resolved.
 pub fn run() -> tauri::Result<()> {
     tauri::Builder::default()
+        // First, so a second launch is caught before anything else starts.
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            send_request::on_second_instance(app, argv, &cwd);
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -66,12 +77,19 @@ pub fn run() -> tauri::Result<()> {
             let reports = Reports::from_platform(Arc::clone(&platform))?;
             reports.install_panic_hook();
             app.manage(reports);
-            app.manage(app_state(app.handle(), platform));
+            refresh_entries(Arc::clone(&platform));
+            let state = app_state(app.handle(), platform);
+            send_request::forward(&state, &launch_send_paths());
+            app.manage(state);
             Ok(())
         })
         .manage(PendingUpdate::default())
         .invoke_handler(tauri::generate_handler![
             commands::send::scan,
+            commands::send::start_manual,
+            commands::send::scan_apps,
+            commands::send::pick,
+            commands::send::take_send_request,
             commands::send::suggest,
             commands::send::select,
             commands::send::passphrase_strength,
@@ -105,6 +123,8 @@ pub fn run() -> tauri::Result<()> {
             commands::recipes::recipes_reset,
             commands::settings::settings,
             commands::settings::save_settings,
+            commands::integration::file_manager_status,
+            commands::integration::set_file_manager_entries,
             updater::check_update,
             updater::install_update,
             updater::restart_app,
@@ -117,6 +137,22 @@ pub fn run() -> tauri::Result<()> {
             commands::reports::error_report_issue,
         ])
         .run(tauri::generate_context!())
+}
+
+/// The `--send` paths this launch was started with, if any.
+fn launch_send_paths() -> Vec<PathBuf> {
+    let argv: Vec<_> = std::env::args_os().collect();
+    let cwd = std::env::current_dir()
+        .inspect_err(|e| tracing::warn!(error = %e, "no working directory"))
+        .unwrap_or_default();
+    send_request::send_paths(&argv, &cwd).unwrap_or_default()
+}
+
+/// Refresh the file-manager entries off the start-up path.
+fn refresh_entries(platform: Arc<dyn carrova_platform::Platform>) {
+    tauri::async_runtime::spawn_blocking(move || {
+        ops::integration::refresh_file_manager_entries(platform.as_ref());
+    });
 }
 
 /// The bridge state of the running app: recipes from the app's resources

@@ -1,11 +1,11 @@
 //! Settings, recipes, pairing answers and session bookkeeping through the
 //! bridge.
 
-use carrova_core::SessionId;
+use carrova_core::{Selection, SessionId};
 use carrova_view::ipc::{ErrorCode, RecipeOrigin, RecipeTier, Settings, Theme};
 use tauri::async_runtime::block_on;
 
-use crate::ops::{receive, recipes, send, sessions, settings};
+use crate::ops::{integration, receive, recipes, send, sessions, settings};
 use crate::testing::Machine;
 
 fn unknown() -> SessionId {
@@ -65,6 +65,14 @@ fn commands_on_unknown_sessions_fail_with_a_session_error() {
         sessions::cancel(state, &unknown()).unwrap_err(),
         block_on(receive::approve(state, &unknown())).unwrap_err(),
         block_on(send::run_send(state, &unknown())).unwrap_err(),
+        block_on(send::scan_apps(state, &unknown())).unwrap_err(),
+        block_on(send::pick(
+            state,
+            &unknown(),
+            Selection::default(),
+            Vec::new(),
+        ))
+        .unwrap_err(),
         block_on(sessions::resume(state, &unknown(), None)).unwrap_err(),
     ];
     for err in errors {
@@ -99,4 +107,12 @@ fn a_dismissed_session_is_closed_but_stays_in_history() {
     ))
     .unwrap_err();
     assert_eq!(err.bridge().code, ErrorCode::Session);
+}
+
+#[test]
+fn file_manager_status_on_fake_is_unsupported() {
+    let machine = Machine::new();
+    let status = block_on(integration::file_manager_status(&machine.state)).unwrap();
+    assert!(!status.supported && !status.installed);
+    assert!(block_on(integration::set_file_manager_entries(&machine.state, true)).is_err());
 }

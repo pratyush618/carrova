@@ -1,12 +1,13 @@
-//! Sending side: scan, selection, archive export and LAN send.
+//! Sending side: scan or Manual picks, selection, archive export and LAN
+//! send.
 
 use std::path::PathBuf;
 
 use carrova_core::{
-    CoreError, Exporter, KdfStrength, Preset, ScanOptions, Selection, SelectionEdit, SendReport,
-    SessionId, WriteOptions,
+    Cancel, CoreError, Engine, Exporter, KdfStrength, Preset, ScanOptions, Selection,
+    SelectionEdit, SendReport, SessionId, WriteOptions,
 };
-use carrova_view::ipc::ScanReply;
+use carrova_view::ipc::{PickedReply, ScanReply};
 use carrova_view::passphrase::{self, PassphraseStrength, PassphraseUse, archive_passphrase};
 use zeroize::Zeroizing;
 
@@ -42,6 +43,28 @@ fn select_into(exporter: &mut Exporter, selection: Selection) -> Result<ScanRepl
     }
 }
 
+/// Open a new export session: `start` it on a fresh engine, then hand
+/// it the `first` selection.
+async fn open_export(
+    state: &AppState,
+    start: impl FnOnce(Engine) -> Result<Exporter, CoreError> + Send + 'static,
+    first: impl FnOnce(&Exporter) -> Selection + Send + 'static,
+) -> Result<ScanReply, CommandError> {
+    let shared = state.clone();
+    let (worker, (id, cancel, result)) = Worker::open("export", move || {
+        let sink = shared.unbound_sink();
+        let mut exporter = start(shared.engine(sink.clone())?)?;
+        sink.bind(exporter.id());
+        let selection = first(&exporter);
+        let result = select_into(&mut exporter, selection)?;
+        let opened = (exporter.id().clone(), exporter.canceller(), result);
+        Ok::<_, CommandError>((Sending::Selecting(Box::new(exporter)), opened))
+    })
+    .await?;
+    state.sessions.insert(id, Live::Sending(worker), cancel);
+    Ok(result)
+}
+
 /// Scan this machine: a new export session holding the suggested
 /// selection.
 ///
@@ -49,19 +72,80 @@ fn select_into(exporter: &mut Exporter, selection: Selection) -> Result<ScanRepl
 ///
 /// Recipes unavailable, or the scan failed.
 pub async fn scan(state: &AppState) -> Result<ScanReply, CommandError> {
-    let shared = state.clone();
-    let (worker, (id, cancel, result)) = Worker::open("export", move || {
-        let sink = shared.unbound_sink();
-        let mut exporter = Exporter::start(shared.engine(sink.clone())?, ScanOptions::default())?;
-        sink.bind(exporter.id());
-        let suggested = exporter.suggest(Preset::default());
-        let result = select_into(&mut exporter, suggested)?;
-        let opened = (exporter.id().clone(), exporter.canceller(), result);
-        Ok::<_, CommandError>((Sending::Selecting(Box::new(exporter)), opened))
-    })
-    .await?;
-    state.sessions.insert(id, Live::Sending(worker), cancel);
-    Ok(result)
+    open_export(
+        state,
+        |engine| Exporter::start(engine, ScanOptions::default()),
+        |exporter| exporter.suggest(Preset::default()),
+    )
+    .await
+}
+
+/// A new export session in Manual mode: no app scan, an empty selection
+/// for the user's [`pick`]s.
+///
+/// # Errors
+///
+/// Recipes unavailable, or the machine survey failed.
+pub async fn start_manual(state: &AppState) -> Result<ScanReply, CommandError> {
+    open_export(
+        state,
+        |engine| Exporter::start_manual(engine, Cancel::default()),
+        |_| Selection::default(),
+    )
+    .await
+}
+
+/// Run the app scan of a Manual session (once; later calls reuse it) and
+/// reply with the selection the default preset suggests. The session
+/// keeps its current selection (the picks) until [`select`].
+///
+/// # Errors
+///
+/// No such session still selecting, or the scan failed or was cancelled.
+pub async fn scan_apps(state: &AppState, id: &SessionId) -> Result<ScanReply, CommandError> {
+    state
+        .sessions
+        .sending(id)?
+        .call(|sending| {
+            let exporter = selecting(sending)?;
+            exporter.scan_now(ScanOptions::default())?;
+            Ok(reply(exporter, exporter.suggest(Preset::default())))
+        })
+        .await?
+}
+
+/// Add the user's picked `paths` to `selection` by the engine's rules
+/// ([`Exporter::pick`]) and hand the result to the engine; replies with
+/// it and one outcome per path (a refused path says why).
+///
+/// # Errors
+///
+/// No such session still selecting.
+pub async fn pick(
+    state: &AppState,
+    id: &SessionId,
+    mut selection: Selection,
+    paths: Vec<PathBuf>,
+) -> Result<PickedReply, CommandError> {
+    state
+        .sessions
+        .sending(id)?
+        .call(move |sending| {
+            let exporter = selecting(sending)?;
+            let outcomes = exporter.pick(&mut selection, &paths);
+            Ok(PickedReply::new(
+                select_into(exporter, selection)?,
+                outcomes,
+            ))
+        })
+        .await?
+}
+
+/// Paths sent from outside since the last call (see
+/// [`crate::send_request`]), oldest first.
+#[must_use]
+pub fn take_send_request(state: &AppState) -> Vec<String> {
+    state.pending_send.take()
 }
 
 /// The selection `preset` suggests. The session keeps its current

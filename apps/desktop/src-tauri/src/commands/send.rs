@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use carrova_core::{
     ArchiveSummary, KdfStrength, Preset, Selection, SelectionEdit, SendReport, SessionId,
 };
-use carrova_view::ipc::ScanReply;
+use carrova_view::ipc::{PickedReply, ScanReply};
 use carrova_view::passphrase::PassphraseStrength;
 use tauri::{AppHandle, State};
 
@@ -18,6 +18,46 @@ use crate::state::AppState;
 #[tauri::command]
 pub async fn scan(app: AppHandle, state: State<'_, AppState>) -> Result<ScanReply, CommandError> {
     reply(&app, ops::send::scan(&state).await)
+}
+
+/// `CarrovaPort.startManual`.
+#[tauri::command]
+pub async fn start_manual(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<ScanReply, CommandError> {
+    reply(&app, ops::send::start_manual(&state).await)
+}
+
+/// `CarrovaPort.scanApps`.
+#[tauri::command]
+pub async fn scan_apps(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    session: SessionId,
+) -> Result<ScanReply, CommandError> {
+    reply(&app, ops::send::scan_apps(&state, &session).await)
+}
+
+/// `CarrovaPort.pick`.
+#[tauri::command]
+pub async fn pick(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    session: SessionId,
+    selection: Selection,
+    paths: Vec<PathBuf>,
+) -> Result<PickedReply, CommandError> {
+    reply(
+        &app,
+        ops::send::pick(&state, &session, selection, paths).await,
+    )
+}
+
+/// `CarrovaPort.takeSendRequest`.
+#[tauri::command]
+pub async fn take_send_request(state: State<'_, AppState>) -> Result<Vec<String>, CommandError> {
+    Ok(ops::send::take_send_request(&state))
 }
 
 /// `CarrovaPort.suggest`.

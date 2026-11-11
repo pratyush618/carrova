@@ -2,7 +2,7 @@
 //! applied by the engine's rules, and the engine (not the bridge) refuses
 //! to export or send an unusable selection.
 
-use carrova_core::{ItemKey, KdfStrength, Selection, SelectionEdit, SessionId};
+use carrova_core::{ItemKey, KdfStrength, PickResult, Selection, SelectionEdit, SessionId};
 use carrova_view::ipc::{ErrorCode, ScanReply};
 use tauri::async_runtime::block_on;
 
@@ -120,4 +120,42 @@ fn the_meter_rates_a_passphrase_as_export_does() {
     );
     let strength = send::passphrase_strength(PASS.into());
     assert!(strength >= PassphraseUse::NewArchive.minimum());
+}
+
+#[test]
+fn manual_pick_then_export_writes_archive() {
+    let sender = Machine::new();
+    sender.put(".config/app/settings.toml", b"x");
+    let opened = block_on(send::start_manual(&sender.state)).unwrap();
+    let result = opened.result();
+    assert!(result.report.apps.is_empty(), "no app scan in Manual mode");
+    assert!(result.selection.items.is_empty());
+
+    let folder = sender.home.join(".config/app");
+    let picked = block_on(send::pick(
+        &sender.state,
+        &result.session,
+        result.selection.clone(),
+        vec![folder],
+    ))
+    .unwrap();
+    let view = picked.picked();
+    assert!(matches!(view.outcomes[0].result, PickResult::Added { .. }));
+    assert!(view.scan.view.issues.is_empty());
+    assert_eq!(export(&sender, &result.session), Ok(()));
+    assert!(sender.scratch("move.carrova").is_file());
+}
+
+#[test]
+fn scan_apps_after_manual_returns_suggestion() {
+    let sender = Machine::new();
+    sender.put(".config/app/settings.toml", b"x");
+    let id = block_on(send::start_manual(&sender.state))
+        .unwrap()
+        .result()
+        .session;
+    let scanned = block_on(send::scan_apps(&sender.state, &id)).unwrap();
+    let result = scanned.result();
+    assert_eq!(result.report.apps.len(), 1);
+    assert!(result.selection.items[&ItemKey::from("app/config")].included);
 }
