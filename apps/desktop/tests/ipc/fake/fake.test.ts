@@ -216,6 +216,38 @@ describe('the fake port, Manual mode and the file manager', () => {
     expect((await port.setFileManagerEntries(false)).installed).toBe(false);
   });
 
+  it("keeps the session's edited picks across the app scan", async () => {
+    const { port } = await fake();
+    const { session, selection } = await port.startManual();
+    const site = 'raw:home/projects/site';
+    const env = 'raw:home/work/api/.env';
+    const picked = await port.pick(session, selection, [
+      '/home/ana/projects/site',
+      '/home/ana/work/api/.env',
+    ]);
+    await port.select(session, picked.scan.selection, [
+      { kind: 'remove_pick', item: site },
+      { kind: 'item', item: env, included: true },
+      { kind: 'confirm_sensitive', item: env, confirmed: true },
+    ]);
+    const { items } = (await port.scanApps(session)).selection;
+    expect(items[site]).toBeUndefined();
+    expect(items[env]).toMatchObject({ included: true, confirmed_sensitive: true });
+  });
+
+  it('refuses to send after a pick that leaves an included sensitive pick unconfirmed', async () => {
+    const { port } = await fake();
+    const { session, selection } = await port.startManual();
+    const env = 'raw:home/work/api/.env';
+    const picked = await port.pick(session, selection, ['/home/ana/work/api/.env']);
+    const ticked = await port.select(session, picked.scan.selection, [
+      { kind: 'item', item: env, included: true },
+    ]);
+    const more = await port.pick(session, ticked.selection, ['/home/ana/projects/site']);
+    expect(more.scan.view.issues.map((i) => i.item)).toEqual([env]);
+    expect(await rejection(port.runSend(session))).toMatchObject({ code: 'invalid_selection' });
+  });
+
   it('offers Manual picks unticked and accept all ticks only the safe ones (picks scenario)', async () => {
     const { port } = await fake('picks');
     const { session } = await port.openArchive('/tmp/a.carrova', 'pass');

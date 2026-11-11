@@ -107,9 +107,10 @@ export class FakeSender {
   async pick(session: SessionId, selection: Selection, paths: string[]): Promise<Picked> {
     await this.runtime.step(session);
     const added = addPicks(selection, paths, ROOTS);
+    const scan = scanWith(added.selection);
     this.picked = picksOf(added.selection);
-    this.usable = true;
-    return { scan: scanWith(added.selection), outcomes: added.outcomes };
+    this.usable = scan.view.issues.length === 0;
+    return { scan, outcomes: added.outcomes };
   }
 
   suggest(session: SessionId, preset: Preset): Promise<ScanResult> {
@@ -123,6 +124,7 @@ export class FakeSender {
     return later(() => {
       this.runtime.slot(session);
       const result = scanWith(applyEdits(selection, edits));
+      this.picked = picksOf(result.selection);
       this.usable = result.view.issues.length === 0;
       return result;
     });
