@@ -24,7 +24,7 @@ export function useBell(go: (event: NavEvent) => void): BellModel {
         markRead('all');
       },
       onSettings: () => {
-        go({ type: 'openHub', page: 'settings' });
+        go({ type: 'openHub', page: 'settings', section: 'notifications' });
       },
     }),
     [notices, markRead, receive, go, t, format],
