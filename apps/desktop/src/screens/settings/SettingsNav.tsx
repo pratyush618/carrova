@@ -23,7 +23,12 @@ export function SettingsNav({
   const { t } = useTranslation();
   return (
     <div className="p-side s-settings-side">
-      <button type="button" className="p-side__link" onClick={onBack}>
+      <button
+        type="button"
+        className="p-side__link"
+        aria-label={t('settings.nav.back')}
+        onClick={onBack}
+      >
         <Icon name="back" />
         {t('nav.settings')}
       </button>

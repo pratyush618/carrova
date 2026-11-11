@@ -24,7 +24,7 @@ describe('suggested defaults for new moves', () => {
     const retention = screen.getByRole('radiogroup', { name: 'Keep the undo point' });
     await user.click(within(retention).getByRole('radio', { name: 'Until the move succeeds' }));
     // Back from Settings lands on Home.
-    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Back from settings' }));
 
     await user.click(await screen.findByRole('button', { name: /Receive/ }));
     await user.type(await screen.findByRole('textbox', { name: 'Pairing code' }), '7-acid-lemon');

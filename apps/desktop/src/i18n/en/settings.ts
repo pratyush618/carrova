@@ -19,7 +19,7 @@ export const settings = {
     updates: 'Updates',
     about: 'About',
   },
-  nav: { label: 'Settings sections', search: 'Search settings' },
+  nav: { label: 'Settings sections', search: 'Search settings', back: 'Back from settings' },
   results: {
     found_one: '{{count}} result for “{{query}}”',
     found_other: '{{count}} results for “{{query}}”',

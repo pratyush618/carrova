@@ -167,7 +167,7 @@ describe('the one-time file-manager question', () => {
     expect(entries).not.toHaveBeenCalled();
     expect(screen.queryByRole('region', { name: question })).not.toBeInTheDocument();
     await openHub(user, 'Settings');
-    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Back from settings' }));
     await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
     expect(screen.queryByRole('region', { name: question })).not.toBeInTheDocument();
   });

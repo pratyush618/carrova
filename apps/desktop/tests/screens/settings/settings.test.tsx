@@ -50,7 +50,7 @@ describe('Settings', () => {
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
     await user.click(within(sections).getByRole('button', { name: 'Moves' }));
     expect(on.onSection).toHaveBeenCalledWith('moves');
-    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Back from settings' }));
     expect(on.onBack).toHaveBeenCalledOnce();
   });
 
