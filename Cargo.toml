@@ -75,7 +75,7 @@ tracing = "0.1"
 # TS bindings for the desktop IPC contract (one source of truth).
 ts-rs = { version = "12.0.1", default-features = false, features = ["serde-compat"] }
 # Desktop shell (Tauri 2 stable line; 3.x is alpha).
-tauri = { version = "2.12.5", features = [] }
+tauri = { version = "2.12.5", features = ["tray-icon"] }
 tauri-build = { version = "2.7.4", features = [] }
 tauri-plugin-dialog = "2.8.4"
 tauri-plugin-notification = "2.8.1"

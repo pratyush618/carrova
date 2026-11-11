@@ -40,6 +40,7 @@ describe('the Tauri port', () => {
     await port.notices();
     await port.markNoticesRead([4, 5]);
     await port.markNoticesRead('all');
+    await port.setBackground({ keep_running: true, start_at_login: true, lean: false });
 
     expect(calls).toEqual([
       ['scan', {}],
@@ -65,6 +66,7 @@ describe('the Tauri port', () => {
       ['notices', {}],
       ['mark_notices_read', { ids: [4, 5] }],
       ['mark_notices_read', { ids: null }],
+      ['set_background', { background: { keep_running: true, start_at_login: true, lean: false } }],
     ]);
   });
 

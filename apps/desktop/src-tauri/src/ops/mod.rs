@@ -8,6 +8,7 @@
 //! shared view crate.
 
 pub mod about;
+pub mod background;
 pub mod inbox;
 pub mod integration;
 pub mod receive;

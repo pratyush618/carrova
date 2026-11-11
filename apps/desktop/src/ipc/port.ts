@@ -14,6 +14,7 @@
  */
 import type { About } from '../bindings/About';
 import type { ArchiveSummary } from '../bindings/ArchiveSummary';
+import type { BackgroundSettings } from '../bindings/BackgroundSettings';
 import type { BridgeEvent } from '../bindings/BridgeEvent';
 import type { CatalogEntry } from '../bindings/CatalogEntry';
 import type { Checklist } from '../bindings/Checklist';
@@ -187,6 +188,8 @@ export interface CarrovaPort {
   fileManagerStatus(): Promise<FileManagerStatus>;
   /** Write (`true`) or remove (`false`) the file-manager entries. */
   setFileManagerEntries(on: boolean): Promise<FileManagerStatus>;
+  /** Save the background settings and start at sign-in only while Keep running and Start at login are on. */
+  setBackground(background: BackgroundSettings): Promise<void>;
 
   // --- App updates (never installed without the user's click) -------------
   checkUpdate(): Promise<UpdateStatus>;

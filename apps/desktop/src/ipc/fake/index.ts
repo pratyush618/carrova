@@ -213,6 +213,10 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
         fileManager = { ...fileManager, installed: on };
         return fileManager;
       }),
+    setBackground: (background) =>
+      later(() => {
+        settings = { ...settings, background };
+      }),
 
     notices: () => later(() => notices),
     markNoticesRead: (ids) =>

@@ -96,6 +96,22 @@ describe('apps and settings', () => {
     expect(await screen.findByText('You have the newest list.')).toBeInTheDocument();
   });
 
+  it('starts at login through the background command, not a plain save', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true });
+    const background = vi.spyOn(port, 'setBackground');
+    const save = vi.spyOn(port, 'saveSettings');
+    await openHub(user, 'Settings');
+    await user.click(await screen.findByRole('switch', { name: 'Start at login' }));
+    expect(background).toHaveBeenCalledWith({
+      keep_running: true,
+      start_at_login: true,
+      lean: true,
+    });
+    expect(save).not.toHaveBeenCalled();
+    expect(screen.getByRole('switch', { name: 'Start at login' })).toBeChecked();
+  });
+
   it('offers a newer recipe list after a check and installs it on request', async () => {
     const user = userEvent.setup();
     const { port } = await renderApp({ returning: true, scenario: 'recipes-update' });

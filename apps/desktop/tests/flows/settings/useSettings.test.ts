@@ -44,3 +44,39 @@ describe('the one-time file-manager question', () => {
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ file_manager_asked: true }));
   });
 });
+
+describe('background settings', () => {
+  const loaded = async () => {
+    const port = createFakePort({ stepMs: 0 });
+    const settings = renderHook(() => useSettings(port, idle));
+    await waitFor(() => {
+      expect(settings.result.current.settings).not.toBeNull();
+    });
+    return { port, settings };
+  };
+
+  it('saves them through the background command', async () => {
+    const { port, settings } = await loaded();
+    const background = vi.spyOn(port, 'setBackground');
+    act(() => {
+      settings.result.current.setBackground({ start_at_login: true });
+    });
+    expect(background).toHaveBeenCalledWith({
+      keep_running: true,
+      start_at_login: true,
+      lean: true,
+    });
+    expect(settings.result.current.settings?.background.start_at_login).toBe(true);
+  });
+
+  it('goes back to the stored choice when the command fails', async () => {
+    const { port, settings } = await loaded();
+    vi.spyOn(port, 'setBackground').mockRejectedValue(FAILED);
+    act(() => {
+      settings.result.current.setBackground({ start_at_login: true });
+    });
+    await waitFor(() => {
+      expect(settings.result.current.settings?.background.start_at_login).toBe(false);
+    });
+  });
+});

@@ -3,6 +3,7 @@
 #![allow(clippy::unwrap_used)]
 
 mod archive;
+mod background;
 mod contract;
 mod inbox;
 mod record;

@@ -88,6 +88,9 @@ pub fn toggled_pause(alerts: &AlertSettings, now: u64) -> Option<u64> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CloseAction {
     /// Close the window (its webview is freed) and wait in the tray.
+    CloseToTray,
+    /// A move is running: hide the window, webview and all, and wait in
+    /// the tray; once idle, decide again (it then closes).
     HideToTray,
     /// Keep running without a tray to come back from: minimise instead.
     Minimise,
@@ -95,13 +98,15 @@ pub enum CloseAction {
     Exit,
 }
 
-/// What closing the window does, given the user's "Keep running" choice
-/// and whether the desktop shows a status tray.
+/// What closing the window does, given the user's "Keep running" choice,
+/// whether the desktop shows a status tray and whether a move is running
+/// (its screen cannot be rebuilt, so the webview stays until it ends).
 #[must_use]
-pub fn close_action(keep_running: bool, has_tray: bool) -> CloseAction {
-    match (keep_running, has_tray) {
-        (false, _) => CloseAction::Exit,
-        (true, true) => CloseAction::HideToTray,
-        (true, false) => CloseAction::Minimise,
+pub fn close_action(keep_running: bool, has_tray: bool, busy: bool) -> CloseAction {
+    match (keep_running, has_tray, busy) {
+        (false, _, _) => CloseAction::Exit,
+        (true, false, _) => CloseAction::Minimise,
+        (true, true, true) => CloseAction::HideToTray,
+        (true, true, false) => CloseAction::CloseToTray,
     }
 }

@@ -140,9 +140,7 @@ export function SettingsRoute({ section }: { readonly section: SettingsSection }
         onBack: () => {
           nav.go({ type: 'back' });
         },
-        onBackground: (patch) => {
-          settings.save({ background: { ...model.background, ...patch } });
-        },
+        onBackground: settings.setBackground,
         onAlerts: (patch) => {
           settings.save({ alerts: { ...model.alerts, ...patch } });
         },

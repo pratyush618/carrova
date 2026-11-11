@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { BackgroundSettings } from '../../bindings/BackgroundSettings';
 import type { FileManagerStatus } from '../../bindings/FileManagerStatus';
 import type {
   About,
@@ -28,6 +29,8 @@ export interface SettingsController {
   /** The last write or removal of the file-manager entries failed. */
   readonly fileManagerFailed: boolean;
   readonly save: (patch: Partial<Settings>) => void;
+  /** Change the background settings (and start at sign-in with them); a refused change goes back to the stored one. */
+  readonly setBackground: (patch: Partial<BackgroundSettings>) => void;
   /** Write (`true`) or remove the file-manager entries; once done, the one-time question counts as answered. */
   readonly setFileManager: (on: boolean) => void;
   readonly setConsent: (allowed: boolean) => void;
@@ -68,6 +71,20 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       void port.saveSettings(next);
     },
     [port, settings],
+  );
+
+  const reload = loaded.run;
+  const setBackground = useCallback(
+    (patch: Partial<BackgroundSettings>) => {
+      if (settings === null) return;
+      const background = { ...settings.background, ...patch };
+      setEdited({ ...settings, background });
+      void port.setBackground(background).catch(() => {
+        setEdited(null);
+        void reload();
+      });
+    },
+    [port, settings, reload],
   );
 
   // The write answers later: save on top of the settings as they are then.
@@ -150,6 +167,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       offerFileManager: offerFileManager(settings, fileManager),
       fileManagerFailed,
       save,
+      setBackground,
       setFileManager,
       setConsent,
       checkRecipes,
@@ -166,6 +184,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       fileManager,
       fileManagerFailed,
       save,
+      setBackground,
       setFileManager,
       setConsent,
       checkRecipes,
