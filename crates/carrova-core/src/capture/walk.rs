@@ -77,7 +77,7 @@ pub(super) fn walk_items(
 }
 
 /// Why an entry of an unconfirmed raw item stays behind.
-const HELD_BACK: &str = "looks like a key or password; pick it again to confirm it";
+const HELD_BACK: &str = "looks like a key or password and appeared after its folder was chosen; remove the folder and choose it again to confirm it";
 
 /// Whether an entry of an unconfirmed raw item ([`Planned::unconfirmed_raw`])
 /// lies in a secret location ([`secret_in`]) and so stays behind: nothing

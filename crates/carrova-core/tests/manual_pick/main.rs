@@ -316,7 +316,7 @@ fn secret_appearing_in_a_picked_folder_after_selection_is_held_back() {
         .iter()
         .map(|s| (s.what.as_str(), s.reason.as_str()))
         .collect();
-    let held = "looks like a key or password; pick it again to confirm it";
+    let held = "looks like a key or password and appeared after its folder was chosen; remove the folder and choose it again to confirm it";
     assert_eq!(
         skipped,
         [("home:proj/.env", held), ("home:proj/.ssh", held)]
