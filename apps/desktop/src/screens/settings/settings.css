@@ -12,3 +12,9 @@
   margin-block: 0 var(--sp-2);
   padding-inline-start: 4px;
 }
+
+/* One line per note under a row's sub (skipped file managers, a failed change). */
+.s-settings-note {
+  display: block;
+  margin-block-start: 2px;
+}

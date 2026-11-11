@@ -12,6 +12,7 @@ const homeOn = () => ({
   onUndo: vi.fn(),
   onHistory: vi.fn(),
   onErrorReports: vi.fn(),
+  onFileManager: vi.fn(),
 });
 
 describe('Home', () => {
@@ -77,5 +78,18 @@ describe('Home', () => {
     await user.keyboard('{Control>}r{/Control}');
     expect(on.onSend).toHaveBeenCalledOnce();
     expect(on.onReceive).toHaveBeenCalledOnce();
+  });
+  it('home asks once about the file manager, in one line under the moves', async () => {
+    const user = userEvent.setup();
+    const on = homeOn();
+    renderScreen(<HomeScreen model={{ ...homeReturning, askFileManager: true }} on={on} />);
+    const card = screen.getByRole('region', {
+      name: 'Add “Send with Carrova” to your file manager?',
+    });
+    expect(card).toHaveTextContent(/Right-click files or folders/);
+    await user.click(screen.getByRole('button', { name: 'Add it' }));
+    expect(on.onFileManager).toHaveBeenCalledWith(true);
+    await user.click(screen.getByRole('button', { name: 'Not now' }));
+    expect(on.onFileManager).toHaveBeenCalledWith(false);
   });
 });

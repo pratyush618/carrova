@@ -1,6 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { idle } from '@/flows/remote';
-import { recipeCheck, settingsModel, updateModel } from '@/flows/settings/settingsViews';
+import type { FileManagerStatus } from '@/bindings/FileManagerStatus';
+import type { Settings } from '@/bindings/Settings';
+import {
+  offerFileManager,
+  recipeCheck,
+  settingsModel,
+  updateModel,
+} from '@/flows/settings/settingsViews';
+
+const SETTINGS: Settings = {
+  auto_check_recipes: true,
+  auto_check_app: true,
+  theme: null,
+  reduce_motion: null,
+  move_defaults: { conflict_rule: 'replace', retention: 'until_dismissed', include_caches: false },
+  start_in_manual: false,
+  file_manager_asked: false,
+};
 
 const error = { code: 'network', message: 'Offline', hint: null } as const;
 
@@ -50,7 +67,11 @@ describe('settings views', () => {
             retention: 'until_dismissed',
             include_caches: false,
           },
+          start_in_manual: false,
+          file_manager_asked: false,
         },
+        fileManager: null,
+        fileManagerFailed: false,
         consent: 'unset',
         reports: [{ id: '1', when: 0, kind: 'error', headline: 'Boom' }],
         recipes: null,
@@ -72,6 +93,46 @@ describe('settings views', () => {
     expect(model).toMatchObject({ appearance: 'system', motion: 'reduce', errorReports: false });
     expect(model.update).toEqual({ version: '0.3.0' });
     expect(model.reports).toHaveLength(1);
+    expect(model.fileManager).toBeNull();
+  });
+
+  it('settings toggle reflects status: on when written, hidden when unsupported, notes kept', () => {
+    const sources = (fileManager: FileManagerStatus | null, fileManagerFailed = false) =>
+      settingsModel(
+        {
+          settings: { ...SETTINGS, start_in_manual: true },
+          fileManager,
+          fileManagerFailed,
+          consent: 'denied',
+          reports: [],
+          recipes: null,
+          check: idle,
+          install: idle,
+          update: idle,
+        },
+        new Date(),
+      );
+    const skipped = ['Thunar: uca.xml is not valid; left unchanged'];
+    expect(sources({ supported: true, installed: true, skipped })).toMatchObject({
+      startInManual: true,
+      fileManager: { on: true, skipped, failed: false },
+    });
+    expect(sources({ supported: true, installed: false, skipped: [] }, true).fileManager).toEqual({
+      on: false,
+      skipped: [],
+      failed: true,
+    });
+    expect(sources({ supported: false, installed: false, skipped: [] }).fileManager).toBeNull();
+  });
+
+  it('home asks once about the file manager: only where supported, not yet written or answered', () => {
+    const status = { supported: true, installed: false, skipped: [] };
+    expect(offerFileManager(SETTINGS, status)).toBe(true);
+    expect(offerFileManager({ ...SETTINGS, file_manager_asked: true }, status)).toBe(false);
+    expect(offerFileManager(SETTINGS, { ...status, installed: true })).toBe(false);
+    expect(offerFileManager(SETTINGS, { ...status, supported: false })).toBe(false);
+    expect(offerFileManager(SETTINGS, null)).toBe(false);
+    expect(offerFileManager(null, status)).toBe(false);
   });
 
   it('walks the update dialog from offer to installed, and shows failures', () => {

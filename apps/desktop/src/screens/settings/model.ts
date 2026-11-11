@@ -45,6 +45,16 @@ export interface SettingsModel {
   readonly update: { readonly version: string } | null;
   /** What every new move starts with (each move can still change it). */
   readonly moveDefaults: MoveDefaults;
+  /** Send opens in Manual mode. */
+  readonly startInManual: boolean;
+  /** "Send with Carrova" in the file manager; `null` hides the row (this OS has no entries). */
+  readonly fileManager: {
+    readonly on: boolean;
+    /** File managers left untouched and why (the engine's words). */
+    readonly skipped: readonly string[];
+    /** The last change could not be made. */
+    readonly failed: boolean;
+  } | null;
 }
 
 export interface SettingsIntents {
@@ -61,6 +71,9 @@ export interface SettingsIntents {
   readonly onUpdates: () => void;
   readonly onAbout: () => void;
   readonly onMoveDefaults: (patch: Partial<MoveDefaults>) => void;
+  readonly onStartInManual: (on: boolean) => void;
+  /** Write (`true`) or remove the file-manager entries. */
+  readonly onFileManager: (on: boolean) => void;
 }
 
 /** The app update dialog: checking, nothing new, an offer, installing, or done. */

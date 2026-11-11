@@ -1,3 +1,4 @@
+import type { FileManagerStatus } from '../../bindings/FileManagerStatus';
 import type {
   About,
   RecipesStatus,
@@ -65,6 +66,10 @@ export function recipeCheck(
 
 export interface SettingsSources {
   readonly settings: Settings;
+  /** The file-manager entries; `null` until the engine answered. */
+  readonly fileManager: FileManagerStatus | null;
+  /** The last change to them failed. */
+  readonly fileManagerFailed: boolean;
   readonly consent: ReportConsent;
   readonly reports: readonly ReportSummary[];
   readonly recipes: RecipesStatus | null;
@@ -100,8 +105,31 @@ export function settingsModel(s: SettingsSources, now: Date): SettingsModel {
     })),
     update: offer?.status === 'available' ? { version: offer.version } : null,
     moveDefaults: s.settings.move_defaults,
+    startInManual: s.settings.start_in_manual,
+    fileManager:
+      s.fileManager?.supported === true
+        ? {
+            on: s.fileManager.installed,
+            skipped: s.fileManager.skipped,
+            failed: s.fileManagerFailed,
+          }
+        : null,
   };
 }
+
+/**
+ * Whether Home asks (once) to add "Send with Carrova" to the file manager:
+ * this OS has entries, they aren't written, and the user never answered.
+ */
+export const offerFileManager = (
+  settings: Settings | null,
+  status: FileManagerStatus | null,
+): boolean =>
+  settings !== null &&
+  !settings.file_manager_asked &&
+  status !== null &&
+  status.supported &&
+  !status.installed;
 
 /** The About sheet: this app, its engine and this computer, as the engine reports them. */
 export function aboutModel(about: About | null): AboutModel {

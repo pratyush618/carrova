@@ -5,7 +5,14 @@ import { HistoryScreen } from '../../screens/history/HistoryScreen';
 import { historyEmpty, historyTimeline, historyUndone } from '../../screens/history/fixtures';
 import { AboutSheet, CrashDialog, UpdateDialog } from '../../screens/settings/SettingsDialogs';
 import { SettingsScreen } from '../../screens/settings/SettingsScreen';
-import { about, crash, settingsModel, update } from '../../screens/settings/fixtures';
+import {
+  about,
+  crash,
+  settingsFileManagerNotes,
+  settingsModel,
+  settingsNoFileManager,
+  update,
+} from '../../screens/settings/fixtures';
 import { UndoConfirmDialog } from '../../screens/undo/UndoConfirmDialog';
 import { undoPreview } from '../../screens/undo/fixtures';
 import { noops } from '../noops';
@@ -28,7 +35,13 @@ const settingsOn = noops(
   'onUpdates',
   'onAbout',
   'onMoveDefaults',
+  'onStartInManual',
+  'onFileManager',
 );
+const SETTINGS = {
+  notes: settingsFileManagerNotes,
+  unsupported: settingsNoFileManager,
+} as const;
 const settingsBase = <SettingsScreen model={settingsModel} on={settingsOn} />;
 
 export const hubScreens: readonly GalleryScreen[] = [
@@ -83,8 +96,19 @@ export const hubScreens: readonly GalleryScreen[] = [
     group: 'Settings',
     title: 'Settings',
     view: { kind: 'hub', page: 'settings' },
-    states: [],
-    render: () => ({ base: settingsBase }),
+    states: states(
+      ['default', 'Default'],
+      ['notes', 'File manager: one skipped, change failed'],
+      ['unsupported', 'No file-manager entries on this system'],
+    ),
+    render: (s) => ({
+      base:
+        s === 'notes' || s === 'unsupported' ? (
+          <SettingsScreen model={SETTINGS[s]} on={settingsOn} />
+        ) : (
+          settingsBase
+        ),
+    }),
   },
   {
     id: 'update',

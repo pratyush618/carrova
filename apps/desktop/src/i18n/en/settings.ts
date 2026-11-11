@@ -49,6 +49,14 @@ export const settings = {
     checkApp: 'Check for a newer Carrova',
     about: 'About and licences',
   },
+  sending: {
+    group: 'Sending',
+    manual: 'Start sends in Manual mode',
+    manualSub: 'Send opens with your own files and folders instead of the apps found.',
+    fileManager: 'Show “Send with Carrova” in the file manager',
+    fileManagerSub: 'Right-click files or folders to send them. Only for you; nothing system-wide.',
+    fileManagerFailed: "Couldn't change the file manager menu. Try again, or restart Carrova.",
+  },
   moves: {
     group: 'New moves start with',
     sub: 'Suggestions only: you can change them on every move.',

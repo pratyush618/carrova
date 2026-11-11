@@ -102,6 +102,54 @@ export function UpdatesGroup({ model, on }: Props) {
   );
 }
 
+/** How sends start: the Send screen's mode, and "Send with Carrova" in the file manager. */
+export function SendingGroup({ model, on }: Props) {
+  const { t } = useTranslation();
+  const entries = model.fileManager;
+  return (
+    <Group title={t('settings.sending.group')}>
+      <Row
+        title={t('settings.sending.manual')}
+        sub={t('settings.sending.manualSub')}
+        trail={
+          <Toggle
+            on={model.startInManual}
+            label={t('settings.sending.manual')}
+            onChange={on.onStartInManual}
+          />
+        }
+      />
+      {entries && (
+        <Row
+          title={t('settings.sending.fileManager')}
+          sub={
+            <>
+              {t('settings.sending.fileManagerSub')}
+              {entries.skipped.map((line) => (
+                <span key={line} className="s-settings-note">
+                  {line}
+                </span>
+              ))}
+              {entries.failed && (
+                <span role="status" className="s-settings-note">
+                  {t('settings.sending.fileManagerFailed')}
+                </span>
+              )}
+            </>
+          }
+          trail={
+            <Toggle
+              on={entries.on}
+              label={t('settings.sending.fileManager')}
+              onChange={on.onFileManager}
+            />
+          }
+        />
+      )}
+    </Group>
+  );
+}
+
 export function PrivacyGroup({ model, on }: Props) {
   const { t } = useTranslation();
   const format = useFormat();

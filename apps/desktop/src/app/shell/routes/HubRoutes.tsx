@@ -16,7 +16,7 @@ import { useStartFlows } from './useStartFlows';
 const answered = (remote: Remote<unknown>): boolean =>
   remote.status === 'ready' || remote.status === 'failed' || current(remote) !== null;
 
-/** Home: the two verbs, recent moves with Undo, the one-time error-report question. */
+/** Home: the two verbs, recent moves with Undo, the one-time questions (error reports, file manager). */
 export function HomeRoute() {
   const { history, settings } = useControllers();
   const nav = useNav();
@@ -27,7 +27,7 @@ export function HomeRoute() {
   if (!answered(sessions)) return <HubLayout variant="center">{null}</HubLayout>;
   return (
     <HomeScreen
-      model={homeModel(records, new Date(), settings.consent)}
+      model={homeModel(records, new Date(), settings.consent, settings.offerFileManager)}
       on={{
         onSend: start.send,
         onReceive: start.receive,
@@ -42,6 +42,10 @@ export function HomeRoute() {
           nav.go({ type: 'openHub', page: 'history' });
         },
         onErrorReports: settings.setConsent,
+        onFileManager: (yes) => {
+          if (yes) settings.setFileManager(true);
+          else settings.save({ file_manager_asked: true });
+        },
       }}
     />
   );
@@ -143,6 +147,10 @@ export function SettingsRoute() {
         onAbout: () => {
           nav.open({ kind: 'about' });
         },
+        onStartInManual: (on) => {
+          settings.save({ start_in_manual: on });
+        },
+        onFileManager: settings.setFileManager,
         onMoveDefaults: (patch) => {
           const current = settings.settings?.move_defaults;
           if (current !== undefined) settings.save({ move_defaults: { ...current, ...patch } });

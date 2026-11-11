@@ -1,4 +1,4 @@
-/** Home (first run and returning), "Use a file instead", the error-report question. */
+/** Home (first run and returning), "Use a file instead", the one-time questions. */
 export const start = {
   home: {
     first: {
@@ -45,6 +45,15 @@ export const start = {
     allow: 'Turn on',
     deny: 'No thanks',
   },
+  fileManager: {
+    title: 'Add “Send with Carrova” to your file manager?',
+    how: 'How it works',
+    body: 'Right-click files or folders and choose Send with Carrova: Carrova opens with them picked. Only for you; you can turn it off in Settings.',
+    yes: 'Add it',
+    no: 'Not now',
+  },
+  /** A file-manager send that arrived while another move runs. */
+  forwarded: { busy: 'Finish or cancel the current move first' },
   fileChoose: {
     title: 'Use an encrypted file',
     body: 'Save your setup into one file protected by a passphrase, then open it on the other computer.',
