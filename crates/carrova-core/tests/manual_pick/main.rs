@@ -287,3 +287,48 @@ fn picks_from_another_os_are_blocked() {
         }]
     );
 }
+
+#[test]
+fn secret_appearing_in_a_picked_folder_after_selection_is_held_back() {
+    let sender = Side::new(OsKind::Linux);
+    sender.put("proj/a.txt", b"kept", 0o644);
+    sender.put("site/.env", b"CONFIRMED=1", 0o600);
+    let mut exp = sender.manual();
+    let mut sel = Selection::default();
+    let _ = exp.pick(&mut sel, &sender.paths(&["proj", "site"]));
+    confirm_sensitive(&mut sel);
+    exp.select(sel).unwrap();
+    sender.put("proj/.env", b"TOKEN=late", 0o600);
+    sender.put("proj/.ssh/id_ed25519", b"late key", 0o600);
+
+    let path = sender.tmp.path().join("out.carrova");
+    let floor = WriteOptions {
+        kdf: KdfParams::FLOOR,
+    };
+    let (_, checklist) = exp.export(&path, &pass(), floor).unwrap();
+
+    let skipped: Vec<_> = checklist
+        .skipped
+        .iter()
+        .map(|s| (s.what.as_str(), s.reason.as_str()))
+        .collect();
+    let held = "looks like a key or password; pick it again to confirm it";
+    assert_eq!(
+        skipped,
+        [("home:proj/.env", held), ("home:proj/.ssh", held)]
+    );
+    let imp = Importer::open(sender.engine.clone(), &path, &pass()).unwrap();
+    let entries: Vec<_> = imp
+        .manifest()
+        .unwrap()
+        .items
+        .iter()
+        .flat_map(|i| i.entries.iter().map(|e| e.rel.as_str().to_owned()))
+        .collect();
+    assert!(entries.contains(&"proj/a.txt".to_owned()), "{entries:?}");
+    assert!(entries.contains(&"site/.env".to_owned()), "{entries:?}");
+    assert!(
+        !entries.iter().any(|e| e.starts_with("proj/.")),
+        "{entries:?}"
+    );
+}

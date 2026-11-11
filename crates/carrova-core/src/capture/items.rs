@@ -20,6 +20,10 @@ pub(super) struct Planned<'a> {
     pub(super) item: Item,
     /// Paths the user unticked.
     pub(super) excluded: Vec<RootedPath<'a>>,
+    /// A raw item the user did not confirm as sensitive: what lies in a
+    /// secret location now was not there when it was judged, so it stays
+    /// behind ([`super::walk::hold_back_secrets`]).
+    pub(super) unconfirmed_raw: bool,
     /// The manifest item to fill (entries or artifacts still empty).
     pub(super) manifest_item: ManifestItem,
 }
@@ -97,6 +101,7 @@ fn plan_raw_item<'a>(
             os: None,
         },
         excluded,
+        unconfirmed_raw: !choice.confirmed_sensitive,
         manifest_item: ManifestItem {
             recipe_id: None,
             item_id: id,
@@ -167,6 +172,7 @@ fn plan_recipe_item<'a>(
         recipe: Some(recipe),
         item,
         excluded,
+        unconfirmed_raw: false,
         manifest_item,
     })
 }

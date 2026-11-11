@@ -19,6 +19,7 @@ use super::source::CaptureSource;
 use crate::checklist::Skipped;
 use crate::error::{CoreError, Result};
 use crate::key::RootedPath;
+use crate::secrets::secret_in;
 use crate::session::{Event, EventSink, ProgressMeter};
 
 /// The file entries of each planned item (empty for handler items), with
@@ -59,6 +60,42 @@ pub(super) fn walk_items(
                 .collect()
         })
         .collect()
+}
+
+/// Why an entry of an unconfirmed raw item stays behind.
+const HELD_BACK: &str = "looks like a key or password; pick it again to confirm it";
+
+/// Leave out of each unconfirmed raw item ([`Planned::unconfirmed_raw`])
+/// every entry in a secret location ([`secret_in`]), so nothing secret
+/// moves without the sender's confirmation. Each location is reported
+/// once, at its outermost entry.
+pub(super) fn hold_back_secrets(
+    planned: &[Planned<'_>],
+    resolved: &mut [Vec<FileEntry>],
+    skipped: &mut Vec<Skipped>,
+) {
+    for (_, entries) in planned
+        .iter()
+        .zip(resolved)
+        .filter(|(p, _)| p.unconfirmed_raw)
+    {
+        entries.retain(|e| {
+            if secret_in(&e.rel).is_none() {
+                return true;
+            }
+            let inside_reported = e
+                .rel
+                .rsplit_once('/')
+                .is_some_and(|(parent, _)| secret_in(parent).is_some());
+            if !inside_reported {
+                skipped.push(Skipped {
+                    what: RootedPath::new(e.root, &e.rel).to_string(),
+                    reason: HELD_BACK.into(),
+                });
+            }
+            false
+        });
+    }
 }
 
 /// Bytes in the regular files of `resolved`.
