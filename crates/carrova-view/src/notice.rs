@@ -5,6 +5,7 @@ use carrova_core::{Notice, NoticeKind};
 use carrova_platform::ScreenLock;
 
 use crate::ipc::{AlertChannel, AlertSettings, ErrorCode};
+use crate::tray::alerts_paused;
 
 /// Title of every system pop-up.
 pub const POPUP_TITLE: &str = "Carrova";
@@ -35,8 +36,7 @@ pub fn route(
         NoticeKind::DeviceNearby => prefs.nearby,
         NoticeKind::UpdateReady => prefs.updates,
     };
-    let paused = prefs.paused_until.is_some_and(|until| now < until);
-    let popup = prefs.system && !paused && channel == AlertChannel::PopupAndBell;
+    let popup = prefs.system && !alerts_paused(prefs, now) && channel == AlertChannel::PopupAndBell;
     Delivery {
         popup,
         // Waking for an alert that stays silent would only startle.

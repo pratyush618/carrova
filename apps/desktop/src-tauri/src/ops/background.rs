@@ -3,8 +3,8 @@
 //! reads settings and the platform for it.
 
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
+use carrova_core::time::now_unix;
 use carrova_view::ipc::{BackgroundSettings, Settings};
 use carrova_view::tray::{self, CloseAction, TrayModel};
 
@@ -63,7 +63,7 @@ pub fn close_action(state: &AppState) -> CloseAction {
 
 /// What the tray shows now.
 pub fn tray_model(state: &AppState) -> TrayModel {
-    model_of(state, &settings_or_default(state), now())
+    model_of(state, &settings_or_default(state), now_unix())
 }
 
 /// The tray's pause item: pause pop-ups for an hour, or end a running
@@ -74,7 +74,7 @@ pub fn tray_model(state: &AppState) -> TrayModel {
 /// The settings cannot be read or written.
 pub fn toggle_pause(state: &AppState) -> Result<TrayModel, CommandError> {
     let mut settings = state.settings.load()?;
-    let now = now();
+    let now = now_unix();
     settings.alerts.paused_until = tray::toggled_pause(&settings.alerts, now);
     state.settings.save(&settings)?;
     Ok(model_of(state, &settings, now))
@@ -96,11 +96,4 @@ fn settings_or_default(state: &AppState) -> Settings {
         .load()
         .inspect_err(|error| tracing::warn!(%error, "settings unreadable; using defaults"))
         .unwrap_or_default()
-}
-
-/// Unix seconds.
-fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
 }
