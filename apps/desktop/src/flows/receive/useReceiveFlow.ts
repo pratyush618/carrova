@@ -15,7 +15,6 @@ import type {
 } from '../../engine/types';
 import type { DecisionAnswer, ImportChoices } from '../../screens/receive/model';
 import { current } from '../remote';
-import type { Answers } from './reviewViews';
 import { connectTarget } from './entry';
 import { answerEdits, choiceEdits } from './planOptions';
 import { initialReceiveFlow, receiveFlowReducer, type ReceiveFlowState } from './receiveFlow';
@@ -33,6 +32,8 @@ export interface ReceiveController {
   /** Connect (LAN) or open the file, then plan with the suggested options. */
   readonly open: () => void;
   readonly answer: (key: ItemKey, answer: DecisionAnswer) => void;
+  /** Tick every safe pick of the plan ("Accept all"). */
+  readonly acceptSafePicks: () => void;
   readonly setRule: (item: ItemKey, rule: ConflictRule) => void;
   readonly setFileRule: (path: string, rule: ConflictRule | null) => void;
   readonly setRemap: (item: ItemKey, remap: Remap | null) => void;
@@ -96,10 +97,10 @@ export function useReceiveFlow(
   /** Answers shown before their edit is planned: the edit that set each, and the last planned one. */
   const answering = useRef({
     by: new Map<string, number>(),
-    planned: new Map<string, DecisionAnswer>(),
+    planned: new Map<string, DecisionAnswer | null>(),
   });
   const edit = useCallback(
-    (changes: PlanEdit[], answers: Answers = {}) => {
+    (changes: PlanEdit[], answers: Readonly<Record<string, DecisionAnswer | null>> = {}) => {
       if (session === null || changes.length === 0) return;
       const mine = ++ticket.current;
       const { by, planned } = answering.current;
@@ -254,6 +255,13 @@ export function useReceiveFlow(
       answer: (key: ItemKey, answer: DecisionAnswer) => {
         edit(answerEdits(key, answer), { [key]: answer });
       },
+      acceptSafePicks: () => {
+        const safe = review?.offered.filter((o) => o.safe_pick) ?? [];
+        edit(
+          [{ kind: 'accept_safe_picks' }],
+          Object.fromEntries(safe.map((o) => [o.key, 'bring' as const])),
+        );
+      },
       setRule: (item: ItemKey, rule: ConflictRule) => {
         edit([{ kind: 'item_rule', item, rule }]);
       },
@@ -261,7 +269,8 @@ export function useReceiveFlow(
         edit([{ kind: 'path_rule', path, rule }]);
       },
       setRemap: (item: ItemKey, remap: Remap | null) => {
-        edit([{ kind: 'remap', item, remap }]);
+        // A confirmation covers the place it was given for: the engine asks again.
+        edit([{ kind: 'remap', item, remap }], { [item]: null });
       },
       setChoices: (patch: Partial<ImportChoices>) => {
         edit(choiceEdits(patch));
@@ -309,6 +318,19 @@ export function useReceiveFlow(
         resumed(id);
       },
     }),
-    [state, start, choosePath, open, edit, browseNearby, approve, session, resumed, port, stop],
+    [
+      state,
+      start,
+      choosePath,
+      open,
+      edit,
+      review,
+      browseNearby,
+      approve,
+      session,
+      resumed,
+      port,
+      stop,
+    ],
   );
 }

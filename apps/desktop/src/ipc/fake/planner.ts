@@ -2,7 +2,7 @@
  * The fake port's planner: re-plans a recorded review under the user's
  * `PlanOptions`, for the fields the review screens edit — item selection,
  * sensitive confirmations, conflict rules (default, per item, per file),
- * remaps and the requires-closed override. Mirrors the engine's rules
+ * remaps, the requires-closed override and Accept all (safe picks). Mirrors the engine's rules
  * (`PlanOptions::picks`, rule precedence path > item > default); it does
  * not re-run the engine's checks, nor re-judge the sensitivity of a remapped
  * item at its new target. `tests/ipc/fake/planner.test.ts` holds it to plans
@@ -41,10 +41,21 @@ export interface PlanConditions {
   readonly plugin?: PlannedPlugin;
 }
 
-/** `PlanOptions::picks`: an explicit list wins; else all but unconfirmed sensitive items. */
+/**
+ * `PlanOptions::confirms`: confirmed by the user, or a safe pick accepted
+ * with Accept all that the user did not leave.
+ */
+const confirmed = (options: PlanOptions, item: OfferedItem): boolean =>
+  options.confirmed_sensitive.includes(item.key) ||
+  (options.accept_safe_picks && item.safe_pick && !options.declined.includes(item.key));
+
+/**
+ * `PlanOptions::picks`: an explicit list wins, else all but unconfirmed
+ * sensitive items.
+ */
 function picks(options: PlanOptions, item: OfferedItem): boolean {
   if (options.items !== null) return options.items.includes(item.key);
-  return item.sensitive === null || options.confirmed_sensitive.includes(item.key);
+  return item.sensitive === null || confirmed(options, item);
 }
 
 /** The `root:rel` text per-file rules are keyed by. */
@@ -125,10 +136,7 @@ export function planUnder(
   const offered = base.offered.map((o) => ({
     ...o,
     picked: picks(options, o),
-    sensitive:
-      o.sensitive === null
-        ? null
-        : { ...o.sensitive, confirmed: options.confirmed_sensitive.includes(o.key) },
+    sensitive: o.sensitive === null ? null : { ...o.sensitive, confirmed: confirmed(options, o) },
   }));
   const picked = new Set(offered.filter((o) => o.picked).map((o) => o.key));
   const actions = base.plan.actions
@@ -212,13 +220,14 @@ function applyEdit(options: PlanOptions, edit: PlanEdit, review: PlanReview): Pl
         ...options,
         items: list === null ? null : toggle(list, edit.item, edit.bring),
         confirmed_sensitive: toggle(options.confirmed_sensitive, edit.item, edit.bring),
+        declined: toggle(options.declined, edit.item, !edit.bring),
       };
     }
     case 'skip_app': {
       const base = pickedKeys(options, offered).filter((k) => appOf(k) !== edit.app);
       const back = offered
         .filter((o) => appOf(o.key) === edit.app)
-        .filter((o) => o.sensitive === null || options.confirmed_sensitive.includes(o.key))
+        .filter((o) => o.sensitive === null || confirmed(options, o))
         .map((o) => o.key);
       return { ...options, items: edit.skip ? base : [...base, ...back] };
     }
@@ -254,9 +263,19 @@ function applyEdit(options: PlanOptions, edit: PlanEdit, review: PlanReview): Pl
     }
     case 'remap': {
       known(edit.item);
+      const now = options.remaps[edit.item] ?? null;
+      const same =
+        now === edit.remap ||
+        (now !== null &&
+          edit.remap !== null &&
+          now.root === edit.remap.root &&
+          now.rel_prefix === edit.remap.rel_prefix);
+      // `PlanOptions::remap`: a confirmation covers the place it was given for.
+      if (same) return options;
       const rest = withoutKey(options.remaps, edit.item);
       return {
         ...options,
+        confirmed_sensitive: without(options.confirmed_sensitive, edit.item),
         remaps: edit.remap === null ? rest : { ...rest, [edit.item]: edit.remap },
       };
     }
@@ -274,6 +293,17 @@ function applyEdit(options: PlanOptions, edit: PlanEdit, review: PlanReview): Pl
       return edit.check === 'running'
         ? { ...options, ignore_requires_closed: true }
         : { ...options, ignore_free_space: true };
+    case 'accept_safe_picks': {
+      // Ticking is harmless: each plan confirms only its own safe picks.
+      const safe = offered
+        .filter((o) => o.safe_pick && !options.declined.includes(o.key))
+        .map((o) => o.key);
+      const items =
+        options.items === null
+          ? null
+          : safe.reduce((list, k) => toggle(list, k, true), options.items);
+      return { ...options, items, accept_safe_picks: true };
+    }
   }
 }
 

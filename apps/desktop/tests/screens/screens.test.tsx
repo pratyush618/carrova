@@ -13,6 +13,7 @@ import {
   progressAt,
   reviewCrossOs,
   reviewDecide,
+  reviewPicks,
   reviewReady,
 } from '@/screens/receive/fixtures';
 import { OverrideDialog } from '@/screens/override/OverrideDialog';
@@ -37,6 +38,7 @@ const reviewOn = () => ({
   onApplyWhileOpen: vi.fn(),
   onIgnoreSpace: vi.fn(),
   onBringAnyway: vi.fn(),
+  onAcceptSafePicks: vi.fn(),
   onReviewPlugin: vi.fn(),
   onSeeWhere: vi.fn(),
   onSeeEvery: vi.fn(),
@@ -50,6 +52,14 @@ describe('Here is what will change', () => {
     expect(screen.getByRole('button', { name: 'Approve and move' })).toBeDisabled();
     expect(screen.getByText('Answer 3 questions to continue')).toBeInTheDocument();
     expect(screen.getAllByRole('radiogroup')).toHaveLength(3);
+  });
+
+  it('accepts every safe pick in one go, without counting it as a question', async () => {
+    const on = reviewOn();
+    renderScreen(<RecvReviewScreen model={reviewPicks} on={on} />);
+    expect(screen.getByText('Answer 3 questions to continue')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Accept all 2 files' }));
+    expect(on.onAcceptSafePicks).toHaveBeenCalledOnce();
   });
 
   it('unlocks Approve once every decision has an answer', async () => {

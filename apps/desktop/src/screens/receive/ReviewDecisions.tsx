@@ -12,14 +12,17 @@ import {
 import { askOptions } from '../shared/askOptions';
 import type { DecisionAnswer, DecisionModel, ReviewIntents } from './model';
 
-/** How many decisions still need an answer. Approve stays disabled until zero. */
+/**
+ * How many decisions still need an answer. Approve stays disabled until zero.
+ * Accept all doesn't count: the picks it covers ask on their own rows.
+ */
 export function unanswered(decisions: readonly DecisionModel[]): number {
-  return decisions.filter((d) => d.answer === null).length;
+  return decisions.filter((d) => d.kind !== 'safe-picks' && d.answer === null).length;
 }
 
 type Intents = Pick<
   ReviewIntents,
-  'onAnswer' | 'onApplyWhileOpen' | 'onBringAnyway' | 'onReviewPlugin'
+  'onAnswer' | 'onAcceptSafePicks' | 'onApplyWhileOpen' | 'onBringAnyway' | 'onReviewPlugin'
 >;
 
 type Of<K extends DecisionModel['kind']> = Extract<DecisionModel, { kind: K }>;
@@ -151,9 +154,39 @@ function PluginDecision({
   );
 }
 
+/** The sender's own picks with nothing risky about them: tick them all at once. */
+function SafePicksDecision({
+  decision,
+  on,
+}: {
+  readonly decision: Of<'safe-picks'>;
+  readonly on: Intents;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Decision
+      icon="folder"
+      title={t('receive.review.safePicks')}
+      why={t('receive.review.safePicksWhy')}
+      answered={decision.answer !== null}
+      action={
+        decision.answer === null ? (
+          <Button size="sm" onClick={on.onAcceptSafePicks}>
+            {t('receive.review.acceptAll', { count: decision.count })}
+          </Button>
+        ) : (
+          <Badge tone="success">{t('receive.review.accepted')}</Badge>
+        )
+      }
+    />
+  );
+}
+
 function DecisionRow({ decision, on }: { readonly decision: DecisionModel; readonly on: Intents }) {
   const { t } = useTranslation();
   switch (decision.kind) {
+    case 'safe-picks':
+      return <SafePicksDecision decision={decision} on={on} />;
     case 'secret':
       return (
         <Decision

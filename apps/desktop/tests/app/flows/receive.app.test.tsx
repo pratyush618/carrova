@@ -225,3 +225,40 @@ describe('receiving over the LAN', () => {
     ).toBeInTheDocument();
   });
 });
+
+describe('receiving Manual picks', () => {
+  it('accept all safe picks then approve', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true, scenario: 'picks' });
+    const edit = vi.spyOn(port, 'editPlan');
+    await toReview(user);
+    await user.click(screen.getByRole('button', { name: 'Accept all 2 files' }));
+
+    expect(edit.mock.calls.at(-1)?.[1]).toEqual([{ kind: 'accept_safe_picks' }]);
+    expect(await screen.findByText('Accepted')).toBeInTheDocument();
+    // The SSH key pick still asks on its own.
+    expect(screen.getByRole('button', { name: 'Approve and move' })).toBeDisabled();
+    await bringAll(user);
+    await user.click(screen.getByRole('button', { name: 'Approve and move' }));
+    expect(await screen.findByText(/arrived/)).toBeInTheDocument();
+  });
+
+  it('asks again about a secret once it is put elsewhere', async () => {
+    const user = userEvent.setup();
+    await renderApp({ returning: true });
+    await toReview(user);
+    await bringAll(user);
+    await user.click(screen.getByRole('button', { name: /See every change/ }));
+    const [remap] = screen.getAllByRole('button', { name: 'Put elsewhere…' });
+    if (remap === undefined) throw new Error('nothing to put elsewhere in the fixture');
+    await user.click(remap);
+    await user.click(screen.getByRole('button', { name: 'Choose a folder' }));
+    await user.click(screen.getByRole('button', { name: 'Use this place' }));
+    await user.click(await screen.findByRole('button', { name: 'Done' }));
+
+    await vi.waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Approve and move' })).toBeDisabled();
+    });
+    expect(screen.getByText('Answer 1 question to continue')).toBeInTheDocument();
+  });
+});

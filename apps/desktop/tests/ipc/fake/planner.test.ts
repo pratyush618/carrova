@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ENGINE_DEFAULTS } from '@/bindings/constants';
 import type { PlanReview } from '@/bindings/PlanReview';
 import { editOptions, planUnder, type PlanConditions } from '@/ipc/fake/planner';
+import { planWithPicks } from '@/ipc/fake/fixtures';
 import { plan } from '@/ipc/fixtures/plan';
 import { planVariants } from '@/ipc/fixtures/plan-variants';
 
@@ -107,5 +108,58 @@ describe('the fake planner, editing options like PlanOptions::apply_all', () => 
     expect(() =>
       editOptions(base, [{ kind: 'allow_plugin', plugin: 'nope', allow: true }]),
     ).toThrow();
+  });
+  it('accept all picks and confirms every safe pick, even out of a frozen list, and nothing else', () => {
+    const picks = planUnder(planWithPicks, ENGINE_DEFAULTS.plan_options, none);
+    const safe = picks.offered.filter((o) => o.safe_pick).map((o) => o.key);
+    expect(safe).toHaveLength(2);
+    const options = editOptions(picks, [
+      { kind: 'answer_sensitive', item: 'ssh/keys', bring: false },
+      { kind: 'accept_safe_picks' },
+    ]);
+    expect(options.accept_safe_picks).toBe(true);
+    expect(options.confirmed_sensitive).toEqual([]);
+    const accepted = planUnder(planWithPicks, options, none).offered.filter((o) => o.picked);
+    expect(accepted.map((o) => o.key)).toEqual(expect.arrayContaining(safe));
+    expect(accepted.every((o) => o.sensitive === null || o.sensitive.confirmed)).toBe(true);
+    expect(accepted.map((o) => o.key)).not.toContain('raw:home/.ssh/id_ed25519');
+  });
+
+  it('accept all leaves a declined safe pick and brings the untouched one', () => {
+    const picks = planUnder(planWithPicks, ENGINE_DEFAULTS.plan_options, none);
+    const [left = '', untouched = ''] = picks.offered.filter((o) => o.safe_pick).map((o) => o.key);
+    const options = editOptions(picks, [
+      { kind: 'answer_sensitive', item: left, bring: false },
+      { kind: 'accept_safe_picks' },
+    ]);
+    expect(options.declined).toEqual([left]);
+    const picked = planUnder(planWithPicks, options, none).offered.filter((o) => o.picked);
+    expect(picked.map((o) => o.key)).not.toContain(left);
+    expect(picked.map((o) => o.key)).toContain(untouched);
+    const brought = editOptions(picks, [
+      { kind: 'answer_sensitive', item: left, bring: false },
+      { kind: 'answer_sensitive', item: left, bring: true },
+    ]);
+    expect(brought.declined).toEqual([]);
+  });
+
+  it('remapping to the same place again keeps the confirmation', () => {
+    const remap = { root: null, rel_prefix: 'old' };
+    const moved = editOptions(base, [
+      { kind: 'remap', item: 'ssh/keys', remap },
+      { kind: 'answer_sensitive', item: 'ssh/keys', bring: true },
+    ]);
+    const again = editOptions({ ...base, plan: { ...base.plan, options: moved } }, [
+      { kind: 'remap', item: 'ssh/keys', remap: { ...remap } },
+    ]);
+    expect(again.confirmed_sensitive).toEqual(['ssh/keys']);
+  });
+
+  it('remapping a confirmed item drops its confirmation', () => {
+    const brought = editOptions(base, [
+      { kind: 'answer_sensitive', item: 'ssh/keys', bring: true },
+      { kind: 'remap', item: 'ssh/keys', remap: { root: null, rel_prefix: 'old' } },
+    ]);
+    expect(brought.confirmed_sensitive).toEqual([]);
   });
 });

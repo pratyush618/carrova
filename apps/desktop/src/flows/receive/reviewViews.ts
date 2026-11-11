@@ -71,7 +71,10 @@ export interface ReviewInputs {
   readonly asked: Asked;
 }
 
-/** Questions the receiver answers before approving: secrets, open apps, other systems, plugins. */
+/**
+ * Questions the receiver answers before approving: Accept all (Manual picks)
+ * first, then secrets, open apps, other systems, plugins.
+ */
 export function decisions(review: PlanReview, inputs: ReviewInputs): DecisionModel[] {
   const { answers, asked } = inputs;
   const { options } = review.plan;
@@ -91,6 +94,13 @@ export function decisions(review: PlanReview, inputs: ReviewInputs): DecisionMod
       },
     ];
   });
+  const accepted = options.accept_safe_picks;
+  const count = review.offered.filter((o) => o.safe_pick && o.sensitive?.confirmed !== true).length;
+  // Shown while a safe pick is unconfirmed, and (answered) once Accept all was used.
+  const safePicks: DecisionModel[] =
+    count > 0 || accepted
+      ? [{ kind: 'safe-picks', key: 'safe-picks', count, answer: accepted ? 'bring' : null }]
+      : [];
   const fromApps = Object.keys(answers).filter((k) => !review.offered.some((o) => o.key === k));
   const apps = [...new Set([...review.plan.running_apps, ...fromApps])];
   const running: DecisionModel[] = apps.map((app) => ({
@@ -118,7 +128,7 @@ export function decisions(review: PlanReview, inputs: ReviewInputs): DecisionMod
         ? null
         : 'leave',
   }));
-  return [...secrets, ...running, ...crossOs, ...plugins];
+  return [...safePicks, ...secrets, ...running, ...crossOs, ...plugins];
 }
 
 /** The filesystem to show: the first one short of space, else the first written to. */

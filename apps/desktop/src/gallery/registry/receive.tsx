@@ -23,6 +23,7 @@ const at = (step: 'code' | 'review' | 'progress' | 'done'): View => ({
 
 export const reviewOn = noops(
   'onAnswer',
+  'onAcceptSafePicks',
   'onApplyWhileOpen',
   'onIgnoreSpace',
   'onBringAnyway',
@@ -89,10 +90,13 @@ export const receiveScreens: readonly GalleryScreen[] = [
       ['decide', 'Needs answers'],
       ['ready', 'Ready'],
       ['cross-os', 'From another system'],
+      ['picks', 'Manual picks (Accept all)'],
       ['mapping', 'Where things land (sheet)'],
     ),
     render: (s) => {
       switch (s) {
+        case 'picks':
+          return { base: <RecvReviewScreen model={fx.reviewPicks} on={reviewOn} /> };
         case 'ready':
           return { base: reviewReady };
         case 'cross-os':
