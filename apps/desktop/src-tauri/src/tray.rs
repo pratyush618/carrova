@@ -68,21 +68,31 @@ pub fn start(app: &AppHandle, state: &AppState, in_background: bool) {
 }
 
 /// Unminimise, show and focus the main window, recreating it if it was
-/// closed to the tray; the tray icon goes away.
+/// closed to the tray; the tray icon then hides. If the window cannot be
+/// had, the tray icon stays (or comes back), so Carrova never vanishes.
 pub fn open_main(app: &AppHandle) -> Option<WebviewWindow> {
-    // First: a window shown while the tray is up reads as hidden while busy.
+    let window = match app.get_webview_window(MAIN_WINDOW) {
+        Some(window) => window,
+        None => match build_main(app) {
+            Ok(window) => window,
+            Err(error) => {
+                tracing::warn!(%error, "could not open the window");
+                if let Some(state) = app.try_state::<AppState>() {
+                    // Logged inside; nothing more to fall back on.
+                    let _ = show_tray(app, &state);
+                }
+                return None;
+            }
+        },
+    };
+    // Only now that the window exists, and before it shows (a shown window
+    // with the tray up reads as hidden while busy).
     if let Some(tray) = app.tray_by_id(MAIN_WINDOW)
         && let Err(error) = tray.set_visible(false)
     {
         tracing::warn!(%error, "could not hide the tray icon");
     }
     set_tray_shown(app, false);
-    let window = match app.get_webview_window(MAIN_WINDOW) {
-        Some(window) => window,
-        None => build_main(app)
-            .inspect_err(|error| tracing::warn!(%error, "could not open the window"))
-            .ok()?,
-    };
     let shown = window
         .unminimize()
         .and_then(|()| window.show())
