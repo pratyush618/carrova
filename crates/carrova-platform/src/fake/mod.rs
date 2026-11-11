@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 #[cfg(doc)]
 use crate::Platform;
-use crate::{FsId, OsKind, ProcessInfo, SemanticRoot};
+use crate::{FsId, OsKind, ProcessInfo, ScreenLock, SemanticRoot};
 
 mod file_manager;
 mod fixture;
@@ -235,10 +235,10 @@ impl FakePlatform {
         self.hooks.wakes()
     }
 
-    /// Make [`Platform::screen_locked`] report `locked` (changeable while
-    /// the platform is in use).
-    pub fn set_screen_locked(&self, locked: bool) {
-        self.hooks.set_screen_locked(locked);
+    /// Make [`Platform::screen_lock`] report `lock` (changeable while the
+    /// platform is in use; the default is [`ScreenLock::Unknown`]).
+    pub fn set_screen_lock(&self, lock: ScreenLock) {
+        self.hooks.set_screen_lock(lock);
     }
 
     /// Pretend this OS has file-manager entries, `installed` or not at

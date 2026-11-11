@@ -2,6 +2,7 @@
 //! always keeps the notice; this decides the rest.
 
 use carrova_core::NoticeKind;
+use carrova_platform::ScreenLock;
 
 use crate::ipc::{AlertChannel, AlertSettings};
 
@@ -17,8 +18,14 @@ pub struct Delivery {
 }
 
 /// The delivery of a `kind` notice at `now` (Unix seconds) under `prefs`.
+/// `screen_lock` asks the OS; it runs only when a pop-up will show.
 #[must_use]
-pub fn route(kind: NoticeKind, prefs: &AlertSettings, now: u64, screen_locked: bool) -> Delivery {
+pub fn route(
+    kind: NoticeKind,
+    prefs: &AlertSettings,
+    now: u64,
+    screen_lock: impl FnOnce() -> ScreenLock,
+) -> Delivery {
     let channel = match kind {
         NoticeKind::SendRequest => prefs.requests,
         NoticeKind::MoveFinished | NoticeKind::MoveFailed => prefs.moves,
@@ -31,6 +38,7 @@ pub fn route(kind: NoticeKind, prefs: &AlertSettings, now: u64, screen_locked: b
         popup,
         // Waking for an alert that stays silent would only startle.
         wake: popup && prefs.wake_screen && kind == NoticeKind::SendRequest,
-        show_names: !screen_locked || prefs.names_on_lock_screen,
+        // Fail closed: a screen that may be locked shows no names unless allowed.
+        show_names: popup && (prefs.names_on_lock_screen || screen_lock() == ScreenLock::Unlocked),
     }
 }

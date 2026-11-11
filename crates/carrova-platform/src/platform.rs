@@ -8,8 +8,8 @@ use std::process::{Child, Command};
 
 use crate::{
     Allocation, DirEntry, DiskInfo, FileLock, FileManagerStatus, FileMeta, FsId, LanInterface,
-    OsKind, PermissionModel, PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability,
-    SocketBuffers,
+    OsKind, PermissionModel, PlatformError, ProcessInfo, ScreenLock, SemanticRoot,
+    SnapshotCapability, SocketBuffers,
 };
 
 /// OS abstraction used by every service crate.
@@ -353,10 +353,10 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         Err(PlatformError::Unsupported("wake_display"))
     }
 
-    /// Whether the screen is locked now. `false` when the OS cannot say
-    /// (the caller then treats names as visible, so adapters that can answer
-    /// should).
-    fn screen_locked(&self) -> bool {
-        false
+    /// Whether the screen is locked now. [`ScreenLock::Unknown`] when the
+    /// OS cannot say; callers then fail closed (hide what a locked screen
+    /// must not show).
+    fn screen_lock(&self) -> ScreenLock {
+        ScreenLock::Unknown
     }
 }

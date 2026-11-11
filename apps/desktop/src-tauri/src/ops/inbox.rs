@@ -55,7 +55,7 @@ pub fn notify(state: &AppState, kind: NoticeKind, peer: Option<String>, summary:
         },
         |settings| settings.alerts,
     );
-    let delivery = route(kind, &prefs, now, state.platform.screen_locked());
+    let delivery = route(kind, &prefs, now, || state.platform.screen_lock());
     if delivery.popup {
         state
             .out

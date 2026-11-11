@@ -2,6 +2,7 @@
 #![allow(clippy::unwrap_used)]
 
 use carrova_core::NoticeKind;
+use carrova_platform::ScreenLock::{self, Locked, Unknown, Unlocked};
 use carrova_view::ipc::{AlertChannel, AlertSettings};
 use carrova_view::notice::route;
 
@@ -26,7 +27,7 @@ fn everything_loud() -> AlertSettings {
 fn loud_channels_pop_up() {
     let prefs = everything_loud();
     for kind in ALL {
-        assert!(route(kind, &prefs, NOW, false).popup, "{kind:?}");
+        assert!(route(kind, &prefs, NOW, || Unlocked).popup, "{kind:?}");
     }
 }
 
@@ -37,13 +38,13 @@ fn paused_alerts_never_pop_up() {
         ..everything_loud()
     };
     for kind in ALL {
-        assert!(!route(kind, &prefs, NOW, false).popup, "{kind:?}");
+        assert!(!route(kind, &prefs, NOW, || Unlocked).popup, "{kind:?}");
     }
     let over = AlertSettings {
         paused_until: Some(NOW),
         ..everything_loud()
     };
-    assert!(route(NoticeKind::SendRequest, &over, NOW, false).popup);
+    assert!(route(NoticeKind::SendRequest, &over, NOW, || Unlocked).popup);
 }
 
 #[test]
@@ -58,7 +59,7 @@ fn bell_only_never_pops_up() {
         NoticeKind::MoveFinished,
         NoticeKind::MoveFailed,
     ] {
-        let delivery = route(kind, &prefs, NOW, false);
+        let delivery = route(kind, &prefs, NOW, || Unlocked);
         assert!(!delivery.popup && !delivery.wake, "{kind:?}");
     }
 }
@@ -69,31 +70,36 @@ fn system_notifications_off_never_pop_up() {
         system: false,
         ..everything_loud()
     };
-    assert!(!route(NoticeKind::SendRequest, &prefs, NOW, false).popup);
+    assert!(!route(NoticeKind::SendRequest, &prefs, NOW, || Unlocked).popup);
 }
 
 #[test]
 fn wake_only_for_send_requests() {
     let prefs = everything_loud();
     for kind in ALL {
-        let wake = route(kind, &prefs, NOW, false).wake;
+        let wake = route(kind, &prefs, NOW, || Unlocked).wake;
         assert_eq!(wake, kind == NoticeKind::SendRequest, "{kind:?}");
     }
     let quiet = AlertSettings {
         wake_screen: false,
         ..prefs
     };
-    assert!(!route(NoticeKind::SendRequest, &quiet, NOW, false).wake);
+    assert!(!route(NoticeKind::SendRequest, &quiet, NOW, || Unlocked).wake);
 }
 
 #[test]
-fn locked_screen_hides_names_unless_allowed() {
+fn names_show_only_when_known_unlocked_or_allowed() {
     let hidden = AlertSettings::default();
-    assert!(route(NoticeKind::SendRequest, &hidden, NOW, false).show_names);
-    assert!(!route(NoticeKind::SendRequest, &hidden, NOW, true).show_names);
+    let shown = |prefs: &AlertSettings, lock: ScreenLock| {
+        route(NoticeKind::SendRequest, prefs, NOW, || lock).show_names
+    };
+    assert!(shown(&hidden, Unlocked));
+    assert!(!shown(&hidden, Locked));
+    assert!(!shown(&hidden, Unknown));
     let allowed = AlertSettings {
         names_on_lock_screen: true,
         ..hidden
     };
-    assert!(route(NoticeKind::SendRequest, &allowed, NOW, true).show_names);
+    assert!(shown(&allowed, Locked));
+    assert!(shown(&allowed, Unknown));
 }

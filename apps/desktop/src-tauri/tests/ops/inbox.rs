@@ -2,6 +2,7 @@
 //! keeps it, the preferences decide the pop-up and the screen wake.
 
 use carrova_core::{NoticeId, NoticeKind};
+use carrova_platform::ScreenLock;
 use carrova_view::ipc::{AlertChannel, AlertSettings, ErrorCode, Settings};
 use tauri::async_runtime::block_on;
 
@@ -67,7 +68,7 @@ fn a_bell_only_alert_is_kept_without_a_pop_up() {
 #[test]
 fn a_send_request_wakes_the_screen_and_hides_the_name_when_locked() {
     let machine = Machine::new();
-    machine.platform.set_screen_locked(true);
+    machine.platform.set_screen_lock(ScreenLock::Locked);
     inbox::notify(
         &machine.state,
         NoticeKind::SendRequest,
@@ -83,6 +84,7 @@ fn a_send_request_wakes_the_screen_and_hides_the_name_when_locked() {
 #[test]
 fn an_unlocked_pop_up_names_the_device() {
     let machine = Machine::new();
+    machine.platform.set_screen_lock(ScreenLock::Unlocked);
     inbox::notify(
         &machine.state,
         NoticeKind::SendRequest,
@@ -91,6 +93,19 @@ fn an_unlocked_pop_up_names_the_device() {
     );
     let popups = machine.events.recorded.of_kind("popup");
     assert_eq!(popups[0]["body"], "Ana's laptop wants to send you files.");
+}
+
+#[test]
+fn an_unknown_lock_state_hides_the_name_too() {
+    let machine = Machine::new();
+    inbox::notify(
+        &machine.state,
+        NoticeKind::SendRequest,
+        Some("Ana's laptop".into()),
+        "wants to send you files.".into(),
+    );
+    let popups = machine.events.recorded.of_kind("popup");
+    assert_eq!(popups[0]["body"], "A device wants to send you files.");
 }
 
 #[test]

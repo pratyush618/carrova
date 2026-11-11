@@ -1,5 +1,5 @@
 use super::*;
-use crate::{OsKind, PermissionModel, Platform, SnapshotCapability};
+use crate::{OsKind, PermissionModel, Platform, ScreenLock, SnapshotCapability};
 
 #[test]
 fn fake_platform_configured_values() {
@@ -327,12 +327,12 @@ fn tool_scripts_run_at_once_while_other_threads_fork() {
 fn fake_counts_display_wakes_and_reports_the_lock_the_test_sets() {
     let tmp = tempfile::TempDir::new().unwrap();
     let fake = FakePlatform::with_home(tmp.path());
-    assert!(!fake.screen_locked());
+    assert_eq!(fake.screen_lock(), ScreenLock::Unknown);
     fake.wake_display().unwrap();
     fake.clone().wake_display().unwrap();
     assert_eq!(fake.wakes(), 2);
-    fake.set_screen_locked(true);
-    assert!(fake.screen_locked());
+    fake.set_screen_lock(ScreenLock::Locked);
+    assert_eq!(fake.screen_lock(), ScreenLock::Locked);
 }
 
 #[test]
@@ -369,5 +369,5 @@ fn adapters_without_a_display_to_wake_say_so_and_never_report_a_lock() {
         Bare.wake_display(),
         Err(crate::PlatformError::Unsupported(_))
     ));
-    assert!(!Bare.screen_locked());
+    assert_eq!(Bare.screen_lock(), ScreenLock::Unknown);
 }

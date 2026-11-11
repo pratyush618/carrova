@@ -261,8 +261,8 @@ impl Platform for FakePlatform {
         Ok(())
     }
 
-    fn screen_locked(&self) -> bool {
-        self.hooks.screen_locked()
+    fn screen_lock(&self) -> crate::ScreenLock {
+        self.hooks.screen_lock()
     }
 
     fn file_manager_status(&self) -> Result<FileManagerStatus, PlatformError> {

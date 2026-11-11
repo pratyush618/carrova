@@ -40,7 +40,7 @@ pub use platform::Platform;
 pub use root::SemanticRoot;
 pub use types::{
     Allocation, DirEntry, DiskInfo, FileKind, FileManagerStatus, FileMeta, FsId, LanInterface,
-    ProcessInfo, SnapshotCapability, SocketBuffers,
+    ProcessInfo, ScreenLock, SnapshotCapability, SocketBuffers,
 };
 
 /// Platform adapter for the OS this binary was compiled for.

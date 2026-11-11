@@ -154,8 +154,8 @@ impl Platform for LinuxPlatform {
         screen::wake()
     }
 
-    fn screen_locked(&self) -> bool {
-        screen::locked()
+    fn screen_lock(&self) -> crate::ScreenLock {
+        screen::lock()
     }
 
     fn disk(&self, path: &Path) -> Result<DiskInfo, PlatformError> {
