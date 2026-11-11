@@ -23,7 +23,7 @@ import { KeyConfirmDialog } from '../../../screens/send/KeyConfirmDialog';
 import { SendFoundScreen } from '../../../screens/send/SendFoundScreen';
 import { SendLinkedScreen } from '../../../screens/send/SendLinkedScreen';
 import { SendLiveScreen } from '../../../screens/send/SendLiveScreen';
-import type { FoundIntents, FoundPurpose } from '../../../screens/send/model';
+import type { FoundFilter, FoundIntents, FoundPurpose } from '../../../screens/send/model';
 import { FailedScreen } from '../../../screens/shared/StatusScreens';
 import type { RouteEnd } from '../../../ui';
 import { useControllers } from '../../controllers/Controllers';
@@ -53,13 +53,14 @@ function FoundRoute({
   const [confirming, setConfirming] = useState<ItemKey | null>(null);
   const [consenting, setConsenting] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
+  const [foundFilter, setFoundFilter] = useState<FoundFilter>('all');
   const home = () => {
     nav.go({ type: 'closeFlow' });
   };
   if (send.state.scan.status === 'failed' && current(send.state.scan) === null) {
     return <FailedScreen error={send.state.scan.error} onRetry={send.retryScan} onHome={home} />;
   }
-  const model = foundModel(send.state, filter);
+  const model = foundModel(send.state, filter, foundFilter);
   const pick =
     model.status === 'manual' ? model.picks.find((p) => p.key === confirming) : undefined;
   const secret =
@@ -85,6 +86,7 @@ function FoundRoute({
       bring(key, false);
     },
     onFilter: setFilter,
+    onFoundFilter: setFoundFilter,
     onPreset: (preset) => {
       send.edit({ kind: 'preset', preset });
     },

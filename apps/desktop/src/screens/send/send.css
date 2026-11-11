@@ -1,5 +1,10 @@
-/* "Filter apps" beside the preset switch; the preset wraps under on narrow windows. */
+/* Search and views stay in reach while a long list scrolls under them. */
 .s-found-tools {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+  padding-block: var(--sp-1);
+  background: var(--surface-1);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -29,4 +34,25 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-1);
+}
+
+/* A category's name is the button that opens it. */
+.s-found-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+  font: inherit;
+}
+
+.s-found-toggle .p-icon {
+  transition: transform var(--dur-2) var(--ease);
+}
+
+.s-found-toggle[aria-expanded='true'] .p-icon {
+  transform: rotate(90deg);
+}
+
+[dir='rtl'] .s-found-toggle[aria-expanded='true'] .p-icon {
+  transform: scaleX(-1) rotate(90deg);
 }

@@ -1,0 +1,20 @@
+/* A scroll box for a long list: the space is the full height, the rows sit where the view is. */
+.p-vlist {
+  overflow: auto;
+  max-block-size: min(60vh, 30rem);
+}
+
+.p-vlist__space {
+  position: relative;
+}
+
+.p-vlist__rows {
+  position: absolute;
+  inset-inline: 0;
+}
+
+.p-vlist__rows > li {
+  box-sizing: border-box;
+  block-size: var(--p-vlist-row);
+  overflow: hidden;
+}

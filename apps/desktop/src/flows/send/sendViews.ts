@@ -12,6 +12,7 @@ import {
   FOUND_PRESETS,
   type CustomizeModel,
   type FoundApp,
+  type FoundFilter,
   type FoundGroup,
   type AbsorbedPick,
   type FoundPreset,
@@ -80,12 +81,16 @@ function foundApp(app: AppReport, result: ScanResult): FoundApp {
     files: ordinary.reduce((n, e) => n + e.item.file_count, 0),
     bytes: ordinary.reduce((n, e) => n + e.item.size, 0),
     included: ordinary.some((e) => e.choice.included),
+    suggested: ordinary.some((e) => e.choice.suggested),
   };
 }
 
 /** One row per detected app (with what its row ticks: its ordinary items). */
 export const foundApps = (result: ScanResult): FoundApp[] =>
   detected(result).map((app) => foundApp(app, result));
+
+/** More found apps than this and every category starts as one line. */
+const COLLAPSE_ABOVE = 30;
 
 /**
  * "Here's what we found", grouped by category in the scan's order. Apps with
@@ -99,7 +104,8 @@ export function foundGroups(result: ScanResult): FoundGroup[] {
     list.push(foundApp(app, result));
     groups.set(app.category, list);
   }
-  return [...groups].map(([category, apps]) => ({ category, apps }));
+  const collapsed = [...groups.values()].reduce((n, apps) => n + apps.length, 0) > COLLAPSE_ABOVE;
+  return [...groups].map(([category, apps]) => ({ category, collapsed, apps }));
 }
 
 /** Keys and secrets: movable sensitive items, each brought only after its own confirm. */
@@ -121,18 +127,44 @@ export function secretItems(result: ScanResult): SecretItem[] {
   );
 }
 
-/** Found apps and secrets whose app (or, for a secret, its label) contains `filter`. */
+/** Which found apps each view keeps. "Largest" keeps all (it only reorders). */
+const FOUND_VIEWS: Readonly<Record<FoundFilter, (app: FoundApp) => boolean>> = {
+  all: () => true,
+  ticked: (a) => a.included,
+  changed: (a) => a.included !== a.suggested,
+  largest: () => true,
+};
+
+const bySize = (a: FoundApp, b: FoundApp): number => b.bytes - a.bytes;
+
+/** Each group's apps biggest first, the group holding the biggest app first. */
+const largestFirst = (groups: readonly FoundGroup[]): FoundGroup[] =>
+  groups
+    .map((g) => ({ ...g, apps: g.apps.toSorted(bySize) }))
+    .sort((a, b) => (b.apps[0]?.bytes ?? 0) - (a.apps[0]?.bytes ?? 0));
+
+/**
+ * Found apps and secrets whose app (or, for a secret, its label) contains `filter`,
+ * the apps narrowed to `view`. Narrowing opens every group: you asked to see them.
+ */
 export function filterFound(
   groups: readonly FoundGroup[],
   secrets: readonly SecretItem[],
   filter: string,
+  view: FoundFilter,
 ): { groups: FoundGroup[]; secrets: SecretItem[] } {
   const needle = filter.trim().toLocaleLowerCase();
   const hit = (...names: string[]) => names.some((n) => n.toLocaleLowerCase().includes(needle));
+  const narrowed = needle !== '' || view !== 'all';
+  const shown = groups
+    .map((g) => ({
+      ...g,
+      collapsed: g.collapsed && !narrowed,
+      apps: g.apps.filter((a) => hit(a.name) && FOUND_VIEWS[view](a)),
+    }))
+    .filter((g) => g.apps.length > 0);
   return {
-    groups: groups
-      .map((g) => ({ ...g, apps: g.apps.filter((a) => hit(a.name)) }))
-      .filter((g) => g.apps.length > 0),
+    groups: view === 'largest' ? largestFirst(shown) : shown,
     secrets: secrets.filter((s) => hit(s.app.name, s.label)),
   };
 }

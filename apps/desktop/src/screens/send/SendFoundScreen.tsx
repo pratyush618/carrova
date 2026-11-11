@@ -19,6 +19,7 @@ import {
 import { FoundSelection } from './FoundSelection';
 import { ManualPicks } from './ManualPicks';
 import {
+  FOUND_FILTERS,
   FOUND_PRESETS,
   type FoundIntents,
   type FoundModel,
@@ -168,6 +169,7 @@ export function SendFoundScreen({ model, purpose, here = null, mode, on }: SendF
             title={t('send.found.title')}
             lede={t('send.found.lede', {
               apps: t('count.apps', { count: facts.totalApps }),
+              ticked: facts.apps,
               device: here?.name ?? t('send.found.thisComputer'),
             })}
           />
@@ -201,6 +203,15 @@ export function SendFoundScreen({ model, purpose, here = null, mode, on }: SendF
               onChange={on.onFilter}
             />
             <Segmented
+              label={t('send.found.show')}
+              options={FOUND_FILTERS.map((value) => ({
+                value,
+                label: t(`send.found.view.${value}`),
+              }))}
+              value={model.foundFilter}
+              onChange={on.onFoundFilter}
+            />
+            <Segmented
               label={t('send.found.presets')}
               options={FOUND_PRESETS.map((value) => ({
                 value,
@@ -211,7 +222,11 @@ export function SendFoundScreen({ model, purpose, here = null, mode, on }: SendF
             />
           </div>
           {empty ? (
-            <Note center>{t('send.found.noMatch', { filter: model.filter.trim() })}</Note>
+            <Note center>
+              {model.filter.trim() === ''
+                ? t('send.found.noneInView')
+                : t('send.found.noMatch', { filter: model.filter.trim() })}
+            </Note>
           ) : (
             <FoundSelection groups={model.groups} secrets={model.secrets} on={on} />
           )}

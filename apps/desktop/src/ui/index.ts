@@ -35,6 +35,7 @@ export { Log, MoveCard, Timeline, type TimelineEntry } from './Timeline/Timeline
 export { Toast } from './Toast/Toast';
 export { Toggle } from './Toggle/Toggle';
 export { Tree, TreeRow } from './Tree/Tree';
+export { VirtualList } from './VirtualList/VirtualList';
 export {
   ChromeContext,
   useChrome,

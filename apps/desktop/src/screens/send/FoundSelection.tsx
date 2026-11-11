@@ -1,9 +1,20 @@
 import type { TFunction } from 'i18next';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFormat } from '../../i18n/useFormat';
 import { send } from '../../i18n/en/send';
-import { AppGlyph, Button, Check, GroupHead, List, Row } from '../../ui';
-import type { FoundGroup, FoundIntents, SecretItem } from './model';
+import {
+  AppGlyph,
+  Button,
+  Check,
+  GroupHead,
+  Icon,
+  LinkButton,
+  List,
+  Row,
+  VirtualList,
+} from '../../ui';
+import type { FoundApp, FoundGroup, FoundIntents, SecretItem } from './model';
 
 type SelectionIntents = Pick<FoundIntents, 'onToggleApp' | 'onConfirmKey' | 'onLeaveKey'>;
 
@@ -87,11 +98,47 @@ function SecretsGroup({
   );
 }
 
-function AppGroup({ group, on }: { readonly group: FoundGroup; readonly on: SelectionIntents }) {
+/** Rows an opened group shows before "Show N more". */
+const FIRST_ROWS = 8;
+/** Past this many rows a list mounts only what is in view. */
+const VIRTUALISE_ABOVE = 200;
+/** An app row's height, px: virtualised rows must all be this tall. */
+const APP_ROW = 56;
+
+function AppRow({ app, on }: { readonly app: FoundApp; readonly on: SelectionIntents }) {
   const { t } = useTranslation();
   const format = useFormat();
+  return (
+    <Row
+      off={!app.included}
+      lead={
+        <>
+          <Check
+            value={app.included}
+            label={t('send.found.bring', { app: app.name })}
+            onChange={(included) => {
+              on.onToggleApp(app.id, included);
+            }}
+          />
+          <AppGlyph glyph={app.glyph} />
+        </>
+      }
+      title={app.name}
+      sub={app.what}
+      trail={format.bytes(app.bytes)}
+    />
+  );
+}
+
+function AppGroup({ group, on }: { readonly group: FoundGroup; readonly on: SelectionIntents }) {
+  const { t } = useTranslation();
   const name = categoryName(group.category, t);
+  const [toggled, setToggled] = useState<boolean | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const open = toggled ?? !group.collapsed;
   const picked = group.apps.filter((a) => a.included).length;
+  const rows = showAll ? group.apps : group.apps.slice(0, FIRST_ROWS);
+  const more = group.apps.length - rows.length;
   return (
     <section>
       <GroupHead
@@ -104,32 +151,45 @@ function AppGroup({ group, on }: { readonly group: FoundGroup; readonly on: Sele
             }}
           />
         }
-        title={name}
+        title={
+          <button
+            type="button"
+            className="s-found-toggle"
+            aria-expanded={open}
+            onClick={() => {
+              setToggled(!open);
+            }}
+          >
+            <Icon name="chev" size="sm" />
+            {name}
+          </button>
+        }
         aside={t('summary.ofTotal', { done: picked, total: group.apps.length })}
       />
-      <List label={name}>
-        {group.apps.map((app) => (
-          <Row
-            key={app.id}
-            off={!app.included}
-            lead={
-              <>
-                <Check
-                  value={app.included}
-                  label={t('send.found.bring', { app: app.name })}
-                  onChange={(included) => {
-                    on.onToggleApp(app.id, included);
-                  }}
-                />
-                <AppGlyph glyph={app.glyph} />
-              </>
-            }
-            title={app.name}
-            sub={app.what}
-            trail={format.bytes(app.bytes)}
+      {open &&
+        (rows.length > VIRTUALISE_ABOVE ? (
+          <VirtualList
+            label={name}
+            items={rows}
+            rowHeight={APP_ROW}
+            render={(app) => <AppRow app={app} on={on} />}
           />
+        ) : (
+          <List label={name}>
+            {rows.map((app) => (
+              <AppRow key={app.id} app={app} on={on} />
+            ))}
+          </List>
         ))}
-      </List>
+      {open && more > 0 && (
+        <LinkButton
+          onClick={() => {
+            setShowAll(true);
+          }}
+        >
+          {t('send.found.showMore', { count: more, group: name })}
+        </LinkButton>
+      )}
     </section>
   );
 }
@@ -148,7 +208,8 @@ export function FoundSelection({
     <>
       {secrets.length > 0 && <SecretsGroup secrets={secrets} on={on} />}
       {groups.map((group) => (
-        <AppGroup key={group.category} group={group} on={on} />
+        // Narrowing a search or view flips `collapsed`: remount so it re-opens the group.
+        <AppGroup key={`${group.category}:${String(group.collapsed)}`} group={group} on={on} />
       ))}
     </>
   );

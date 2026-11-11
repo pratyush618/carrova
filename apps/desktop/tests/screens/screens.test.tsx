@@ -160,6 +160,7 @@ describe("Here's what we found", () => {
     onLeaveKey: vi.fn(),
     onReviewPlugin: vi.fn(),
     onFilter: vi.fn(),
+    onFoundFilter: vi.fn(),
     onPreset: vi.fn(),
     onCustomize: vi.fn(),
     onPickFolders: vi.fn(),

@@ -24,6 +24,7 @@ export const foundOn = noops(
   'onLeaveKey',
   'onReviewPlugin',
   'onFilter',
+  'onFoundFilter',
   'onPreset',
   'onCustomize',
   'onPickFolders',
