@@ -162,7 +162,7 @@ Porter offers options and explains consequences; the user makes every final call
 
 ---
 
-# Phase 3 — LAN transfer (implementation complete; hardware exit gate pending)
+# Phase 3 — LAN transfer (complete, exit gate passed 2026-11-11)
 
 
 ## Phase 3 decisions (signed off by user 2026-11-08)
@@ -234,8 +234,8 @@ Porter offers options and explains consequences; the user makes every final call
   - [x] R1-B core engine/session: engine/ split + private `Engine` fields, typed `CoreError` (no `Store(String)` catch-all), `ReceiverFailure`, flag params → enums, one `ProgressMeter`/`Metered` + `Phase` enum, lan/ split, `time` module, capture split. (owns engine*, error, lan/, session/, store, capture, export, select, scan)
   - [x] R1-C edges: `FakePlatform` hooks replacing `Hooked`/`Flaky`, `tests/common`, `Platform::read_dir`, linux/ split, `porter_platform::path::normalize_abs`, `OsKind` Display; transport `Seek` key + single `connect(Target, opts)`; manifest `validate` split + typed `Invalid`; crypto pairing/ pure split + private `CertHash` + shared hex; CLI `view/`+`render/`, `OutputFormat`, `PassphraseKind`, fn splits. (owns platform, transport, manifest, crypto, apps/cli, core tests/)
   - [x] R2 `ItemKey` + `RootedPath` newtypes + cross-crate switch-overs (normalize_abs, OsKind, Role/State Display, Phase in CLI)
-- [ ] Exit gate (user, real hardware): laptop → new Ubuntu machine over LAN incl. one forced interruption + resume
-- [ ] Update `docs/PLAN.md`, CLAUDE.md status
+- [x] Exit gate (user, real hardware): laptop → new Ubuntu machine over LAN incl. one forced interruption + resume — passed 2026-11-11
+- [x] Update `docs/PLAN.md`, CLAUDE.md status
 
 ## Phase 3 wave notes
 
@@ -555,10 +555,10 @@ Deps: W4-0 → W4-1 (3 parallel) → W4-2 (3 parallel) → W4-3 (2 parallel) →
 - [x] **W4-1S sessions/scan/plan**: receiver-side `peer_os` + store (D7), SSH fingerprints `scan/keys.rs` (D5), `PlanOptions::apply_all` (E3), `Retention::KeepFor` expiry + prune (D4c). Done; `Offered` gained `app`, `plugins`; prune hook in `sessions::list`; fake `editOptions`. Open: D5/D7/D4c tests not seen failing first; rustdoc broken links in `stage/staging/{open,mod}.rs`
 - [x] **W4-1T pairing/transport**: owns `engine/send/pairing.rs` — code expiry (D4a), sender `peer_os` (D7), accept observer → `PairingInProgress` (D4b), device name in adverts while code offered + `transport::browse` (D6). Done; main thread checked handshake diff: local `Notify` on code claim only, no wire/crypto change. Browse query `CARROVA/1?browse`, TXT `dn`. Open: unfulfilled `#[expect(dead_code)]` in `tests/session_record/main.rs`; expiry test 4 s lifetime (flake risk); `discovery/mod.rs` 378 lines
 - [x] **W4-2X plugins**: sender export hook (C1), run-tool permission + host import via `tool_command` (C2), host log channel (C3), plugin output in free-space (C4). Done (plugin + core tests green). Imports linked only when declared; tools run with no args, minimal env, 10 s/60 s, 16 MiB cap; `capture_with_consent`. Main thread merged retention helpers (`screens/shared/retention.ts`, Settings 7/30/90 days segmented).
-- [ ] **W4-4E sender export consent** (engine Selection/Exporter confirmed export plugins + issue, CLI `--allow-plugin` on send/export, send UI consent)
+- [x] **W4-4E sender export consent** (engine Selection/Exporter confirmed export plugins + issue, CLI `--allow-plugin` on send/export, send UI consent)
 - [x] **W4-4F core fixes**: plugin `DiskFull` → LAN pause (`disk.wait` around `run_plugins`); `disk()` total when staging dir not created; unfulfilled `#[expect(dead_code)]` in tests/session_record. Done (plugin DiskFull pauses LAN via `Disk::wait`, `run_plugins(check_room)`, `Disk::mount_point` uses `nearest_existing`). Main thread fixed pre-existing busy-poll in `Disk::idle` (regression test `tests/engine/transfer/unit.rs`: 4.8M retries/300 ms before, ≤4 after)
 - [x] **W4-2C CLI parity**: `recipes update --check` (D3), rendering for D1/D2/D4/D5/D6/D7/E2. Done early: A `just e2e --cross-os`; E1/B/F; `detect.windows` `\`. Done (cli 104 + integration green, goldens re-blessed: lan_code, lan_peer, plan_summary, plan_verbose_options, scan, sessions). Nearby list printed before interactive code prompt (~2 s); `--keep-undo-for DAYS`; manual retry skipped (CLI auto-reconnects). Main thread added `CodeView.expired`
-- [ ] **W4-3a receive/transfer UI**: plan edits replace `planOptions.ts` list editing, space bar used segment, pause disk name, Try-now/Resume, nearby list on receive code screen
+- [x] **W4-3a receive/transfer UI**: plan edits replace `planOptions.ts` list editing, space bar used segment, pause disk name, Try-now/Resume, nearby list on receive code screen
 - [x] **W4-3b hub/send UI**: bundle-ready row, History OS badges, key fingerprints, sensitive-why i18n map, code countdown, checking-the-code state, undo expiry dates. Done (ui-test 450). `sensitiveWhy` in `screens/shared/sensitiveWhy.ts` (i18n `common.sensitive.*`). Open: 3 vitest failures seen once under load13 (flake, unidentified); gallery countdown non-deterministic; Playwright/axe for new pair states not run; settings copy says "List N is ready" (user may prefer "Bundle")
 - [ ] **Integrate**: `just ipc-fixtures` once, contract tests, `just ci`, `just e2e-ui`, `just e2e-app`, `just e2e` (+ `--lan`, `--cross-os`), boundary-reviewer, PLAN.md/todo status
 
