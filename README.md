@@ -39,8 +39,8 @@ Download from the [latest release](https://github.com/pratyush618/carrova/releas
 Needs glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+). If the AppImage won't
 start on Ubuntu 24.04+, install FUSE 2: `sudo apt install libfuse2t64`.
 
-The AppImage updates
-itself; `.deb`/`.rpm` update by installing the new package.
+The AppImage offers new versions in the app and installs them when you agree;
+`.deb`/`.rpm` update by installing the new package.
 
 ## Use
 
