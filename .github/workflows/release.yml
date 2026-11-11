@@ -119,6 +119,9 @@ jobs:
     if: startsWith(github.ref_name, 'v')
     strategy:
       fail-fast: false # a broken signer on one OS must not cancel the others
+      # One build at a time: each tauri-action run finds-or-creates the draft and
+      # merges its entry into latest.json; in parallel they race on both.
+      max-parallel: 1
       matrix:
         include:
           # Bundle targets per OS come from tauri.{macos,windows}.conf.json.
