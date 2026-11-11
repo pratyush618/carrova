@@ -69,4 +69,15 @@ allow_cross_os: Array<ItemKey>,
  * each other plugin in use is a
  * [`Blocker::UnconfirmedPlugin`](super::Blocker::UnconfirmedPlugin).
  */
-confirmed_plugins: Array<string>, };
+confirmed_plugins: Array<string>, 
+/**
+ * "Accept all": confirm every [`super::Plan::safe_picks`] item. Which
+ * items are safe is judged afresh by each plan on the final targets
+ * (after remaps), so a pick moved somewhere risky is not covered.
+ */
+accept_safe_picks: boolean, 
+/**
+ * Items the user explicitly left behind ([`super::PlanEdit::AnswerSensitive`]):
+ * "Accept all" never brings them back.
+ */
+declined: Array<ItemKey>, };

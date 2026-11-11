@@ -6,21 +6,21 @@ export const exportEvents: BridgeEvent[] = [
     event: {
       event: 'state_changed',
       from: 'scanned',
-      session: '20261110-115827-ad7f88',
+      session: '20261111-075958-afcb6c',
       to: 'selected',
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
       event: 'state_changed',
       from: 'selected',
-      session: '20261110-115827-ad7f88',
+      session: '20261111-075958-afcb6c',
       to: 'transferring',
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
@@ -30,7 +30,7 @@ export const exportEvents: BridgeEvent[] = [
       total: 250,
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
@@ -40,7 +40,7 @@ export const exportEvents: BridgeEvent[] = [
       item: 'bash/config',
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
@@ -50,7 +50,7 @@ export const exportEvents: BridgeEvent[] = [
       item: 'git/config',
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
@@ -60,7 +60,7 @@ export const exportEvents: BridgeEvent[] = [
       item: 'neovim/config',
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
@@ -70,7 +70,7 @@ export const exportEvents: BridgeEvent[] = [
       item: 'ssh/config',
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
@@ -80,7 +80,7 @@ export const exportEvents: BridgeEvent[] = [
       item: 'ssh/keys',
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
@@ -90,7 +90,7 @@ export const exportEvents: BridgeEvent[] = [
       item: 'starship/config',
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
@@ -100,7 +100,7 @@ export const exportEvents: BridgeEvent[] = [
       total: 250,
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
@@ -110,7 +110,7 @@ export const exportEvents: BridgeEvent[] = [
       item: 'tmux/config',
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
@@ -120,7 +120,7 @@ export const exportEvents: BridgeEvent[] = [
       total: 250,
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
@@ -130,7 +130,7 @@ export const exportEvents: BridgeEvent[] = [
       total: 250,
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
@@ -140,17 +140,17 @@ export const exportEvents: BridgeEvent[] = [
       total: 250,
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
       event: 'state_changed',
       from: 'transferring',
-      session: '20261110-115827-ad7f88',
+      session: '20261111-075958-afcb6c',
       to: 'done',
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     event: {
@@ -171,11 +171,11 @@ export const exportEvents: BridgeEvent[] = [
       event: 'finished',
     },
     kind: 'engine',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
   {
     error: null,
     kind: 'task_ended',
-    session: '20261110-115827-ad7f88',
+    session: '20261111-075958-afcb6c',
   },
 ];

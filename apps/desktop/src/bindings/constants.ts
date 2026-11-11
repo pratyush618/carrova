@@ -17,7 +17,9 @@ export const ENGINE_DEFAULTS: EngineDefaults = {
     "import_trust": false,
     "keep_group_write": false,
     "allow_cross_os": [],
-    "confirmed_plugins": []
+    "confirmed_plugins": [],
+    "accept_safe_picks": false,
+    "declined": []
   },
   "passphrase": {
     "thresholds": [

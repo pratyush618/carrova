@@ -85,4 +85,4 @@ keep: boolean, } | { "kind": "override",
 /**
  * Which check.
  */
-check: PlanOverride, };
+check: PlanOverride, } | { "kind": "accept_safe_picks" };

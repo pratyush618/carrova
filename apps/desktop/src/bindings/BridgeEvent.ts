@@ -43,4 +43,4 @@ session: SessionId,
 /**
  * Failure, if the task did not succeed.
  */
-error: BridgeError | null, };
+error: BridgeError | null, } | { "kind": "send_requested" };

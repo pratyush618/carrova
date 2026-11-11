@@ -54,4 +54,10 @@ blockers: Array<Blocker>, warnings: Array<PlanWarning>,
  * confirmation), with the reason — computed locally, never trusted
  * from the archive alone. Item key → reason.
  */
-sensitive: { [key in ItemKey]: string }, };
+sensitive: { [key in ItemKey]: string }, 
+/**
+ * Recipe-less items whose only sensitivity reason is "unrecognised
+ * data", judged on their final targets: what "Accept all"
+ * ([`PlanOptions::accept_safe_picks`]) confirms. Same-OS archives only.
+ */
+safe_picks: Array<ItemKey>, };

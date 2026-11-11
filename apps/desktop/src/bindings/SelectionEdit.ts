@@ -64,4 +64,8 @@ plugin: string,
 /**
  * Allowed (`true`) or withdrawn.
  */
-allow: boolean, };
+allow: boolean, } | { "kind": "remove_pick", 
+/**
+ * The pick's item.
+ */
+item: ItemKey, };
