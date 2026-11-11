@@ -8,6 +8,7 @@ import type { CarrovaPort } from '@/engine/types';
 import { foundModel } from '@/flows/send/sendProgressViews';
 import { useSendFlow } from '@/flows/send/useSendFlow';
 import { createFakePort } from '@/ipc/fake';
+import { raise } from '@/ipc/reject';
 
 const SITE = '/home/ana/projects/site';
 
@@ -151,5 +152,186 @@ describe('useSendFlow: Manual mode', () => {
       flow.result.current.switchMode('manual');
     });
     expect(flow.result.current.state.mode).toBe('manual');
+  });
+});
+
+/** A promise settled by hand. */
+function gate() {
+  let open!: () => void;
+  const opened = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  return { opened, open };
+}
+
+const refused = { code: 'network', message: 'x', hint: null } as const;
+
+type Flow = ReturnType<typeof setup>['flow'];
+
+/** Starts `mode` and waits for its session. */
+async function started(flow: Flow, mode: 'auto' | 'manual' = 'auto') {
+  act(() => {
+    flow.result.current.start(mode);
+  });
+  await waitFor(() => {
+    expect(flow.result.current.state.selection).not.toBeNull();
+  });
+}
+
+/** An Auto session with Manual opened and `SITE` picked. */
+async function bothOpen(flow: Flow) {
+  await started(flow);
+  act(() => {
+    flow.result.current.addPaths([SITE]);
+  });
+  await waitFor(() => {
+    expect(picks(flow)).toEqual(['~/projects/site']);
+  });
+}
+
+describe('useSendFlow: stale replies and failures', () => {
+  it("drops an old session's late pick reply after a new start", async () => {
+    const { port, flow } = setup();
+    await started(flow, 'manual');
+    const late = gate();
+    const pick = port.pick.bind(port);
+    vi.spyOn(port, 'pick').mockImplementationOnce((...args) =>
+      late.opened.then(() => pick(...args)),
+    );
+    act(() => {
+      flow.result.current.addPaths([SITE]);
+    });
+    await started(flow, 'manual');
+    await act(async () => {
+      late.open();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(picks(flow)).toEqual([]);
+  });
+
+  it('confirmSelection is false when handing the engine the visible selection fails', async () => {
+    const { port, flow } = setup();
+    await bothOpen(flow);
+    vi.spyOn(port, 'select').mockRejectedValueOnce(refused);
+    let ok = true;
+    await act(async () => {
+      ok = await flow.result.current.confirmSelection();
+    });
+    expect(ok).toBe(false);
+    expect(flow.result.current.state.selectError).toMatchObject({ code: 'network' });
+  });
+
+  it("send does not run a former session's send after a new start", async () => {
+    const { port, flow } = setup();
+    await bothOpen(flow);
+    const late = gate();
+    const select = port.select.bind(port);
+    vi.spyOn(port, 'select').mockImplementationOnce((...args) =>
+      late.opened.then(() => select(...args)),
+    );
+    const runSend = vi.spyOn(port, 'runSend');
+    act(() => {
+      flow.result.current.send();
+    });
+    await started(flow);
+    await act(async () => {
+      late.open();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(runSend).not.toHaveBeenCalled();
+  });
+
+  it('opens Manual again after its first selection failed', async () => {
+    const { port, flow } = setup();
+    await started(flow);
+    vi.spyOn(port, 'select').mockRejectedValueOnce(refused);
+    act(() => {
+      flow.result.current.switchMode('manual');
+    });
+    await waitFor(() => {
+      expect(flow.result.current.state.selectError).not.toBeNull();
+    });
+    act(() => {
+      flow.result.current.switchMode('auto');
+    });
+    act(() => {
+      flow.result.current.addPaths([SITE]);
+    });
+    await waitFor(() => {
+      expect(picks(flow)).toEqual(['~/projects/site']);
+    });
+  });
+
+  it('shows a hidden app scan failure on returning to Auto, without scanning again', async () => {
+    const { port, flow } = setup();
+    await started(flow, 'manual');
+    const late = gate();
+    const scanApps = vi
+      .spyOn(port, 'scanApps')
+      .mockImplementationOnce(() => late.opened.then(() => raise(refused)));
+    act(() => {
+      flow.result.current.switchMode('auto');
+    });
+    act(() => {
+      flow.result.current.switchMode('manual');
+    });
+    await act(async () => {
+      late.open();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    act(() => {
+      flow.result.current.switchMode('auto');
+    });
+    expect(flow.result.current.state.scan).toMatchObject({ status: 'failed', error: refused });
+    expect(scanApps).toHaveBeenCalledOnce();
+  });
+});
+
+describe('useSendFlow: retrying a failed app scan', () => {
+  it('re-scans Auto in the same session, keeping the Manual picks', async () => {
+    const { port, flow } = setup();
+    act(() => {
+      flow.result.current.start('manual', [SITE]);
+    });
+    await waitFor(() => {
+      expect(picks(flow)).toEqual(['~/projects/site']);
+    });
+    const scanApps = port.scanApps.bind(port);
+    vi.spyOn(port, 'scanApps')
+      .mockImplementationOnce(() => Promise.resolve().then(() => raise(refused)))
+      .mockImplementation(scanApps);
+    act(() => {
+      flow.result.current.switchMode('auto');
+    });
+    await waitFor(() => {
+      expect(flow.result.current.state.scan.status).toBe('failed');
+    });
+    act(() => {
+      flow.result.current.retryScan();
+    });
+    await waitFor(() => {
+      expect(foundModel(flow.result.current.state).status).toBe('found');
+    });
+    act(() => {
+      flow.result.current.switchMode('manual');
+    });
+    expect(picks(flow)).toEqual(['~/projects/site']);
+  });
+
+  it('starts over when no session was opened', async () => {
+    const { port, flow } = setup();
+    vi.spyOn(port, 'scan').mockRejectedValueOnce(refused);
+    act(() => {
+      flow.result.current.start();
+    });
+    await waitFor(() => {
+      expect(flow.result.current.state.scan.status).toBe('failed');
+    });
+    act(() => {
+      flow.result.current.retryScan();
+    });
+    await waitFor(() => {
+      expect(foundModel(flow.result.current.state).status).toBe('found');
+    });
   });
 });

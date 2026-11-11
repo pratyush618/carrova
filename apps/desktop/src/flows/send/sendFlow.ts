@@ -24,6 +24,8 @@ export type ByMode = Readonly<Record<SendMode, ScanResult | null>>;
 export interface SendFlowState {
   readonly mode: SendMode;
   readonly byMode: ByMode;
+  /** Each mode's failed first reply, kept so showing that mode again shows the failure. */
+  readonly failures: Readonly<Record<SendMode, BridgeError | null>>;
   /** Picked paths the engine is still measuring. */
   readonly pending: readonly string[];
   /** What the latest pick did with each path (added, absorbed, refused). */
@@ -68,6 +70,7 @@ export type SendFlowAction =
 export const initialSendFlow: SendFlowState = {
   mode: 'auto',
   byMode: { auto: null, manual: null },
+  failures: { auto: null, manual: null },
   pending: [],
   outcomes: [],
   session: null,
@@ -96,20 +99,23 @@ function store(state: SendFlowState, mode: SendMode, result: ScanResult): SendFl
 /** `state` showing `mode`: its reply if it has one, else nothing yet. */
 function show(state: SendFlowState, mode: SendMode): SendFlowState {
   const result = state.byMode[mode];
+  const error = state.failures[mode];
   const next = { ...state, mode, selectError: null };
-  return result === null
-    ? { ...next, scan: idle, selection: null, view: null }
-    : withResult({ ...next, scan: { status: 'ready', value: result } }, result);
+  if (result !== null)
+    return withResult({ ...next, scan: { status: 'ready', value: result } }, result);
+  const scan: Remote<ScanResult> = error === null ? idle : { status: 'failed', error, last: null };
+  return { ...next, scan, selection: null, view: null };
 }
 
 export function sendFlowReducer(state: SendFlowState, action: SendFlowAction): SendFlowState {
   switch (action.type) {
     case 'scan': {
       const mode = action.mode ?? state.mode;
-      if (action.action.type === 'ok') return store(state, mode, action.action.value);
-      return mode === state.mode
-        ? { ...state, scan: remoteReducer(state.scan, action.action) }
-        : state;
+      const { action: step } = action;
+      if (step.type === 'ok') return store(state, mode, step.value);
+      const failure = step.type === 'fail' ? step.error : null;
+      const next = { ...state, failures: { ...state.failures, [mode]: failure } };
+      return mode === state.mode ? { ...next, scan: remoteReducer(state.scan, step) } : next;
     }
     case 'selected':
       return store(state, action.mode ?? state.mode, action.result);

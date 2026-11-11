@@ -57,7 +57,7 @@ function FoundRoute({
     nav.go({ type: 'closeFlow' });
   };
   if (send.state.scan.status === 'failed' && current(send.state.scan) === null) {
-    return <FailedScreen error={send.state.scan.error} onRetry={send.start} onHome={home} />;
+    return <FailedScreen error={send.state.scan.error} onRetry={send.retryScan} onHome={home} />;
   }
   const model = foundModel(send.state, filter);
   const pick =

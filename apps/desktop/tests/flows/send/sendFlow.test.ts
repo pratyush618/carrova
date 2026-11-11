@@ -247,6 +247,32 @@ describe('send flow: Manual mode', () => {
     expect(model.status === 'manual' && model.facts).toMatchObject({ picks: 0, keys: 0 });
   });
 
+  it("keeps a hidden mode's scan failure and shows it when that mode is shown again", () => {
+    const hidden = run(
+      { type: 'reset', mode: 'manual' },
+      { type: 'scan', mode: 'manual', action: { type: 'ok', value: scan } },
+      { type: 'mode', mode: 'auto' },
+      { type: 'scan', mode: 'auto', action: { type: 'start' } },
+      { type: 'mode', mode: 'manual' },
+      { type: 'scan', mode: 'auto', action: { type: 'fail', error: error('network') } },
+    );
+    expect(hidden.scan.status).toBe('ready');
+    expect(sendFlowReducer(hidden, { type: 'mode', mode: 'auto' }).scan).toEqual({
+      status: 'failed',
+      error: error('network'),
+      last: null,
+    });
+    // Asking again forgets the failure.
+    const again = (
+      [
+        { type: 'scan', mode: 'auto', action: { type: 'start' } },
+        { type: 'mode', mode: 'manual' },
+        { type: 'mode', mode: 'auto' },
+      ] satisfies SendFlowAction[]
+    ).reduce(sendFlowReducer, hidden).scan;
+    expect(again.status).not.toBe('failed');
+  });
+
   it('is busy only while a send runs', () => {
     expect(sendBusy(scanned)).toBe(false);
     const sending = sendFlowReducer(scanned, { type: 'run', action: { type: 'start' } });
