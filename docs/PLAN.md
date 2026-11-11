@@ -96,10 +96,10 @@ This document covers *how and in what order* it gets built.
 
 **Deliverables**
 - [x] Discovery: mDNS plus UDP broadcast
-- [x] Fallback typed code encoding receiver LAN address + pairing secret
+- [x] Fallback typed ticket: the pairing code plus the sender's LAN address (`<code>@<ipv4>:<port>`), shown by the sender, typed on the receiver
 - [x] PAKE pairing from the short code shown on both screens; session keys derived from it; no long-lived trust by default
-- [x] `carrova-transport`: QUIC with TLS keyed from the PAKE result; multiplexed parallel streams
-- [x] Receiver inventory exchange (OS, installed apps + versions, free space)
+- [x] `carrova-transport`: PAKE inside QUIC (TLS 1.3 over throwaway certs), key confirmation bound to that connection; multiplexed parallel streams
+- [x] Receiver inventory exchange (OS, detected apps, free space; app versions unavailable in v1)
 - [x] Conflict detection on the receiver (see open item below)
 - [x] Priority ordering: small config items first, bulk data after
 - [x] Resume from the last verified chunk across sleep, Wi-Fi drops and restarts; per-chunk re-request on hash mismatch
