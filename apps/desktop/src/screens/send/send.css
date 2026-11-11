@@ -14,3 +14,19 @@
 .s-send__fp {
   overflow-wrap: anywhere;
 }
+
+/* The Auto/Manual switch at the end of the header: its text, then the switch. */
+.s-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+/* Manual: the two system pickers side by side. */
+.s-manual-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}

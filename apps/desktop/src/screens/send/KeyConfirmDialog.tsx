@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Button, Dialog, Icon, List, Note, Path, Row } from '../../ui';
-import type { KeyConfirmIntents, KeyFile, SecretItem } from './model';
+import type { KeyConfirmIntents, KeyConfirmModel, KeyFile } from './model';
 
 /** One key file: its path, then fingerprint · type · comment to tell it apart. */
 function KeyRow({ file }: { readonly file: KeyFile }) {
@@ -29,7 +29,7 @@ export function KeyConfirmDialog({
   secret,
   on,
 }: {
-  readonly secret: SecretItem;
+  readonly secret: KeyConfirmModel;
   readonly on: KeyConfirmIntents;
 }) {
   const { t } = useTranslation();

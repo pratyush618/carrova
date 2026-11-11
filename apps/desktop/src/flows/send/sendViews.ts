@@ -1,16 +1,26 @@
 import type { TFunction } from 'i18next';
 import type { ItemRoles } from '../../bindings/ItemRoles';
 import type { SelectionRow } from '../../bindings/SelectionRow';
-import type { ItemChoice, ScanResult, Selection, SelectionView } from '../../engine/types';
+import type {
+  ItemChoice,
+  PickOutcome,
+  ScanResult,
+  Selection,
+  SelectionView,
+} from '../../engine/types';
 import {
   FOUND_PRESETS,
   type CustomizeModel,
   type FoundApp,
   type FoundGroup,
+  type AbsorbedPick,
   type FoundPreset,
   type ItemTag,
+  type KeyConfirmModel,
+  type ManualPick,
   type MoveFacts,
   type RawFolder,
+  type RejectedPick,
   type SecretItem,
   type TreeApp,
   type TreeItem,
@@ -273,3 +283,63 @@ export function rawFolders(result: ScanResult, minBytes: number, t: TFunction): 
       };
     });
 }
+
+/** The Manual picks, as listed (`carrova-view` `PickRow`). */
+export const manualPicks = (result: ScanResult): ManualPick[] =>
+  result.view.picks.map((p) => ({
+    key: p.key,
+    path: p.display,
+    kind: p.facts.kind,
+    bytes: p.facts.size,
+    files: p.facts.files,
+    sensitive: p.tags.some((tag) => tag.kind === 'sensitive'),
+    included: p.included,
+  }));
+
+/** The rail's facts in Manual mode: picks ticked, their bytes, sensitive ones brought. */
+export function manualFacts(result: ScanResult): MoveFacts {
+  const ticked = manualPicks(result).filter((p) => p.included);
+  return {
+    apps: 0,
+    totalApps: 0,
+    bytes: ticked.reduce((n, p) => n + p.bytes, 0),
+    keys: ticked.filter((p) => p.sensitive).length,
+    caches: false,
+    picks: ticked.length,
+  };
+}
+
+/** A sensitive pick's confirm: the same dialog as a recipe secret. */
+export const pickSecret = (pick: ManualPick): KeyConfirmModel => ({
+  label: pick.path,
+  why: 'secret',
+  paths: [pick.path],
+  keys: [],
+});
+
+/** `path` with home shown as `~`. */
+const homeShown = (path: string, home: string | undefined): string =>
+  home !== undefined && path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
+
+/** What the latest picks refused, and which were already inside a pick. */
+export function pickNotes(
+  outcomes: readonly PickOutcome[],
+  result: ScanResult | null,
+): { rejected: RejectedPick[]; absorbed: AbsorbedPick[] } {
+  const home = result?.report.platform.roots.home;
+  const shown = new Map(result?.view.picks.map((p) => [p.key, p.display]));
+  return {
+    rejected: outcomes.flatMap(({ path, result: r }) =>
+      r.kind === 'rejected' ? [{ path: homeShown(path, home), reason: r.reason }] : [],
+    ),
+    absorbed: outcomes.flatMap(({ path, result: r }) =>
+      r.kind === 'absorbed'
+        ? [{ path: homeShown(path, home), into: shown.get(r.into) ?? r.into }]
+        : [],
+    ),
+  };
+}
+
+/** Picked paths still being measured, as the user knows them. */
+export const measuringPaths = (pending: readonly string[], result: ScanResult | null): string[] =>
+  pending.map((path) => homeShown(path, result?.report.platform.roots.home));

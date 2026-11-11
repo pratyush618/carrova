@@ -1,9 +1,30 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import type { BridgeEvent } from '@/bindings/BridgeEvent';
+import type { CarrovaPort } from '@/engine/types';
+import { createFakePort } from '@/ipc/fake';
 import { renderApp } from '../../support/app';
 
 const home = () => screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
+
+/** `port` with a file manager that sends `paths` (as `send_requested`) on `forward`. */
+function fileManager(port: CarrovaPort) {
+  const queue: string[][] = [];
+  let listener: ((event: BridgeEvent) => void) | null = null;
+  const subscribe = port.subscribe.bind(port);
+  port.subscribe = (l) => {
+    listener = l;
+    return subscribe(l);
+  };
+  port.takeSendRequest = () => Promise.resolve(queue.shift() ?? []);
+  return {
+    forward: (paths: string[]) => {
+      queue.push(paths);
+      listener?.({ kind: 'send_requested' });
+    },
+  };
+}
 
 describe('sending over the LAN', () => {
   it('scans, sends the selection, shows the code and ends on Delivered', async () => {
@@ -161,5 +182,62 @@ describe('sending over the LAN', () => {
 
     expect(cancel).toHaveBeenCalledOnce();
     expect(await home()).toBeInTheDocument();
+  });
+});
+
+describe('Manual sends from settings and the file manager', () => {
+  it('start in manual setting opens send in manual', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true, settings: { start_in_manual: true } });
+    const scan = vi.spyOn(port, 'scan');
+    await home();
+    await user.click(screen.getByRole('button', { name: /^Send from this computer/ }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Pick files and folders' }),
+    ).toBeInTheDocument();
+    expect(scan).not.toHaveBeenCalled();
+  });
+
+  it('forwarded paths open manual send with picks', async () => {
+    await renderApp({ returning: true, scenario: 'forwarded' });
+    const picks = await screen.findByRole('list', { name: 'Your picks' });
+    expect(await within(picks).findByText('~/projects/site')).toBeInTheDocument();
+    expect(await within(picks).findByText('~/notes.txt')).toBeInTheDocument();
+  });
+
+  it('adds forwarded paths to an open send, in Manual', async () => {
+    const user = userEvent.setup();
+    const port = createFakePort({ stepMs: 0 });
+    const files = fileManager(port);
+    await renderApp({ returning: true, port });
+    await home();
+    await user.click(screen.getByRole('button', { name: /^Send from this computer/ }));
+    await screen.findByRole('button', { name: 'Get pairing code' });
+    files.forward(['/home/ana/notes.txt']);
+    const picks = await screen.findByRole('list', { name: 'Your picks' });
+    expect(await within(picks).findByText('~/notes.txt')).toBeInTheDocument();
+  });
+
+  it('forwarded_paths_refused_while_sending', async () => {
+    const user = userEvent.setup();
+    let peerAway = false;
+    const sleep = () => (peerAway ? new Promise<void>(() => undefined) : Promise.resolve());
+    const port = createFakePort({ stepMs: 0, sleep });
+    const files = fileManager(port);
+    const pick = vi.spyOn(port, 'pick');
+    await renderApp({ returning: true, port });
+    await home();
+    await user.click(screen.getByRole('button', { name: /^Send from this computer/ }));
+    const getCode = await screen.findByRole('button', { name: 'Get pairing code' });
+    peerAway = true;
+    await user.click(getCode);
+    await screen.findByRole('img', { name: /Pairing code/ });
+
+    files.forward(['/home/ana/notes.txt']);
+    expect(await screen.findByText('Finish or cancel the current move first')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /Pairing code/ })).toBeInTheDocument();
+    expect(pick).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByText('Finish or cancel the current move first')).not.toBeInTheDocument();
   });
 });

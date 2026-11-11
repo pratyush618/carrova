@@ -47,10 +47,15 @@ export function SendRail({ move, purpose, to, onChange }: SendRailProps) {
         facts === null
           ? []
           : [
-              {
-                label: t('send.rail.apps'),
-                value: t('summary.ofTotal', { done: facts.apps, total: facts.totalApps }),
-              },
+              facts.picks === undefined
+                ? {
+                    label: t('send.rail.apps'),
+                    value: t('summary.ofTotal', { done: facts.apps, total: facts.totalApps }),
+                  }
+                : {
+                    label: t('send.manual.picked'),
+                    value: t('send.manual.items', { count: facts.picks }),
+                  },
               { label: t('send.rail.size'), value: format.bytes(facts.bytes) },
               {
                 label: t('send.rail.keys'),
@@ -60,11 +65,15 @@ export function SendRail({ move, purpose, to, onChange }: SendRailProps) {
                     : t('send.rail.keysBrought', { count: facts.keys }),
                 ...change,
               },
-              {
-                label: t('send.rail.caches'),
-                value: facts.caches ? t('send.rail.included') : t('send.rail.skipped'),
-                ...change,
-              },
+              ...(facts.picks === undefined
+                ? [
+                    {
+                      label: t('send.rail.caches'),
+                      value: facts.caches ? t('send.rail.included') : t('send.rail.skipped'),
+                      ...change,
+                    },
+                  ]
+                : []),
               {
                 label: t('send.rail.travels'),
                 value: purpose === 'save' ? t('send.rail.inFile') : t('send.rail.onNetwork'),

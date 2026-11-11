@@ -1,6 +1,7 @@
 /** The sending side of the fake port: scan, selection, export, LAN send. */
 import type { ArchiveSummary } from '../../bindings/ArchiveSummary';
 import type { PassphraseStrength } from '../../bindings/PassphraseStrength';
+import type { Picked } from '../../bindings/Picked';
 import type { Preset } from '../../bindings/Preset';
 import type { ScanResult } from '../../bindings/ScanResult';
 import type { Selection } from '../../bindings/Selection';
@@ -11,7 +12,7 @@ import { bridgeError, raise } from '../reject';
 import * as fx from './fixtures';
 import { later, type Runtime } from './runtime';
 import type { Scenario } from './scenario';
-import { applyEdits, viewOf } from './selection';
+import { addPicks, applyEdits, viewOf } from './selection';
 
 /** The recorded suggestion; in the `plugin` scenario a plugin exports the Starship config. */
 function suggested(scenario: Scenario): Selection {
@@ -19,10 +20,32 @@ function suggested(scenario: Scenario): Selection {
   return scenario === 'plugin' ? { ...selection, export_plugins: [fx.PATH_REWRITE] } : selection;
 }
 
+const ROOTS = fx.scan.report.platform.roots;
+
 /** The recorded scan with `selection` in place of its suggestion. */
 function scanWith(selection: Selection): ScanResult {
-  return { ...fx.scan, selection, view: viewOf(selection, fx.scan.view) };
+  return { ...fx.scan, selection, view: viewOf(selection, fx.scan.view, ROOTS) };
 }
+
+/** A Manual session before the app scan: no apps, nothing picked. */
+function manualStart(): ScanResult {
+  const selection: Selection = { items: {}, export_plugins: [], confirmed_plugins: [] };
+  const totals = {
+    default_selected_size: 0,
+    default_selected_files: 0,
+    recognised_size: 0,
+    unrecognised_size: 0,
+    total_size: 0,
+  };
+  return {
+    ...scanWith(selection),
+    report: { ...fx.scan.report, apps: [], unrecognised: [], totals },
+  };
+}
+
+/** The selection's picks, kept when the app scan's suggestion arrives. */
+const picksOf = (selection: Selection): Selection['items'] =>
+  Object.fromEntries(Object.entries(selection.items).filter(([, c]) => c.pick != null));
 
 /**
  * The fake's passphrase meter, by length only (a test convention, not the
@@ -40,6 +63,8 @@ function strengthOf(passphrase: string): PassphraseStrength {
 export class FakeSender {
   /** Whether the latest selection was usable (export and send need it). */
   private usable = true;
+  /** The Manual picks the session holds (kept across its app scan). */
+  private picked: Selection['items'] = {};
 
   constructor(
     private readonly runtime: Runtime,
@@ -58,6 +83,33 @@ export class FakeSender {
     }
     this.usable = false;
     return scanWith(suggested(this.scenario));
+  }
+
+  /** Manual mode: a session without the app scan. */
+  startManual(): Promise<ScanResult> {
+    return later(() => {
+      this.runtime.open(fx.exportSession);
+      this.usable = true;
+      this.picked = {};
+      return manualStart();
+    });
+  }
+
+  /** The app scan of a Manual session: the suggestion, with the session's picks kept. */
+  async scanApps(session: SessionId): Promise<ScanResult> {
+    this.runtime.slot(session);
+    const scanned = await this.scan();
+    const { selection } = scanned;
+    return scanWith({ ...selection, items: { ...selection.items, ...this.picked } });
+  }
+
+  /** Adds `paths` by the engine's pick rules, after a measuring step. */
+  async pick(session: SessionId, selection: Selection, paths: string[]): Promise<Picked> {
+    await this.runtime.step(session);
+    const added = addPicks(selection, paths, ROOTS);
+    this.picked = picksOf(added.selection);
+    this.usable = true;
+    return { scan: scanWith(added.selection), outcomes: added.outcomes };
   }
 
   suggest(session: SessionId, preset: Preset): Promise<ScanResult> {

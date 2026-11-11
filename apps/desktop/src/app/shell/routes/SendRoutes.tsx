@@ -8,9 +8,11 @@ import {
   foundModel,
   linkedModel,
   liveModel,
+  modeSwitch,
   pairingModel,
   sendMove,
 } from '../../../flows/send/sendProgressViews';
+import { pickSecret } from '../../../flows/send/sendViews';
 import type { ItemKey } from '../../../engine/types';
 import { SaveDoneScreen } from '../../../screens/file/SaveDoneScreen';
 import { SaveLockScreen } from '../../../screens/file/SaveLockScreen';
@@ -58,8 +60,12 @@ function FoundRoute({
     return <FailedScreen error={send.state.scan.error} onRetry={send.start} onHome={home} />;
   }
   const model = foundModel(send.state, filter);
+  const pick =
+    model.status === 'manual' ? model.picks.find((p) => p.key === confirming) : undefined;
   const secret =
-    model.status === 'found' ? model.secrets.find((s) => s.key === confirming) : undefined;
+    model.status === 'found'
+      ? model.secrets.find((s) => s.key === confirming)
+      : pick && pickSecret(pick);
   const consent =
     model.status === 'found' ? model.plugins.find((p) => p.plugin === consenting) : undefined;
   const answer = (plugin: string, allow: boolean) => {
@@ -99,19 +105,31 @@ function FoundRoute({
     }),
     onContinue,
     onBack: home,
+    onMode: (manual) => {
+      send.switchMode(manual ? 'manual' : 'auto');
+    },
+    ...(send.addFiles && { onAddFiles: send.addFiles }),
+    ...(send.addFolders && { onAddFolders: send.addFolders }),
+    onRemovePick: send.removePick,
   };
   const close = () => {
     setConfirming(null);
   };
   return (
     <>
-      <SendFoundScreen model={model} purpose={purpose} here={here} on={on} />
-      {secret && (
+      <SendFoundScreen
+        model={model}
+        purpose={purpose}
+        here={here}
+        mode={modeSwitch(send.state)}
+        on={on}
+      />
+      {confirming !== null && secret && (
         <KeyConfirmDialog
           secret={secret}
           on={{
             onBring: () => {
-              bring(secret.key, true);
+              bring(confirming, true);
               close();
             },
             onLeave: close,

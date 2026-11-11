@@ -9,6 +9,8 @@ import type {
   FoundModel,
   LinkedModel,
   LiveModel,
+  ManualPick,
+  ModeSwitchModel,
   MoveFacts,
   PairingModel,
   SecretItem,
@@ -113,6 +115,65 @@ export const foundReady = {
   plugins: [],
 } satisfies FoundModel;
 export const foundNothing: FoundModel = { status: 'nothing', knownApps: 15 };
+
+/** The Auto/Manual switch in each mode (Auto has ticked 4 apps; Manual holds 2 picks). */
+export const MODE_AUTO: ModeSwitchModel = { manual: false, picks: 2, apps: 4, disabled: false };
+export const MODE_MANUAL: ModeSwitchModel = { ...MODE_AUTO, manual: true };
+
+export const PICKS: readonly ManualPick[] = [
+  {
+    key: 'raw:home/projects/thesis',
+    path: '~/projects/thesis',
+    kind: 'dir',
+    bytes: 1.2 * GB,
+    files: 2_314,
+    sensitive: false,
+    included: true,
+  },
+  {
+    key: 'raw:home/work/api/.env',
+    path: '~/work/api/.env',
+    kind: 'file',
+    bytes: 2 * KB,
+    files: 1,
+    sensitive: true,
+    included: false,
+  },
+];
+
+const MANUAL_FACTS: MoveFacts = { ...FACTS, apps: 0, totalApps: 0, bytes: 1.2 * GB, picks: 1 };
+
+export const manualEmpty = {
+  status: 'manual',
+  picks: [],
+  measuring: [],
+  rejected: [],
+  absorbed: [],
+  facts: { ...MANUAL_FACTS, bytes: 0, picks: 0 },
+  issues: [],
+} satisfies FoundModel;
+export const manualPicks = {
+  ...manualEmpty,
+  picks: PICKS,
+  facts: MANUAL_FACTS,
+} satisfies FoundModel;
+export const manualMeasuring = {
+  ...manualPicks,
+  measuring: ['~/Music/sessions'],
+} satisfies FoundModel;
+export const manualRejected = {
+  ...manualPicks,
+  rejected: [
+    { path: '/etc/hosts', reason: { kind: 'outside_roots' } },
+    { path: '~', reason: { kind: 'is_root', root: 'home' } },
+  ],
+  absorbed: [{ path: '~/projects/thesis/notes.md', into: '~/projects/thesis' }],
+} satisfies FoundModel;
+export const manualSensitive = {
+  ...manualPicks,
+  picks: PICKS.map((p) => (p.sensitive ? { ...p, included: true } : p)),
+  facts: { ...MANUAL_FACTS, picks: 2, keys: 1 },
+} satisfies FoundModel;
 
 export const customize: CustomizeModel = {
   filter: '',
