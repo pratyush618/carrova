@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+  type ReactNode,
+} from 'react';
 import { usePort } from '../../engine/port';
 import type { SessionId } from '../../engine/types';
 import {
@@ -14,6 +22,8 @@ import type { SessionProgress } from './session';
 interface EngineStateApi {
   readonly state: AppState;
   readonly dispatch: (action: AppAction) => void;
+  /** How many `send_requested` events arrived (each: paths wait in the bridge). */
+  readonly sendRequests: number;
 }
 
 const EngineStateContext = createContext<EngineStateApi | null>(null);
@@ -22,12 +32,15 @@ const EngineStateContext = createContext<EngineStateApi | null>(null);
 export function EngineStateProvider({ children }: { readonly children: ReactNode }) {
   const port = usePort();
   const [state, dispatch] = useReducer(appReducer, initialAppState);
+  const [sendRequests, setSendRequests] = useState(0);
   useEffect(() => {
     let stop: (() => void) | null = null;
     let live = true;
     void port
       .subscribe((event) => {
-        dispatch(bridgeAction(event, Date.now()));
+        // Forwarded sends are not session state: the shell takes their paths.
+        if (event.kind === 'send_requested') setSendRequests((n) => n + 1);
+        else dispatch(bridgeAction(event, Date.now()));
       })
       .then((unsubscribe) => {
         if (live) stop = unsubscribe;
@@ -38,7 +51,7 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
       stop?.();
     };
   }, [port]);
-  const api = useMemo(() => ({ state, dispatch }), [state]);
+  const api = useMemo(() => ({ state, dispatch, sendRequests }), [state, sendRequests]);
   return <EngineStateContext value={api}>{children}</EngineStateContext>;
 }
 
@@ -52,6 +65,11 @@ function useEngineState(): EngineStateApi {
 export function useSession(id: SessionId | null): SessionProgress {
   const { state } = useEngineState();
   return (id === null ? undefined : state.sessions[id]) ?? emptySession(id ?? '');
+}
+
+/** Changes on each `send_requested` event (paths sent from the file manager). */
+export function useSendRequests(): number {
+  return useEngineState().sendRequests;
 }
 
 /** Raise an app action the UI owns (prompt answered, session dismissed). */

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { bundleStatus } from '../../flows/catalog/catalogViews';
-import { ChromeContext, Window } from '../../ui';
+import { ChromeContext, Toast, Window } from '../../ui';
 import { useControllers } from '../controllers/Controllers';
 import type { FlowId } from '../nav/flows';
 import { navigate, type Nav, type NavEvent } from '../nav/navMachine';
 import { useSession } from '../state/EngineState';
 import { buildChrome } from './chrome';
+import { useForwardedSends } from './forward';
 import { liveView, viewKey } from './liveView';
 import { NavContext, type NavApi } from './nav';
 import { useAutoOverlays } from './routes/autoOverlays';
@@ -61,6 +62,7 @@ export function Shell({ initial }: { readonly initial: Nav }) {
     }),
     [go],
   );
+  const forwarded = useForwardedSends(go, nav.view);
   const recipes = controllers.settings.recipes;
   const chrome = useMemo(
     () => buildChrome(view, t, go, bundleStatus(recipes, t)),
@@ -81,6 +83,9 @@ export function Shell({ initial }: { readonly initial: Nav }) {
         <ChromeContext value={chrome}>
           <Window key={viewKey(view)} overlays={overlays}>
             <ViewRoute view={view} />
+            {forwarded.refused && (
+              <Toast onDismiss={forwarded.dismiss}>{t('start.forwarded.busy')}</Toast>
+            )}
           </Window>
         </ChromeContext>
       </NavContext>
