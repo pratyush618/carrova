@@ -487,6 +487,25 @@ fn thunar_commented_id_is_not_ours_on_install_or_remove() {
     assert_eq!(f.read(&f.uca()), COMMENTED_UCA);
 }
 
+const CDATA_UCA: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<actions>
+<action>
+\t<name><![CDATA[<unique-id>carrova-send-with</unique-id> </action> <!--]]></name>
+\t<unique-id>1700000000000000-3</unique-id>
+</action>
+</actions>
+";
+
+#[test]
+fn thunar_id_inside_cdata_is_not_ours() {
+    assert!(!thunar::has_action(CDATA_UCA));
+    assert_eq!(thunar::without_action(CDATA_UCA).unwrap(), CDATA_UCA);
+    let ours = "<action><unique-id>carrova-send-with</unique-id></action>\n";
+    let added = thunar::with_action(CDATA_UCA, ours).unwrap();
+    assert!(added.starts_with(CDATA_UCA.strip_suffix("</actions>\n").unwrap()));
+    assert_eq!(thunar::without_action(&added).unwrap(), CDATA_UCA);
+}
+
 #[test]
 fn thunar_edits_find_our_action_by_id_only() {
     let added = thunar::with_action(

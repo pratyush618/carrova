@@ -2,16 +2,16 @@
 //!
 //! No XML dependency: we only cut the `<action>` that holds our unique id
 //! and insert ours before the last `</actions>`, so nothing outside our
-//! block changes. Tags are only searched for outside comments. Anything
-//! we cannot place that way is [`Malformed`].
+//! block changes. Tags are only searched for outside comments and CDATA
+//! sections. Anything we cannot place that way is [`Malformed`].
 
 const ID_TAG: &str = "<unique-id>carrova-send-with</unique-id>";
 const OPEN: &str = "<action>";
 const CLOSE: &str = "</action>";
 const ROOT_OPEN: &str = "<actions>";
 const ROOT_CLOSE: &str = "</actions>";
-const COMMENT_OPEN: &str = "<!--";
-const COMMENT_CLOSE: &str = "-->";
+/// Text no tag search may match inside: comments and CDATA sections.
+const OPAQUE: [(&str, &str); 2] = [("<!--", "-->"), ("<![CDATA[", "]]>")];
 
 /// `uca.xml` is not a layout we can edit without risking the user's actions.
 #[derive(Debug)]
@@ -63,14 +63,20 @@ pub(super) fn without_action(text: &str) -> Result<String, Malformed> {
     Ok(text)
 }
 
-/// `text` with every comment blanked to spaces, byte offsets kept, so no
-/// search matches inside one. A comment that never ends is [`Malformed`].
+/// `text` with every comment and CDATA section ([`OPAQUE`]) blanked to
+/// spaces, byte offsets kept, so no search matches inside one. One that
+/// never ends is [`Malformed`].
 fn uncommented(text: &str) -> Result<String, Malformed> {
     let mut view = text.to_owned();
     let mut from = 0;
-    while let Some(open) = view[from..].find(COMMENT_OPEN).map(|i| from + i) {
-        let body = open + COMMENT_OPEN.len();
-        let end = body + view[body..].find(COMMENT_CLOSE).ok_or(Malformed)? + COMMENT_CLOSE.len();
+    // The earliest opener wins: a comment may hold `<![CDATA[` and vice versa.
+    while let Some((open, (start, close))) = OPAQUE
+        .iter()
+        .filter_map(|&pair| Some((from + view[from..].find(pair.0)?, pair)))
+        .min_by_key(|(at, _)| *at)
+    {
+        let body = open + start.len();
+        let end = body + view[body..].find(close).ok_or(Malformed)? + close.len();
         view.replace_range(open..end, &" ".repeat(end - open));
         from = end;
     }
