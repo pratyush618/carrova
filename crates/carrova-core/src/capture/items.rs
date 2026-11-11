@@ -59,7 +59,7 @@ fn plan_item<'a>(
         .filter_map(|p| RootedPath::parse(p))
         .collect();
     match key.target() {
-        Some(ItemTarget::Raw(path)) => plan_raw_item(key, path, excluded),
+        Some(ItemTarget::Raw(path)) => plan_raw_item(key, path, choice, excluded),
         Some(ItemTarget::Recipe { recipe, item }) => {
             plan_recipe_item(key, (recipe, item), choice, recipes, excluded, os)
         }
@@ -68,11 +68,13 @@ fn plan_item<'a>(
     }
 }
 
-/// A raw (unrecognised) directory as a synthetic one-path item whose id
-/// is [`RootedPath::raw_item_id`].
+/// A raw item (an unrecognised directory or a Manual pick) as a
+/// synthetic one-path item whose id is [`RootedPath::raw_item_id`],
+/// sensitive when its choice is (same-OS, like every raw item).
 fn plan_raw_item<'a>(
     key: &'a ItemKey,
     path: RootedPath<'a>,
+    choice: &ItemChoice,
     excluded: Vec<RootedPath<'a>>,
 ) -> Result<Planned<'a>, String> {
     let RootedPath { root, rel } = path;
@@ -99,7 +101,10 @@ fn plan_raw_item<'a>(
             recipe_id: None,
             item_id: id,
             label: rel.to_owned(),
-            flags: ItemFlags::default(),
+            flags: ItemFlags {
+                sensitive: choice.sensitive,
+                ..ItemFlags::default()
+            },
             entries: Vec::new(),
             handler: None,
             artifacts: Vec::new(),

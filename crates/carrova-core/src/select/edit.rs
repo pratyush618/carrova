@@ -72,6 +72,11 @@ pub enum SelectionEdit {
         /// Allowed (`true`) or withdrawn.
         allow: bool,
     },
+    /// Remove a Manual pick ([`Selection::add_pick`]) from the selection.
+    RemovePick {
+        /// The pick's item.
+        item: ItemKey,
+    },
 }
 
 impl Selection {
@@ -119,6 +124,16 @@ impl Selection {
                 if allow {
                     list.push(plugin);
                 }
+            }
+            SelectionEdit::RemovePick { item } => {
+                if self.choice(item.as_str())?.pick.is_none() {
+                    return Err(SelectionIssue {
+                        problem: format!("`{item}` is not a pick"),
+                        item,
+                        plugin: None,
+                    });
+                }
+                self.items.remove(&item);
             }
         }
         Ok(())
