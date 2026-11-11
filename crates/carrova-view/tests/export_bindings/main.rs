@@ -22,14 +22,16 @@ use std::path::{Path, PathBuf};
 use carrova_core::lan::{Inventory, PlanSummary};
 use carrova_core::plan::SpaceNeed;
 use carrova_core::{
-    ArchiveSummary, Checklist, CodeOffer, Event, KdfStrength, Plan, PlanEdit, PlanOptions, Preset,
-    RollbackPreview, RollbackReport, ScanOptions, ScanReport, Selection, SelectionEdit,
-    SelectionIssue, SendReport, SessionRecord,
+    ArchiveSummary, Checklist, CodeOffer, Event, KdfStrength, PickFacts, PickKind, PickOutcome,
+    PickRejection, PickResult, Plan, PlanEdit, PlanOptions, Preset, RollbackPreview,
+    RollbackReport, ScanOptions, ScanReport, Selection, SelectionEdit, SelectionIssue, SendReport,
+    SessionRecord,
 };
+use carrova_platform::FileManagerStatus;
 use carrova_report::{ErrorReport, IssueDraft, ReportConsent, ReportId, ReportSummary};
 use carrova_view::ipc::{
-    About, BridgeError, BridgeEvent, CatalogEntry, EngineDefaults, PlanReview, RecipesCheck,
-    RecipesStatus, RecipesUpdate, ScanResult, SessionOpened, Settings, UpdateStatus,
+    About, BridgeError, BridgeEvent, CatalogEntry, EngineDefaults, Picked, PlanReview,
+    RecipesCheck, RecipesStatus, RecipesUpdate, ScanResult, SessionOpened, Settings, UpdateStatus,
 };
 use carrova_view::lan::{CodeView, InventoryView, NearbyPeer, PauseView, SummaryView};
 use carrova_view::offer::OfferedItem;
@@ -80,6 +82,11 @@ fn export_typescript_bindings() {
         Inventory::export_all,
         SpaceNeed::export_all,
         SelectionIssue::export_all,
+        PickKind::export_all,
+        PickFacts::export_all,
+        PickRejection::export_all,
+        PickResult::export_all,
+        PickOutcome::export_all,
         // Front-end → engine.
         ScanOptions::export_all,
         Selection::export_all,
@@ -112,6 +119,8 @@ fn export_typescript_bindings() {
         UpdateStatus::export_all,
         About::export_all,
         EngineDefaults::export_all,
+        Picked::<'static>::export_all,
+        FileManagerStatus::export_all,
         // Error reports (carrova-report).
         ErrorReport::export_all,
         ReportSummary::export_all,

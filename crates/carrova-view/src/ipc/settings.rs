@@ -19,6 +19,12 @@ pub struct Settings {
     /// Settings saved before these existed read as the defaults.
     #[serde(default)]
     pub move_defaults: MoveDefaults,
+    /// Open the Send screen in Manual mode.
+    #[serde(default)]
+    pub start_in_manual: bool,
+    /// The one-time "Send with Carrova" Home card was answered.
+    #[serde(default)]
+    pub file_manager_asked: bool,
 }
 
 /// The user's suggested defaults for a new move: they pre-fill the send
@@ -55,6 +61,8 @@ impl Default for Settings {
             theme: None,
             reduce_motion: None,
             move_defaults: MoveDefaults::default(),
+            start_in_manual: false,
+            file_manager_asked: false,
         }
     }
 }

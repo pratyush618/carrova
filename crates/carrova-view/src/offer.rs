@@ -27,6 +27,8 @@ pub struct OfferedItem<'a> {
     pub picked: bool,
     /// Set when either side considers the item sensitive.
     pub sensitive: Option<Sensitivity<'a>>,
+    /// A safe pick: "Accept all" confirms it ([`Plan::safe_picks`]).
+    pub safe_pick: bool,
 }
 
 /// The offered items of `manifest`, in manifest order, as `plan` picks
@@ -43,8 +45,9 @@ pub fn offered_items<'a>(manifest: &'a Manifest, plan: &'a Plan) -> Vec<OfferedI
                 picked: plan.picks(item),
                 sensitive: plan.sensitivity(item).map(|reason| Sensitivity {
                     reason,
-                    confirmed: plan.options.is_confirmed(&key),
+                    confirmed: plan.confirms(&key),
                 }),
+                safe_pick: plan.safe_picks.contains(&key),
                 key,
             }
         })

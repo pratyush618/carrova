@@ -42,6 +42,7 @@ fn plan(actions: Vec<PlannedAction>) -> Plan {
         blockers: Vec::new(),
         warnings: Vec::new(),
         sensitive: BTreeMap::new(),
+        safe_picks: Vec::new(),
     }
 }
 

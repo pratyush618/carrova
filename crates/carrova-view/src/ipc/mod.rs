@@ -24,7 +24,7 @@ pub use defaults::EngineDefaults;
 pub use recipes::{
     CatalogEntry, CatalogItem, RecipeOrigin, RecipeTier, RecipesCheck, RecipesStatus, RecipesUpdate,
 };
-pub use reply::{PlanReply, ScanReply};
+pub use reply::{PickedReply, PlanReply, ScanReply};
 pub use settings::{MoveDefaults, Settings, Theme};
 
 /// Name of the one event channel the bridge emits on.
@@ -67,6 +67,9 @@ pub enum BridgeEvent {
         /// Failure, if the task did not succeed.
         error: Option<BridgeError>,
     },
+    /// Paths to send arrived from outside (file manager, a second
+    /// launch): fetch them with the `take_send_request` command.
+    SendRequested,
 }
 
 /// Why a command failed: a stable `code` for UI logic plus a message and an
@@ -166,6 +169,17 @@ pub struct ScanResult<'a> {
     pub selection: &'a carrova_core::Selection,
     /// Presentation of `selection` against `report`.
     pub view: crate::selection::SelectionView<'a>,
+}
+
+/// `pick` result: the session's selection with the picks added, and what
+/// happened to each picked path.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct Picked<'a> {
+    /// The selection after the picks, and its view.
+    pub scan: ScanResult<'a>,
+    /// One outcome per picked path, in order.
+    pub outcomes: &'a [carrova_core::PickOutcome],
 }
 
 /// `plan` result on the receiver: everything the review screens show.

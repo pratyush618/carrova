@@ -3,11 +3,12 @@
 //! escaping).
 
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use carrova_core::scan::KeyInfo;
-use carrova_core::select::{ItemChoice, Selection, SelectionIssue};
-use carrova_core::{ItemKey, PlannedPlugin, RootedPath, ScanReport};
+use carrova_core::select::{ItemChoice, PickFacts, Selection, SelectionIssue};
+use carrova_core::{ItemKey, ItemTarget, PlannedPlugin, RootedPath, ScanReport};
+use carrova_platform::SemanticRoot;
 
 /// Label shown for an unrecognised (raw) directory.
 pub const RAW_LABEL: &str = "unrecognised data";
@@ -110,12 +111,31 @@ impl ItemRoles {
     }
 }
 
+/// One Manual pick, as listed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct PickRow<'a> {
+    /// Item key.
+    pub key: &'a ItemKey,
+    /// Where it is, as the user knows it (`~/…`).
+    pub display: String,
+    /// What the engine measured.
+    pub facts: PickFacts,
+    /// Ticked.
+    pub included: bool,
+    /// Marks, in display order.
+    pub tags: Vec<SelectionTag<'a>>,
+}
+
 /// The selection as shown before export or send.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct SelectionView<'a> {
-    /// Every recipe item and every ticked raw dir, in key order.
+    /// Every recipe item and every ticked raw dir (picks excluded), in
+    /// key order.
     pub rows: Vec<SelectionRow<'a>>,
+    /// The Manual picks, in key order.
+    pub picks: Vec<PickRow<'a>>,
     /// Raw dirs not ticked (not listed, only counted).
     pub hidden_raw: usize,
     /// Items ticked.
@@ -130,14 +150,26 @@ pub struct SelectionView<'a> {
     pub plugins: &'a [PlannedPlugin],
 }
 
-/// View of `sel`, with sizes from `scan`.
+/// View of `sel`, with sizes from `scan` (picks carry their own).
 pub fn selection_view<'a>(sel: &'a Selection, scan: &'a ScanReport) -> SelectionView<'a> {
     let facts = facts_by_key(scan);
-    let rows: Vec<SelectionRow<'a>> = sel
-        .items
+    let (picked, scanned): (Vec<_>, Vec<_>) = sel.items.iter().partition(|(_, c)| c.pick.is_some());
+    let picks: Vec<PickRow<'a>> = picked
+        .into_iter()
+        .filter_map(|(key, c)| {
+            Some(PickRow {
+                key,
+                display: display(key, &scan.platform.roots),
+                facts: c.pick?,
+                included: c.included,
+                tags: tags(c),
+            })
+        })
+        .collect();
+    let rows: Vec<SelectionRow<'a>> = scanned
         .iter()
         .filter(|(k, c)| c.included || !k.is_raw())
-        .map(|(key, c)| SelectionRow {
+        .map(|&(key, c)| SelectionRow {
             key,
             included: c.included,
             facts: facts.get(key).copied(),
@@ -147,8 +179,7 @@ pub fn selection_view<'a>(sel: &'a Selection, scan: &'a ScanReport) -> Selection
         })
         .collect();
     SelectionView {
-        hidden_raw: sel
-            .items
+        hidden_raw: scanned
             .iter()
             .filter(|(k, c)| k.is_raw() && !c.included)
             .count(),
@@ -157,10 +188,30 @@ pub fn selection_view<'a>(sel: &'a Selection, scan: &'a ScanReport) -> Selection
             .iter()
             .filter(|r| r.included)
             .filter_map(|r| r.facts.map(|f| f.size))
+            .chain(picks.iter().filter(|p| p.included).map(|p| p.facts.size))
             .sum(),
         issues: sel.issues(),
         plugins: &sel.export_plugins,
         rows,
+        picks,
+    }
+}
+
+/// Where pick `key` is, as the user knows it: `~/…` under home, else the
+/// absolute path (`/`-separated); the key itself if its root is unknown.
+fn display(key: &ItemKey, roots: &BTreeMap<SemanticRoot, String>) -> String {
+    let Some(ItemTarget::Raw(path)) = key.target() else {
+        return key.to_string();
+    };
+    let Some(base) = roots.get(&path.root) else {
+        return path.to_string();
+    };
+    // Roots are normalised absolute paths (no trailing separator).
+    let full = format!("{base}/{}", path.rel).replace('\\', "/");
+    let home = roots.get(&SemanticRoot::Home).map(|h| h.replace('\\', "/"));
+    match home.and_then(|h| Some(full.strip_prefix(&h)?.strip_prefix('/')?.to_owned())) {
+        Some(rest) => format!("~/{rest}"),
+        None => full,
     }
 }
 

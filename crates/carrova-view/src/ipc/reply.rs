@@ -3,10 +3,10 @@
 //! view needs, so it can leave that thread, and serialises exactly as the
 //! view (the TypeScript type named on each).
 
-use carrova_core::{Manifest, ScanReport, Selection, SessionId};
+use carrova_core::{Manifest, PickOutcome, ScanReport, Selection, SessionId};
 use serde::{Serialize, Serializer};
 
-use super::{PlanReview, ScanResult};
+use super::{Picked, PlanReview, ScanResult};
 use crate::review::Prepared;
 
 /// Reply of `scan`, `suggest` and `select`: serialises as [`ScanResult`].
@@ -38,6 +38,36 @@ impl ScanReply {
 impl Serialize for ScanReply {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.result().serialize(serializer)
+    }
+}
+
+/// Reply of `pick`: serialises as [`Picked`].
+#[derive(Debug, Clone)]
+pub struct PickedReply {
+    scan: ScanReply,
+    outcomes: Vec<PickOutcome>,
+}
+
+impl PickedReply {
+    /// The selection `scan` after the picks, with one outcome per path.
+    #[must_use]
+    pub fn new(scan: ScanReply, outcomes: Vec<PickOutcome>) -> Self {
+        Self { scan, outcomes }
+    }
+
+    /// The reply as its view.
+    #[must_use]
+    pub fn picked(&self) -> Picked<'_> {
+        Picked {
+            scan: self.scan.result(),
+            outcomes: &self.outcomes,
+        }
+    }
+}
+
+impl Serialize for PickedReply {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.picked().serialize(serializer)
     }
 }
 
