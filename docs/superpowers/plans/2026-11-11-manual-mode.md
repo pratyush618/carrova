@@ -222,10 +222,11 @@ readonly pickFolders?: (startIn: string | null) => Promise<string[] | null>;
   raw_item_in_dangerous_path_is_not_safe: home/.bashrc
   archive_flagged_raw_item_is_not_safe
   recipe_items_unchanged_by_secret_table (golden unchanged)
-  accept_safe_picks_confirms_only_safe; accept_safe_picks_adds_to_explicit_list; accept_safe_picks_twice_is_idempotent
+  accept_safe_picks_sets_the_flag_without_confirming_items_one_by_one; accept_safe_picks_adds_to_explicit_list; accept_safe_picks_twice_is_idempotent; accept_all_skips_a_declined_safe_pick
+  accept_all_brings_plain_picks_and_stays_judged_on_later_plans; accepted_safe_pick_remapped_into_secret_location_needs_confirmation_again
   ```
 - [ ] Run → fail.
-- [ ] `sensitivity()` returns `Vec<SensitiveReason>` (join at insert); add `SensitiveReason::Secret { why, at }` for recipe-less items via `secret_in`; `select()` pushes `safe_picks` when `recipe_id.is_none()` and reasons == `[Raw]`; `AcceptSafePicks` adds every safe offered key to `items` (when `Some`) and `confirmed_sensitive`; `offer.rs` fills `safe_pick`.
+- [ ] `sensitivity()` returns `Vec<SensitiveReason>` (join at insert); add `SensitiveReason::Secret { why, at }` for recipe-less items via `secret_in`; `select()` pushes `safe_picks` when `recipe_id.is_none()` and reasons == `[Raw]`; `AcceptSafePicks` sets the option flag `PlanOptions::accept_safe_picks` (never touches `confirmed_sensitive`) and, with an explicit `items` list, ticks every offered safe pick not in `declined`; `PlanOptions::confirms` honours the flag only for keys the current plan counts as safe, so each plan judges it afresh on the final targets (after remaps); items the user declined (`AnswerSensitive` no → `declined`) are never brought back; `remap` to a new place drops the item's one-by-one confirmation; `offer.rs` fills `safe_pick`.
 - [ ] Pass incl. `--test receiver_golden` (regenerate per its docs only if a golden changes; inspect diff).
 - [ ] Commit `feat(core): accept all safe picks on the receiver`.
 
