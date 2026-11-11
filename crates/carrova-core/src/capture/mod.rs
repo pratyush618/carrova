@@ -31,7 +31,7 @@ use tracing::{debug, warn};
 use self::export::Exports;
 use self::items::{Planned, plan_items, warn_running};
 use self::source::{CaptureReader, CaptureSource};
-use self::walk::{Captured, Capturer, file_bytes, hold_back_secrets, walk_items};
+use self::walk::{Captured, Capturer, file_bytes, walk_items};
 use crate::cancel::Cancel;
 use crate::checklist::Skipped;
 use crate::error::Result;
@@ -119,8 +119,7 @@ pub fn capture_with_consent(
     let (planned, mut failed) = plan_items(selection, recipes, platform.os());
     warn_running(platform, &planned, sink);
     // Resolve everything first so progress has a byte total.
-    let mut resolved = walk_items(platform, &planned, sink);
-    hold_back_secrets(&planned, &mut resolved, &mut failed);
+    let resolved = walk_items(platform, &planned, sink, &mut failed);
     let progress = ProgressMeter::new(
         sink,
         Phase::Capture,

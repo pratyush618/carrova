@@ -22,7 +22,7 @@ pub(super) struct Planned<'a> {
     pub(super) excluded: Vec<RootedPath<'a>>,
     /// A raw item the user did not confirm as sensitive: what lies in a
     /// secret location now was not there when it was judged, so it stays
-    /// behind ([`super::walk::hold_back_secrets`]).
+    /// behind (`super::walk::held_back`).
     pub(super) unconfirmed_raw: bool,
     /// The manifest item to fill (entries or artifacts still empty).
     pub(super) manifest_item: ManifestItem,

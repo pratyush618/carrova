@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use carrova_core::plan::Blocker;
-use carrova_core::select::{PickRejection, PickResult, SelectionEdit};
+use carrova_core::select::{PickRejection, PickResult, Preset, SelectionEdit};
 use carrova_core::{
     Cancel, Engine, Exporter, Importer, KdfParams, Passphrase, PlanOptions, ScanOptions, Selection,
     VecSink, WriteOptions,
@@ -44,6 +44,10 @@ struct Side {
 
 impl Side {
     fn new(os: OsKind) -> Self {
+        Self::with_recipe(os, RECIPE)
+    }
+
+    fn with_recipe(os: OsKind, recipe: &str) -> Self {
         let tmp = TempDir::new().unwrap();
         let home = tmp.path().join("home");
         std::fs::create_dir_all(home.join(".config/app")).unwrap();
@@ -55,7 +59,7 @@ impl Side {
         );
         let engine = Engine::new(
             platform.clone(),
-            common::recipes(RECIPE),
+            common::recipes(recipe),
             Arc::new(VecSink::default()),
         );
         Self {
@@ -331,4 +335,50 @@ fn secret_appearing_in_a_picked_folder_after_selection_is_held_back() {
         !entries.iter().any(|e| e.starts_with("proj/.")),
         "{entries:?}"
     );
+}
+
+/// Sorts after raw item keys (`raw:…`), so its item is planned after a pick.
+const LATE_RECIPE: &str = r"
+schema: 2
+id: zz
+name: Late
+category: test
+detect:
+  linux:
+    - binary: app
+items:
+  - id: env
+    label: Env
+    paths:
+      - { root: user_config, rel: zz/.env }
+";
+
+#[test]
+fn held_back_secret_is_still_captured_by_the_item_that_names_it() {
+    let sender = Side::with_recipe(OsKind::Linux, LATE_RECIPE);
+    sender.put(".config/zz/a.txt", b"kept", 0o644);
+    let mut exp = sender.manual();
+    exp.scan_now(ScanOptions::default()).unwrap();
+    let mut sel = exp.suggest(Preset::Suggested);
+    let _ = exp.pick(&mut sel, &sender.paths(&[".config/zz"]));
+    exp.select(sel).unwrap();
+    sender.put(".config/zz/.env", b"TOKEN=1", 0o600);
+
+    let path = sender.tmp.path().join("out.carrova");
+    let floor = WriteOptions {
+        kdf: KdfParams::FLOOR,
+    };
+    let (_, checklist) = exp.export(&path, &pass(), floor).unwrap();
+
+    assert!(checklist.skipped.is_empty(), "{:?}", checklist.skipped);
+    let imp = Importer::open(sender.engine.clone(), &path, &pass()).unwrap();
+    let env: Vec<_> = imp
+        .manifest()
+        .unwrap()
+        .items
+        .iter()
+        .filter(|i| i.entries.iter().any(|e| e.rel.as_str() == "zz/.env"))
+        .map(|i| i.item_id.as_str())
+        .collect();
+    assert_eq!(env, ["env"]);
 }
