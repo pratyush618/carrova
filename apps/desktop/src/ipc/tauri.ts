@@ -37,6 +37,10 @@ export function createTauriPort(): CarrovaPort {
     },
 
     scan: () => call('scan'),
+    startManual: () => call('start_manual'),
+    scanApps: (session) => call('scan_apps', { session }),
+    pick: (session, selection, paths) => call('pick', { session, selection, paths }),
+    takeSendRequest: () => call('take_send_request'),
     suggest: (session, preset) => call('suggest', { session, preset }),
     select: (session, selection, edits) => call('select', { session, selection, edits }),
     passphraseStrength: (passphrase) => call('passphrase_strength', { passphrase }),
@@ -76,6 +80,8 @@ export function createTauriPort(): CarrovaPort {
 
     settings: () => call('settings'),
     saveSettings: (settings) => call('save_settings', { settings }),
+    fileManagerStatus: () => call('file_manager_status'),
+    setFileManagerEntries: (on) => call('set_file_manager_entries', { on }),
 
     checkUpdate: () => call('check_update'),
     installUpdate: async (version) => {

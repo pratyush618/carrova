@@ -47,7 +47,13 @@ export function isBridgeError(value: unknown): value is BridgeError {
 
 /** Whether `value` is a `BridgeEvent` of a known `kind`. */
 export function isBridgeEvent(value: unknown): value is BridgeEvent {
-  if (!isRecord(value) || typeof value['session'] !== 'string') {
+  if (!isRecord(value)) {
+    return false;
+  }
+  if (value['kind'] === 'send_requested') {
+    return true;
+  }
+  if (typeof value['session'] !== 'string') {
     return false;
   }
   switch (value['kind']) {

@@ -18,9 +18,11 @@ import type { BridgeEvent } from '../bindings/BridgeEvent';
 import type { CatalogEntry } from '../bindings/CatalogEntry';
 import type { Checklist } from '../bindings/Checklist';
 import type { ErrorReport } from '../bindings/ErrorReport';
+import type { FileManagerStatus } from '../bindings/FileManagerStatus';
 import type { IssueDraft } from '../bindings/IssueDraft';
 import type { KdfStrength } from '../bindings/KdfStrength';
 import type { NearbyPeer } from '../bindings/NearbyPeer';
+import type { Picked } from '../bindings/Picked';
 import type { PlanEdit } from '../bindings/PlanEdit';
 import type { PlanOptions } from '../bindings/PlanOptions';
 import type { PassphraseStrength } from '../bindings/PassphraseStrength';
@@ -55,6 +57,18 @@ export interface CarrovaPort {
   // --- Sending side -------------------------------------------------------
   /** Scan this machine and open an export session with a suggested selection. */
   scan(): Promise<ScanResult>;
+  /** Open an export session in Manual mode: no app scan, an empty selection. */
+  startManual(): Promise<ScanResult>;
+  /** Run the app scan of a Manual session (first switch to Auto); keeps its picks. */
+  scanApps(session: SessionId): Promise<ScanResult>;
+  /**
+   * Add the absolute `paths` the user picked to `selection` by the engine's
+   * rules; resolves with the result and one outcome (added, absorbed,
+   * duplicate or rejected with a reason) per path.
+   */
+  pick(session: SessionId, selection: Selection, paths: string[]): Promise<Picked>;
+  /** Paths sent from outside (file manager, a second launch) since the last call. */
+  takeSendRequest(): Promise<string[]>;
   /** The selection a preset suggests (the session keeps its own until `select`). */
   suggest(session: SessionId, preset: Preset): Promise<ScanResult>;
   /**
@@ -161,6 +175,10 @@ export interface CarrovaPort {
   // --- Settings -----------------------------------------------------------
   settings(): Promise<Settings>;
   saveSettings(settings: Settings): Promise<void>;
+  /** Whether the "Send with Carrova" file-manager entries are written. */
+  fileManagerStatus(): Promise<FileManagerStatus>;
+  /** Write (`true`) or remove (`false`) the file-manager entries. */
+  setFileManagerEntries(on: boolean): Promise<FileManagerStatus>;
 
   // --- App updates (never installed without the user's click) -------------
   checkUpdate(): Promise<UpdateStatus>;

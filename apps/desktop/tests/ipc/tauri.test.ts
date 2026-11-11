@@ -31,6 +31,12 @@ describe('the Tauri port', () => {
     await port.exportArchive(session, '/tmp/a.carrova', 'pass', 'strong');
     await port.resume(session);
     await port.cancelConnect();
+    await port.startManual();
+    await port.scanApps(session);
+    await port.pick(session, scan.selection, ['/home/ana/notes']);
+    await port.takeSendRequest();
+    await port.fileManagerStatus();
+    await port.setFileManagerEntries(true);
 
     expect(calls).toEqual([
       ['scan', {}],
@@ -47,6 +53,12 @@ describe('the Tauri port', () => {
       ],
       ['resume', { session, passphrase: null }],
       ['cancel_connect', {}],
+      ['start_manual', {}],
+      ['scan_apps', { session }],
+      ['pick', { session, selection: scan.selection, paths: ['/home/ana/notes'] }],
+      ['take_send_request', {}],
+      ['file_manager_status', {}],
+      ['set_file_manager_entries', { on: true }],
     ]);
   });
 
@@ -72,13 +84,15 @@ describe('the Tauri port', () => {
     const listener = vi.fn<(event: BridgeEvent) => void>();
     const unsubscribe = await createTauriPort().subscribe(listener);
     const good: BridgeEvent = { kind: 'task_ended', session, error: null };
+    const nudge: BridgeEvent = { kind: 'send_requested' };
 
     await emit(EVENT_CHANNEL, good);
+    await emit(EVENT_CHANNEL, nudge);
     await emit(EVENT_CHANNEL, { kind: 'engine', session, event: 'not an event' });
     await emit(EVENT_CHANNEL, { kind: 'mystery', session });
     await emit(EVENT_CHANNEL, { kind: 'task_ended', session, error: { code: 'nope' } });
 
-    expect(listener.mock.calls).toEqual([[good]]);
+    expect(listener.mock.calls).toEqual([[good], [nudge]]);
     unsubscribe();
   });
 });
