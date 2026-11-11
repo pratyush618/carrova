@@ -14,7 +14,8 @@ already waiting when you do.
   confirm each one.
 - **Nothing changes until you approve.** The new computer shows a plan first:
   new files, replaced files (backed up), space needed.
-- **Every move can be undone.** Files are staged, checked, then placed.
+- **Moves can be undone.** Files are staged, checked, then placed; undo puts
+  back what was replaced (files you edited since the move are left alone).
 - **Private by design.** Computers pair with a short code shown on both
   screens; everything travels end-to-end encrypted on your own network.
   No account, no cloud.
