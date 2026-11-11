@@ -138,4 +138,22 @@ describe('the forwarder', () => {
     expect(send.addPaths).not.toHaveBeenCalled();
     expect(send.start).not.toHaveBeenCalled();
   });
+
+  it('starts a new send after the opening one was closed', async () => {
+    const { take, answer } = bridge();
+    const { send, now } = target(idle, HOME);
+    const forward = forwarder(take, () => now.current, vi.fn());
+    void forward.drain();
+    await flush();
+    answer(0, ['/a']);
+    await flush();
+    forward.settle(null, 'loading');
+    // Closing Send while it opens resets the send to idle.
+    forward.settle(null, 'idle');
+    void forward.drain();
+    await flush();
+    answer(1, ['/b']);
+    await flush();
+    expect(send.start).toHaveBeenLastCalledWith('manual', ['/b']);
+  });
 });

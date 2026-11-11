@@ -89,7 +89,8 @@ export function forwarder(
         const paths = waiting;
         waiting = null;
         if (paths.length > 0) now().send.addPaths(paths);
-      } else if (scan === 'failed') {
+      } else if (scan !== 'loading') {
+        // Failed to open, or closed while opening: the next request starts afresh.
         waiting = null;
       }
     },
