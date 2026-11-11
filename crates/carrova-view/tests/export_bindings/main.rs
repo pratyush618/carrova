@@ -30,8 +30,9 @@ use carrova_core::{
 use carrova_platform::FileManagerStatus;
 use carrova_report::{ErrorReport, IssueDraft, ReportConsent, ReportId, ReportSummary};
 use carrova_view::ipc::{
-    About, BridgeError, BridgeEvent, CatalogEntry, EngineDefaults, Picked, PlanReview,
-    RecipesCheck, RecipesStatus, RecipesUpdate, ScanResult, SessionOpened, Settings, UpdateStatus,
+    About, AlertChannel, AlertSettings, BackgroundSettings, BridgeError, BridgeEvent, CatalogEntry,
+    EngineDefaults, Picked, PlanReview, RecipesCheck, RecipesStatus, RecipesUpdate, ScanResult,
+    SessionOpened, Settings, UpdateStatus,
 };
 use carrova_view::lan::{CodeView, InventoryView, NearbyPeer, PauseView, SummaryView};
 use carrova_view::offer::OfferedItem;
@@ -114,6 +115,9 @@ fn export_typescript_bindings() {
         RecipesCheck::export_all,
         CatalogEntry::export_all,
         Settings::export_all,
+        BackgroundSettings::export_all,
+        AlertSettings::export_all,
+        AlertChannel::export_all,
         ScanResult::<'static>::export_all,
         PlanReview::<'static>::export_all,
         UpdateStatus::export_all,

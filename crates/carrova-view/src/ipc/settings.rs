@@ -25,6 +25,84 @@ pub struct Settings {
     /// The one-time "Send with Carrova" Home card was answered.
     #[serde(default)]
     pub file_manager_asked: bool,
+    /// Whether Carrova keeps running in the background.
+    #[serde(default)]
+    pub background: BackgroundSettings,
+    /// What Carrova tells you about, and how loudly.
+    #[serde(default)]
+    pub alerts: AlertSettings,
+}
+
+/// Background behaviour. Missing fields read as the defaults.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(default)]
+pub struct BackgroundSettings {
+    /// Keep running in the tray when the window closes.
+    pub keep_running: bool,
+    /// Start in the background when you sign in.
+    pub start_at_login: bool,
+    /// Release the window's memory while it is hidden.
+    pub lean: bool,
+}
+
+impl Default for BackgroundSettings {
+    fn default() -> Self {
+        Self {
+            keep_running: true,
+            start_at_login: false,
+            lean: true,
+        }
+    }
+}
+
+/// Alert preferences. Missing fields read as the defaults.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(default)]
+pub struct AlertSettings {
+    /// Use system notifications at all.
+    pub system: bool,
+    /// Wake the screen for a popup.
+    pub wake_screen: bool,
+    /// Show device names while the screen is locked.
+    pub names_on_lock_screen: bool,
+    /// Pop-ups are held back until this Unix second; `None` = not paused.
+    pub paused_until: Option<u64>,
+    /// Someone wants to send you something.
+    pub requests: AlertChannel,
+    /// A move finished or needs you.
+    pub moves: AlertChannel,
+    /// A device appeared nearby.
+    pub nearby: AlertChannel,
+    /// An update is available.
+    pub updates: AlertChannel,
+}
+
+impl Default for AlertSettings {
+    fn default() -> Self {
+        Self {
+            system: true,
+            wake_screen: true,
+            names_on_lock_screen: false,
+            paused_until: None,
+            requests: AlertChannel::PopupAndBell,
+            moves: AlertChannel::PopupAndBell,
+            nearby: AlertChannel::BellOnly,
+            updates: AlertChannel::BellOnly,
+        }
+    }
+}
+
+/// How loudly one kind of alert shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+pub enum AlertChannel {
+    /// A pop-up and an entry in the bell list.
+    PopupAndBell,
+    /// Only an entry in the bell list.
+    BellOnly,
 }
 
 /// The user's suggested defaults for a new move: they pre-fill the send
@@ -63,6 +141,8 @@ impl Default for Settings {
             move_defaults: MoveDefaults::default(),
             start_in_manual: false,
             file_manager_asked: false,
+            background: BackgroundSettings::default(),
+            alerts: AlertSettings::default(),
         }
     }
 }

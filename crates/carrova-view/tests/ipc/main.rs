@@ -3,3 +3,4 @@
 #![allow(clippy::unwrap_used)]
 
 mod recipes;
+mod settings;

@@ -25,7 +25,9 @@ pub use recipes::{
     CatalogEntry, CatalogItem, RecipeOrigin, RecipeTier, RecipesCheck, RecipesStatus, RecipesUpdate,
 };
 pub use reply::{PickedReply, PlanReply, ScanReply};
-pub use settings::{MoveDefaults, Settings, Theme};
+pub use settings::{
+    AlertChannel, AlertSettings, BackgroundSettings, MoveDefaults, Settings, Theme,
+};
 
 /// Name of the one event channel the bridge emits on.
 pub const EVENT_CHANNEL: &str = "carrova://event";
