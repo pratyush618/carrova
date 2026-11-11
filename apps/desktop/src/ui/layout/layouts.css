@@ -28,10 +28,29 @@
   grid-row: 1 / -1;
   display: grid;
   grid-template-columns: var(--side) 1fr;
+  grid-template-rows: auto 1fr;
   min-block-size: 0;
 }
 
+/* The header bar: page tools at the start, the bell at the end. */
+.p-hubhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  block-size: 52px;
+  padding-inline: 20px;
+  border-block-end: 1px solid var(--border);
+}
+
+.p-hubhead__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
 .p-side {
+  grid-row: 1 / -1;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -73,6 +92,14 @@
 
 .p-side__link[aria-current='page'] .p-icon {
   color: var(--accent);
+}
+
+.p-side__live {
+  margin-inline-start: auto;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: var(--success);
 }
 
 .p-side__count {
@@ -137,7 +164,7 @@
   flex-wrap: wrap;
 }
 
-/* Flow: close, the flow's name, labelled steps, the route; no navigation. */
+/* Flow: back, the flow's name, labelled steps, the route; no navigation. */
 .p-flowhead {
   display: flex;
   align-items: center;

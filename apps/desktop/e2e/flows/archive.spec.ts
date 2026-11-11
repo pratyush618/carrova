@@ -36,14 +36,17 @@ test('archive: save with a passphrase, then open it into the review', async ({ p
 test('history and settings render live data accessibly', async ({ page }) => {
   await openApp(page);
   await page.getByRole('button', { name: 'History', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'History' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'History', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
   await expectAccessible(page, 'history');
   await page.getByRole('button', { name: /Opened a file/ }).click();
   await expectAccessible(page, 'session-sheet');
   await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: 'Apps', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Apps Carrova knows' })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Apps' })).toBeVisible();
   await expectAccessible(page, 'apps');
 
   await page.getByRole('button', { name: 'Settings', exact: true }).click();

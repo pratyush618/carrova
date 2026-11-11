@@ -24,11 +24,29 @@ export interface HubLayoutProps {
    * `flush` = the screen lays out the whole page itself (History's two panes).
    */
   readonly variant?: 'page' | 'center' | 'flush';
+  /** Page controls at the start of the header bar (a filter, a view switch). */
+  readonly tools?: ReactNode;
   readonly children: ReactNode;
 }
 
+/** The slim bar above every hub page: its tools, then the bell at the end. */
+export function HeaderBar({
+  tools,
+  bell,
+}: {
+  readonly tools?: ReactNode;
+  readonly bell: ReactNode;
+}) {
+  return (
+    <header className="p-hubhead">
+      <div className="p-hubhead__tools">{tools}</div>
+      {bell}
+    </header>
+  );
+}
+
 /** Places: the sidebar (main navigation, bundle state at its foot), then the page. */
-export function HubLayout({ variant = 'page', children }: HubLayoutProps) {
+export function HubLayout({ variant = 'page', tools, children }: HubLayoutProps) {
   const { t } = useTranslation();
   const { hubLinks, hubStatus } = useChrome();
   return (
@@ -44,6 +62,7 @@ export function HubLayout({ variant = 'page', children }: HubLayoutProps) {
           >
             <Icon name={link.icon} />
             {link.label}
+            {link.live === true && <span className="p-side__live" aria-hidden="true" />}
             {link.count !== undefined && <span className="p-side__count">{link.count}</span>}
           </button>
         ))}
@@ -57,6 +76,7 @@ export function HubLayout({ variant = 'page', children }: HubLayoutProps) {
           </p>
         )}
       </nav>
+      <HeaderBar tools={tools} bell={null} />
       <main className={cx('p-page', variant === 'flush' && 'p-page--flush')}>
         {variant === 'flush' ? (
           children
@@ -66,18 +86,6 @@ export function HubLayout({ variant = 'page', children }: HubLayoutProps) {
           </div>
         )}
       </main>
-    </div>
-  );
-}
-
-/** A hub page's heading row: the title, and optional controls at the end. */
-export function PageHead({ title, aside }: { readonly title: string; readonly aside?: ReactNode }) {
-  return (
-    <div className="p-page__head">
-      <h1 className="p-title" tabIndex={-1} data-autofocus>
-        {title}
-      </h1>
-      {aside}
     </div>
   );
 }

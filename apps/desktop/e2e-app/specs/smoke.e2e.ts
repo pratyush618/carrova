@@ -72,7 +72,6 @@ describe('Carrova desktop (real app)', () => {
 
   it('lists the recipes the engine loaded in the Apps catalogue', async () => {
     await openFromNav('Apps');
-    await expect($('h1')).toHaveText('Apps Carrova knows');
     const cards = $$('ul[aria-label="Apps"] > li');
     await browser.waitUntil(async () => (await cards.length) >= MIN_RECIPES, {
       timeoutMsg: `expected at least ${String(MIN_RECIPES)} recipes in the catalogue`,

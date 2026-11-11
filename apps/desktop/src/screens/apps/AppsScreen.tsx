@@ -5,7 +5,6 @@ import {
   HubLayout,
   LockLine,
   Muted,
-  PageHead,
   Search,
   Segmented,
   type SegmentOption,
@@ -33,18 +32,16 @@ export function AppsScreen({
   }));
   const shown = visibleEntries(model.entries, model.filter, model.query);
   return (
-    <HubLayout>
-      <PageHead
-        title={t('apps.title')}
-        aside={
-          <Segmented
-            label={t('apps.show')}
-            options={filters}
-            value={model.filter}
-            onChange={on.onFilter}
-          />
-        }
-      />
+    <HubLayout
+      tools={
+        <Segmented
+          label={t('apps.show')}
+          options={filters}
+          value={model.filter}
+          onChange={on.onFilter}
+        />
+      }
+    >
       <Search
         label={t('apps.search')}
         placeholder={t('apps.searchPlaceholder', { count: model.entries.length })}

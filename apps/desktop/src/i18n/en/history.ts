@@ -1,6 +1,5 @@
 /** History: every move, and the selected one step by step. */
 export const history = {
-  title: 'History',
   lede: 'Every move, and a way back from each one.',
   emptyTitle: 'No moves yet',
   emptyBody: 'When you send or receive, it shows up here with a way to undo it.',

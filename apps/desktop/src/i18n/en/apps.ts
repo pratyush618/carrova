@@ -1,6 +1,5 @@
 /** "Apps Carrova knows" catalogue and app detail. */
 export const apps = {
-  title: 'Apps Carrova knows',
   show: 'Show',
   filter: { all: 'All', verified: 'Verified', community: 'Community' },
   search: 'Search apps',

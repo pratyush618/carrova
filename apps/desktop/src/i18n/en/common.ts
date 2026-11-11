@@ -22,7 +22,6 @@ export const common = {
     settings: 'Settings',
   },
   flow: {
-    close: 'Close and go home',
     step: 'Step {{step}} of {{total}}',
     thisMove: 'This move',
     steps: {

@@ -10,6 +10,8 @@ export interface HubLink {
   readonly onSelect: () => void;
   /** A small count after the label (moves in History). */
   readonly count?: string;
+  /** A green dot: something is running or listening (Nearby). */
+  readonly live?: boolean;
 }
 
 /** The sidebar foot: the recipe bundle's state ("Recipes up to date", "Bundle 2026.11.3 · signed"). */

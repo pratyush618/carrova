@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { isNearDay } from '../../i18n/format';
 import { useFormat } from '../../i18n/useFormat';
-import { Badge, Button, Empty, Head, HubLayout, Icon, MoveCard, OsBadge } from '../../ui';
+import { Badge, Button, Empty, HubLayout, Icon, MoveCard, OsBadge } from '../../ui';
 import type { HistoryEntry, HistoryIntents, HistoryModel } from './model';
 import { MoveDetail } from './MoveDetail';
 import { groupMoves, KIND_ICON, moveSub, moveTag, moveTitle } from './moveWords';
@@ -80,7 +80,7 @@ export function HistoryScreen({
     <HubLayout variant="flush">
       <div className="s-hist">
         <div className="s-hist__list">
-          <Head title={t('history.title')} lede={t('history.lede')} />
+          <p className="p-lede">{t('history.lede')}</p>
           {groups.map((group) => (
             <section key={group.label} aria-label={group.label}>
               <h2 className="s-hist__day">{group.label}</h2>

@@ -72,8 +72,8 @@ export const hubScreens: readonly GalleryScreen[] = [
   },
   {
     id: 'apps',
-    group: 'Apps Carrova knows',
-    title: 'Apps Carrova knows',
+    group: 'Apps',
+    title: 'Apps',
     view: { kind: 'hub', page: 'apps' },
     states: states(['verified', 'All'], ['community', 'Community']),
     render: (s) => ({
@@ -82,7 +82,7 @@ export const hubScreens: readonly GalleryScreen[] = [
   },
   {
     id: 'recipe',
-    group: 'Apps Carrova knows',
+    group: 'Apps',
     title: 'App detail (sheet)',
     view: { kind: 'hub', page: 'apps' },
     states: [],

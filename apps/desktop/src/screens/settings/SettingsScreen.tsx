@@ -1,5 +1,4 @@
-import { useTranslation } from 'react-i18next';
-import { HubLayout, PageHead } from '../../ui';
+import { HubLayout } from '../../ui';
 import type { SettingsIntents, SettingsModel } from './model';
 import { MovesGroup } from './MovesGroup';
 import { LookGroup, MoreGroup, PrivacyGroup, SendingGroup, UpdatesGroup } from './SettingsGroups';
@@ -12,10 +11,8 @@ export function SettingsScreen({
   readonly model: SettingsModel;
   readonly on: SettingsIntents;
 }) {
-  const { t } = useTranslation();
   return (
     <HubLayout>
-      <PageHead title={t('settings.title')} />
       <LookGroup model={model} on={on} />
       <UpdatesGroup model={model} on={on} />
       <SendingGroup model={model} on={on} />

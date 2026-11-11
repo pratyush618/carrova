@@ -178,7 +178,7 @@ describe('sending over the LAN', () => {
     peerAway = true;
     await user.click(getCode);
     await screen.findByRole('img', { name: /Pairing code/ });
-    await user.click(screen.getByRole('button', { name: 'Close and go home' }));
+    await user.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Back' }));
 
     expect(cancel).toHaveBeenCalledOnce();
     expect(await home()).toBeInTheDocument();

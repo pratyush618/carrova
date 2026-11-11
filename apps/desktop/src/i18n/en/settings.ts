@@ -1,6 +1,5 @@
 /** Settings, update, crash report, about. */
 export const settings = {
-  title: 'Settings',
   device: {
     group: 'Appearance',
     appearance: 'Theme',

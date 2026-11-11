@@ -45,7 +45,7 @@ export {
 } from './layout/chrome';
 export { Dialog, type DialogTone } from './layout/Dialog';
 export { ActionBar, FlowCenter, FlowLayout } from './layout/FlowLayout';
-export { HubLayout, PageHead, Wordmark } from './layout/HubLayout';
+export { HeaderBar, HubLayout, Wordmark } from './layout/HubLayout';
 export { Sheet, SheetNote } from './layout/Sheet';
 export { Window } from './layout/Window';
 export { ReduceMotionOverride, useMediaQuery, useReducedMotion } from './motion';
