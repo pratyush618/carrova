@@ -20,6 +20,7 @@ function Items({
           <Row
             key={item.id}
             title={item.label}
+            {...(item.tag === 'sensitive' && { sub: t('apps.startsOff') })}
             off={item.tag === null || item.tag === 'unmovable'}
             trail={
               item.tag === 'sensitive' ? (

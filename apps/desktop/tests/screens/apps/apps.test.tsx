@@ -3,7 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '../../support/render';
 import { AppsScreen } from '@/screens/apps/AppsScreen';
-import { catalogAll, catalogSearch, catalogSelected } from '@/screens/apps/fixtures';
+import {
+  catalogAll,
+  catalogSearch,
+  catalogSelected,
+  catalogSensitive,
+} from '@/screens/apps/fixtures';
 import type { CatalogIntents } from '@/screens/apps/model';
 
 const catalogOn = (): CatalogIntents => ({
@@ -68,6 +73,13 @@ describe('Apps', () => {
     const left = screen.getByRole('list', { name: 'Left out' });
     expect(within(left).getAllByRole('listitem').length).toBeGreaterThan(0);
     expect(container.querySelector('s, del, strike, [style*="line-through"]')).toBeNull();
+  });
+
+  it('says a sensitive item starts off, and only that one', () => {
+    renderScreen(<AppsScreen model={catalogSensitive} on={catalogOn()} />);
+    const rows = within(screen.getByRole('list', { name: 'What moves' })).getAllByRole('listitem');
+    const cue = 'Starts off, asked first';
+    expect(rows.map((row) => within(row).queryByText(cue) !== null)).toEqual([false, true]);
   });
 
   it('search highlights matches', () => {

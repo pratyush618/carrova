@@ -24,6 +24,7 @@ export const apps = {
   pick: 'Pick an app to see what Carrova moves for it',
   pickBody: "What's moved, what's left out, and who checked the recipe.",
   moves: 'What moves',
+  startsOff: 'Starts off, asked first',
   leftOut: 'Left out',
   noMatch: 'No apps match “{{query}}”.',
   tiers: {
