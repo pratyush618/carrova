@@ -49,7 +49,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["appimage", "deb"],
+    "targets": ["appimage", "deb", "rpm"],
     "createUpdaterArtifacts": true,
     "publisher": "Carrova contributors",
     "homepage": "https://github.com/pratyush618/carrova",
@@ -70,6 +70,9 @@
       "deb": {
         "section": "utils",
         "priority": "optional",
+        "desktopTemplate": "../../../packaging/linux/carrova.desktop"
+      },
+      "rpm": {
         "desktopTemplate": "../../../packaging/linux/carrova.desktop"
       },
       "appimage": {
