@@ -80,7 +80,8 @@ describe('Carrova desktop (real app)', () => {
 
   it('shows which recipes are in use in Settings', async () => {
     await openFromNav('Settings');
-    await expect($('h1')).toHaveText('Settings');
+    await expect($('nav[aria-label="Settings sections"]')).toBeDisplayed();
+    await $('nav[aria-label="Settings sections"]').$('button*=Updates').click();
     // Debug build, no installed bundle: the checkout's unsigned tree.
     // Nothing in an unsigned tree counts as verified.
     await expect($('main')).toHaveText(/Development folder: [1-9]\d* unverified, not signed/);

@@ -50,6 +50,10 @@ test('history and settings render live data accessibly', async ({ page }) => {
   await expectAccessible(page, 'apps');
 
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Settings sections' })
+    .getByRole('button', { name: 'Updates' })
+    .click();
   await page.getByRole('button', { name: 'Check now' }).click();
   await expect(page.getByText('You have the newest list.')).toBeVisible();
   await expectAccessible(page, 'settings');
