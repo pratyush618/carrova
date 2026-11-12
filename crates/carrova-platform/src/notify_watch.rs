@@ -188,7 +188,9 @@ fn rewatch(
 }
 
 /// Those of `dirs` that exist now, with their identities; one that is not
-/// a directory (a symlink to one included) is refused.
+/// a directory (a symlink to one included) is refused. One whose metadata
+/// cannot be read (briefly held, say) is taken as present with no identity:
+/// the backend's watch of it reports the real failure, to be retried.
 fn present_dirs(dirs: &[PathBuf]) -> Result<Vec<Found>, PlatformError> {
     let mut present = Vec::new();
     for dir in dirs {
@@ -198,7 +200,7 @@ fn present_dirs(dirs: &[PathBuf]) -> Result<Vec<Found>, PlatformError> {
             }
             Ok(_) => return Err(io_err(dir, "not a directory")),
             Err(e) if e.kind() == io::ErrorKind::NotFound => {}
-            Err(e) => return Err(PlatformError::io(dir, e)),
+            Err(_) => present.push((dir.clone(), None)),
         }
     }
     Ok(present)

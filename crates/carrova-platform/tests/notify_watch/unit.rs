@@ -329,3 +329,21 @@ fn a_rewatch_after_a_failed_batch_drops_the_watches_it_tried() {
         "a half-applied watch may stay: {old:?}"
     );
 }
+
+#[test]
+fn a_dir_whose_metadata_fails_is_still_watched_and_retried() {
+    let tmp = TempDir::new().unwrap();
+    let file = tmp.path().join("file");
+    fs::write(&file, b"").unwrap();
+    // Under a regular file: ENOTDIR on Linux, not NotFound, so not a
+    // missing dir. Where an OS says NotFound the dir just drops out and the
+    // test still passes, without exercising the bug.
+    let dirs = vec![file.join("child")];
+    let backend = Fake::default();
+    let watch = run(&dirs, backend.clone());
+    backend
+        .failing
+        .store(MAX_REWATCH_FAILURES - 1, Ordering::SeqCst);
+    watch.wake.send(Wake::Changed).unwrap();
+    assert!(watch.still_follows(), "a metadata error ended the watch");
+}
