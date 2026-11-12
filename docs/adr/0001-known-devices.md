@@ -144,10 +144,17 @@ S → R  Established
 
 ### 5. Discovery tag
 
-- `KnownTag` = `HMAC-SHA256(KnownSecret, "carrova/1/known-discovery" ‖ nonce)`,
-  truncated, with a fresh random 16-byte nonce per advert. Same construction
-  as the resume tag (`pairing/keys.rs:70-95`). The brief's purpose string
+- `KnownTag` = `HMAC-SHA256(KnownSecret, "carrova/1/known-discovery" ‖ nonce
+  ‖ advertiser's 32-byte DevicePublic)`, truncated to 8 bytes, with a fresh
+  random 16-byte nonce per advert. Otherwise the same construction as the
+  resume tag (`pairing/keys.rs:70-95`). The brief's purpose string
   `known-discovery` gets the `carrova/1/` prefix used by every other label.
+- Direction is bound (amended, signed off 2026-11-12): both peers hold the
+  same `KnownSecret`, so without the advertiser's key a device would
+  recognise its own advert as its peer's and list the peer as nearby while
+  it is off. The advertiser tags with its own public key; a browser checks
+  each tag against every known (secret, peer's stored public key) pair, so
+  its own adverts never match.
 - Purposes are an enum (`KnownPurpose`) like `TagPurpose`, so Phase 3 can
   add a request purpose with its own label. A discovery tag must never
   verify as a request proof.
