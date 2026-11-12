@@ -218,3 +218,26 @@ fn refresh_waits_for_a_settings_change_in_progress() {
         Some(platform.launcher().unwrap())
     );
 }
+
+#[test]
+fn a_failed_save_leaves_autostart_as_it_was() {
+    let machine = Machine::new();
+    let (state, platform) = with_fake(&machine);
+    // A folder where the temp file goes: the settings cannot be written.
+    let blocker = machine
+        .scratch("state")
+        .join(format!("{}.tmp", crate::settings::SETTINGS_FILE));
+    std::fs::create_dir_all(blocker.join("in-the-way")).unwrap();
+    let mine = BackgroundSettings {
+        start_at_login: true,
+        ..BackgroundSettings::default()
+    };
+
+    assert!(block_on(background::set_background(&state, mine)).is_err());
+
+    assert_eq!(platform.autostart_launcher(), None);
+    assert_eq!(
+        block_on(settings::load(&state)).unwrap().background,
+        BackgroundSettings::default()
+    );
+}

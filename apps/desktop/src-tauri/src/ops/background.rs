@@ -13,8 +13,8 @@ use crate::state::AppState;
 use crate::worker::blocking;
 
 /// Save `background` and start at sign-in only while both "Keep running"
-/// and "Start at login" are on. Autostart changes first, so a failure
-/// leaves the saved choice as it was.
+/// and "Start at login" are on. Autostart changes first and goes back if
+/// the settings cannot be saved, so a failure changes neither.
 ///
 /// # Errors
 ///
@@ -27,14 +27,27 @@ pub async fn set_background(
     let store = state.settings.clone();
     blocking(move || {
         let _writing = store.lock();
-        let on = background.keep_running && background.start_at_login;
-        platform.set_autostart(&platform.launcher()?, on)?;
-        store.save(&Settings {
-            background,
-            ..store.load()?
-        })
+        let saved = store.load()?;
+        let launcher = platform.launcher()?;
+        platform.set_autostart(&launcher, starts_at_login(&background))?;
+        store
+            .save(&Settings {
+                background,
+                ..saved
+            })
+            .inspect_err(|_| {
+                let undo = platform.set_autostart(&launcher, starts_at_login(&saved.background));
+                if let Err(error) = undo {
+                    tracing::error!(%error, "could not undo the autostart change");
+                }
+            })
     })
     .await
+}
+
+/// Carrova starts at sign-in only while it keeps running in the background.
+fn starts_at_login(background: &BackgroundSettings) -> bool {
+    background.keep_running && background.start_at_login
 }
 
 /// Point an existing autostart entry at this app's current launcher (it
