@@ -112,6 +112,18 @@ describe('Nearby', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Desk PC' })).toHaveFocus();
   });
 
+  it('gives the keyboard back to the device when its card closes', async () => {
+    const user = userEvent.setup();
+    function Choosing() {
+      const [selected, setSelected] = useState<string | null>(null);
+      return page({ ...nearbyMap, selected }, { ...nearbyOn(), onSelect: setSelected });
+    }
+    renderScreen(<Choosing />);
+    await user.click(screen.getByRole('button', { name: /Desk PC/ }));
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.getByRole('button', { name: /Desk PC/ })).toHaveFocus();
+  });
+
   it('says it is still looking, and offers a code, while nobody answers', async () => {
     const user = userEvent.setup();
     const on = nearbyOn();

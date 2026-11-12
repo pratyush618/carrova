@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Ring } from '../../engine/types';
 import { cx } from '../../ui/cx';
@@ -42,6 +42,7 @@ function DeviceDot({
     <li className="s-near__spot" style={{ '--dx': String(at.dx), '--dy': String(at.dy) }}>
       <button
         type="button"
+        data-key={device.key}
         className={cx(
           's-near__dev',
           `s-near__dev--${device.kind}`,
@@ -86,6 +87,16 @@ export function NearbyMap({
   const { t } = useTranslation();
   const reduced = useReducedMotion();
   const byRing = (ring: Ring) => devices.filter((device) => device.ring === ring);
+  // Closing a card hands the keyboard back to its device, unless it already went elsewhere.
+  const list = useRef<HTMLUListElement>(null);
+  const shown = useRef(selected);
+  useEffect(() => {
+    const was = shown.current;
+    shown.current = selected;
+    if (selected !== null || was === null || document.activeElement !== document.body) return;
+    const buttons = list.current?.querySelectorAll<HTMLButtonElement>('button[data-key]') ?? [];
+    [...buttons].find((button) => button.dataset['key'] === was)?.focus();
+  }, [selected]);
   return (
     <div className="s-near__field">
       <div className="s-near__orbs" aria-hidden="true">
@@ -103,7 +114,7 @@ export function NearbyMap({
         </span>
         <b>{t('nearby.me')}</b>
       </div>
-      <ul className="s-near__devs" aria-label={t('nearby.map')}>
+      <ul ref={list} className="s-near__devs" aria-label={t('nearby.map')}>
         {RING_ORDER.flatMap((ring) => {
           const on = byRing(ring);
           return on.map((device, i) => (
