@@ -82,3 +82,45 @@ test('every device on the map stays inside the field at the smallest window', as
     expect.soft(box.y + box.height).toBeLessThanOrEqual(field.y + field.height);
   }
 });
+
+for (const size of [
+  { width: 1100, height: 520 },
+  { width: 720, height: 560 },
+]) {
+  test(`no device sits under the visibility pill or the card at ${String(size.width)}x${String(size.height)}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(size);
+    await openApp(page, 'nearby');
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('button', { name: 'Nearby' })
+      .click();
+    const devices = page.getByRole('list', { name: 'Nearby devices' }).getByRole('button');
+    await expect(devices).toHaveCount(5);
+    await devices.first().click();
+    const card = page.getByRole('region', { name: "Ana's laptop" });
+    await expect(card).toBeVisible();
+    const covers = [
+      await page.getByRole('button', { name: /^Visible to/ }).boundingBox(),
+      await card.boundingBox(),
+    ];
+    for (const device of await devices.all()) {
+      const box = await device.boundingBox();
+      expect(box).not.toBeNull();
+      for (const over of covers) {
+        expect(over).not.toBeNull();
+        if (box === null || over === null) continue;
+        const apart =
+          box.x + box.width <= over.x ||
+          over.x + over.width <= box.x ||
+          box.y + box.height <= over.y ||
+          over.y + over.height <= box.y;
+        expect.soft(apart, `${(await device.textContent()) ?? ''} overlaps`).toBe(true);
+      }
+    }
+    await page.screenshot({
+      path: `/tmp/carrova-nearby-${String(size.width)}x${String(size.height)}.png`,
+    });
+  });
+}
