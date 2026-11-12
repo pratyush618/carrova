@@ -88,7 +88,3 @@ fn follow(fd: &OwnedFd, stopped: &UnixStream, dirs: &[PathBuf], changed: &dyn Fn
         }
     }
 }
-
-#[cfg(test)]
-#[path = "../../tests/linux/watch/unit.rs"]
-mod tests;

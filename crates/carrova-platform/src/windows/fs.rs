@@ -328,8 +328,14 @@ pub(crate) fn lock_exclusive(path: &Path) -> Result<FileLock, PlatformError> {
 /// and the system variables any Windows program needs to start
 /// (`SystemRoot`, `PATHEXT`, `TEMP`), copied from this process.
 pub(crate) fn tool_command(bin: &Path, home: &Path, path: Option<&OsStr>) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+    // Tools are non-interactive; without this a console tool run from the
+    // GUI app flashes a console window.
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     let mut cmd = std::process::Command::new(bin);
-    cmd.env_clear().env("USERPROFILE", home);
+    cmd.creation_flags(CREATE_NO_WINDOW)
+        .env_clear()
+        .env("USERPROFILE", home);
     if let Some(p) = path {
         cmd.env("PATH", p);
     }

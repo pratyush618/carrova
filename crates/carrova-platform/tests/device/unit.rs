@@ -50,3 +50,22 @@ fn empty_or_unprintable_names_are_none() {
         assert_eq!(sanitize_device_name(raw), None, "{raw:?}");
     }
 }
+
+#[test]
+fn computer_name_is_preferred_and_cleaned() {
+    assert_eq!(
+        device_name_or_host(Some("Ezio’s MacBook\n"), "mac.local").as_deref(),
+        Some("Ezio’s MacBook")
+    );
+}
+
+#[test]
+fn missing_or_blank_computer_name_falls_back_to_host_without_local() {
+    for name in [None, Some(""), Some(" \n")] {
+        assert_eq!(
+            device_name_or_host(name, "mac.local").as_deref(),
+            Some("mac")
+        );
+    }
+    assert_eq!(device_name_or_host(None, "box").as_deref(), Some("box"));
+}

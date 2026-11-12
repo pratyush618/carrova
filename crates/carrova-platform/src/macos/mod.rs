@@ -209,16 +209,35 @@ impl Platform for MacPlatform {
         Some(crate::netops::current_uid())
     }
 
-    /// The host name without Bonjour's `.local` suffix.
-    // shortcut: host name, not the System Settings "Computer Name" (needs
-    // SystemConfiguration FFI); upgrade if users find the name unfamiliar.
+    fn watch_dirs(
+        &self,
+        dirs: &[PathBuf],
+        changed: Box<dyn Fn() + Send>,
+    ) -> Result<crate::DirWatch, PlatformError> {
+        crate::notify_watch::watch_dirs(dirs, changed)
+    }
+
+    /// The System Settings "Computer Name"; failing that, the host name
+    /// without Bonjour's `.local` suffix.
     fn device_name(&self) -> Option<String> {
-        let host = crate::netops::host_name();
-        crate::device::sanitize_device_name(host.strip_suffix(".local").unwrap_or(&host))
+        let computer_name = self
+            .tool_command(Path::new("/usr/sbin/scutil"))
+            .ok()
+            .and_then(|mut cmd| crate::tool::stdout_of(cmd.args(["--get", "ComputerName"])));
+        crate::device::device_name_or_host(computer_name.as_deref(), &crate::netops::host_name())
     }
 
     fn lan_ipv4_interfaces(&self) -> Result<Vec<crate::LanInterface>, PlatformError> {
         crate::netops::lan_ipv4_interfaces()
+    }
+
+    fn neighbour_mac(&self, addr: std::net::IpAddr) -> Option<[u8; 6]> {
+        let std::net::IpAddr::V4(ip) = addr else {
+            return None;
+        };
+        let mut cmd = self.tool_command(Path::new("/usr/sbin/arp")).ok()?;
+        let table = crate::tool::stdout_of(cmd.arg("-an"))?;
+        crate::neighbours::mac_from_bsd_arp(&table, ip)
     }
 
     fn send_magic_packet(&self, mac: [u8; 6]) -> Result<(), PlatformError> {

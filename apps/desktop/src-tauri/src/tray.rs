@@ -292,7 +292,6 @@ fn rebuild_when_everyone_ends(app: &AppHandle) {
 /// Rebuild the menu when the saved visibility changes outside the app (the
 /// CLI), so "Visible to" ticks the choice in force. Not followed where the
 /// platform cannot watch the state dir (logged).
-// shortcut: unwatched on macOS/Windows, follows once `watch_dirs` does there.
 fn follow_visibility(app: &AppHandle, state: &AppState) -> Option<DirWatch> {
     let handle = app.clone();
     let changed = Box::new(move || {

@@ -1,11 +1,23 @@
-use super::*;
+//! `Platform::watch_dirs` on this OS's adapter (inotify, FSEvents,
+//! ReadDirectoryChangesW): one behaviour, every OS.
+
+#![allow(clippy::unwrap_used)]
+
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Duration;
+
+use carrova_platform::{DirWatch, PlatformError, current};
 use tempfile::TempDir;
 
-const SOON: Duration = Duration::from_secs(5);
+/// Generous: FSEvents reports with latency, and a dir removed under a
+/// Windows watch may only be noticed on its periodic recheck.
+const SOON: Duration = Duration::from_secs(10);
+
+fn watch_dirs(dirs: &[PathBuf], changed: Box<dyn Fn() + Send>) -> Result<DirWatch, PlatformError> {
+    current().watch_dirs(dirs, changed)
+}
 
 /// Watch `dirs`, each change reported on the returned receiver.
 fn watching(dirs: &[PathBuf]) -> (DirWatch, mpsc::Receiver<()>) {
@@ -20,6 +32,12 @@ fn watching(dirs: &[PathBuf]) -> (DirWatch, mpsc::Receiver<()>) {
     (watch, rx)
 }
 
+/// Skip what the watch still reports of changes made before it started
+/// (FSEvents may deliver them late).
+fn settle(changes: &mpsc::Receiver<()>) {
+    while changes.recv_timeout(Duration::from_millis(500)).is_ok() {}
+}
+
 /// Write `dir/name` the way Carrova saves a document: temp file + rename.
 fn replace_atomically(dir: &Path, name: &str) {
     let temp = dir.join(format!(".{name}.tmp"));
@@ -32,6 +50,7 @@ fn an_atomic_replace_in_a_watched_dir_is_reported() {
     let tmp = TempDir::new().unwrap();
     fs::write(tmp.path().join("presence.json"), b"old").unwrap();
     let (_watch, changes) = watching(&[tmp.path().to_path_buf()]);
+    settle(&changes);
     replace_atomically(tmp.path(), "presence.json");
     changes.recv_timeout(SOON).unwrap();
 }
@@ -43,7 +62,7 @@ fn a_watched_dir_that_appears_later_is_watched_from_then_on() {
     let (_watch, changes) = watching(&[tmp.path().to_path_buf(), devices.clone()]);
     fs::create_dir(&devices).unwrap();
     changes.recv_timeout(SOON).unwrap();
-    while changes.try_recv().is_ok() {}
+    settle(&changes);
     replace_atomically(&devices, "known.json");
     changes.recv_timeout(SOON).unwrap();
 }
@@ -105,11 +124,13 @@ fn a_watch_left_with_no_dir_ends() {
 fn taking_a_lock_in_a_watched_dir_is_not_a_change() {
     let tmp = TempDir::new().unwrap();
     let lock = tmp.path().join("known.lock");
-    drop(crate::fsops::lock_exclusive(&lock).unwrap());
+    let platform = current();
+    drop(platform.lock_exclusive(&lock).unwrap());
     let (_watch, changes) = watching(&[tmp.path().to_path_buf()]);
-    drop(crate::fsops::lock_exclusive(&lock).unwrap());
+    settle(&changes);
+    drop(platform.lock_exclusive(&lock).unwrap());
     assert_eq!(
-        changes.recv_timeout(Duration::from_millis(300)),
+        changes.recv_timeout(Duration::from_millis(500)),
         Err(mpsc::RecvTimeoutError::Timeout),
         "a lock taken and released woke the watch"
     );

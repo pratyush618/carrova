@@ -7,7 +7,7 @@
 }
 
 .s-near__field {
-  --cy: 46%;
+  --cy: 38%;
   position: relative;
   block-size: 100%;
   min-block-size: 520px;
@@ -119,13 +119,20 @@
   padding: 0;
 }
 
-/* Spots are placed from the centre by their offset on the orbit. */
+/* Spots are placed from the centre by their offset on the orbit; only the width shrinks with the field. */
 .s-near__spot {
-  translate: calc(-50% + var(--dx) * var(--u)) calc(-50% + var(--dy) * var(--u));
+  --k: var(--u);
+  translate: calc(-50% + var(--dx) * var(--k)) calc(-50% + var(--dy) * 1px);
+}
+
+/* Inner devices shrink less: at the narrowest field they must still clear this computer's label (half the widest pill, `PILL` in tests/screens/nearby/spots.test.ts, plus half the label). */
+.s-near__spot--inner {
+  /* Keep 0.95 in sync with INNER_FLOOR in tests/screens/nearby/spots.test.ts. */
+  --k: max(var(--u), 0.95px);
 }
 
 [dir='rtl'] .s-near__spot {
-  translate: calc(50% - var(--dx) * var(--u)) calc(-50% + var(--dy) * var(--u));
+  translate: calc(50% - var(--dx) * var(--k)) calc(-50% + var(--dy) * 1px);
 }
 
 .s-near__dev {

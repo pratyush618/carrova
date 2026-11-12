@@ -25,6 +25,10 @@ rustix = { workspace = true, features = ["event"] }
 # wake and lock query (`org.freedesktop.ScreenSaver`).
 zbus = { workspace = true }
 
+# Directory watch (FSEvents, ReadDirectoryChangesW).
+[target.'cfg(any(target_os = "macos", windows))'.dependencies]
+notify = { workspace = true }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 sysinfo = { workspace = true }
 

@@ -247,8 +247,6 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     /// is refused. If watching fails later (a dir refused, or none of
     /// `dirs` left), the watch ends by itself and drops `changed`: a caller
     /// that must know keeps a guard in it.
-    // shortcut: unsupported on macOS/Windows (callers poll instead); add
-    // FSEvents/ReadDirectoryChangesW when those ship background presence.
     fn watch_dirs(
         &self,
         dirs: &[PathBuf],
@@ -296,10 +294,9 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     }
 
     /// Hardware address the OS has cached for the LAN host `addr` (Linux:
-    /// the kernel neighbour table), if it has talked to it lately. Used to
-    /// remember a device's address so it can be woken later.
-    // shortcut: macOS and Windows keep this `None` (they need `arp -an` or
-    // sysctl PF_ROUTE, and iphlpapi FFI); upgrade when Wake is wanted there.
+    /// the kernel neighbour table; macOS and Windows: the `arp` tool), if it
+    /// has talked to it lately. IPv4 only. Used to remember a device's
+    /// address so it can be woken later.
     fn neighbour_mac(&self, addr: IpAddr) -> Option<[u8; 6]> {
         let _ = addr;
         None

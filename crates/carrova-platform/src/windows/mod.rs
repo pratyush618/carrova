@@ -7,6 +7,7 @@
 //! Processes and free space use `sysinfo`.
 //! Everything here is safe std or safe-wrapper crates: no FFI.
 
+use known_folders::{KnownFolder, get_known_folder_path};
 use std::ffi::{OsStr, OsString};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -230,6 +231,14 @@ impl Platform for WindowsPlatform {
         crate::sys::lock_exclusive(path)
     }
 
+    fn watch_dirs(
+        &self,
+        dirs: &[PathBuf],
+        changed: Box<dyn Fn() + Send>,
+    ) -> Result<crate::DirWatch, PlatformError> {
+        crate::notify_watch::watch_dirs(dirs, changed)
+    }
+
     /// The NetBIOS computer name (what `%COMPUTERNAME%` holds), read from
     /// the OS rather than the inheritable environment.
     fn device_name(&self) -> Option<String> {
@@ -271,6 +280,16 @@ impl Platform for WindowsPlatform {
         cmd.env("APPDATA", roots::root_path(SemanticRoot::UserConfig)?)
             .env("LOCALAPPDATA", roots::root_path(SemanticRoot::UserData)?);
         Ok(cmd)
+    }
+
+    fn neighbour_mac(&self, addr: std::net::IpAddr) -> Option<[u8; 6]> {
+        let std::net::IpAddr::V4(ip) = addr else {
+            return None;
+        };
+        let arp = get_known_folder_path(KnownFolder::System)?.join("ARP.EXE");
+        let mut cmd = self.tool_command(&arp).ok()?;
+        let table = crate::tool::stdout_of(cmd.arg("-a"))?;
+        crate::neighbours::mac_from_windows_arp(&table, ip)
     }
 
     fn file_manager_status(&self) -> Result<FileManagerStatus, PlatformError> {

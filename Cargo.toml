@@ -50,6 +50,8 @@ jsonschema = { version = "0.33", default-features = false }
 # Windows Known Folder API (semantic roots), safe wrapper (carrova-platform only).
 known-folders = "1.4.2"
 mdns-sd = { version = "0.21.7", default-features = false }
+# Directory watch on macOS (FSEvents) and Windows (ReadDirectoryChangesW); carrova-platform only.
+notify = { version = "8.2.2", default-features = false, features = ["macos_fsevent"] }
 # QUIC/TLS: ring backend only (no aws-lc anywhere).
 quinn = { version = "0.11.12", default-features = false, features = ["runtime-tokio", "rustls-ring"] }
 rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "ring"] }

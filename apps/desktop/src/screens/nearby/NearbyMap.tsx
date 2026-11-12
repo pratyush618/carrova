@@ -4,27 +4,7 @@ import type { Ring } from '../../engine/types';
 import { cx } from '../../ui/cx';
 import { Icon, useReducedMotion } from '../../ui';
 import type { DeviceEntry } from './model';
-
-/** Ring radius in field units (`--u`, 1px on a roomy field; inner = answering now), and where on it the first device sits (clear of the card's top corner). */
-const RINGS: Readonly<Record<Ring, { readonly radius: number; readonly start: number }>> = {
-  inner: { radius: 170, start: -30 },
-  outer: { radius: 290, start: -70 },
-};
-
-const RING_ORDER: readonly Ring[] = ['inner', 'outer'];
-
-/** The field is wider than tall: rings are drawn round, devices sit on a flattened orbit. */
-const FLATTEN = 0.68;
-
-/** Where the `index`-th of `count` devices on `ring` sits, from the centre. */
-function spot(ring: Ring, index: number, count: number): { dx: number; dy: number } {
-  const { radius, start } = RINGS[ring];
-  const angle = ((start + (index * 360) / count) * Math.PI) / 180;
-  return {
-    dx: Math.round(radius * Math.cos(angle)),
-    dy: Math.round(radius * Math.sin(angle) * FLATTEN),
-  };
-}
+import { RING_ORDER, spot } from './spots';
 
 function DeviceDot({
   device,
@@ -39,7 +19,10 @@ function DeviceDot({
 }) {
   const { t } = useTranslation();
   return (
-    <li className="s-near__spot" style={{ '--dx': String(at.dx), '--dy': String(at.dy) }}>
+    <li
+      className={`s-near__spot s-near__spot--${device.ring}`}
+      style={{ '--dx': String(at.dx), '--dy': String(at.dy) }}
+    >
       <button
         type="button"
         data-key={device.key}

@@ -8,10 +8,15 @@ mod device;
 mod error;
 mod lock;
 mod meta;
+mod neighbours;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+mod notify_watch;
 mod os;
 pub mod path;
 mod platform;
 mod root;
+#[cfg(any(test, target_os = "macos", target_os = "windows"))]
+mod tool;
 mod types;
 mod watch;
 
