@@ -58,3 +58,19 @@ test('history and settings render live data accessibly', async ({ page }) => {
   await expect(page.getByText('You have the newest list.')).toBeVisible();
   await expectAccessible(page, 'settings');
 });
+
+test('a wide choice bar drops below its setting instead of squeezing the title', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 800 });
+  await openApp(page);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Settings sections' })
+    .getByRole('button', { name: 'Moves' })
+    .click();
+  const title = (text: string) => page.locator('.p-row__title', { hasText: text });
+  const oneLine = await title('When a file already exists').boundingBox();
+  const undo = await title('Keep the undo point').boundingBox();
+  expect(undo?.height).toBe(oneLine?.height);
+});

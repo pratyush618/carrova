@@ -56,6 +56,20 @@
   min-inline-size: 0;
 }
 
+/* A choice bar too wide to share the line drops below the title instead of squeezing it. */
+.p-row:has(> .p-row__trail .p-seg) {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.p-row:has(> .p-row__trail .p-seg) > .p-row__body {
+  flex: 1 1 10rem;
+}
+
+.p-row:has(> .p-row__trail .p-seg) > .p-row__trail {
+  margin-inline-start: auto;
+}
+
 .p-row__title {
   font-weight: 650;
 }
