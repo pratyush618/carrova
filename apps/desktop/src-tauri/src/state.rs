@@ -6,7 +6,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use carrova_bundle::RecipeLocations;
-use carrova_core::{Engine, KdfParams, KdfStrength, SessionId};
+use carrova_core::time::now_unix;
+use carrova_core::{Engine, Inbox, KdfParams, KdfStrength, NoticeKind, SessionId};
 use carrova_platform::Platform;
 
 use crate::command_error::CommandError;
@@ -50,6 +51,8 @@ pub struct AppState {
     pub answers: Arc<PairingAnswers>,
     /// User settings.
     pub settings: SettingsStore,
+    /// The bell's notices.
+    pub inbox: Inbox,
     /// Paths sent from outside, until the UI takes them.
     pub pending_send: SendRequests,
     /// Held across every check-and-write of the file-manager entries, so
@@ -73,13 +76,29 @@ impl std::fmt::Debug for AppState {
 impl AppState {
     /// The bridge on `platform`, with recipes from `locations`, emitting on
     /// `out`.
+    ///
+    /// # Errors
+    ///
+    /// The notification inbox cannot be read.
     pub fn new(
         platform: Arc<dyn Platform>,
         locations: RecipeLocations,
         out: Arc<dyn Emit>,
         config: BridgeConfig,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, CommandError> {
+        let (inbox, set_aside) = Inbox::open(Arc::clone(&platform))?;
+        if set_aside.is_some()
+            && let Err(error) = inbox.push(
+                NoticeKind::MoveFailed,
+                now_unix(),
+                None,
+                "The notification list was damaged. It was set aside and started again.".into(),
+            )
+        {
+            tracing::warn!(%error, "could not tell the user the inbox was set aside");
+        }
+        Ok(Self {
+            inbox,
             recipes: Arc::new(RecipeService::new(Arc::clone(&platform), locations)),
             sessions: Arc::new(Registry::default()),
             answers: Arc::new(PairingAnswers::default()),
@@ -89,7 +108,7 @@ impl AppState {
             platform,
             out,
             config,
-        }
+        })
     }
 
     /// An engine reporting to `sink`, with the current recipes and

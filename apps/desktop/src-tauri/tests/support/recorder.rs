@@ -26,6 +26,13 @@ impl Recorder {
 }
 
 impl Emit for Recorder {
+    /// Recorded as a `popup` event with its `title` and `body`.
+    fn popup(&self, title: &str, body: &str) {
+        if let Ok(mut events) = self.0.lock() {
+            events.push(serde_json::json!({ "kind": "popup", "title": title, "body": body }));
+        }
+    }
+
     fn emit(&self, event: &BridgeEvent) {
         let json = serde_json::to_value(event).unwrap_or_default();
         if let Ok(mut events) = self.0.lock() {

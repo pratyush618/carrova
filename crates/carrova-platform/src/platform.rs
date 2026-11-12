@@ -8,8 +8,8 @@ use std::process::{Child, Command};
 
 use crate::{
     Allocation, DirEntry, DiskInfo, FileLock, FileManagerStatus, FileMeta, FsId, LanInterface,
-    OsKind, PermissionModel, PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability,
-    SocketBuffers,
+    OsKind, PermissionModel, PlatformError, ProcessInfo, ScreenLock, SemanticRoot,
+    SnapshotCapability, SocketBuffers,
 };
 
 /// OS abstraction used by every service crate.
@@ -341,5 +341,44 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     /// Remove every file-manager entry Carrova wrote, and only those.
     fn remove_file_manager_entries(&self) -> Result<FileManagerStatus, PlatformError> {
         Err(PlatformError::Unsupported("remove_file_manager_entries"))
+    }
+
+    // ---- Notifications ------------------------------------------------------
+
+    /// Light the display up, as if the user had touched the computer, so an
+    /// alert can be seen. Best effort: callers log a failure at debug level
+    /// and carry on. Defaults to [`PlatformError::Unsupported`]: adapters
+    /// without an unsafe-free way to do it stay honest.
+    fn wake_display(&self) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported("wake_display"))
+    }
+
+    /// Whether the screen is locked now. [`ScreenLock::Unknown`] when the
+    /// OS cannot say; callers then fail closed (hide what a locked screen
+    /// must not show).
+    fn screen_lock(&self) -> ScreenLock {
+        ScreenLock::Unknown
+    }
+
+    // ---- Background ---------------------------------------------------------
+
+    /// Whether the desktop shows status-tray icons, so a closed window can
+    /// leave one behind (Linux: a StatusNotifier host is registered; plain
+    /// GNOME has none). Asked at each close: hosts come and go.
+    fn has_status_tray(&self) -> bool {
+        true
+    }
+
+    /// Whether Carrova starts in the background when this user signs in.
+    fn autostart_status(&self) -> Result<bool, PlatformError> {
+        Ok(false)
+    }
+
+    /// Start `launcher --background` when this user signs in (`on`), or
+    /// stop doing so; replies with [`Platform::autostart_status`] after the
+    /// change. Turning off what is already off succeeds.
+    fn set_autostart(&self, launcher: &Path, on: bool) -> Result<bool, PlatformError> {
+        let _ = (launcher, on);
+        Err(PlatformError::Unsupported("set_autostart"))
     }
 }

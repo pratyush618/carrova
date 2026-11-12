@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { BackgroundSettings } from '../../bindings/BackgroundSettings';
 import type { FileManagerStatus } from '../../bindings/FileManagerStatus';
 import type {
   About,
@@ -6,8 +7,10 @@ import type {
   RecipesStatus,
   ReportConsent,
   Settings,
+  SettingsPatch,
   UpdateStatus,
 } from '../../engine/types';
+import { withPatch } from '../../ipc/settingsPatch';
 import { current, type Remote } from '../remote';
 import { useCommand, useRemote } from '../useRemote';
 import { offerFileManager, settingsModel } from './settingsViews';
@@ -27,7 +30,10 @@ export interface SettingsController {
   readonly offerFileManager: boolean;
   /** The last write or removal of the file-manager entries failed. */
   readonly fileManagerFailed: boolean;
-  readonly save: (patch: Partial<Settings>) => void;
+  /** Save the changed fields only, on top of the settings as saved then. */
+  readonly save: (patch: SettingsPatch) => void;
+  /** Change the background settings (and start at sign-in with them); a refused change goes back to the stored one. */
+  readonly setBackground: (patch: Partial<BackgroundSettings>) => void;
   /** Write (`true`) or remove the file-manager entries; once done, the one-time question counts as answered. */
   readonly setFileManager: (on: boolean) => void;
   readonly setConsent: (allowed: boolean) => void;
@@ -61,13 +67,25 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
   }, [install.state, reloadRecipes]);
 
   const save = useCallback(
-    (patch: Partial<Settings>) => {
+    (patch: SettingsPatch) => {
       if (settings === null) return;
-      const next = { ...settings, ...patch };
-      setEdited(next);
-      void port.saveSettings(next);
+      setEdited(withPatch(settings, patch));
+      void port.saveSettings(patch);
     },
     [port, settings],
+  );
+
+  const reload = loaded.run;
+  const setBackground = useCallback(
+    (patch: Partial<BackgroundSettings>) => {
+      if (settings === null) return;
+      setEdited({ ...settings, background: { ...settings.background, ...patch } });
+      void port.setBackground(patch).catch(() => {
+        setEdited(null);
+        void reload();
+      });
+    },
+    [port, settings, reload],
   );
 
   // The write answers later: save on top of the settings as they are then.
@@ -100,6 +118,21 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
     void port.clearErrorReports().then(() => reloadReports());
   }, [port, reloadReports]);
 
+  // A pause ends on its own: when it does, the model is built again, past its end,
+  // even with Settings left open (every other rebuild reads the clock afresh).
+  const [ended, setEnded] = useState(0);
+  const pauseEnd = (settings?.alerts.paused_until ?? 0) * 1000;
+  useEffect(() => {
+    const left = pauseEnd - Date.now();
+    if (left <= 0) return;
+    const timer = setTimeout(() => {
+      setEnded(pauseEnd);
+    }, left);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [pauseEnd]);
+
   const consentValue = current(consent.state);
   const model = useMemo(
     () =>
@@ -116,8 +149,9 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
               check: check.state,
               install: install.state,
               update,
+              about: current(about.state),
             },
-            new Date(),
+            new Date(Math.max(new Date().getTime(), ended)),
           ),
     [
       settings,
@@ -129,6 +163,8 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       check.state,
       install.state,
       update,
+      about.state,
+      ended,
     ],
   );
 
@@ -150,6 +186,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       offerFileManager: offerFileManager(settings, fileManager),
       fileManagerFailed,
       save,
+      setBackground,
       setFileManager,
       setConsent,
       checkRecipes,
@@ -166,6 +203,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       fileManager,
       fileManagerFailed,
       save,
+      setBackground,
       setFileManager,
       setConsent,
       checkRecipes,

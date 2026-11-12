@@ -1,8 +1,10 @@
 //! User settings.
 
-use carrova_view::ipc::Settings;
+use carrova_view::ipc::{ErrorCode, Settings};
+use serde_json::Value;
 
 use crate::command_error::CommandError;
+use crate::settings::patched;
 use crate::state::AppState;
 use crate::worker::blocking;
 
@@ -16,12 +18,26 @@ pub async fn load(state: &AppState) -> Result<Settings, CommandError> {
     blocking(move || store.load()).await
 }
 
-/// Save `settings`.
+/// Apply `patch` (the changed fields, see [`patched`]) to the saved
+/// settings. Background settings change only through
+/// [`set_background`](super::background::set_background), which keeps
+/// start at sign-in in step with them.
 ///
 /// # Errors
 ///
-/// The settings file cannot be written.
-pub async fn save(state: &AppState, settings: Settings) -> Result<(), CommandError> {
+/// The patch changes background settings or does not fit, or the settings
+/// file cannot be read or written.
+pub async fn save(state: &AppState, patch: Value) -> Result<(), CommandError> {
+    if patch.get("background").is_some() {
+        return Err(CommandError::new(
+            ErrorCode::Internal,
+            "background settings change through set_background",
+        ));
+    }
     let store = state.settings.clone();
-    blocking(move || store.save(&settings)).await
+    blocking(move || {
+        let _writing = store.lock();
+        store.save(&patched(&store.load()?, patch)?)
+    })
+    .await
 }

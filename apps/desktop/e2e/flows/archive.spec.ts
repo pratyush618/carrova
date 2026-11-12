@@ -36,18 +36,47 @@ test('archive: save with a passphrase, then open it into the review', async ({ p
 test('history and settings render live data accessibly', async ({ page }) => {
   await openApp(page);
   await page.getByRole('button', { name: 'History', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'History' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'History', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
   await expectAccessible(page, 'history');
   await page.getByRole('button', { name: /Opened a file/ }).click();
   await expectAccessible(page, 'session-sheet');
   await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: 'Apps', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Apps Carrova knows' })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Apps' })).toBeVisible();
   await expectAccessible(page, 'apps');
 
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Settings sections' })
+    .getByRole('button', { name: 'Updates' })
+    .click();
   await page.getByRole('button', { name: 'Check now' }).click();
   await expect(page.getByText('You have the newest list.')).toBeVisible();
   await expectAccessible(page, 'settings');
+});
+
+test('a wide choice bar drops below its setting instead of squeezing the title', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 800 });
+  await openApp(page);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Settings sections' })
+    .getByRole('button', { name: 'Moves' })
+    .click();
+  const title = (text: string) => page.locator('.p-row__title', { hasText: text });
+  const oneLine = await title('When a file already exists').boundingBox();
+  const undo = await title('Keep the undo point').boundingBox();
+  const bar = await page
+    .locator('.p-row', { has: title('Keep the undo point') })
+    .getByRole('radiogroup')
+    .boundingBox();
+  if (oneLine === null || undo === null || bar === null) throw new Error('not laid out');
+  expect(undo.height, 'the title keeps one line').toBe(oneLine.height);
+  expect(bar.y, 'the bar sits below the title').toBeGreaterThanOrEqual(undo.y + undo.height);
 });

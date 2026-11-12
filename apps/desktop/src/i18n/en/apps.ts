@@ -1,6 +1,5 @@
 /** "Apps Carrova knows" catalogue and app detail. */
 export const apps = {
-  title: 'Apps Carrova knows',
   show: 'Show',
   filter: { all: 'All', verified: 'Verified', community: 'Community' },
   search: 'Search apps',
@@ -16,20 +15,21 @@ export const apps = {
     list: 'Recipe list {{version}} · {{apps}}',
     dev: 'Development folder · {{apps}}',
   },
-  grid: 'Apps',
-  installed: 'Set up on this computer',
-  notInstalled: 'Not found here',
+  list: 'Apps',
+  notHere: 'Not here',
+  showAll: 'Show all',
+  found: 'Found on this computer',
+  notFound: 'Not found on this computer',
+  detail: 'App details',
+  pick: 'Pick an app to see what Carrova moves for it',
+  pickBody: "What's moved, what's left out, and who checked the recipe.",
+  moves: 'What moves',
+  startsOff: 'Starts off, asked first',
+  leftOut: 'Left out',
   noMatch: 'No apps match “{{query}}”.',
-  recipe: {
-    intro:
-      'What Carrova can move for {{app}}, and where it lives. Sensitive items always start off.',
-    items: 'What moves',
-    tier: 'Trust',
-    tiers: {
-      verified: 'Reviewed by the Carrova team and signed.',
-      community: 'Written by the community, checked by tests, signed.',
-      unverified: 'Loaded from a development folder, not signed.',
-    },
-    here: 'On this computer',
+  tiers: {
+    verified: 'Reviewed by the Carrova team and signed.',
+    community: 'Written by the community, checked by tests, signed.',
+    unverified: 'Loaded from a development folder, not signed.',
   },
 } as const;

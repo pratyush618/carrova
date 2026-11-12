@@ -26,7 +26,12 @@
 }
 
 .s-hist__day {
-  margin: 18px 0 8px;
+  position: sticky;
+  inset-block-start: -28px;
+  z-index: 1;
+  margin: 0 0 8px;
+  padding-block: 12px 4px;
+  background: var(--surface-1);
   font-size: var(--t-xs);
   font-weight: 700;
   color: var(--text-muted);

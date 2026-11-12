@@ -11,6 +11,7 @@ import type {
 import type { RecipesCheck } from '../../bindings/RecipesCheck';
 import type {
   AboutModel,
+  PauseChoice,
   RecipeCheck,
   RecipeSource,
   SettingsModel,
@@ -76,6 +77,25 @@ export interface SettingsSources {
   readonly check: Remote<RecipesCheck>;
   readonly install: Remote<RecipesUpdate>;
   readonly update: Remote<UpdateStatus>;
+  /** This app and computer; `null` until the engine answered. */
+  readonly about: About | null;
+}
+
+const HOUR = 3600;
+
+/** The Unix second pop-ups stay held back until, for a pause choice (`null` = not paused). */
+export function pausedUntil(choice: PauseChoice, now: Date): number | null {
+  const seconds = Math.floor(now.getTime() / 1000);
+  switch (choice) {
+    case 'off':
+      return null;
+    case 'hour':
+      return seconds + HOUR;
+    case 'tomorrow':
+      return Math.floor(
+        new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() / 1000,
+      );
+  }
 }
 
 /** The Settings page from everything the engine says. */
@@ -83,6 +103,14 @@ export function settingsModel(s: SettingsSources, now: Date): SettingsModel {
   const offer = current(s.update);
   return {
     now,
+    background: s.settings.background,
+    minimisesOnClose: s.settings.background.keep_running && s.about?.status_tray === false,
+    alerts: s.settings.alerts,
+    pausedUntil:
+      s.settings.alerts.paused_until !== null &&
+      s.settings.alerts.paused_until * 1000 > now.getTime()
+        ? new Date(s.settings.alerts.paused_until * 1000)
+        : null,
     appearance: s.settings.theme ?? 'system',
     motion: s.settings.reduce_motion === true ? 'reduce' : 'system',
     autoCheckRecipes: s.settings.auto_check_recipes,

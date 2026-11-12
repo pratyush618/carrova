@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { catalogModel, type CatalogUi } from '../../../flows/catalog/catalogViews';
 import { historyEntry, homeModel, sessionModel } from '../../../flows/history/historyViews';
+import { pausedUntil } from '../../../flows/settings/settingsViews';
 import { useUndoPreview } from '../../../flows/undo/useUndoPreview';
 import { current, type Remote } from '../../../flows/remote';
 import { AppsScreen } from '../../../screens/apps/AppsScreen';
 import { HistoryScreen } from '../../../screens/history/HistoryScreen';
+import type { SettingsSection } from '../../../screens/settings/sections';
 import { SettingsScreen } from '../../../screens/settings/SettingsScreen';
 import { HomeScreen } from '../../../screens/start/HomeScreen';
 import { HubLayout } from '../../../ui';
@@ -72,7 +74,7 @@ export function HistoryRoute() {
     <HistoryScreen
       model={{
         now: new Date(),
-        entries: records.map(historyEntry),
+        entries: records.map((r) => historyEntry(r)),
         selected: record === undefined ? null : sessionModel(record, preview),
       }}
       on={{
@@ -94,8 +96,12 @@ export function HistoryRoute() {
 
 export function AppsRoute() {
   const { catalog } = useControllers();
-  const nav = useNav();
-  const [ui, setUi] = useState<CatalogUi>({ filter: 'all', query: '' });
+  const [ui, setUi] = useState<CatalogUi>({
+    filter: 'all',
+    query: '',
+    selected: null,
+    expanded: [],
+  });
   const model = catalogModel(catalog.entries ?? [], catalog.status, ui, new Date());
   return (
     <AppsScreen
@@ -107,22 +113,40 @@ export function AppsRoute() {
         onQuery: (query) => {
           setUi((u) => ({ ...u, query }));
         },
-        onOpen: (id) => {
-          nav.open({ kind: 'recipe', id });
+        onSelect: (selected) => {
+          setUi((u) => ({ ...u, selected }));
+        },
+        onShowAll: (category) => {
+          setUi((u) => ({ ...u, expanded: [...u.expanded, category] }));
         },
       }}
     />
   );
 }
 
-export function SettingsRoute() {
+export function SettingsRoute({ section }: { readonly section: SettingsSection }) {
   const { settings, update, report } = useControllers();
   const nav = useNav();
-  if (settings.model === null) return <HubLayout>{null}</HubLayout>;
+  const { model } = settings;
+  if (model === null) return <HubLayout>{null}</HubLayout>;
   return (
     <SettingsScreen
-      model={settings.model}
+      section={section}
+      model={model}
       on={{
+        onSection: (next) => {
+          nav.go({ type: 'openHub', page: 'settings', section: next });
+        },
+        onBack: () => {
+          nav.go({ type: 'back' });
+        },
+        onBackground: settings.setBackground,
+        onAlerts: (patch) => {
+          settings.save({ alerts: patch });
+        },
+        onPause: (choice) => {
+          settings.save({ alerts: { paused_until: pausedUntil(choice, new Date()) } });
+        },
         onAppearance: (value) => {
           settings.save({ theme: value === 'system' ? null : value });
         },
@@ -155,8 +179,7 @@ export function SettingsRoute() {
         },
         onFileManager: settings.setFileManager,
         onMoveDefaults: (patch) => {
-          const current = settings.settings?.move_defaults;
-          if (current !== undefined) settings.save({ move_defaults: { ...current, ...patch } });
+          settings.save({ move_defaults: patch });
         },
       }}
     />

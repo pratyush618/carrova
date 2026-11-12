@@ -64,10 +64,8 @@ describe('where a transfer stopped', () => {
 
 describe('catalogue filter', () => {
   it('filters by tier and by name', () => {
-    expect(visibleEntries(catalogAll.entries, 'community', '').map((e) => e.id)).toEqual([
-      'nvim',
-      'kitty',
-    ]);
-    expect(visibleEntries(catalogAll.entries, 'all', 'vs').map((e) => e.id)).toEqual(['vscode']);
+    const entries = catalogAll.groups.flatMap((g) => g.shown);
+    expect(visibleEntries(entries, 'community', '').map((e) => e.id)).toEqual(['nvim', 'idea']);
+    expect(visibleEntries(entries, 'all', 'vs').map((e) => e.id)).toEqual(['vscode']);
   });
 });

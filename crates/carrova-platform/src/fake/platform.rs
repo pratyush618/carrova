@@ -256,6 +256,15 @@ impl Platform for FakePlatform {
         ))
     }
 
+    fn wake_display(&self) -> Result<(), PlatformError> {
+        self.hooks.count_wake();
+        Ok(())
+    }
+
+    fn screen_lock(&self) -> crate::ScreenLock {
+        self.hooks.screen_lock()
+    }
+
     fn file_manager_status(&self) -> Result<FileManagerStatus, PlatformError> {
         let status = self
             .entries
@@ -281,5 +290,17 @@ impl Platform for FakePlatform {
         let entries = self.entries.as_ref();
         let entries = entries.ok_or(PlatformError::Unsupported("remove_file_manager_entries"))?;
         Ok(entries.write(EntriesWrite::Remove))
+    }
+
+    fn has_status_tray(&self) -> bool {
+        self.background.tray()
+    }
+
+    fn autostart_status(&self) -> Result<bool, PlatformError> {
+        Ok(self.background.autostart().is_some())
+    }
+
+    fn set_autostart(&self, launcher: &Path, on: bool) -> Result<bool, PlatformError> {
+        Ok(self.background.set_autostart(launcher, on))
     }
 }

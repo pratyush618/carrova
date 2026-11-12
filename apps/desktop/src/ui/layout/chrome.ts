@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import type { BellModel } from '../Bell/Bell';
 import type { IconName } from '../Icon/icons';
 
 /** One entry of the hub's sidebar. */
@@ -10,6 +11,8 @@ export interface HubLink {
   readonly onSelect: () => void;
   /** A small count after the label (moves in History). */
   readonly count?: string;
+  /** A green dot: something is running or listening (Nearby). */
+  readonly live?: boolean;
 }
 
 /** The sidebar foot: the recipe bundle's state ("Recipes up to date", "Bundle 2026.11.3 · signed"). */
@@ -41,6 +44,8 @@ export interface Chrome {
   /** `null` until the bundle state is known. */
   readonly hubStatus: HubStatus | null;
   readonly flow: FlowFrame | null;
+  /** The header bar's bell; none where there are no notices (the gallery). */
+  readonly bell?: BellModel;
 }
 
 export const ChromeContext = createContext<Chrome | null>(null);

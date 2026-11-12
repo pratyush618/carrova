@@ -37,6 +37,11 @@ describe('the Tauri port', () => {
     await port.takeSendRequest();
     await port.fileManagerStatus();
     await port.setFileManagerEntries(true);
+    await port.notices();
+    await port.markNoticesRead([4, 5]);
+    await port.markNoticesRead('all');
+    await port.setBackground({ lean: false });
+    await port.saveSettings({ theme: null });
 
     expect(calls).toEqual([
       ['scan', {}],
@@ -59,6 +64,11 @@ describe('the Tauri port', () => {
       ['take_send_request', {}],
       ['file_manager_status', {}],
       ['set_file_manager_entries', { on: true }],
+      ['notices', {}],
+      ['mark_notices_read', { ids: [4, 5] }],
+      ['mark_notices_read', { ids: null }],
+      ['set_background', { patch: { lean: false } }],
+      ['save_settings', { patch: { theme: null } }],
     ]);
   });
 

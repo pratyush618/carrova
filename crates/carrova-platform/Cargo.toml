@@ -19,6 +19,11 @@ ts-rs = { workspace = true, optional = true }
 [target.'cfg(unix)'.dependencies]
 rustix = { workspace = true }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# Session bus: tray-host detection (`org.kde.StatusNotifierWatcher`), screen
+# wake and lock query (`org.freedesktop.ScreenSaver`).
+zbus = { workspace = true }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 sysinfo = { workspace = true }
 

@@ -3,10 +3,11 @@
 
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use carrova_platform::{Platform, PlatformError};
 use carrova_view::ipc::Settings;
+use serde_json::Value;
 
 use crate::command_error::CommandError;
 
@@ -17,12 +18,23 @@ pub const SETTINGS_FILE: &str = "desktop-settings.json";
 #[derive(Debug, Clone)]
 pub struct SettingsStore {
     platform: Arc<dyn Platform>,
+    /// Held across each read-change-save; clones share it.
+    writing: Arc<Mutex<()>>,
 }
 
 impl SettingsStore {
     /// The store of `platform`'s state directory.
     pub fn new(platform: Arc<dyn Platform>) -> Self {
-        Self { platform }
+        Self {
+            platform,
+            writing: Arc::default(),
+        }
+    }
+
+    /// Hold while reading, changing and saving the settings: writers then
+    /// never drop each other's changes, nor share the temp file.
+    pub fn lock(&self) -> MutexGuard<'_, ()> {
+        self.writing.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     fn path(&self) -> Result<PathBuf, PlatformError> {
@@ -64,6 +76,39 @@ impl SettingsStore {
         self.platform.rename_replace(&tmp, &path)?;
         self.platform.sync_dir(&dir)?;
         Ok(())
+    }
+}
+
+/// `settings` with `patch` applied as a JSON merge patch (RFC 7396):
+/// objects merge field by field, `null` clears a field and whatever the
+/// patch leaves out stays, so a change made elsewhere meanwhile (the tray's
+/// pause) survives.
+///
+/// # Errors
+///
+/// The patched settings are not valid settings.
+pub fn patched(settings: &Settings, patch: Value) -> Result<Settings, CommandError> {
+    let mut value = serde_json::to_value(settings)?;
+    merge(&mut value, patch);
+    Ok(serde_json::from_value(value)?)
+}
+
+fn merge(target: &mut Value, patch: Value) {
+    let Value::Object(fields) = patch else {
+        *target = patch;
+        return;
+    };
+    if !target.is_object() {
+        *target = Value::Object(serde_json::Map::new());
+    }
+    if let Value::Object(target) = target {
+        for (key, value) in fields {
+            if value.is_null() {
+                target.remove(&key);
+            } else {
+                merge(target.entry(key).or_insert(Value::Null), value);
+            }
+        }
     }
 }
 

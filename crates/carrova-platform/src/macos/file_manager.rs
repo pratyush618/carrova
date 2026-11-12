@@ -56,7 +56,7 @@ impl MacPlatform {
     }
 
     /// Temp file beside `path`, then rename over it; parents are created.
-    fn write_atomic(&self, path: &Path, contents: &str) -> Result<(), PlatformError> {
+    pub(super) fn write_atomic(&self, path: &Path, contents: &str) -> Result<(), PlatformError> {
         let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else {
             return Err(PlatformError::io(path, io::ErrorKind::InvalidInput.into()));
         };
@@ -75,7 +75,7 @@ impl MacPlatform {
     }
 }
 
-fn ignore_missing(result: Result<(), PlatformError>) -> Result<(), PlatformError> {
+pub(super) fn ignore_missing(result: Result<(), PlatformError>) -> Result<(), PlatformError> {
     match result {
         Err(PlatformError::Io { source, .. }) if source.kind() == io::ErrorKind::NotFound => Ok(()),
         other => other,
@@ -101,7 +101,7 @@ fn open_command(launcher: &Path) -> Result<String, PlatformError> {
 }
 
 /// Text inside a plist `<string>` element.
-fn xml_escape(value: &str) -> String {
+pub(super) fn xml_escape(value: &str) -> String {
     value
         .replace('&', "&amp;")
         .replace('<', "&lt;")

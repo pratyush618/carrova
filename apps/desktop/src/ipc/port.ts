@@ -14,6 +14,7 @@
  */
 import type { About } from '../bindings/About';
 import type { ArchiveSummary } from '../bindings/ArchiveSummary';
+import type { BackgroundSettings } from '../bindings/BackgroundSettings';
 import type { BridgeEvent } from '../bindings/BridgeEvent';
 import type { CatalogEntry } from '../bindings/CatalogEntry';
 import type { Checklist } from '../bindings/Checklist';
@@ -23,6 +24,8 @@ import type { IssueDraft } from '../bindings/IssueDraft';
 import type { KdfStrength } from '../bindings/KdfStrength';
 import type { NearbyPeer } from '../bindings/NearbyPeer';
 import type { Picked } from '../bindings/Picked';
+import type { Notice } from '../bindings/Notice';
+import type { NoticeId } from '../bindings/NoticeId';
 import type { PlanEdit } from '../bindings/PlanEdit';
 import type { PlanOptions } from '../bindings/PlanOptions';
 import type { PassphraseStrength } from '../bindings/PassphraseStrength';
@@ -44,6 +47,7 @@ import type { SessionId } from '../bindings/SessionId';
 import type { SessionOpened } from '../bindings/SessionOpened';
 import type { SessionRecord } from '../bindings/SessionRecord';
 import type { Settings } from '../bindings/Settings';
+import type { SettingsPatch } from './settingsPatch';
 import type { UpdateStatus } from '../bindings/UpdateStatus';
 
 /** Stops a subscription. */
@@ -157,6 +161,12 @@ export interface CarrovaPort {
   /** Forget a session and its staged data. */
   dismiss(session: SessionId): Promise<void>;
 
+  // --- Notifications ------------------------------------------------------
+  /** The bell's notices (kept 30 days), newest first. */
+  notices(): Promise<Notice[]>;
+  /** Mark notices read: the given ones, or `'all'`. */
+  markNoticesRead(ids: NoticeId[] | 'all'): Promise<void>;
+
   // --- Recipes ------------------------------------------------------------
   /** Apps Carrova knows, with detection on this machine. */
   catalog(): Promise<CatalogEntry[]>;
@@ -174,11 +184,14 @@ export interface CarrovaPort {
 
   // --- Settings -----------------------------------------------------------
   settings(): Promise<Settings>;
-  saveSettings(settings: Settings): Promise<void>;
+  /** Save the changed fields (see {@link SettingsPatch}). */
+  saveSettings(patch: SettingsPatch): Promise<void>;
   /** Whether the "Send with Carrova" file-manager entries are written. */
   fileManagerStatus(): Promise<FileManagerStatus>;
   /** Write (`true`) or remove (`false`) the file-manager entries. */
   setFileManagerEntries(on: boolean): Promise<FileManagerStatus>;
+  /** Save the changed background fields (merged like {@link SettingsPatch}) and start at sign-in only while Keep running and Start at login are on. */
+  setBackground(patch: Partial<BackgroundSettings>): Promise<void>;
 
   // --- App updates (never installed without the user's click) -------------
   checkUpdate(): Promise<UpdateStatus>;

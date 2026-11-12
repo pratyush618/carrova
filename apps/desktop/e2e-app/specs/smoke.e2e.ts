@@ -72,7 +72,6 @@ describe('Carrova desktop (real app)', () => {
 
   it('lists the recipes the engine loaded in the Apps catalogue', async () => {
     await openFromNav('Apps');
-    await expect($('h1')).toHaveText('Apps Carrova knows');
     const cards = $$('ul[aria-label="Apps"] > li');
     await browser.waitUntil(async () => (await cards.length) >= MIN_RECIPES, {
       timeoutMsg: `expected at least ${String(MIN_RECIPES)} recipes in the catalogue`,
@@ -81,7 +80,8 @@ describe('Carrova desktop (real app)', () => {
 
   it('shows which recipes are in use in Settings', async () => {
     await openFromNav('Settings');
-    await expect($('h1')).toHaveText('Settings');
+    await expect($('nav[aria-label="Settings sections"]')).toBeDisplayed();
+    await $('nav[aria-label="Settings sections"]').$('button*=Updates').click();
     // Debug build, no installed bundle: the checkout's unsigned tree.
     // Nothing in an unsigned tree counts as verified.
     await expect($('main')).toHaveText(/Development folder: [1-9]\d* unverified, not signed/);

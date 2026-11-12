@@ -141,3 +141,16 @@ pub struct FileManagerStatus {
     /// "Thunar: uca.xml is not valid; left unchanged").
     pub skipped: Vec<String>,
 }
+
+/// Whether the screen is locked, as far as the OS will say.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ScreenLock {
+    /// The lock screen or screensaver is showing.
+    Locked,
+    /// The screen is in use.
+    Unlocked,
+    /// The OS cannot say (or did not answer). Callers must treat the
+    /// screen as possibly locked.
+    #[default]
+    Unknown,
+}

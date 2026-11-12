@@ -5,6 +5,8 @@
 //! Commands that reach the engine pass their result through `reply`,
 //! the one place a failed command becomes an error report.
 
+pub mod background;
+pub mod inbox;
 pub mod integration;
 pub mod receive;
 pub mod recipes;

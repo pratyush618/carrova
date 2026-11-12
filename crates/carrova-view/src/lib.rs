@@ -4,11 +4,13 @@
 
 pub mod ipc;
 pub mod lan;
+pub mod notice;
 pub mod offer;
 pub mod passphrase;
 pub mod plan;
 pub mod review;
 pub mod selection;
+pub mod tray;
 
 /// How much of a long listing to show.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

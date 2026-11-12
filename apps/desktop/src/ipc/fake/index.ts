@@ -8,9 +8,11 @@
  */
 import type { About } from '../../bindings/About';
 import type { FileManagerStatus } from '../../bindings/FileManagerStatus';
+import type { Notice } from '../../bindings/Notice';
 import type { ReportConsent } from '../../bindings/ReportConsent';
 import type { Settings } from '../../bindings/Settings';
 import type { CarrovaPort } from '../port';
+import { withPatch } from '../settingsPatch';
 import { bridgeError, raise } from '../reject';
 import * as fx from './fixtures';
 import { FakeReceiver } from './receive';
@@ -39,6 +41,17 @@ const DEFAULT_SETTINGS: Settings = {
   move_defaults: { conflict_rule: 'replace', retention: 'until_dismissed', include_caches: false },
   start_in_manual: false,
   file_manager_asked: false,
+  background: { keep_running: true, start_at_login: false, lean: true },
+  alerts: {
+    system: true,
+    wake_screen: true,
+    names_on_lock_screen: false,
+    paused_until: null,
+    requests: 'popup_and_bell',
+    moves: 'popup_and_bell',
+    nearby: 'bell_only',
+    updates: 'bell_only',
+  },
 };
 
 /** This (fake) machine, for the About sheet. */
@@ -47,7 +60,38 @@ const ABOUT: About = {
   engine_version: '0.1.0',
   device_name: 'ana-laptop',
   os: 'linux',
+  status_tray: true,
 };
+
+/** The bell's notices at the start: a request, a finished move, an old one. */
+function seedNotices(nowSeconds: number): Notice[] {
+  return [
+    {
+      id: 3,
+      kind: 'send_request',
+      at: nowSeconds - 120,
+      read: false,
+      peer: "Ana's laptop",
+      summary: 'wants to send you 3 apps · 1.2 GB',
+    },
+    {
+      id: 2,
+      kind: 'move_finished',
+      at: nowSeconds - 1200,
+      read: false,
+      peer: null,
+      summary: 'The move finished.',
+    },
+    {
+      id: 1,
+      kind: 'update_ready',
+      at: nowSeconds - 3 * 86_400,
+      read: true,
+      peer: null,
+      summary: 'Carrova 0.3.0 is ready to install.',
+    },
+  ];
+}
 
 /** What the `forwarded` scenario's file manager sent (paths on the fake disk). */
 const FORWARDED = ['/home/ana/projects/site', '/home/ana/notes.txt'];
@@ -64,6 +108,7 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
   const receiver = new FakeReceiver(runtime, scenario);
   let settings = DEFAULT_SETTINGS;
   let consent: ReportConsent = 'unset';
+  let notices = seedNotices(Math.floor(Date.now() / 1000));
   // shortcut: an install doesn't change `recipesStatus`; make it stateful if a test needs the new version shown.
   let recipesInstalled = false;
   const newerRecipes = () => scenario === 'recipes-update' && !recipesInstalled;
@@ -160,15 +205,27 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
     about: () => later(() => ABOUT),
 
     settings: () => later(() => settings),
-    saveSettings: (next) =>
+    saveSettings: (patch) =>
       later(() => {
-        settings = next;
+        settings = withPatch(settings, patch);
       }),
     fileManagerStatus: () => later(() => fileManager),
     setFileManagerEntries: (on) =>
       later(() => {
         fileManager = { ...fileManager, installed: on };
         return fileManager;
+      }),
+    setBackground: (patch) =>
+      later(() => {
+        settings = { ...settings, background: { ...settings.background, ...patch } };
+      }),
+
+    notices: () => later(() => notices),
+    markNoticesRead: (ids) =>
+      later(() => {
+        notices = notices.map((n) =>
+          ids === 'all' || ids.includes(n.id) ? { ...n, read: true } : n,
+        );
       }),
 
     checkUpdate: () => later(() => ({ status: 'up_to_date' }) as const),

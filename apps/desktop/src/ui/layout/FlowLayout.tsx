@@ -46,7 +46,7 @@ export interface FlowLayoutProps {
   readonly stepNow?: number;
 }
 
-/** Tasks: close, labelled steps, the main column, the manifest rail and one action bar. */
+/** Tasks: back, labelled steps, the main column, the manifest rail and one action bar. */
 export function FlowLayout({ children, actions, rail, route, stepNow }: FlowLayoutProps) {
   const { t } = useTranslation();
   const { flow } = useChrome();
@@ -59,7 +59,7 @@ export function FlowLayout({ children, actions, rail, route, stepNow }: FlowLayo
   return (
     <>
       <header className="p-flowhead" inert={sheetOpen}>
-        <IconButton icon="close" label={t('flow.close')} onClick={flow?.onClose} />
+        <IconButton icon="back" label={t('action.back')} onClick={flow?.onClose} />
         <span className="p-flowhead__name">{flow?.name}</span>
         {flow && <Stepper steps={flow.steps} current={stepNow ?? flow.step - 1} />}
         <span className="p-flowhead__end">

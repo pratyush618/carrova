@@ -44,3 +44,27 @@ fn a_corrupt_file_is_an_error_not_silent_defaults() {
     std::fs::write(dir.path().join("state").join(SETTINGS_FILE), "{").unwrap();
     assert!(store(dir.path()).load().is_err());
 }
+
+#[test]
+fn a_patch_changes_only_the_fields_it_names() {
+    let mut stored = Settings {
+        theme: Some(Theme::Light),
+        ..Settings::default()
+    };
+    stored.alerts.paused_until = Some(99);
+
+    let patch = serde_json::json!({ "theme": null, "alerts": { "system": false } });
+    let mut expected = Settings {
+        theme: None,
+        ..stored.clone()
+    };
+    expected.alerts.system = false;
+
+    assert_eq!(patched(&stored, patch).unwrap(), expected);
+}
+
+#[test]
+fn a_patch_that_breaks_the_settings_is_refused() {
+    let wrong = serde_json::json!({ "alerts": { "requests": "loudly" } });
+    assert!(patched(&Settings::default(), wrong).is_err());
+}

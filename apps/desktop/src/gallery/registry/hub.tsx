@@ -1,9 +1,16 @@
 import { AppsScreen } from '../../screens/apps/AppsScreen';
-import { RecipeSheet } from '../../screens/apps/RecipeSheet';
-import { catalogAll, catalogCommunity, recipeSsh } from '../../screens/apps/fixtures';
+import {
+  catalogAll,
+  catalogCommunity,
+  catalogSearch,
+  catalogSelected,
+  catalogSensitive,
+} from '../../screens/apps/fixtures';
+import type { CatalogModel } from '../../screens/apps/model';
 import { HistoryScreen } from '../../screens/history/HistoryScreen';
 import { historyEmpty, historyTimeline, historyUndone } from '../../screens/history/fixtures';
 import { AboutSheet, CrashDialog, UpdateDialog } from '../../screens/settings/SettingsDialogs';
+import { SECTIONS } from '../../screens/settings/sections';
 import { SettingsScreen } from '../../screens/settings/SettingsScreen';
 import {
   about,
@@ -15,13 +22,20 @@ import {
 } from '../../screens/settings/fixtures';
 import { UndoConfirmDialog } from '../../screens/undo/UndoConfirmDialog';
 import { undoPreview } from '../../screens/undo/fixtures';
+import { en } from '../../i18n/en';
 import { noops } from '../noops';
 import { homeBase } from './start';
 import { states, type GalleryScreen } from '../types';
 
 const historyOn = noops('onSelect', 'onUndo', 'onResume', 'onForget', 'onReceive');
 const HISTORY = { empty: historyEmpty, undone: historyUndone } as const;
-const catalogOn = noops('onFilter', 'onQuery', 'onOpen');
+const catalogOn = noops('onFilter', 'onQuery', 'onSelect', 'onShowAll');
+const APPS: Readonly<Record<string, CatalogModel>> = {
+  detail: catalogSelected,
+  sensitive: catalogSensitive,
+  search: catalogSearch,
+  community: catalogCommunity,
+};
 const settingsOn = noops(
   'onAppearance',
   'onMotion',
@@ -37,12 +51,17 @@ const settingsOn = noops(
   'onMoveDefaults',
   'onStartInManual',
   'onFileManager',
+  'onBackground',
+  'onAlerts',
+  'onPause',
+  'onSection',
+  'onBack',
 );
 const SETTINGS = {
   notes: settingsFileManagerNotes,
   unsupported: settingsNoFileManager,
 } as const;
-const settingsBase = <SettingsScreen model={settingsModel} on={settingsOn} />;
+const settingsBase = <SettingsScreen section="general" model={settingsModel} on={settingsOn} />;
 
 export const hubScreens: readonly GalleryScreen[] = [
   {
@@ -72,23 +91,18 @@ export const hubScreens: readonly GalleryScreen[] = [
   },
   {
     id: 'apps',
-    group: 'Apps Carrova knows',
-    title: 'Apps Carrova knows',
+    group: 'Apps',
+    title: 'Apps',
     view: { kind: 'hub', page: 'apps' },
-    states: states(['verified', 'All'], ['community', 'Community']),
+    states: states(
+      ['list', 'List'],
+      ['detail', 'App selected'],
+      ['sensitive', 'Sensitive app'],
+      ['search', 'Search “vs”'],
+      ['community', 'Community only'],
+    ),
     render: (s) => ({
-      base: <AppsScreen model={s === 'community' ? catalogCommunity : catalogAll} on={catalogOn} />,
-    }),
-  },
-  {
-    id: 'recipe',
-    group: 'Apps Carrova knows',
-    title: 'App detail (sheet)',
-    view: { kind: 'hub', page: 'apps' },
-    states: [],
-    render: () => ({
-      base: <AppsScreen model={catalogAll} on={catalogOn} />,
-      overlays: [<RecipeSheet key="r" model={recipeSsh} on={noops('onClose')} />],
+      base: <AppsScreen model={APPS[s] ?? catalogAll} on={catalogOn} />,
     }),
   },
   {
@@ -96,19 +110,20 @@ export const hubScreens: readonly GalleryScreen[] = [
     group: 'Settings',
     title: 'Settings',
     view: { kind: 'hub', page: 'settings' },
-    states: states(
-      ['default', 'Default'],
-      ['notes', 'File manager: one skipped, change failed'],
-      ['unsupported', 'No file-manager entries on this system'],
-    ),
-    render: (s) => ({
-      base:
-        s === 'notes' || s === 'unsupported' ? (
-          <SettingsScreen model={SETTINGS[s]} on={settingsOn} />
-        ) : (
-          settingsBase
-        ),
-    }),
+    states: [
+      ...SECTIONS.map(({ id }) => ({ id, label: en.settings.sections[id] })),
+      ...states(
+        ['notes', 'Sending: one file manager skipped, change failed'],
+        ['unsupported', 'Sending: no file-manager entries on this system'],
+      ),
+    ],
+    render: (s) => {
+      const fixture = s === 'notes' || s === 'unsupported' ? SETTINGS[s] : settingsModel;
+      const section =
+        SECTIONS.find(({ id }) => id === s)?.id ??
+        (fixture === settingsModel ? 'general' : 'sending');
+      return { base: <SettingsScreen section={section} model={fixture} on={settingsOn} /> };
+    },
   },
   {
     id: 'update',

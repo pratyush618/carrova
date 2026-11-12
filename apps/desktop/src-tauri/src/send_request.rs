@@ -19,9 +19,6 @@ use crate::state::AppState;
 /// The flag file-manager entries launch the app with, before the paths.
 pub const SEND_FLAG: &str = "--send";
 
-/// The label of the app's one window.
-const MAIN_WINDOW: &str = "main";
-
 /// Paths sent from outside, waiting for the UI to take them.
 #[derive(Debug, Clone, Default)]
 pub struct SendRequests(Arc<Mutex<Vec<String>>>);
@@ -79,26 +76,12 @@ fn deliver(state: Option<&AppState>, queue: &SendRequests, paths: &[PathBuf]) {
 /// A second launch (argv and working directory, as text) reached the
 /// running app: queue its `--send` paths, if any, in `queue` (shared with
 /// [`AppState::pending_send`], so none are lost while the app starts) and
-/// show the window.
+/// open the window.
 pub fn on_second_instance(app: &AppHandle, queue: &SendRequests, argv: Vec<String>, cwd: &str) {
     let argv: Vec<OsString> = argv.into_iter().map(OsString::from).collect();
     let paths = send_paths(&argv, Path::new(cwd)).unwrap_or_default();
     deliver(app.try_state::<AppState>().as_deref(), queue, &paths);
-    show_main(app);
-}
-
-/// Unminimise, show and focus the main window.
-fn show_main(app: &AppHandle) {
-    let Some(window) = app.get_webview_window(MAIN_WINDOW) else {
-        return;
-    };
-    let shown = window
-        .unminimize()
-        .and_then(|()| window.show())
-        .and_then(|()| window.set_focus());
-    if let Err(error) = shown {
-        tracing::warn!(%error, "could not bring the window to the front");
-    }
+    crate::tray::open_main(app);
 }
 
 #[cfg(test)]

@@ -2,6 +2,7 @@
 export { AppGlyph } from './AppGlyph/AppGlyph';
 export { Badge, type Tone } from './Badge/Badge';
 export { Banner, type BannerTone } from './Banner/Banner';
+export { Bell, type BellGroup, type BellModel, type BellRow } from './Bell/Bell';
 export { Button, IconButton, LinkButton, type ButtonKind } from './Button/Button';
 export { Card } from './Card/Card';
 export { Check, LockedCheck, type CheckValue } from './Check/Check';
@@ -29,12 +30,13 @@ export { Segmented, type SegmentOption } from './Segmented/Segmented';
 export { Stat, Stats } from './Stat/Stat';
 export { Kbd, LockLine, Status } from './Status/Status';
 export { Stepper } from './Stepper/Stepper';
-export { GroupHead, Head, Muted, Note, Path, Stack } from './Text/Text';
+export { GroupHead, Head, Marked, Muted, Note, Path, Stack } from './Text/Text';
 export { Tick, type TickState } from './Tick/Tick';
 export { Log, MoveCard, Timeline, type TimelineEntry } from './Timeline/Timeline';
 export { Toast } from './Toast/Toast';
 export { Toggle } from './Toggle/Toggle';
 export { Tree, TreeRow } from './Tree/Tree';
+export { VirtualList } from './VirtualList/VirtualList';
 export {
   ChromeContext,
   useChrome,
@@ -45,7 +47,7 @@ export {
 } from './layout/chrome';
 export { Dialog, type DialogTone } from './layout/Dialog';
 export { ActionBar, FlowCenter, FlowLayout } from './layout/FlowLayout';
-export { HubLayout, PageHead, Wordmark } from './layout/HubLayout';
+export { HeaderBar, HubLayout, Wordmark } from './layout/HubLayout';
 export { Sheet, SheetNote } from './layout/Sheet';
 export { Window } from './layout/Window';
 export { ReduceMotionOverride, useMediaQuery, useReducedMotion } from './motion';

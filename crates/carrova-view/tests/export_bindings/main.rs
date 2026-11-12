@@ -22,16 +22,17 @@ use std::path::{Path, PathBuf};
 use carrova_core::lan::{Inventory, PlanSummary};
 use carrova_core::plan::SpaceNeed;
 use carrova_core::{
-    ArchiveSummary, Checklist, CodeOffer, Event, KdfStrength, PickFacts, PickKind, PickOutcome,
-    PickRejection, PickResult, Plan, PlanEdit, PlanOptions, Preset, RollbackPreview,
+    ArchiveSummary, Checklist, CodeOffer, Event, KdfStrength, Notice, PickFacts, PickKind,
+    PickOutcome, PickRejection, PickResult, Plan, PlanEdit, PlanOptions, Preset, RollbackPreview,
     RollbackReport, ScanOptions, ScanReport, Selection, SelectionEdit, SelectionIssue, SendReport,
     SessionRecord,
 };
 use carrova_platform::FileManagerStatus;
 use carrova_report::{ErrorReport, IssueDraft, ReportConsent, ReportId, ReportSummary};
 use carrova_view::ipc::{
-    About, BridgeError, BridgeEvent, CatalogEntry, EngineDefaults, Picked, PlanReview,
-    RecipesCheck, RecipesStatus, RecipesUpdate, ScanResult, SessionOpened, Settings, UpdateStatus,
+    About, AlertChannel, AlertSettings, BackgroundSettings, BridgeError, BridgeEvent, CatalogEntry,
+    EngineDefaults, Picked, PlanReview, RecipesCheck, RecipesStatus, RecipesUpdate, ScanResult,
+    SessionOpened, Settings, UpdateStatus,
 };
 use carrova_view::lan::{CodeView, InventoryView, NearbyPeer, PauseView, SummaryView};
 use carrova_view::offer::OfferedItem;
@@ -114,6 +115,9 @@ fn export_typescript_bindings() {
         RecipesCheck::export_all,
         CatalogEntry::export_all,
         Settings::export_all,
+        BackgroundSettings::export_all,
+        AlertSettings::export_all,
+        AlertChannel::export_all,
         ScanResult::<'static>::export_all,
         PlanReview::<'static>::export_all,
         UpdateStatus::export_all,
@@ -121,6 +125,7 @@ fn export_typescript_bindings() {
         EngineDefaults::export_all,
         Picked::<'static>::export_all,
         FileManagerStatus::export_all,
+        Notice::export_all,
         // Error reports (carrova-report).
         ErrorReport::export_all,
         ReportSummary::export_all,

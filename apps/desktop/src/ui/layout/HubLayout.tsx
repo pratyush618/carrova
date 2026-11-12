@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Bell } from '../Bell/Bell';
 import { cx } from '../cx';
 import { Icon } from '../Icon/Icon';
 import { useChrome } from './chrome';
@@ -24,40 +25,69 @@ export interface HubLayoutProps {
    * `flush` = the screen lays out the whole page itself (History's two panes).
    */
   readonly variant?: 'page' | 'center' | 'flush';
+  /** Page controls at the start of the header bar (a filter, a view switch). */
+  readonly tools?: ReactNode;
+  /** Replaces the main navigation (Settings lists its sections here). */
+  readonly side?: ReactNode;
   readonly children: ReactNode;
 }
 
+/** The slim bar above every hub page: its tools, then the bell at the end. */
+export function HeaderBar({
+  tools,
+  bell,
+}: {
+  readonly tools?: ReactNode;
+  readonly bell: ReactNode;
+}) {
+  return (
+    <header className="p-hubhead">
+      <div className="p-hubhead__tools">{tools}</div>
+      {bell}
+    </header>
+  );
+}
+
 /** Places: the sidebar (main navigation, bundle state at its foot), then the page. */
-export function HubLayout({ variant = 'page', children }: HubLayoutProps) {
+export function HubLayout({ variant = 'page', tools, side, children }: HubLayoutProps) {
   const { t } = useTranslation();
-  const { hubLinks, hubStatus } = useChrome();
+  const { hubLinks, hubStatus, bell } = useChrome();
   return (
     <div className="p-hub">
-      <nav className="p-side" aria-label={t('nav.label')}>
-        {hubLinks.map((link) => (
-          <button
-            key={link.id}
-            type="button"
-            className="p-side__link"
-            aria-current={link.current ? 'page' : undefined}
-            onClick={link.onSelect}
-          >
-            <Icon name={link.icon} />
-            {link.label}
-            {link.count !== undefined && <span className="p-side__count">{link.count}</span>}
-          </button>
-        ))}
-        {hubStatus && (
-          <p className={cx('p-side__foot', `p-side__foot--${hubStatus.tone}`)}>
-            <b>
-              <Icon name={hubStatus.tone === 'success' ? 'shield' : 'warn'} size="sm" />
-              {hubStatus.title}
-            </b>
-            {hubStatus.detail}
-          </p>
-        )}
-      </nav>
-      <main className={cx('p-page', variant === 'flush' && 'p-page--flush')}>
+      {side ?? (
+        <nav className="p-side" aria-label={t('nav.label')}>
+          {hubLinks.map((link) => (
+            <button
+              key={link.id}
+              type="button"
+              className="p-side__link"
+              aria-current={link.current ? 'page' : undefined}
+              onClick={link.onSelect}
+            >
+              <Icon name={link.icon} />
+              {link.label}
+              {link.live === true && <span className="p-side__live" aria-hidden="true" />}
+              {link.count !== undefined && <span className="p-side__count">{link.count}</span>}
+            </button>
+          ))}
+          {hubStatus && (
+            <p className={cx('p-side__foot', `p-side__foot--${hubStatus.tone}`)}>
+              <b>
+                <Icon name={hubStatus.tone === 'success' ? 'shield' : 'warn'} size="sm" />
+                {hubStatus.title}
+              </b>
+              {hubStatus.detail}
+            </p>
+          )}
+        </nav>
+      )}
+      <HeaderBar tools={tools} bell={bell && <Bell model={bell} />} />
+      <main
+        className={cx('p-page', variant === 'flush' && 'p-page--flush')}
+        aria-label={hubLinks.find((link) => link.current)?.label}
+        tabIndex={-1}
+        data-autofocus-fallback
+      >
         {variant === 'flush' ? (
           children
         ) : (
@@ -66,18 +96,6 @@ export function HubLayout({ variant = 'page', children }: HubLayoutProps) {
           </div>
         )}
       </main>
-    </div>
-  );
-}
-
-/** A hub page's heading row: the title, and optional controls at the end. */
-export function PageHead({ title, aside }: { readonly title: string; readonly aside?: ReactNode }) {
-  return (
-    <div className="p-page__head">
-      <h1 className="p-title" tabIndex={-1} data-autofocus>
-        {title}
-      </h1>
-      {aside}
     </div>
   );
 }

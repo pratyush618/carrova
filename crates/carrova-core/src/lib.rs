@@ -26,6 +26,7 @@ mod error;
 pub mod export;
 mod fsx;
 mod handlers;
+pub mod inbox;
 mod journal;
 pub mod kdf;
 pub mod key;
@@ -92,6 +93,7 @@ pub use error::{
     CoreError, Corruption, EncodeError, ErrorClass, ErrorKind, Hint, JournalProblem, Result,
     ResumeKeyProblem, SessionProblem,
 };
+pub use inbox::{Inbox, Notice, NoticeId, NoticeKind, RETENTION_DAYS};
 pub use kdf::KdfStrength;
 pub use key::{ArtifactId, ItemKey, ItemTarget, RootedPath};
 pub use plan::{

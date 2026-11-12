@@ -4,6 +4,7 @@ import type { FileManagerStatus } from '@/bindings/FileManagerStatus';
 import type { Settings } from '@/bindings/Settings';
 import {
   offerFileManager,
+  pausedUntil,
   recipeCheck,
   settingsModel,
   updateModel,
@@ -17,11 +18,54 @@ const SETTINGS: Settings = {
   move_defaults: { conflict_rule: 'replace', retention: 'until_dismissed', include_caches: false },
   start_in_manual: false,
   file_manager_asked: false,
+  background: { keep_running: true, start_at_login: false, lean: true },
+  alerts: {
+    system: true,
+    wake_screen: true,
+    names_on_lock_screen: false,
+    paused_until: null,
+    requests: 'popup_and_bell',
+    moves: 'popup_and_bell',
+    nearby: 'bell_only',
+    updates: 'bell_only',
+  },
 };
 
 const error = { code: 'network', message: 'Offline', hint: null } as const;
 
 describe('settings views', () => {
+  it('says closing minimises where the desktop has no tray', () => {
+    const about = {
+      app_version: '1',
+      engine_version: '1',
+      device_name: null,
+      os: 'linux',
+    } as const;
+    const model = (statusTray: boolean | null, keepRunning = true) =>
+      settingsModel(
+        {
+          settings: {
+            ...SETTINGS,
+            background: { ...SETTINGS.background, keep_running: keepRunning },
+          },
+          fileManager: null,
+          fileManagerFailed: false,
+          consent: 'unset',
+          reports: [],
+          recipes: null,
+          check: idle,
+          install: idle,
+          update: idle,
+          about: statusTray === null ? null : { ...about, status_tray: statusTray },
+        },
+        new Date(),
+      ).minimisesOnClose;
+    expect(model(false)).toBe(true);
+    expect(model(true)).toBe(false);
+    expect(model(null)).toBe(false);
+    expect(model(false, false)).toBe(false);
+  });
+
   it('says "try again later" when the recipe feed is unreachable', () => {
     expect(recipeCheck({ status: 'ready', value: { kind: 'retry_later' } }, idle)).toEqual({
       status: 'retry_later',
@@ -54,22 +98,40 @@ describe('settings views', () => {
     });
   });
 
+  it('pauses alerts for an hour or until the next local midnight', () => {
+    const now = new Date(2026, 10, 12, 21, 30);
+    const seconds = (d: Date) => d.getTime() / 1000;
+    expect(pausedUntil('off', now)).toBeNull();
+    expect(pausedUntil('hour', now)).toBe(seconds(now) + 3600);
+    expect(pausedUntil('tomorrow', now)).toBe(seconds(new Date(2026, 10, 13)));
+  });
+
+  it('treats a pause as over once its time has passed', () => {
+    const now = new Date(2026, 10, 12, 21, 30);
+    const at = (seconds: number) => ({
+      settings: { ...SETTINGS, alerts: { ...SETTINGS.alerts, paused_until: seconds } },
+      fileManager: null,
+      fileManagerFailed: false,
+      consent: 'unset' as const,
+      reports: [],
+      recipes: null,
+      check: idle,
+      install: idle,
+      update: idle,
+      about: null,
+    });
+    const seconds = now.getTime() / 1000;
+    expect(settingsModel(at(seconds - 60), now).pausedUntil).toBeNull();
+    expect(settingsModel(at(seconds), now).pausedUntil).toBeNull();
+    expect(settingsModel(at(seconds + 60), now).pausedUntil).toEqual(
+      new Date((seconds + 60) * 1000),
+    );
+  });
+
   it('follows the system theme and motion unless the user chose', () => {
     const model = settingsModel(
       {
-        settings: {
-          auto_check_recipes: true,
-          auto_check_app: false,
-          theme: null,
-          reduce_motion: true,
-          move_defaults: {
-            conflict_rule: 'replace',
-            retention: 'until_dismissed',
-            include_caches: false,
-          },
-          start_in_manual: false,
-          file_manager_asked: false,
-        },
+        settings: { ...SETTINGS, auto_check_app: false, reduce_motion: true },
         fileManager: null,
         fileManagerFailed: false,
         consent: 'unset',
@@ -87,6 +149,7 @@ describe('settings views', () => {
             date: null,
           },
         },
+        about: null,
       },
       new Date(),
     );
@@ -109,6 +172,7 @@ describe('settings views', () => {
           check: idle,
           install: idle,
           update: idle,
+          about: null,
         },
         new Date(),
       );

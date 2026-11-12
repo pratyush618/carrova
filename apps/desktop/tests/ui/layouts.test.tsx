@@ -5,12 +5,13 @@ import {
   ActionBar,
   ChromeContext,
   FlowLayout,
+  HeaderBar,
   HubLayout,
   Manifest,
   Window,
   type Chrome,
 } from '@/ui';
-import { renderScreen } from '../support/render';
+import { renderScreen, testChrome } from '../support/render';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -43,6 +44,22 @@ function Flow() {
 }
 
 describe('FlowLayout', () => {
+  it('starts with a Back arrow that leaves the flow', async () => {
+    const onClose = vi.fn<() => void>();
+    render(
+      <ChromeContext
+        value={{ ...testChrome, flow: { name: 'Send', steps: ['Pick'], step: 1, onClose } }}
+      >
+        <Window>
+          <Flow />
+        </Window>
+      </ChromeContext>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: 'Close and go home' })).not.toBeInTheDocument();
+  });
+
   it('names every step and marks the current one', () => {
     renderScreen(<Flow />);
     const steps = screen.getByRole('list', { name: 'Step 1 of 4' });
@@ -151,5 +168,18 @@ describe('HubLayout', () => {
       'aria-current',
     );
     expect(nav).toHaveTextContent('Recipes up to date');
+  });
+});
+
+describe('HeaderBar', () => {
+  it('renders the tools, then the bell', () => {
+    render(
+      <HeaderBar
+        tools={<button type="button">Filter</button>}
+        bell={<button type="button">Bell</button>}
+      />,
+    );
+    const names = screen.getAllByRole('button').map((b) => b.textContent);
+    expect(names).toEqual(['Filter', 'Bell']);
   });
 });

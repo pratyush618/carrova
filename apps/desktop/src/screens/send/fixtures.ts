@@ -25,23 +25,35 @@ const app = (ref: AppRef, what: string, files: number, bytes = 0): FoundApp => (
   files,
   bytes,
   included: true,
+  changed: false,
 });
 
 const GROUPS: readonly FoundGroup[] = [
   {
     category: 'dev-tools',
+    collapsed: false,
     apps: [app(APPS.git, 'Name, email, aliases, global ignore', 2, 4 * KB)],
   },
-  { category: 'editors', apps: [app(APPS.vscode, 'Settings, keybindings, snippets', 388, GB)] },
+  {
+    category: 'editors',
+    collapsed: false,
+    apps: [app(APPS.vscode, 'Settings, keybindings, snippets', 388, GB)],
+  },
   {
     category: 'security',
+    collapsed: false,
     apps: [
       app(APPS.ssh, 'Server list and shortcuts', 3, 14 * KB),
-      { ...app(APPS.gpg, 'Public keys and trust settings', 4, 96 * KB), included: false },
+      {
+        ...app(APPS.gpg, 'Public keys and trust settings', 4, 96 * KB),
+        included: false,
+        changed: false,
+      },
     ],
   },
   {
     category: 'shells',
+    collapsed: false,
     apps: [app(APPS.shell, 'History, aliases and prompt theme', 15, 2.3 * MB)],
   },
 ];
@@ -108,6 +120,7 @@ export const foundReady = {
   groups: GROUPS,
   secrets: SECRETS,
   filter: '',
+  foundFilter: 'all',
   preset: 'suggested',
   unrecognised: 3,
   facts: FACTS,

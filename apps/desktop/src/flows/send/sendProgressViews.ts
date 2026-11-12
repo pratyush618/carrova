@@ -3,6 +3,7 @@ import type { ScanResult, SendReport } from '../../engine/types';
 import type { FlowStep } from '../../app/nav/flows';
 import type {
   DeliveredModel,
+  FoundFilter,
   FoundModel,
   LinkedModel,
   LiveModel,
@@ -76,8 +77,12 @@ export function modeSwitch(state: SendFlowState): ModeSwitchModel {
   };
 }
 
-/** "Here's what we found" (or the Manual picks), from the visible selection, narrowed to `filter`. */
-export function foundModel(state: SendFlowState, filter = ''): FoundModel {
+/** "Here's what we found" (or the Manual picks), from the visible selection, narrowed to `filter` and `foundFilter`. */
+export function foundModel(
+  state: SendFlowState,
+  filter = '',
+  foundFilter: FoundFilter = 'all',
+): FoundModel {
   if (state.mode === 'manual') return manualModel(state);
   const scan = current(state.scan);
   if (scan === null) {
@@ -91,8 +96,9 @@ export function foundModel(state: SendFlowState, filter = ''): FoundModel {
   }
   return {
     status: 'found',
-    ...filterFound(groups, secrets, filter),
+    ...filterFound(groups, secrets, filter, foundFilter),
     filter,
+    foundFilter,
     preset: activePreset(scan.selection),
     unrecognised,
     facts: moveFacts(scan),

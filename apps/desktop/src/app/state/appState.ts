@@ -36,8 +36,8 @@ export type AppAction =
 
 export const initialAppState: AppState = { sessions: {} };
 
-/** Bridge events about a session (everything but `send_requested`). */
-export type SessionBridgeEvent = Exclude<BridgeEvent, { kind: 'send_requested' }>;
+/** Bridge events about a session (everything but `send_requested` and `notice`). */
+export type SessionBridgeEvent = Exclude<BridgeEvent, { kind: 'send_requested' | 'notice' }>;
 
 /** The app action for one session bridge event, received at `now` (ms since epoch). */
 export function bridgeAction(event: SessionBridgeEvent, now: number): AppAction {

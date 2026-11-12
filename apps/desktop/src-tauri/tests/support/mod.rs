@@ -69,6 +69,10 @@ impl Events {
 }
 
 impl Emit for Events {
+    fn popup(&self, title: &str, body: &str) {
+        self.recorded.popup(title, body);
+    }
+
     fn emit(&self, event: &BridgeEvent) {
         self.recorded.emit(event);
         let json = serde_json::to_value(event).unwrap_or_default();
@@ -83,6 +87,8 @@ pub(crate) struct Machine {
     tmp: TempDir,
     pub(crate) home: PathBuf,
     pub(crate) events: Arc<Events>,
+    /// The fake the state runs on (for what only the fake can tell).
+    pub(crate) platform: FakePlatform,
     pub(crate) state: AppState,
 }
 
@@ -118,7 +124,7 @@ impl Machine {
         };
         let events = Arc::new(Events::default());
         let state = AppState::new(
-            Arc::new(platform),
+            Arc::new(platform.clone()),
             RecipeLocations {
                 dev_override: Some(tree),
                 ..RecipeLocations::default()
@@ -128,11 +134,13 @@ impl Machine {
                 kdf: |_| KdfParams::FLOOR,
                 answer_timeout: Duration::from_millis(50),
             },
-        );
+        )
+        .unwrap();
         Self {
             tmp,
             home,
             events,
+            platform,
             state,
         }
     }

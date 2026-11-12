@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next';
 import { isNearDay } from '../../i18n/format';
 import type { Formatters } from '../../i18n/useFormat';
-import type { IconName, Tone } from '../../ui';
+import type { IconName } from '../../ui';
 import type { HistoryEntry, MoveKind } from './model';
 
 /** The glyph for each kind of move. */
@@ -34,24 +34,44 @@ export function moveSub(entry: HistoryEntry, now: Date, t: TFunction, format: Fo
   return t('history.when', { when, summary });
 }
 
-/** A move's status chip. */
-export interface MoveTag {
-  readonly tone: Tone;
-  readonly icon?: IconName;
-  readonly label: string;
+/** The exceptions a History row calls out; a normal move carries none. */
+export type MoveTag = 'interrupted' | 'undone' | 'undo_expired';
+
+/**
+ * Undone, stopped (interrupted or failed), or an undo point past its time; `null`
+ * for any other move. A removed undo point is not told apart from one never made.
+ */
+export function moveTag(entry: HistoryEntry): MoveTag | null {
+  if (entry.kind === 'undone') return 'undone';
+  if (entry.resumable || entry.state === 'failed') return 'interrupted';
+  return entry.undoExpired ? 'undo_expired' : null;
 }
 
-/** Undone, failed, interrupted, or how it finished; `null` for a move that never got going. */
-export function moveTag(entry: HistoryEntry, t: TFunction): MoveTag | null {
-  if (entry.kind === 'undone')
-    return { tone: 'neutral', icon: 'undo', label: t('history.tag.undone') };
-  if (entry.state === 'failed') return { tone: 'danger', label: t('history.tag.failed') };
-  if (entry.resumable) return { tone: 'warning', label: t('history.interrupted') };
-  if (entry.state !== 'done') return null;
-  if (entry.kind === 'saved') return { tone: 'neutral', label: t('history.tag.saved') };
-  if (entry.kind === 'sent')
-    return { tone: 'success', icon: 'check', label: t('history.tag.sent') };
-  return { tone: 'success', icon: 'check', label: t('history.tag.arrived') };
+/** The History header's views of the list, in order. */
+export const MOVE_FILTERS = ['all', 'sent', 'received', 'files'] as const;
+export type MoveFilter = (typeof MOVE_FILTERS)[number];
+
+/** Which kinds of move each view keeps (an undone move was a received one). */
+const FILTER_KINDS: Record<MoveFilter, readonly MoveKind[] | null> = {
+  all: null,
+  sent: ['sent'],
+  received: ['received', 'undone'],
+  files: ['saved', 'opened'],
+};
+
+/** The moves in view `filter` whose other side's name contains `query`. */
+export function visibleMoves(
+  entries: readonly HistoryEntry[],
+  filter: MoveFilter,
+  query: string,
+): HistoryEntry[] {
+  const kinds = FILTER_KINDS[filter];
+  const needle = query.trim().toLocaleLowerCase();
+  return entries.filter(
+    (e) =>
+      (kinds === null || kinds.includes(e.kind)) &&
+      (e.peer ?? '').toLocaleLowerCase().includes(needle),
+  );
 }
 
 /** Consecutive entries that share a label ("Today", "October 2026"), in order. */

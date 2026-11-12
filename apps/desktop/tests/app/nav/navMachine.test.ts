@@ -19,7 +19,7 @@ describe('flows', () => {
 
 describe('navigate', () => {
   it('opens on Home', () => {
-    expect(atHome).toEqual({ view: { kind: 'hub', page: 'home' }, overlays: [] });
+    expect(atHome).toEqual({ view: { kind: 'hub', page: 'home' }, origin: 'home', overlays: [] });
   });
 
   it('walks the send flow forward and lands Home after the last step', () => {
@@ -51,6 +51,15 @@ describe('navigate', () => {
     expect(navigate(mid, { type: 'closeFlow' })).toEqual(atHome);
   });
 
+  it('returns to the page a flow began on when it is closed or backed out of', () => {
+    const history = run(atHome, { type: 'openHub', page: 'history' });
+    const send = run(history, { type: 'startFlow', flow: 'send' });
+    const histView = { kind: 'hub', page: 'history' };
+    expect(run(send, { type: 'closeFlow' }).view).toEqual(histView);
+    expect(run(send, { type: 'back' }).view).toEqual(histView);
+    expect(run(send, { type: 'next' }, { type: 'closeFlow' }).view).toEqual(histView);
+  });
+
   it('ignores flow steps outside a flow', () => {
     expect(navigate(atHome, { type: 'next' })).toBe(atHome);
     expect(navigate(atHome, { type: 'closeFlow' })).toBe(atHome);
@@ -78,7 +87,17 @@ describe('navigate', () => {
     });
     expect(undone).toEqual({
       view: { kind: 'flow', at: { flow: 'undo', step: 'result' } },
+      origin: 'home',
       overlays: [],
     });
+  });
+
+  it('opens Settings on a section and back returns to the page it was opened from', () => {
+    const history = navigate(atHome, { type: 'openHub', page: 'history' });
+    const settings = navigate(history, { type: 'openHub', page: 'settings' });
+    expect(settings.view).toEqual({ kind: 'hub', page: 'settings', section: 'general' });
+    const moves = navigate(settings, { type: 'openHub', page: 'settings', section: 'moves' });
+    expect(moves.view).toEqual({ kind: 'hub', page: 'settings', section: 'moves' });
+    expect(navigate(moves, { type: 'back' }).view).toEqual({ kind: 'hub', page: 'history' });
   });
 });

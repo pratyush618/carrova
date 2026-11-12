@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import type { ConflictRule } from '../../engine/types';
-import { Row, Segmented, Toggle, type SegmentOption } from '../../ui';
+import { Row, Segmented, type SegmentOption } from '../../ui';
 import { retentionChoices, retentionOf, retentionValue } from '../shared/retention';
 import { Group } from './Group';
 import type { SettingsIntents, SettingsModel } from './model';
+import { ROW_TITLE } from './sections';
 
 const RULES: readonly ConflictRule[] = ['replace', 'keep-both', 'skip'];
 
@@ -31,10 +32,10 @@ export function MovesGroup({
   return (
     <Group title={t('settings.moves.group')} sub={t('settings.moves.sub')}>
       <Row
-        title={t('settings.moves.rule')}
+        title={t(ROW_TITLE.conflictRule)}
         trail={
           <Segmented
-            label={t('settings.moves.rule')}
+            label={t(ROW_TITLE.conflictRule)}
             options={rules}
             value={defaults.conflict_rule}
             onChange={(conflict_rule) => {
@@ -44,27 +45,14 @@ export function MovesGroup({
         }
       />
       <Row
-        title={t('settings.moves.retention')}
+        title={t(ROW_TITLE.retention)}
         trail={
           <Segmented
-            label={t('settings.moves.retention')}
+            label={t(ROW_TITLE.retention)}
             options={retentions}
             value={retentionValue(defaults.retention)}
             onChange={(value) => {
               on.onMoveDefaults({ retention: retentionOf(value) });
-            }}
-          />
-        }
-      />
-      <Row
-        title={t('settings.moves.caches')}
-        sub={t('settings.moves.cachesSub')}
-        trail={
-          <Toggle
-            on={defaults.include_caches}
-            label={t('settings.moves.caches')}
-            onChange={(include_caches) => {
-              on.onMoveDefaults({ include_caches });
             }}
           />
         }

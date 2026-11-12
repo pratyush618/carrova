@@ -59,6 +59,12 @@ export const ICONS = {
   clock: ['M12 3.6a8.4 8.4 0 1 0 0 16.8 8.4 8.4 0 0 0 0-16.8zM12 7.8V12l3 1.8'],
   archive: ['M3.6 5.4h16.8v4.2H3.6zM5.4 9.6v9h13.2V9.6M9.6 13.2h4.8'],
   external: ['M10.2 4.8H4.8v14.4h14.4v-5.4M13.8 4.8H19.2v5.4M19.2 4.8l-8.4 8.4'],
+  // Settings sections (mockup `P`, scaled from its 20-unit grid).
+  bell: ['M6.6 16.2V10.8a5.4 5.4 0 0 1 10.8 0v5.4l1.8 1.8H4.8zM10.2 20.4h3.6'],
+  radar: [
+    'M12 18.6v.2M8.64 15.36a4.8 4.8 0 0 1 6.72 0M5.52 12.24a9.12 9.12 0 0 1 12.96 0M2.64 9.12a13.2 13.2 0 0 1 18.72 0',
+  ],
+  refresh: ['M19.2 12a7.2 7.2 0 1 1-2.16-5.16M19.2 4.2v3.6h-3.6'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconName = keyof typeof ICONS;

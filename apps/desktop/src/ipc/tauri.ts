@@ -70,6 +70,9 @@ export function createTauriPort(): CarrovaPort {
     rollbackPreview: (session) => call('rollback_preview', { session }),
     dismiss: (session) => call('dismiss', { session }),
 
+    notices: () => call('notices'),
+    markNoticesRead: (ids) => call('mark_notices_read', { ids: ids === 'all' ? null : ids }),
+
     catalog: () => call('catalog'),
     recipesStatus: () => call('recipes_status'),
     recipesCheck: () => call('recipes_check'),
@@ -79,9 +82,10 @@ export function createTauriPort(): CarrovaPort {
     about: () => call('about'),
 
     settings: () => call('settings'),
-    saveSettings: (settings) => call('save_settings', { settings }),
+    saveSettings: (patch) => call('save_settings', { patch }),
     fileManagerStatus: () => call('file_manager_status'),
     setFileManagerEntries: (on) => call('set_file_manager_entries', { on }),
+    setBackground: (patch) => call('set_background', { patch }),
 
     checkUpdate: () => call('check_update'),
     installUpdate: async (version) => {

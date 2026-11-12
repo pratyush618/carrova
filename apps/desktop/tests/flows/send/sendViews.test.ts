@@ -125,6 +125,22 @@ describe('send views', () => {
     expect(ssh?.what.split(', ').length).toBe(ordinary);
   });
 
+  it('marks an app changed when one of its items differs from the suggestion', () => {
+    // Neovim suggests its config but not its plugins; ticking the plugins changes it.
+    const plugins = scan.selection.items['neovim/plugins'];
+    if (plugins === undefined) throw new Error('fixture lost neovim/plugins');
+    const edited = {
+      ...scan,
+      selection: {
+        ...scan.selection,
+        items: { ...scan.selection.items, 'neovim/plugins': { ...plugins, included: true } },
+      },
+    };
+    const neovim = (result: typeof scan) => foundApps(result).find((a) => a.id === 'neovim');
+    expect(neovim(scan)?.changed).toBe(false);
+    expect(neovim(edited)?.changed).toBe(true);
+  });
+
   it('shows paths under their real folder, home as ~', () => {
     const dirs = { home: '/home/ana', user_config: '/home/ana/.config' };
     expect(displayPath('user_config:git/config', dirs)).toBe('~/.config/git/config');
@@ -139,16 +155,58 @@ describe('send views', () => {
 
   it('filters found apps and secrets by app or item name, dropping emptied groups', () => {
     const all = { groups: foundGroups(scan), secrets: secretItems(scan) };
-    expect(filterFound(all.groups, all.secrets, '  ')).toEqual(all);
-    const ssh = filterFound(all.groups, all.secrets, 'SSH');
+    expect(filterFound(all.groups, all.secrets, '  ', 'all')).toEqual(all);
+    const ssh = filterFound(all.groups, all.secrets, 'SSH', 'all');
     expect(ssh.groups.map((g) => g.category)).toEqual(['security']);
     expect(ssh.groups.flatMap((g) => g.apps.map((a) => a.id))).toEqual(['ssh']);
     expect(ssh.secrets.every((s) => s.app.id === 'ssh')).toBe(true);
     expect(ssh.secrets.length).toBeGreaterThan(0);
-    expect(filterFound(all.groups, all.secrets, 'no such app')).toEqual({
+    expect(filterFound(all.groups, all.secrets, 'no such app', 'all')).toEqual({
       groups: [],
       secrets: [],
     });
+  });
+
+  it('changed-by-you filter lists only rows differing from the suggestion', () => {
+    const app = (id: string, included: boolean, changed: boolean, bytes = 1) => ({
+      id,
+      glyph: id,
+      name: id,
+      what: '',
+      files: 1,
+      bytes,
+      included,
+      changed,
+    });
+    const groups = [
+      {
+        category: 'a',
+        collapsed: true,
+        apps: [app('kept', true, false), app('added', true, true)],
+      },
+      {
+        category: 'b',
+        collapsed: true,
+        apps: [app('dropped', false, true, 9), app('left', false, false, 5)],
+      },
+    ];
+    const ids = (view: 'all' | 'ticked' | 'changed' | 'largest') =>
+      filterFound(groups, [], '', view).groups.flatMap((g) => g.apps.map((a) => a.id));
+    expect(ids('changed')).toEqual(['added', 'dropped']);
+    expect(ids('ticked')).toEqual(['kept', 'added']);
+    expect(ids('largest')).toEqual(['dropped', 'left', 'kept', 'added']);
+    expect(filterFound(groups, [], '', 'changed').groups.every((g) => !g.collapsed)).toBe(true);
+  });
+
+  it('collapses every group of a big machine, until a filter or search narrows it', () => {
+    const apps = Array.from({ length: 8 }, () => scan.report.apps).flat();
+    const big = foundGroups({ ...scan, report: { ...scan.report, apps } });
+    expect(big.flatMap((g) => g.apps).length).toBeGreaterThan(30);
+    expect(big.every((g) => g.collapsed)).toBe(true);
+    expect(filterFound(big, [], '', 'all').groups.every((g) => g.collapsed)).toBe(true);
+    expect(filterFound(big, [], 'a', 'all').groups.every((g) => !g.collapsed)).toBe(true);
+    expect(filterFound(big, [], '', 'ticked').groups.every((g) => !g.collapsed)).toBe(true);
+    expect(foundGroups(scan).every((g) => !g.collapsed)).toBe(true);
   });
 
   it('names the preset the selection matches, ignoring keys (they are asked one by one)', () => {

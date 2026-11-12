@@ -134,6 +134,15 @@ impl Registry {
         Ok(())
     }
 
+    /// Whether a pairing, an opening or a session's call is running now.
+    pub fn busy(&self) -> bool {
+        self.connecting_lock().is_some()
+            || self
+                .lock()
+                .values()
+                .any(|e| e.live.as_ref().is_none_or(Live::is_busy))
+    }
+
     /// Start a pairing: its cancel token, also kept for
     /// [`Self::cancel_connect`]. One pairing at a time.
     ///

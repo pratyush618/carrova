@@ -1,10 +1,17 @@
+import type { SettingsSection } from '../../../screens/settings/sections';
 import type { HubPage, View } from '../../nav/navMachine';
 import { AppsRoute, HistoryRoute, HomeRoute, SettingsRoute } from './HubRoutes';
 import { OpenRoute, ReceiveRoute } from './ReceiveRoutes';
 import { SaveRoute, SendRoute } from './SendRoutes';
 import { UndoRoute } from './UndoRoute';
 
-function HubRoute({ page }: { readonly page: HubPage }) {
+function HubRoute({
+  page,
+  section = 'general',
+}: {
+  readonly page: HubPage;
+  readonly section?: SettingsSection | undefined;
+}) {
   switch (page) {
     case 'home':
       return <HomeRoute />;
@@ -13,7 +20,7 @@ function HubRoute({ page }: { readonly page: HubPage }) {
     case 'apps':
       return <AppsRoute />;
     case 'settings':
-      return <SettingsRoute />;
+      return <SettingsRoute section={section} />;
   }
 }
 
@@ -21,7 +28,7 @@ function HubRoute({ page }: { readonly page: HubPage }) {
 export function ViewRoute({ view }: { readonly view: View }) {
   switch (view.kind) {
     case 'hub':
-      return <HubRoute page={view.page} />;
+      return <HubRoute page={view.page} section={view.section} />;
     case 'flow': {
       const { at } = view;
       switch (at.flow) {

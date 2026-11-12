@@ -13,11 +13,11 @@ pub async fn settings(state: State<'_, AppState>) -> Result<Settings, CommandErr
     ops::settings::load(&state).await
 }
 
-/// `CarrovaPort.saveSettings`.
+/// `CarrovaPort.saveSettings`: `patch` holds only the changed fields.
 #[tauri::command]
 pub async fn save_settings(
     state: State<'_, AppState>,
-    settings: Settings,
+    patch: serde_json::Value,
 ) -> Result<(), CommandError> {
-    ops::settings::save(&state, settings).await
+    ops::settings::save(&state, patch).await
 }

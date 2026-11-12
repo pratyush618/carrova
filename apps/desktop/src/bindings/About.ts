@@ -21,4 +21,9 @@ device_name: string | null,
 /**
  * OS family.
  */
-os: OsKind, };
+os: OsKind, 
+/**
+ * The desktop shows status-tray icons; without one, closing the
+ * window minimises it instead of going to the tray.
+ */
+status_tray: boolean, };

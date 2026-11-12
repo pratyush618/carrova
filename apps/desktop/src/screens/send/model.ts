@@ -17,11 +17,15 @@ export interface FoundApp extends AppRef {
   readonly files: number;
   readonly bytes: Bytes;
   readonly included: boolean;
+  /** One of its items differs from what the recipe suggests: the user changed it. */
+  readonly changed: boolean;
 }
 
 /** Apps of one recipe category (`dev-tools`), in the scan's order. */
 export interface FoundGroup {
   readonly category: string;
+  /** Shown as one line until opened (a big machine, nothing searched or narrowed). */
+  readonly collapsed: boolean;
   readonly apps: readonly FoundApp[];
 }
 
@@ -109,6 +113,10 @@ export const FOUND_PRESETS = [
 ] as const satisfies readonly Preset[];
 export type FoundPreset = (typeof FOUND_PRESETS)[number];
 
+/** The views of the found apps, in order ("All · Ticked · Changed by you · Largest"). */
+export const FOUND_FILTERS = ['all', 'ticked', 'changed', 'largest'] as const;
+export type FoundFilter = (typeof FOUND_FILTERS)[number];
+
 /** "Here's what we found": scanning, nothing, or the suggested selection. */
 export type FoundModel =
   | {
@@ -125,6 +133,8 @@ export type FoundModel =
       readonly secrets: readonly SecretItem[];
       /** The view filter's text: front-end only, the selection ignores it. */
       readonly filter: string;
+      /** Which apps the list shows, beside the text filter. */
+      readonly foundFilter: FoundFilter;
       /** The preset the selection still matches; `null` once edited. */
       readonly preset: FoundPreset | null;
       /** Folders no recipe covers (any size): they can come too, as plain files. */
@@ -160,6 +170,7 @@ export interface FoundIntents {
   /** Opens a plugin's consent: what it may do, allow it or leave its items. */
   readonly onReviewPlugin: (plugin: string) => void;
   readonly onFilter: (text: string) => void;
+  readonly onFoundFilter: (view: FoundFilter) => void;
   /** Start over from a preset (keys keep their own answers). */
   readonly onPreset: (preset: FoundPreset) => void;
   readonly onCustomize: () => void;

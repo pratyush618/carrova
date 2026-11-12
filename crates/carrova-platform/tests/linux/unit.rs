@@ -507,3 +507,19 @@ fn device_name_is_the_sanitised_kernel_host_name() {
     let p = LinuxPlatform::new(env_home("/home/u"));
     assert_eq!(p.device_name(), Some(kernel.trim().to_owned()));
 }
+
+#[test]
+fn the_lock_comes_from_the_first_service_that_answers() {
+    use super::screen::lock_from;
+    use crate::ScreenLock::{Locked, Unknown, Unlocked};
+    let answers = |gnome: Option<bool>, freedesktop: Option<bool>| {
+        lock_from(|service| match service {
+            "org.gnome.ScreenSaver" => gnome,
+            _ => freedesktop,
+        })
+    };
+    assert_eq!(answers(Some(false), None), Unlocked);
+    assert_eq!(answers(Some(true), Some(false)), Locked);
+    assert_eq!(answers(None, Some(true)), Locked);
+    assert_eq!(answers(None, None), Unknown);
+}

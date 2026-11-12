@@ -4,7 +4,6 @@ import { useNav } from '../nav';
 import {
   AboutOverlay,
   ForgetOverlay,
-  RecipeOverlay,
   ReportOverlay,
   UndoConfirmOverlay,
   UpdateOverlay,
@@ -46,8 +45,6 @@ export function OverlayRoute({ overlay }: { readonly overlay: Overlay }) {
       return <UndoConfirmOverlay />;
     case 'forget':
       return <ForgetOverlay id={overlay.id} />;
-    case 'recipe':
-      return <RecipeOverlay id={overlay.id} />;
     case 'update':
       return <UpdateOverlay />;
     case 'report':
