@@ -110,7 +110,7 @@ fn remembering_again_replaces_the_secret_and_keeps_name_and_history() {
     let f = Fixture::new();
     f.remember(&record(1, "laptop"), 7);
     f.devices
-        .rename(&f.platform, &public(1), "work laptop".into())
+        .rename(&f.platform, &public(1), "work laptop")
         .unwrap();
     let again = DeviceRecord {
         first_seen: 500,
@@ -241,9 +241,7 @@ fn key_file_others_can_read_is_refused() {
 fn rename_keeps_identity() {
     let f = Fixture::new();
     f.remember(&record(1, "laptop"), 7);
-    f.devices
-        .rename(&f.platform, &public(1), "studio".into())
-        .unwrap();
+    f.devices.rename(&f.platform, &public(1), "studio").unwrap();
     let listed = f.devices.list(&f.platform).unwrap();
     assert_eq!(listed[0].public, public(1));
     assert_eq!(listed[0].name, "studio");
@@ -255,9 +253,25 @@ fn rename_of_unknown_device_fails() {
     let f = Fixture::new();
     let err = f
         .devices
-        .rename(&f.platform, &public(1), "studio".into())
+        .rename(&f.platform, &public(1), "studio")
         .unwrap_err();
     assert!(matches!(err, CoreError::UnknownDevice), "{err:?}");
+}
+
+#[test]
+fn rename_cleans_the_name_and_refuses_an_empty_one() {
+    let f = Fixture::new();
+    f.remember(&record(1, "laptop"), 7);
+    let err = f
+        .devices
+        .rename(&f.platform, &public(1), " \u{202e}\n ")
+        .unwrap_err();
+    assert!(matches!(err, CoreError::InvalidDeviceName), "{err:?}");
+    let long = format!("  studio\u{7}{}", "x".repeat(500));
+    f.devices.rename(&f.platform, &public(1), &long).unwrap();
+    let name = &f.devices.list(&f.platform).unwrap()[0].name;
+    assert!(name.starts_with("studiox"), "{name}");
+    assert_eq!(name.chars().count(), carrova_core::lan::MAX_DEVICE_NAME - 2);
 }
 
 #[test]
@@ -271,9 +285,7 @@ fn corrupt_store_is_reported_not_overwritten() {
             .remember(&f.platform, record(2, "desk"), &known(8))
             .unwrap_err(),
         f.devices.forget(&f.platform, &public(1)).unwrap_err(),
-        f.devices
-            .rename(&f.platform, &public(1), "x".into())
-            .unwrap_err(),
+        f.devices.rename(&f.platform, &public(1), "x").unwrap_err(),
     ] {
         assert!(matches!(err, CoreError::CorruptFile { .. }), "{err:?}");
     }

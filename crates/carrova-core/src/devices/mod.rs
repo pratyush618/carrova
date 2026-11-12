@@ -33,6 +33,7 @@ use serde::{Deserialize, Serialize};
 pub use record::DeviceRecord;
 
 use crate::error::{CoreError, Corruption, EncodeError, Result};
+use crate::lan::clean_device_name;
 use crate::store::{ensure_dir, read_file, secret_file, write_atomic};
 
 /// This device's identity key, in the state dir.
@@ -144,8 +145,12 @@ impl KnownDevices {
         Ok(bytes.map(|b| KnownSecret::from_bytes(*b)))
     }
 
-    /// Give a known device a new local name.
-    pub fn rename(&self, platform: &dyn Platform, id: &DeviceId, name: String) -> Result<()> {
+    /// Give a known device a new local name, cleaned like a peer's
+    /// announced name (control and bidi characters dropped, trimmed, at
+    /// most [`MAX_DEVICE_NAME`](crate::lan::MAX_DEVICE_NAME) characters).
+    /// [`CoreError::InvalidDeviceName`] if nothing is left.
+    pub fn rename(&self, platform: &dyn Platform, id: &DeviceId, name: &str) -> Result<()> {
+        let name = clean_device_name(name).ok_or(CoreError::InvalidDeviceName)?;
         let _lock = self.lock(platform)?;
         let mut file = self.load(platform)?;
         let device = file

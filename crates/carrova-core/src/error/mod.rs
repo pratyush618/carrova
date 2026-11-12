@@ -141,6 +141,9 @@ pub enum CoreError {
     /// No known device matches (forget, rename or a typed fingerprint).
     #[error("known devices: no known device matches")]
     UnknownDevice,
+    /// A new device name has nothing left to show once cleaned.
+    #[error("known devices: a device name needs at least one visible character")]
+    InvalidDeviceName,
     /// A typed fingerprint matches several known devices.
     #[error("known devices: {matches} devices match; use the full key")]
     AmbiguousDevice { matches: usize },
