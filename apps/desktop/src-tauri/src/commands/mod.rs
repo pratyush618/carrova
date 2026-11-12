@@ -6,6 +6,7 @@
 //! the one place a failed command becomes an error report.
 
 pub mod background;
+pub mod devices;
 pub mod inbox;
 pub mod integration;
 pub mod receive;
