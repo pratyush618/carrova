@@ -13,11 +13,11 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::DeviceId;
-use carrova_platform::Platform;
+use carrova_platform::{DirWatch, Platform};
 use carrova_transport::{KnownTags, MAX_KNOWN_TAGS, PresenceAdvert, PresenceBeacon};
 use serde::{Deserialize, Serialize};
 
-use crate::devices::KnownDevices;
+use crate::devices::{DEVICES_DIR, KnownDevices};
 use crate::engine::Engine;
 use crate::error::{CoreError, EncodeError, Result};
 use crate::lan::{clean_device_name, known_by_recent_use};
@@ -30,7 +30,12 @@ use crate::time::now_unix;
 pub const REFRESH: Duration = Duration::from_secs(10 * 60);
 
 /// How often a running [`Presence`] checks the saved visibility and known
-/// devices, so a change made elsewhere (the CLI) applies within this long.
+/// devices where the platform cannot watch the state dir for changes
+/// (macOS, Windows, or no inotify watch to spare), so a change made
+/// elsewhere (the CLI) applies within this long. Watched, it applies at
+/// once and nothing is checked on a timer.
+// shortcut: polls every 5 s on macOS/Windows, add FSEvents/ReadDirectoryChangesW
+// when those ship background presence.
 pub const POLL: Duration = Duration::from_secs(5);
 
 /// How long "everyone" lasts when the user picks it
@@ -158,8 +163,9 @@ pub fn advert(
 /// on [`Self::stop`] or drop.
 ///
 /// It follows the saved visibility ([`save_visibility`]) and the known
-/// devices within [`POLL`], wherever they were changed (the CLI too);
-/// [`set`](Self::set) applies a visibility at once.
+/// devices wherever they were changed (the CLI too): at once when the
+/// state dir is reported changed ([`Platform::watch_dirs`]), else within
+/// [`POLL`]. [`set`](Self::set) applies a visibility at once.
 ///
 /// The "everyone" deadline is wall-clock time, waited for with a
 /// monotonic timer and re-checked against the clock on every wake: if the
@@ -167,8 +173,19 @@ pub fn advert(
 /// most [`REFRESH`]).
 #[derive(Debug)]
 pub struct Presence {
-    visibility: Option<mpsc::Sender<Visibility>>,
+    /// Holds a sender too: dropped before `wakes` so the thread
+    /// sees the channel close.
+    watch: Option<DirWatch>,
+    wakes: Option<mpsc::Sender<Wake>>,
     thread: Option<JoinHandle<()>>,
+}
+
+/// Why a running presence wakes, besides its advert's own deadline.
+enum Wake {
+    /// [`Presence::set`].
+    Set(Visibility),
+    /// The saved state may have changed.
+    Saved,
 }
 
 impl Presence {
@@ -179,13 +196,16 @@ impl Presence {
     pub fn start(engine: &Engine, visibility: Visibility) -> Self {
         let platform = Arc::clone(engine.platform());
         let (tx, rx) = mpsc::channel();
+        let watch = watch_saved(platform.as_ref(), tx.clone());
+        let poll = watch.is_none().then_some(POLL);
         let thread = thread::Builder::new()
             .name("carrova-presence".into())
-            .spawn(move || run(platform.as_ref(), visibility, &rx))
+            .spawn(move || run(platform.as_ref(), visibility, &rx, poll))
             .inspect_err(|e| tracing::warn!(error = %e, "presence could not start"))
             .ok();
         Self {
-            visibility: Some(tx),
+            watch,
+            wakes: Some(tx),
             thread,
         }
     }
@@ -193,9 +213,9 @@ impl Presence {
     /// Advertise under `visibility` from now on (fresh instance and tags,
     /// the known devices read again).
     pub fn set(&self, visibility: Visibility) {
-        if let Some(tx) = &self.visibility {
+        if let Some(tx) = &self.wakes {
             // The thread only ends when this handle drops the sender.
-            let _ = tx.send(visibility);
+            let _ = tx.send(Wake::Set(visibility));
         }
     }
 
@@ -208,7 +228,8 @@ impl Presence {
 
 impl Drop for Presence {
     fn drop(&mut self) {
-        self.visibility.take();
+        self.watch.take();
+        self.wakes.take();
         if let Some(thread) = self.thread.take()
             && thread.join().is_err()
         {
@@ -217,11 +238,37 @@ impl Drop for Presence {
     }
 }
 
+/// Report a possible change of the saved state on `wakes` whenever the
+/// state dir or the known-device dir changes. `None` (logged) where the
+/// platform cannot watch them: then the caller polls.
+fn watch_saved(platform: &dyn Platform, wakes: mpsc::Sender<Wake>) -> Option<DirWatch> {
+    let watch = || -> Result<DirWatch> {
+        let dir = platform.state_dir()?;
+        // Watched before anything is saved: the dir must exist to be.
+        ensure_dir(platform, &dir, 0o700)?;
+        let dirs = [dir.join(DEVICES_DIR), dir];
+        let changed = Box::new(move || {
+            let _ = wakes.send(Wake::Saved);
+        });
+        Ok(platform.watch_dirs(&dirs, changed)?)
+    };
+    watch()
+        .inspect_err(
+            |e| tracing::debug!(error = %e, "presence: saved state checked every {POLL:?}"),
+        )
+        .ok()
+}
+
 /// Advertise under `visibility`, again at each [`next_wake`], and at once
 /// when told a new one or when the saved visibility or known devices
-/// change (checked every [`POLL`]), until the sender of `changes` is
-/// dropped.
-fn run(platform: &dyn Platform, mut visibility: Visibility, changes: &mpsc::Receiver<Visibility>) {
+/// change (on a [`Wake::Saved`], or checked every `poll`), until every
+/// sender of `wakes` is dropped.
+fn run(
+    platform: &dyn Platform,
+    mut visibility: Visibility,
+    wakes: &mpsc::Receiver<Wake>,
+    poll: Option<Duration>,
+) {
     let mut seen = Saved::read(platform);
     loop {
         let now = now_unix();
@@ -230,17 +277,18 @@ fn run(platform: &dyn Platform, mut visibility: Visibility, changes: &mpsc::Rece
         let _beacon = start(platform, visibility, now);
         let refresh_at = next_wake(visibility, now).map(|wait| Instant::now() + wait);
         loop {
-            let wait = refresh_at.map_or(POLL, |at| {
-                POLL.min(at.saturating_duration_since(Instant::now()))
-            });
-            match changes.recv_timeout(wait) {
-                Ok(next) => {
+            let wake = match wait(refresh_at, poll, Instant::now()) {
+                Some(wait) => wakes.recv_timeout(wait),
+                None => wakes.recv().map_err(|_| RecvTimeoutError::Disconnected),
+            };
+            match wake {
+                Ok(Wake::Set(next)) => {
                     visibility = next;
                     seen = Saved::read(platform);
                     break;
                 }
                 Err(RecvTimeoutError::Disconnected) => return,
-                Err(RecvTimeoutError::Timeout) => {}
+                Ok(Wake::Saved) | Err(RecvTimeoutError::Timeout) => {}
             }
             let saved = Saved::read(platform);
             if saved != seen {
@@ -304,6 +352,13 @@ fn next_wake(visibility: Visibility, now: u64) -> Option<Duration> {
         Visibility::Known => Some(REFRESH),
         Visibility::Everyone { until } => Some(REFRESH.min(Duration::from_secs(until - now))),
     }
+}
+
+/// How long to wait for a [`Wake`] at `now`: until `refresh_at`, or one
+/// `poll` if sooner; `None` (no timer at all) when neither is set.
+fn wait(refresh_at: Option<Instant>, poll: Option<Duration>, now: Instant) -> Option<Duration> {
+    let due = refresh_at.map(|at| at.saturating_duration_since(now));
+    due.into_iter().chain(poll).min()
 }
 
 /// A beacon announcing what `visibility` allows at `now` (none if

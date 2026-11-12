@@ -5,6 +5,7 @@
 #[expect(dead_code, reason = "shared test helpers; this test uses a subset")]
 #[path = "../support/mod.rs"]
 mod common;
+mod follow;
 #[expect(dead_code, reason = "shared test helpers; this test uses a subset")]
 #[path = "../support/lan.rs"]
 mod lan_support;
@@ -12,7 +13,7 @@ mod visibility;
 
 use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::lan::{NearbyDevice, browse_nearby};
-use carrova_core::presence::{POLL, Presence, Visibility, advert, save_visibility};
+use carrova_core::presence::{Presence, Visibility, advert, save_visibility};
 use carrova_core::time::now_unix;
 use carrova_core::{Importer, PlanOptions};
 use carrova_crypto::identity::{DeviceKey, DevicePublic};
@@ -406,7 +407,12 @@ fn a_running_presence_follows_the_saved_visibility() {
     let side = Side::named(Some(&name));
     let presence = Presence::start(&side.engine, Visibility::NoOne);
     let stranger = Side::new();
-    let settle = || std::thread::sleep(POLL + std::time::Duration::from_millis(500));
+    let state = side.platform.state_dir().unwrap();
+    // As the platform reports a file saved there (the CLI's).
+    let settle = || {
+        side.platform.fire_dir_change(&state);
+        std::thread::sleep(std::time::Duration::from_millis(300));
+    };
 
     let everyone = Visibility::Everyone {
         until: now_unix() + 60,
