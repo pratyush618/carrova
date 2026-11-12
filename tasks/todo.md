@@ -586,8 +586,9 @@ Follow-ups (after PR #9):
 - [x] Nearby map: devices clear the pill, card, centre and each other at 720×560 / 1100×520 / 1440×900, inner ring nearer than outer (e2e overlap + ring-order checks)
 - [x] Nearby map density: fixed collision-free slots per ring (`SLOTS` in `screens/nearby/spots.ts`, more open as the field widens: 7 devices at 508 px, 13 at 888, 18 at 1228), sticky placement (`place.ts`), pills capped at 164 px with an ellipsis + title, and a "+N more" chip that opens the List view; tests/screens/nearby/spots.test.ts checks every open slot + the chip at once at every width (PR #9 CodeRabbit review 5871734187)
 - [x] macOS/Windows wake hints: `neighbour_mac` via `arp -an` / `ARP.EXE -a`, shared pure parsers (`neighbours.rs`), IPv4 only
-- [x] macOS/Windows file watch: `watch_dirs` via `notify`; presence polls only when a watch fails; tray follows CLI visibility on all OSes (limit: Windows watch dies if a dir is deleted + re-created within 2 s)
+- [x] macOS/Windows file watch: `watch_dirs` via `notify`; presence polls only when a watch fails; tray follows CLI visibility on all OSes (a dir re-created between rechecks is re-watched by dir identity)
 - [x] macOS device name: `scutil --get ComputerName`, host-name fallback
 - [ ] Real-hardware check of known devices / Nearby / Wake on Windows and macOS (Phase 5 exit gate)
+- [x] Robustness round: system tool runs (arp, scutil) bounded to 3 s / 64 KiB and killed on timeout; mac/Windows dir watch survives re-created dirs (fixed recheck deadline, rewatch retried up to 3x); mDNS withdraw restarts the daemon so no stale name lingers (known: ~0.8 s probe silence after a switch, broadcast covers Carrova peers); Nearby map slots/sticky seats/"+N more"/pill cap
 - Results: follow-ups verified on Linux only; mac/Windows code covered by pure-parser + shared watch tests, not real hardware.
 - [x] Move the wake-hint save policy (clear hints, rollback, error order) out of `src-tauri/ops/settings.rs` into shared code (`Settings::save_over` in carrova-view) (boundary rule 2; PR #9 CodeRabbit review 5870606766)
