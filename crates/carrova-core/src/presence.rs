@@ -29,12 +29,10 @@ use crate::time::now_unix;
 pub const REFRESH: Duration = Duration::from_secs(10 * 60);
 
 /// How often a running [`Presence`] checks the saved visibility and known
-/// devices where the platform cannot watch the state dir for changes
-/// (macOS, Windows, or no inotify watch to spare), so a change made
-/// elsewhere (the CLI) applies within this long. Watched, it applies at
-/// once and nothing is checked on a timer.
-// shortcut: polls every 5 s on macOS/Windows, add FSEvents/ReadDirectoryChangesW
-// when those ship background presence.
+/// devices where the platform cannot watch the state dir for changes (the
+/// watch refused or ended, e.g. no inotify watch to spare), so a change
+/// made elsewhere (the CLI) applies within this long. Watched, it applies
+/// at once and nothing is checked on a timer.
 pub const POLL: Duration = Duration::from_secs(5);
 
 /// How long "everyone" lasts when the user picks it
