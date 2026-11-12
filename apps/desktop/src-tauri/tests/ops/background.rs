@@ -302,3 +302,25 @@ fn a_failed_save_restores_autostart_as_it_was_not_as_saved() {
 
     assert_eq!(platform.autostart_launcher(), None);
 }
+
+#[test]
+fn a_change_that_keeps_autostart_leaves_its_entry_alone() {
+    let machine = Machine::new();
+    let (state, platform) = with_fake(&machine);
+    let on = BackgroundSettings {
+        start_at_login: true,
+        ..BackgroundSettings::default()
+    };
+    block_on(background::set_background(&state, whole(on))).unwrap();
+    // An entry Carrova did not just write (only start-up re-points it).
+    platform
+        .set_autostart(Path::new("/old/carrova"), true)
+        .unwrap();
+
+    block_on(background::set_background(&state, json!({ "lean": false }))).unwrap();
+
+    assert_eq!(
+        platform.autostart_launcher().as_deref(),
+        Some(Path::new("/old/carrova"))
+    );
+}

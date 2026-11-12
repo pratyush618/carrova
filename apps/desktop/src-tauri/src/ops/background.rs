@@ -15,10 +15,9 @@ use crate::state::AppState;
 use crate::worker::blocking;
 
 /// Apply `patch` (the changed background fields, see [`patched`]) and
-/// start at sign-in only while
-/// both "Keep running" and "Start at login" are on. Autostart changes first
-/// and goes back to how it was if the settings cannot be saved, so a
-/// failure changes neither.
+/// start at sign-in only while both "Keep running" and "Start at login" are
+/// on. Autostart changes (only if it must) first and goes back to how it
+/// was if the settings cannot be saved, so a failure changes neither.
 ///
 /// # Errors
 ///
@@ -31,10 +30,16 @@ pub async fn set_background(state: &AppState, patch: Value) -> Result<(), Comman
         let _writing = store.lock();
         let saved = store.load()?;
         let next = patched(&saved, json!({ "background": patch }))?;
-        let launcher = platform.launcher()?;
         // What the system does now, which may differ from the saved choice.
         let was_on = platform.autostart_status()?;
-        platform.set_autostart(&launcher, starts_at_login(&next.background))?;
+        let on = starts_at_login(&next.background);
+        // Untouched unless it changes: a policy may allow reading the entry
+        // but not writing it, and start-up re-points a stale launcher.
+        if on == was_on {
+            return store.save(&next);
+        }
+        let launcher = platform.launcher()?;
+        platform.set_autostart(&launcher, on)?;
         store.save(&next).inspect_err(|_| {
             let undo = platform.set_autostart(&launcher, was_on);
             if let Err(error) = undo {
