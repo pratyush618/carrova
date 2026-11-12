@@ -12,7 +12,7 @@
   block-size: 100%;
   min-block-size: 520px;
   overflow: hidden;
-  /* Field unit: 1px, shrunk so the outer orbit (290u) plus half a device pill fits a narrow field. */
+  /* Field unit: 1px, shrunk on a narrow field; which slots fit at each width is in spots.ts (`minField`). */
   container-type: inline-size;
   --u: min(1px, (50cqi - 96px) / 290);
   background: radial-gradient(
