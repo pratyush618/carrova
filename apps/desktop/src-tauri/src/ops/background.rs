@@ -7,40 +7,38 @@ use std::sync::Arc;
 use carrova_core::time::now_unix;
 use carrova_view::ipc::{BackgroundSettings, Settings};
 use carrova_view::tray::{self, CloseAction, TrayModel};
+use serde_json::{Value, json};
 
 use crate::command_error::CommandError;
+use crate::settings::patched;
 use crate::state::AppState;
 use crate::worker::blocking;
 
-/// Save `background` and start at sign-in only while both "Keep running"
-/// and "Start at login" are on. Autostart changes first and goes back if
-/// the settings cannot be saved, so a failure changes neither.
+/// Apply `patch` (the changed background fields, see [`patched`]) and
+/// start at sign-in only while
+/// both "Keep running" and "Start at login" are on. Autostart changes first
+/// and goes back if the settings cannot be saved, so a failure changes
+/// neither.
 ///
 /// # Errors
 ///
-/// The autostart entry or the settings cannot be written.
-pub async fn set_background(
-    state: &AppState,
-    background: BackgroundSettings,
-) -> Result<(), CommandError> {
+/// The autostart entry or the settings cannot be written, or the patch
+/// does not fit.
+pub async fn set_background(state: &AppState, patch: Value) -> Result<(), CommandError> {
     let platform = Arc::clone(&state.platform);
     let store = state.settings.clone();
     blocking(move || {
         let _writing = store.lock();
         let saved = store.load()?;
+        let next = patched(&saved, json!({ "background": patch }))?;
         let launcher = platform.launcher()?;
-        platform.set_autostart(&launcher, starts_at_login(&background))?;
-        store
-            .save(&Settings {
-                background,
-                ..saved
-            })
-            .inspect_err(|_| {
-                let undo = platform.set_autostart(&launcher, starts_at_login(&saved.background));
-                if let Err(error) = undo {
-                    tracing::error!(%error, "could not undo the autostart change");
-                }
-            })
+        platform.set_autostart(&launcher, starts_at_login(&next.background))?;
+        store.save(&next).inspect_err(|_| {
+            let undo = platform.set_autostart(&launcher, starts_at_login(&saved.background));
+            if let Err(error) = undo {
+                tracing::error!(%error, "could not undo the autostart change");
+            }
+        })
     })
     .await
 }

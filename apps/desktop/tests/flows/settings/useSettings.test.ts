@@ -61,12 +61,32 @@ describe('background settings', () => {
     act(() => {
       settings.result.current.setBackground({ start_at_login: true });
     });
-    expect(background).toHaveBeenCalledWith({
-      keep_running: true,
+    expect(background).toHaveBeenCalledWith({ start_at_login: true });
+    expect(settings.result.current.settings?.background.start_at_login).toBe(true);
+  });
+
+  it('keeps both of two quick changes, whichever lands first', async () => {
+    const { port, settings } = await loaded();
+    const apply = port.setBackground.bind(port);
+    const sent: Parameters<typeof port.setBackground>[0][] = [];
+    vi.spyOn(port, 'setBackground').mockImplementation((change) => {
+      sent.push(change);
+      return Promise.resolve();
+    });
+    act(() => {
+      settings.result.current.setBackground({ start_at_login: true });
+    });
+    act(() => {
+      settings.result.current.setBackground({ keep_running: false });
+    });
+    // The bridge happens to finish the second change first.
+    for (const change of sent.toReversed()) await apply(change);
+
+    expect((await port.settings()).background).toEqual({
+      keep_running: false,
       start_at_login: true,
       lean: true,
     });
-    expect(settings.result.current.settings?.background.start_at_login).toBe(true);
   });
 
   it('goes back to the stored choice when the command fails', async () => {

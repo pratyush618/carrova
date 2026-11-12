@@ -8,11 +8,17 @@ use carrova_platform::Platform;
 use carrova_platform::fake::FakePlatform;
 use carrova_view::ipc::BackgroundSettings;
 use carrova_view::tray::{CloseAction, PAUSE_SECS};
+use serde_json::json;
 use tauri::async_runtime::block_on;
 
 use crate::ops::{background, settings};
 use crate::state::AppState;
 use crate::testing::Machine;
+
+/// All of `background` as a patch.
+fn whole(background: BackgroundSettings) -> serde_json::Value {
+    serde_json::to_value(background).unwrap()
+}
 
 /// `machine`'s state over a fake we keep a handle on.
 fn with_fake(machine: &Machine) -> (AppState, FakePlatform) {
@@ -34,7 +40,7 @@ fn start_at_login_saves_and_writes_autostart() {
         ..BackgroundSettings::default()
     };
 
-    block_on(background::set_background(&state, mine)).unwrap();
+    block_on(background::set_background(&state, whole(mine))).unwrap();
 
     assert_eq!(block_on(settings::load(&state)).unwrap().background, mine);
     assert_eq!(
@@ -56,7 +62,7 @@ fn keep_running_off_stops_autostart() {
         ..BackgroundSettings::default()
     };
 
-    block_on(background::set_background(&state, mine)).unwrap();
+    block_on(background::set_background(&state, whole(mine))).unwrap();
 
     assert_eq!(block_on(settings::load(&state)).unwrap().background, mine);
     assert_eq!(platform.autostart_launcher(), None);
@@ -101,7 +107,7 @@ fn closing_follows_keep_running_and_the_tray() {
         keep_running: false,
         ..BackgroundSettings::default()
     };
-    block_on(background::set_background(&state, off)).unwrap();
+    block_on(background::set_background(&state, whole(off))).unwrap();
     assert_eq!(background::close_action(&state), CloseAction::Exit);
 }
 
@@ -158,7 +164,7 @@ fn closing_keeps_the_window_when_lean_is_off() {
         lean: false,
         ..BackgroundSettings::default()
     };
-    block_on(background::set_background(&state, kept)).unwrap();
+    block_on(background::set_background(&state, whole(kept))).unwrap();
     assert_eq!(background::close_action(&state), CloseAction::HideToTray);
 }
 
@@ -177,14 +183,7 @@ fn concurrent_setting_changes_all_survive() {
     };
     for round in 0..rounds {
         let lean = round % 2 == 1;
-        block_on(background::set_background(
-            &state,
-            BackgroundSettings {
-                lean,
-                ..BackgroundSettings::default()
-            },
-        ))
-        .unwrap();
+        block_on(background::set_background(&state, json!({ "lean": lean }))).unwrap();
     }
     pauses.join().unwrap();
 
@@ -233,7 +232,7 @@ fn a_failed_save_leaves_autostart_as_it_was() {
         ..BackgroundSettings::default()
     };
 
-    assert!(block_on(background::set_background(&state, mine)).is_err());
+    assert!(block_on(background::set_background(&state, whole(mine))).is_err());
 
     assert_eq!(platform.autostart_launcher(), None);
     assert_eq!(
@@ -248,13 +247,34 @@ fn a_settings_change_keeps_a_pause_set_in_the_tray() {
     let (state, _) = with_fake(&machine);
     background::toggle_pause(&state).unwrap();
 
-    block_on(settings::save(
-        &state,
-        serde_json::json!({ "theme": "dark" }),
-    ))
-    .unwrap();
+    block_on(settings::save(&state, json!({ "theme": "dark" }))).unwrap();
 
     let saved = block_on(settings::load(&state)).unwrap();
     assert_eq!(saved.theme, Some(carrova_view::ipc::Theme::Dark));
     assert!(saved.alerts.paused_until.is_some());
+}
+
+#[test]
+fn a_background_change_keeps_the_fields_it_does_not_name() {
+    let machine = Machine::new();
+    let (state, platform) = with_fake(&machine);
+
+    block_on(background::set_background(
+        &state,
+        json!({ "keep_running": false }),
+    ))
+    .unwrap();
+    block_on(background::set_background(
+        &state,
+        json!({ "start_at_login": true }),
+    ))
+    .unwrap();
+
+    let saved = block_on(settings::load(&state)).unwrap().background;
+    assert!(!saved.keep_running && saved.start_at_login);
+    assert_eq!(
+        platform.autostart_launcher(),
+        None,
+        "not while it does not keep running"
+    );
 }

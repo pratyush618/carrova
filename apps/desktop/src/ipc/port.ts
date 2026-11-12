@@ -190,8 +190,8 @@ export interface CarrovaPort {
   fileManagerStatus(): Promise<FileManagerStatus>;
   /** Write (`true`) or remove (`false`) the file-manager entries. */
   setFileManagerEntries(on: boolean): Promise<FileManagerStatus>;
-  /** Save the background settings and start at sign-in only while Keep running and Start at login are on. */
-  setBackground(background: BackgroundSettings): Promise<void>;
+  /** Save the changed background fields (merged like {@link SettingsPatch}) and start at sign-in only while Keep running and Start at login are on. */
+  setBackground(patch: Partial<BackgroundSettings>): Promise<void>;
 
   // --- App updates (never installed without the user's click) -------------
   checkUpdate(): Promise<UpdateStatus>;

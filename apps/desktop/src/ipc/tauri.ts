@@ -85,7 +85,7 @@ export function createTauriPort(): CarrovaPort {
     saveSettings: (patch) => call('save_settings', { patch }),
     fileManagerStatus: () => call('file_manager_status'),
     setFileManagerEntries: (on) => call('set_file_manager_entries', { on }),
-    setBackground: (background) => call('set_background', { background }),
+    setBackground: (patch) => call('set_background', { patch }),
 
     checkUpdate: () => call('check_update'),
     installUpdate: async (version) => {

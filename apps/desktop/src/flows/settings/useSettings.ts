@@ -79,9 +79,8 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
   const setBackground = useCallback(
     (patch: Partial<BackgroundSettings>) => {
       if (settings === null) return;
-      const background = { ...settings.background, ...patch };
-      setEdited({ ...settings, background });
-      void port.setBackground(background).catch(() => {
+      setEdited({ ...settings, background: { ...settings.background, ...patch } });
+      void port.setBackground(patch).catch(() => {
         setEdited(null);
         void reload();
       });

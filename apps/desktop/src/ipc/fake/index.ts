@@ -215,9 +215,9 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
         fileManager = { ...fileManager, installed: on };
         return fileManager;
       }),
-    setBackground: (background) =>
+    setBackground: (patch) =>
       later(() => {
-        settings = { ...settings, background };
+        settings = { ...settings, background: { ...settings.background, ...patch } };
       }),
 
     notices: () => later(() => notices),

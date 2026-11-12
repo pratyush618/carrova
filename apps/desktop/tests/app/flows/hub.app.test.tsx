@@ -103,11 +103,7 @@ describe('apps and settings', () => {
     const save = vi.spyOn(port, 'saveSettings');
     await openHub(user, 'Settings');
     await user.click(await screen.findByRole('switch', { name: 'Start at login' }));
-    expect(background).toHaveBeenCalledWith({
-      keep_running: true,
-      start_at_login: true,
-      lean: true,
-    });
+    expect(background).toHaveBeenCalledWith({ start_at_login: true });
     expect(save).not.toHaveBeenCalled();
     expect(screen.getByRole('switch', { name: 'Start at login' })).toBeChecked();
   });
