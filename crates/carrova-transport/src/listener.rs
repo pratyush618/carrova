@@ -4,6 +4,7 @@ use std::net::SocketAddrV4;
 use std::sync::Arc;
 use std::time::Duration;
 
+use carrova_crypto::identity::DeviceKey;
 use carrova_crypto::pairing::{CertHash, PairingCode, ResumeSecret};
 use carrova_platform::Platform;
 use tokio::time::Instant;
@@ -34,6 +35,11 @@ pub struct ListenOptions {
     pub device_name: Option<String>,
     /// OS access for sockets and interface listing (pass the engine's).
     pub platform: Arc<dyn Platform>,
+    /// This install's device key, if it remembers devices: on a code
+    /// pairing with a receiver that also does, both prove their identity
+    /// ([`Connection::peer_identity`]). `None` = an older sender's
+    /// behaviour.
+    pub device: Option<Arc<DeviceKey>>,
     /// Stops accepting and every call on accepted connections
     /// ([`crate::TransportError::Cancelled`]); `None` = not cancellable.
     pub cancel: Option<Arc<dyn CancelSignal>>,
@@ -47,6 +53,7 @@ impl Default for ListenOptions {
             discovery: true,
             device_name: None,
             platform: Arc::from(carrova_platform::current()),
+            device: None,
             cancel: None,
         }
     }
@@ -60,6 +67,7 @@ pub struct Listener {
     endpoint: quinn::Endpoint,
     identity: Arc<Identity>,
     platform: Arc<dyn Platform>,
+    device: Option<Arc<DeviceKey>>,
     port: u16,
     advertiser: Option<Advertiser>,
     /// Every code offered so far, each single-use.
@@ -93,6 +101,7 @@ impl Listener {
             endpoint,
             identity,
             platform: opts.platform,
+            device: opts.device,
             port,
             advertiser,
             codes: CodeBook::default(),
@@ -151,6 +160,7 @@ impl Listener {
             &Expected::Pair {
                 code: code.clone(),
                 claim,
+                device: self.device.clone(),
             },
             timeout,
             &mut on_pake,

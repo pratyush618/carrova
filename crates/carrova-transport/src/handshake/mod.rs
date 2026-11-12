@@ -8,8 +8,14 @@
 //! pair:   R → S  Pake(B)          S → R  Pake(A), Confirm(sender)
 //! resume:                         S → R  Confirm(sender proof)
 //! R → S  Confirm(receiver)      (only after the sender's verified)
+//! pair, both remembering devices (`Hello.identify`, sender has a key):
+//!         S → R  Identify(sender)  R → S  Identify(receiver)
 //! S → R  Established            (only after the receiver's verified)
 //! ```
+//!
+//! Identity proofs ([`PeerIdentity`]) are signed over the channel binding
+//! below; a bad one fails the pairing. Older peers neither ask nor answer,
+//! so they pair as before.
 //!
 //! A resume `Hello` tag uses [`TagPurpose::Hello`], so a public discovery
 //! tag cannot stand in for it, and each nonce is admitted once per
@@ -29,12 +35,14 @@ use quinn::SendStream;
 
 use crate::wire::StreamReader;
 
+mod identify;
 mod io;
 mod keys;
 mod receiver;
 mod secret;
 mod sender;
 
+pub use identify::PeerIdentity;
 pub(crate) use keys::binding;
 pub(crate) use receiver::connect;
 pub(crate) use secret::{Expected, Secret};
@@ -48,4 +56,6 @@ pub(crate) struct Authenticated {
     pub(crate) recv: StreamReader,
     pub(crate) peer_cert: CertHash,
     pub(crate) resume: ResumeSecret,
+    /// Code pairing where both sides proved their device identity.
+    pub(crate) peer_identity: Option<PeerIdentity>,
 }

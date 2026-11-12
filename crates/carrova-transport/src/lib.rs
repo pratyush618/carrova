@@ -61,6 +61,7 @@ pub use connection::{
 };
 pub use discovery::{Nearby, browse};
 pub use error::{ProtocolViolation, Result, SetupFailure, TransportError};
+pub use handshake::PeerIdentity;
 pub use listener::{ListenOptions, Listener};
 pub use ticket::Ticket;
 

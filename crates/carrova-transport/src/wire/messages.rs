@@ -1,5 +1,6 @@
 //! CBOR control messages.
 
+use carrova_crypto::identity::{DEVICE_PUBLIC_LEN, IDENTITY_SIG_LEN};
 use carrova_crypto::pairing::{CONFIRMATION_LEN, RESUME_TAG_LEN, TAG_NONCE_LEN};
 use carrova_manifest::ChunkHash;
 use serde::{Deserialize, Serialize};
@@ -13,6 +14,11 @@ pub(crate) enum Handshake {
         proto: u32,
         /// What the receiver wants.
         intent: Intent,
+        /// The receiver remembers devices: a code-paired sender that does
+        /// too proves its identity ([`Handshake::Identify`]). Older
+        /// receivers omit it (`false`).
+        #[serde(default)]
+        identify: bool,
     },
     /// Sender → receiver: the intent is being offered; continue.
     Welcome,
@@ -22,6 +28,17 @@ pub(crate) enum Handshake {
     Pake(#[serde(with = "serde_bytes")] Vec<u8>),
     /// Key confirmation or resume proof.
     Confirm(#[serde(with = "serde_bytes")] [u8; CONFIRMATION_LEN]),
+    /// Device identity proof (code pairing only, after both
+    /// confirmations): the sender's if the `Hello` asked for it, then the
+    /// receiver's.
+    Identify {
+        /// [`carrova_crypto::identity::DevicePublic`] bytes.
+        #[serde(with = "serde_bytes")]
+        public: [u8; DEVICE_PUBLIC_LEN],
+        /// Signature over this connection's channel binding.
+        #[serde(with = "serde_bytes")]
+        sig: [u8; IDENTITY_SIG_LEN],
+    },
     /// Sender → receiver: both checks passed.
     Established,
 }

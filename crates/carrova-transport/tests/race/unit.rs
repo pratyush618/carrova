@@ -127,7 +127,10 @@ mod one_sender {
 
     #[test]
     fn pairing_runs_one_handshake_per_sender_however_many_addresses_it_has() {
-        let secret = Secret::Pair(PairingCode::generate().unwrap());
+        let secret = Secret::Pair {
+            code: PairingCode::generate().unwrap(),
+            device: None,
+        };
         assert_eq!(hellos_from_a_dual_address_race(secret), 1);
     }
 
@@ -186,7 +189,10 @@ mod real_sender {
 
         fn secret(&self) -> Secret {
             match self {
-                Self::Pair(code) => Secret::Pair(code.clone()),
+                Self::Pair(code) => Secret::Pair {
+                    code: code.clone(),
+                    device: None,
+                },
                 Self::Resume(secret) => Secret::Resume(secret.clone()),
             }
         }
@@ -346,7 +352,10 @@ mod real_sender {
     #[test]
     fn claimed_connection_lost_before_auth_is_retryable_not_a_pairing_failure() {
         let (_sender, port) = closing_sender();
-        let secret = Secret::Pair(PairingCode::generate().unwrap());
+        let secret = Secret::Pair {
+            code: PairingCode::generate().unwrap(),
+            device: None,
+        };
         let (dialer, _) = dialer(secret, Duration::from_secs(2));
         let result = race(dialer, &[at(port, 1), at(port, 2)]);
         // `is_lost`: `PeerLost` or `Timeout`, never `PairingFailed`.

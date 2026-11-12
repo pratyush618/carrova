@@ -1,8 +1,8 @@
 //! Confirmation keys and the TLS channel binding they are bound to.
 
 use carrova_crypto::pairing::{
-    CertHash, ChannelBinding, Confirmation, EXPORTER_LABEL, EXPORTER_LEN, PakeRole, ResumeSecret,
-    SessionKeys,
+    CertHash, ChannelBinding, Confirmation, EXPORTER_LABEL, EXPORTER_LEN, KnownSecret, PakeRole,
+    ResumeSecret, SessionKeys,
 };
 
 use crate::error::{Result, SetupFailure, TransportError};
@@ -33,6 +33,14 @@ impl Keys<'_> {
             Self::Resume(secret) => secret.verify(peer, binding, c),
         }
         .map_err(|_| TransportError::PairingFailed)
+    }
+
+    /// The secret for recognising a remembered device: code pairing only.
+    pub(super) fn known_secret(&self) -> Option<KnownSecret> {
+        match self {
+            Self::Pake(keys) => Some(keys.known_secret()),
+            Self::Resume(_) => None,
+        }
     }
 
     pub(super) fn resume_secret(&self) -> ResumeSecret {

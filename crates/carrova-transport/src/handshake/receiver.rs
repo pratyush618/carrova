@@ -5,6 +5,7 @@ use carrova_crypto::pairing::{Pake, PakeMessage, PakeRole};
 use quinn::SendStream;
 use tokio::time::{Instant, timeout_at};
 
+use super::identify::{self, PeerIdentity};
 use super::io::{read_confirm, unexpected, write};
 use super::keys::Keys;
 use super::{Authenticated, Secret, binding};
@@ -47,7 +48,7 @@ async fn receiver_attempt(
 ) -> Result<Authenticated> {
     let (mut send, mut recv) = open_control(conn, secret).await?;
     let keys = session_keys(&mut send, &mut recv, secret, budget).await?;
-    confirm(conn, identity, send, recv, keys).await
+    confirm(conn, identity, secret, send, recv, keys).await
 }
 
 /// Maps a failure to `NotFound` when the sender closed with `Rejected`.
@@ -78,6 +79,7 @@ async fn open_control(
     let hello = Handshake::Hello {
         proto: PROTOCOL_VERSION,
         intent: secret.intent()?,
+        identify: secret.device().is_some(),
     };
     write(&mut send, &[hello]).await.map_err(rejected)?;
     match recv.expect_frame().await.map_err(rejected)? {
@@ -100,7 +102,7 @@ async fn session_keys<'a>(
     budget: &PakeBudget,
 ) -> Result<Keys<'a>> {
     Ok(match secret {
-        Secret::Pair(code) => {
+        Secret::Pair { code, .. } => {
             // Every PAKE message is a guess at the code for whoever
             // answers: out of guesses, stop before sending one.
             if !budget.spend() {
@@ -120,10 +122,12 @@ async fn session_keys<'a>(
     })
 }
 
-/// Exchange confirmations (the sender's first) and wait for `Established`.
+/// Exchange confirmations (the sender's first), then identities if the
+/// sender proves its own, and wait for `Established`.
 async fn confirm(
     conn: &quinn::Connection,
     identity: &Identity,
+    secret: &Secret,
     mut send: SendStream,
     mut recv: StreamReader,
     keys: Keys<'_>,
@@ -133,14 +137,35 @@ async fn confirm(
     keys.verify(PakeRole::Sender, &binding, &theirs)?;
     let ours = keys.confirm(PakeRole::Receiver, &binding)?;
     write(&mut send, &[Handshake::Confirm(ours.0)]).await?;
-    match recv.expect_frame().await? {
-        Handshake::Established => Ok(Authenticated {
-            conn: conn.clone(),
-            send,
-            recv,
-            peer_cert,
-            resume: keys.resume_secret(),
-        }),
-        _ => Err(unexpected("established")),
-    }
+    let peer_identity = match recv.expect_frame().await? {
+        Handshake::Established => None,
+        // Sent only if our `Hello` asked for it (code pairing, device key).
+        frame @ Handshake::Identify { .. } => {
+            let (Some(device), Some(known)) = (secret.device(), keys.known_secret()) else {
+                return Err(unexpected("established"));
+            };
+            let public = identify::check(device, PakeRole::Sender, &binding, &frame)?;
+            write(
+                &mut send,
+                &[identify::proof(device, PakeRole::Receiver, &binding)],
+            )
+            .await?;
+            let Handshake::Established = recv.expect_frame().await? else {
+                return Err(unexpected("established"));
+            };
+            Some(PeerIdentity {
+                public,
+                secret: known,
+            })
+        }
+        _ => return Err(unexpected("established")),
+    };
+    Ok(Authenticated {
+        conn: conn.clone(),
+        send,
+        recv,
+        peer_cert,
+        resume: keys.resume_secret(),
+        peer_identity,
+    })
 }

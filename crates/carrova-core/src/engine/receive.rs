@@ -57,6 +57,7 @@ impl Importer {
             PAIR_TIMEOUT,
             &ConnectOptions {
                 platform: engine.platform().clone(),
+                device: None,
                 cancel: Some(cancel.signal()),
             },
         )?;

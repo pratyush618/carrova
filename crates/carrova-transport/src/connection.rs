@@ -15,7 +15,7 @@ use tokio::time::timeout;
 
 use crate::cancel::Watch;
 use crate::error::{Result, TransportError};
-use crate::handshake::Authenticated;
+use crate::handshake::{Authenticated, PeerIdentity};
 use crate::runtime::runtime;
 use crate::tuning::CLOSE_LINGER;
 use crate::wire::{CloseCode, StreamReader, encode_frame};
@@ -38,6 +38,7 @@ pub struct Connection {
     control_recv: StreamReader,
     peer_cert: CertHash,
     resume: ResumeSecret,
+    peer_identity: Option<PeerIdentity>,
     /// Chunk bytes the peer requested from us so far (L1 ceiling).
     requested: Arc<AtomicU64>,
     /// The caller's cancel signal.
@@ -56,6 +57,7 @@ impl Connection {
             control_recv: auth.recv,
             peer_cert: auth.peer_cert,
             resume: auth.resume,
+            peer_identity: auth.peer_identity,
             requested: Arc::new(AtomicU64::new(0)),
             cancel,
             close: CloseCode::Normal,
@@ -78,6 +80,14 @@ impl Connection {
     #[must_use]
     pub fn resume_secret(&self) -> &ResumeSecret {
         &self.resume
+    }
+
+    /// The peer's device identity and the secret now shared with it: only
+    /// on a code pairing where both sides passed a device key
+    /// ([`crate::ListenOptions::device`], [`crate::ConnectOptions::device`]).
+    #[must_use]
+    pub fn peer_identity(&self) -> Option<&PeerIdentity> {
+        self.peer_identity.as_ref()
     }
 
     /// Send one control message (CBOR frame on the control stream). Not

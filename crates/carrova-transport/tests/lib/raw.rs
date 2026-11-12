@@ -5,7 +5,9 @@
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
 use std::time::Duration;
 
-use carrova_crypto::pairing::{Confirmation, PairingCode, Pake, PakeMessage, PakeRole};
+use carrova_crypto::pairing::{
+    ChannelBinding, Confirmation, PairingCode, Pake, PakeMessage, PakeRole,
+};
 use quinn::{ConnectionError, SendStream, TransportErrorCode};
 use tokio::time::timeout;
 
@@ -114,9 +116,19 @@ impl RawPeer {
 
     /// Send `Hello{intent}` and return the sender's answer.
     pub(super) fn hello(&mut self, intent: Intent) -> crate::Result<Handshake> {
+        self.hello_with(intent, false)
+    }
+
+    /// Send `Hello{intent, identify}` and return the sender's answer.
+    pub(super) fn hello_with(
+        &mut self,
+        intent: Intent,
+        identify: bool,
+    ) -> crate::Result<Handshake> {
         self.send(&Handshake::Hello {
             proto: PROTOCOL_VERSION,
             intent,
+            identify,
         });
         self.recv()
     }
@@ -146,6 +158,19 @@ impl RawPeer {
     /// Finish pairing after [`Self::send_pake`]: check the sender's
     /// confirmation, send ours, and wait for `Established`.
     pub(super) fn finish_pairing(&mut self, pake: Pake) -> crate::Result<()> {
+        self.confirm(pake)?;
+        match self.recv()? {
+            Handshake::Established => Ok(()),
+            _ => Err(crate::ProtocolViolation::UnexpectedHandshake {
+                wanted: "established",
+            }
+            .into()),
+        }
+    }
+
+    /// After [`Self::send_pake`]: check the sender's confirmation and send
+    /// ours. Returns this connection's channel binding.
+    pub(super) fn confirm(&mut self, pake: Pake) -> crate::Result<ChannelBinding> {
         let Handshake::Pake(peer) = self.recv()? else {
             return Err(crate::ProtocolViolation::UnexpectedHandshake { wanted: "PAKE" }.into());
         };
@@ -158,12 +183,6 @@ impl RawPeer {
             .map_err(|_| crate::TransportError::PairingFailed)?;
         let ours = keys.confirm(PakeRole::Receiver, &binding).unwrap();
         self.send(&Handshake::Confirm(ours.0));
-        match self.recv()? {
-            Handshake::Established => Ok(()),
-            _ => Err(crate::ProtocolViolation::UnexpectedHandshake {
-                wanted: "established",
-            }
-            .into()),
-        }
+        Ok(binding)
     }
 }
