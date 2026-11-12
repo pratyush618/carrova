@@ -43,6 +43,12 @@ impl SigningKey {
         Zeroizing::new(data_encoding::HEXLOWER.encode(self.0.as_bytes()))
     }
 
+    /// The 32-byte seed, for persisting the key only.
+    #[must_use]
+    pub fn expose_seed(&self) -> &[u8; SECRET_KEY_LEN] {
+        self.0.as_bytes()
+    }
+
     /// Public half of this key.
     #[must_use]
     pub fn verifying_key(&self) -> VerifyingKey {

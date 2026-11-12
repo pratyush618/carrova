@@ -36,6 +36,7 @@
 use std::fmt;
 
 use data_encoding::{HEXLOWER, HEXLOWER_PERMISSIVE};
+use zeroize::Zeroizing;
 
 mod cert;
 mod keys;
@@ -54,6 +55,9 @@ pub enum SignContext {
     KeyCert,
     /// A bundle signer signing the raw bytes of a recipe bundle index.
     BundleIndex,
+    /// A device proving its identity key inside a paired connection
+    /// ([`crate::identity`]). No [`KeyRole`] permits it.
+    DeviceIdentity,
 }
 
 impl SignContext {
@@ -63,13 +67,15 @@ impl SignContext {
         match self {
             Self::KeyCert => b"carrova/keycert/v1\0",
             Self::BundleIndex => b"carrova/bundle-index/v1\0",
+            Self::DeviceIdentity => b"carrova/device-identity/v1\0",
         }
     }
 
-    /// `tag ‖ payload`: the bytes actually signed.
-    fn message(self, payload: &[u8]) -> Vec<u8> {
+    /// `tag ‖ payload`: the bytes actually signed (zeroized on drop: a
+    /// payload may hold channel-binding bytes).
+    fn message(self, payload: &[u8]) -> Zeroizing<Vec<u8>> {
         let tag = self.tag();
-        let mut msg = Vec::with_capacity(tag.len() + payload.len());
+        let mut msg = Zeroizing::new(Vec::with_capacity(tag.len() + payload.len()));
         msg.extend_from_slice(tag);
         msg.extend_from_slice(payload);
         msg

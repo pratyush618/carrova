@@ -10,8 +10,8 @@ use zeroize::Zeroizing;
 
 use super::keys::MacKey;
 use super::{
-    CONFIRMATION_LEN, ChannelBinding, HKDF_SALT, INFO_CONFIRM, INFO_RESUME, PairingCode,
-    PairingError, RECEIVER_ID, Result, ResumeSecret, SENDER_ID,
+    CONFIRMATION_LEN, ChannelBinding, HKDF_SALT, INFO_CONFIRM, INFO_KNOWN, INFO_RESUME,
+    KnownSecret, PairingCode, PairingError, RECEIVER_ID, Result, ResumeSecret, SENDER_ID,
 };
 
 /// Which side of the pairing this process is.
@@ -112,9 +112,11 @@ impl Pake {
         };
         let confirm = expand(INFO_CONFIRM)?;
         let resume = expand(INFO_RESUME)?;
+        let known = expand(INFO_KNOWN)?;
         Ok(SessionKeys {
             confirm: MacKey::new(&confirm),
             resume: ResumeSecret::from_key(resume),
+            known: KnownSecret::from_key(known),
         })
     }
 }
@@ -131,6 +133,7 @@ impl fmt::Debug for Pake {
 pub struct SessionKeys {
     pub(super) confirm: MacKey,
     pub(super) resume: ResumeSecret,
+    pub(super) known: KnownSecret,
 }
 
 impl SessionKeys {
@@ -163,6 +166,13 @@ impl SessionKeys {
     #[must_use]
     pub fn resume_secret(&self) -> ResumeSecret {
         self.resume.clone()
+    }
+
+    /// Per-pair known-device secret (kept only when both sides remember
+    /// each other; replaced by every later code pairing).
+    #[must_use]
+    pub fn known_secret(&self) -> KnownSecret {
+        self.known.clone()
     }
 }
 

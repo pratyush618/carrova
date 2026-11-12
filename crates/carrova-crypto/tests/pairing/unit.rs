@@ -435,6 +435,7 @@ fn hmac_outputs_match_known_answers() {
     let keys = SessionKeys {
         confirm: MacKey::new(&[0x11; 32]),
         resume: secret(0x22),
+        known: KnownSecret::from_bytes([0x33; KNOWN_SECRET_LEN]),
     };
     let b = binding();
     assert_eq!(

@@ -22,10 +22,13 @@
 //!    its `Hello` with a tag of another [`TagPurpose`], and both prove
 //!    possession of the [`ResumeSecret`] over the fresh connection's
 //!    binding ([`ResumeSecret::prove`]).
+//! 6. A third HKDF output, the [`KnownSecret`], outlives the session when
+//!    both sides remember each other (ADR 0001): it makes per-advert
+//!    [`KnownTag`]s that let a known device recognise this one nearby.
 //!
 //! Every label used for domain separation is a constant in this module.
 //! Secrets ([`PairingCode`], [`SessionKeys`], [`ResumeSecret`],
-//! [`ChannelBinding`]) zeroize on drop and redact themselves in `Debug`.
+//! [`KnownSecret`], [`ChannelBinding`]) zeroize on drop and redact themselves in `Debug`.
 //!
 //! # Codes
 //!
@@ -44,8 +47,8 @@
 //!
 //! [`PairingCode`] and [`Nameplate`] live in `code`, [`CertHash`] and
 //! [`ChannelBinding`] in `binding`, the SPAKE2 exchange and its
-//! [`SessionKeys`] in `pake`, and the [`ResumeSecret`] with its tags in
-//! `keys`. Every protocol label stays in this file.
+//! [`SessionKeys`] in `pake`, the [`ResumeSecret`] with its tags in
+//! `keys`, and the [`KnownSecret`] with its tags in `known`. Every protocol label stays in this file.
 
 use std::fmt;
 use std::ops::RangeInclusive;
@@ -57,6 +60,7 @@ use sha2::Sha256;
 mod binding;
 mod code;
 mod keys;
+mod known;
 mod pake;
 #[cfg(test)]
 #[path = "../../tests/pairing/unit.rs"]
@@ -66,6 +70,7 @@ mod wordlist;
 pub use binding::{CertHash, ChannelBinding};
 pub use code::{Nameplate, PairingCode};
 pub use keys::{ResumeSecret, ResumeTag, TagNonce, TagPurpose};
+pub use known::{KnownPurpose, KnownSecret, KnownTag};
 pub use pake::{Confirmation, Pake, PakeMessage, PakeRole, SessionKeys};
 
 /// Valid nameplates (shown before the words of a code).
@@ -82,6 +87,10 @@ pub const BINDING_LEN: usize = EXPORTER_LEN + 2 * CERT_HASH_LEN;
 pub const RESUME_SECRET_LEN: usize = 32;
 /// Length of a [`ResumeTag`] (truncated HMAC, advertised in discovery).
 pub const RESUME_TAG_LEN: usize = 16;
+/// Length of a [`KnownSecret`].
+pub const KNOWN_SECRET_LEN: usize = 32;
+/// Length of a [`KnownTag`] (truncated HMAC; up to 13 fit one TXT string).
+pub const KNOWN_TAG_LEN: usize = 8;
 /// Length of a [`TagNonce`].
 pub const TAG_NONCE_LEN: usize = 16;
 /// Length of a [`Confirmation`] (HMAC-SHA256 output).
@@ -104,6 +113,10 @@ const HKDF_SALT: &[u8] = b"carrova/1/pake";
 const INFO_CONFIRM: &[u8] = b"carrova/1/confirm";
 /// HKDF info of the resume secret.
 const INFO_RESUME: &[u8] = b"carrova/1/resume";
+/// HKDF info of the known-device secret.
+const INFO_KNOWN: &[u8] = b"carrova/1/known";
+/// HMAC label prefixed to the nonce of a discovery [`KnownTag`].
+const KNOWN_TAG_DISCOVERY: &[u8] = b"carrova/1/known-discovery";
 /// HMAC label prefixed to the nonce of a discovery [`ResumeTag`].
 const RESUME_TAG_DISCOVERY: &[u8] = b"carrova/1/resume-tag";
 /// HMAC label prefixed to the nonce of a resume-`Hello` [`ResumeTag`].
