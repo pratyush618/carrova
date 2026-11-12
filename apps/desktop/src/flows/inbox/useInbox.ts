@@ -20,7 +20,9 @@ export function useInbox(port: CarrovaPort): InboxController {
   }, [events, run]);
   const markRead = useCallback(
     (ids: NoticeId[] | 'all') => {
-      void port.markNoticesRead(ids).then(() => run());
+      // Failed or not, show the notices as stored: unread ones stay to mark again.
+      const reload = () => run();
+      void port.markNoticesRead(ids).then(reload, reload);
     },
     [port, run],
   );
