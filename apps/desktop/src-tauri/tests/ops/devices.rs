@@ -7,7 +7,7 @@ use carrova_core::presence::{Visibility, load_visibility};
 use carrova_core::time::now_unix;
 use carrova_crypto::identity::{DeviceKey, DevicePublic, Fingerprint};
 use carrova_crypto::pairing::KnownSecret;
-use carrova_platform::OsKind;
+use carrova_platform::{OsKind, Platform};
 use carrova_view::devices::{ForgetDevices, VisibilityChoice};
 use carrova_view::ipc::ErrorCode;
 use tauri::async_runtime::block_on;
@@ -202,6 +202,27 @@ fn turning_wake_hints_off_clears_the_saved_hints() {
     save_wol_hints(&state, false);
     assert!(!has_wake_hint(&state));
     assert!(!block_on(settings::load(&state)).unwrap().nearby.wol_hints);
+}
+
+#[test]
+fn hints_that_cannot_be_dropped_leave_wake_hints_on() {
+    let machine = Machine::new();
+    let (state, _) = counting(&machine);
+    save_wol_hints(&state, true);
+    remember(&machine, 1, "Desk");
+    let known = machine
+        .platform
+        .state_dir()
+        .unwrap()
+        .join("devices/known.json");
+    std::fs::write(known, b"{not json").unwrap();
+
+    let patch = serde_json::json!({ "nearby": { "wol_hints": false } });
+    assert!(block_on(settings::save(&state, patch)).is_err());
+    assert!(
+        block_on(settings::load(&state)).unwrap().nearby.wol_hints,
+        "put back on"
+    );
 }
 
 #[test]
