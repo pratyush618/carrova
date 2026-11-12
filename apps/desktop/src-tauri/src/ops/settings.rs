@@ -55,7 +55,9 @@ pub async fn save(state: &AppState, patch: Value) -> Result<(), CommandError> {
             return saved;
         }
         let platform = platform.as_ref();
-        let cleared = KnownDevices::open(platform).and_then(|k| k.clear_wake_hints(platform));
+        // No device store yet: nothing to clear, and none is made for it.
+        let cleared = KnownDevices::open_existing(platform)
+            .and_then(|k| k.map_or(Ok(()), |k| k.clear_wake_hints(platform)));
         saved?;
         if let Err(e) = cleared {
             // Logged first: a failed rollback below replaces it.

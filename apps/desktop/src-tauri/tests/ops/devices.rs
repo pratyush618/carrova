@@ -276,6 +276,16 @@ fn unreadable_hints_do_not_block_a_save_while_hints_are_off() {
 }
 
 #[test]
+fn a_save_with_hints_off_creates_no_device_store() {
+    let machine = Machine::new();
+    let (state, _) = counting(&machine);
+    let patch = serde_json::json!({ "nearby": { "remember": false } });
+    block_on(settings::save(&state, patch)).unwrap();
+    let devices = machine.platform.state_dir().unwrap().join("devices");
+    assert!(!devices.exists(), "nothing to clear on a fresh install");
+}
+
+#[test]
 fn the_trays_nearby_waits_until_the_window_takes_it_once() {
     let machine = Machine::new();
     assert!(!devices::take_show_nearby(&machine.state));
