@@ -335,6 +335,28 @@ fn a_remember_from_before_a_forget_stores_nothing() {
 }
 
 #[test]
+fn a_remember_from_before_forgetting_a_corrupt_store_stores_nothing() {
+    let f = Fixture::new();
+    f.remember(&record(1, "laptop"), 7);
+    f.devices.forget(&f.platform, &public(1)).unwrap();
+    let before = f.devices.epoch(&f.platform).unwrap();
+    std::fs::write(f.known_json(), b"{not json").unwrap();
+    f.devices.forget_all(&f.platform).unwrap();
+    let stale = f
+        .devices
+        .remember_move(
+            &f.platform,
+            record(2, "desk"),
+            &known(8),
+            || HintUpdate::Keep,
+            500,
+            before,
+        )
+        .unwrap();
+    assert_eq!(stale, None);
+}
+
+#[test]
 fn key_reads_wait_for_a_change_in_progress() {
     let f = Fixture::new();
     let me = f.devices.device_key(&f.platform).unwrap().public();

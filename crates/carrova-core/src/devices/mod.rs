@@ -59,8 +59,8 @@ const NEW_KEY_SUFFIX: &str = ".key.new";
 #[derive(Serialize, Deserialize)]
 struct KnownFile {
     version: u16,
-    /// Bumped by every forget (see [`KnownDevices::epoch`]); older files
-    /// read as 0.
+    /// A fresh random value on every forget (see [`KnownDevices::epoch`]);
+    /// older files read as 0.
     #[serde(default)]
     epoch: u64,
     devices: Vec<DeviceRecord>,
@@ -144,9 +144,11 @@ impl KnownDevices {
         self.remember_locked(platform, record, secret, hint, Some((at, epoch)))
     }
 
-    /// Changes each time a device is forgotten ([`Self::forget`],
-    /// [`Self::forget_all`], [`Self::reset_identity`]): a move reads it
-    /// when it pairs, so its remember cannot undo a forget made meanwhile.
+    /// A random marker, new each time a device is forgotten
+    /// ([`Self::forget`], [`Self::forget_all`], [`Self::reset_identity`]):
+    /// a move reads it when it pairs, so its remember cannot undo a forget
+    /// made meanwhile. Random, not counted, so it never comes back to a
+    /// value a move saw (even after a corrupt list is forgotten).
     pub fn epoch(&self, platform: &dyn Platform) -> Result<u64> {
         Ok(self.load(platform)?.epoch)
     }
@@ -260,7 +262,7 @@ impl KnownDevices {
         if file.devices.len() == before {
             return Ok(false);
         }
-        file.epoch = file.epoch.wrapping_add(1);
+        file.epoch = new_epoch()?;
         self.save(platform, &file)?;
         Ok(true)
     }
@@ -275,8 +277,7 @@ impl KnownDevices {
 
     /// [`Self::forget_all`] under a held lock.
     fn forget_all_locked(&self, platform: &dyn Platform) -> Result<()> {
-        // A corrupt list's epoch is unknown: count on from 0.
-        let epoch = self.load(platform).map_or(0, |f| f.epoch).wrapping_add(1);
+        let epoch = new_epoch()?;
         for entry in platform.read_dir(&self.dir)? {
             let name = entry.name.to_string_lossy();
             // `<id>.key` and a stale `<id>.key.new` from a crash.
@@ -393,6 +394,13 @@ impl KnownDevices {
         })?;
         write_atomic(platform, &self.dir, KNOWN_FILE, &bytes)
     }
+}
+
+/// A fresh [`KnownDevices::epoch`].
+fn new_epoch() -> Result<u64> {
+    let mut b = [0u8; 8];
+    getrandom::fill(&mut b).map_err(|_| CoreError::Random)?;
+    Ok(u64::from_le_bytes(b))
 }
 
 /// `<public key hex>.key`.
