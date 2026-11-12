@@ -231,7 +231,7 @@ export function SendFoundScreen({ model, purpose, here = null, mode, on }: SendF
             <FoundSelection
               groups={model.groups}
               secrets={model.secrets}
-              narrowed={model.narrowed}
+              narrowing={`${model.foundFilter}:${model.filter}`}
               on={on}
             />
           )}

@@ -44,11 +44,34 @@ describe("Here's what we found: filter and presets", () => {
     expect(screen.getByText('No apps match “zzz”')).toBeInTheDocument();
   });
 
+  it('reopens a group you closed when the search changes again', async () => {
+    const user = userEvent.setup();
+    function Searching() {
+      const [filter, setFilter] = useState('');
+      const model = { ...foundReady, filter };
+      return (
+        <SendFoundScreen
+          model={model}
+          purpose="send"
+          here={HERE}
+          on={{ ...foundOn(), onFilter: setFilter }}
+        />
+      );
+    }
+    renderScreen(<Searching />);
+    const search = screen.getByRole('searchbox', { name: 'Filter apps' });
+    await user.type(search, 'v');
+    await user.click(screen.getByRole('button', { name: /Editors/ }));
+    expect(screen.queryByRole('list', { name: 'Editors' })).not.toBeInTheDocument();
+    await user.type(search, 's');
+    expect(screen.getByRole('list', { name: 'Editors' })).toBeInTheDocument();
+  });
+
   it('reopens a group you closed once a search narrows the list', async () => {
     const user = userEvent.setup();
     function Narrowing() {
       const [filter, setFilter] = useState('');
-      const model = { ...foundReady, filter, narrowed: filter !== '' };
+      const model = { ...foundReady, filter };
       return (
         <SendFoundScreen
           model={model}

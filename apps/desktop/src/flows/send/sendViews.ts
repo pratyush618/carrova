@@ -152,7 +152,7 @@ export function filterFound(
   secrets: readonly SecretItem[],
   filter: string,
   view: FoundFilter,
-): { groups: FoundGroup[]; secrets: SecretItem[]; narrowed: boolean } {
+): { groups: FoundGroup[]; secrets: SecretItem[] } {
   const needle = filter.trim().toLocaleLowerCase();
   const hit = (...names: string[]) => names.some((n) => n.toLocaleLowerCase().includes(needle));
   const narrowed = needle !== '' || view !== 'all';
@@ -166,7 +166,6 @@ export function filterFound(
   return {
     groups: view === 'largest' ? largestFirst(shown) : shown,
     secrets: secrets.filter((s) => hit(s.app.name, s.label)),
-    narrowed,
   };
 }
 

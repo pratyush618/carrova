@@ -199,21 +199,22 @@ function AppGroup({ group, on }: { readonly group: FoundGroup; readonly on: Sele
 export function FoundSelection({
   groups,
   secrets,
-  narrowed,
+  narrowing,
   on,
 }: {
   readonly groups: readonly FoundGroup[];
   readonly secrets: readonly SecretItem[];
-  readonly narrowed: boolean;
+  /** The view and search the list shows: a change opens every group again, even one you closed. */
+  readonly narrowing: string;
   readonly on: SelectionIntents;
 }) {
   return (
     <>
       {secrets.length > 0 && <SecretsGroup secrets={secrets} on={on} />}
       {groups.map((group) => (
-        // Narrowing starts or ends: remount, dropping a manual open or close.
+        // The search or view changed: remount, dropping a manual open or close.
         <AppGroup
-          key={`${group.category}:${String(group.collapsed)}:${String(narrowed)}`}
+          key={`${group.category}:${String(group.collapsed)}:${narrowing}`}
           group={group}
           on={on}
         />
