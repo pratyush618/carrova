@@ -129,6 +129,21 @@ for (const size of [
         if (over !== null) expect.soft(apart(box, over), `${name} overlaps ${rival}`).toBe(true);
       }
     }
+    // Rings keep their meaning: devices answering now (Ana's laptop, Desk PC) sit nearer the centre than the rest.
+    const centre = others.get('centre');
+    expect(centre).toBeTruthy();
+    if (centre) {
+      const away = (box: Box) =>
+        Math.hypot(
+          box.x + box.width / 2 - (centre.x + centre.width / 2),
+          box.y + box.height / 2 - (centre.y + centre.height / 2),
+        );
+      const dist = (names: RegExp) =>
+        boxes.filter(([n]) => names.test(n)).flatMap(([, b]) => (b ? [away(b)] : []));
+      expect(Math.max(...dist(/^(Ana's laptop|Desk PC)/))).toBeLessThan(
+        Math.min(...dist(/^(new-mbp|Old ThinkPad|Work laptop)/)),
+      );
+    }
     await page.screenshot({
       path: `/tmp/carrova-nearby-${String(size.width)}x${String(size.height)}.png`,
     });
