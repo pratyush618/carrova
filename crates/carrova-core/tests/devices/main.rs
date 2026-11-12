@@ -153,6 +153,22 @@ fn two_stores_on_one_dir_lose_no_remember() {
 }
 
 #[test]
+fn replaced_secrets_are_zeroed_on_disk() {
+    let f = Fixture::new();
+    f.remember(&record(1, "laptop"), 7);
+    f.devices.device_key(&f.platform).unwrap();
+    // A second name for each old file sees what stays on disk.
+    let old_secret = f.state.join("old-secret");
+    let old_seed = f.state.join("old-seed");
+    std::fs::hard_link(f.key_file(&public(1)), &old_secret).unwrap();
+    std::fs::hard_link(f.state.join("device.key"), &old_seed).unwrap();
+    f.remember(&record(1, "laptop"), 9);
+    f.devices.reset_identity(&f.platform).unwrap();
+    assert_eq!(std::fs::read(old_secret).unwrap(), [0; KNOWN_SECRET_LEN]);
+    assert_eq!(std::fs::read(old_seed).unwrap(), [0; 32]);
+}
+
+#[test]
 fn forget_removes_key_file() {
     let f = Fixture::new();
     f.remember(&record(1, "laptop"), 7);

@@ -44,19 +44,49 @@ pub(crate) fn write_new(
 
 /// Replace `dir/name` with `bytes`: written as `name.new` like
 /// [`write_new`] (a stale one from a crash is wiped first), renamed over
-/// the old file, dir synced.
+/// the old file, dir synced. The old file is opened before the rename and
+/// zeroed after it, so its secret does not stay on disk and a crash never
+/// leaves a zeroed file in place of a key.
 pub(crate) fn replace(platform: &dyn Platform, dir: &Path, name: &str, bytes: &[u8]) -> Result<()> {
     let new = format!("{name}.new");
     wipe(platform, dir, &new, bytes.len())?;
     write_new(platform, dir, &new, bytes)?;
+    let old = open_regular(platform, &dir.join(name))?;
     let renamed = platform
         .rename_replace(&dir.join(&new), &dir.join(name))
         .map_err(CoreError::from)
         .and_then(|()| platform.sync_dir(dir).map_err(Into::into));
     if renamed.is_err() {
         wipe_after_failure(platform, dir, &new, bytes.len());
+        return renamed;
     }
-    renamed
+    if let Some((mut file, size)) = old
+        && let Err(e) = zero(&mut file, size, bytes.len())
+    {
+        tracing::warn!(error = %e, "could not zero a replaced key file");
+    }
+    Ok(())
+}
+
+/// The regular file at `path` opened read-write without following links,
+/// with its size; `None` if there is none (or something else is there).
+fn open_regular(platform: &dyn Platform, path: &Path) -> Result<Option<(std::fs::File, u64)>> {
+    match fsx::lstat(platform, path)? {
+        Some(meta) if meta.kind == FileKind::File => {
+            Ok(Some((platform.open_rw_nofollow(path)?, meta.size)))
+        }
+        _ => Ok(None),
+    }
+}
+
+/// Overwrite the first `len` bytes (at most `size`) of `file` with zeros
+/// and sync.
+fn zero(file: &mut std::fs::File, size: u64, len: usize) -> Result<()> {
+    let len = usize::try_from(size).map_or(len, |n| n.min(len));
+    file.seek(SeekFrom::Start(0))?;
+    file.write_all(&vec![0u8; len])?;
+    file.sync_all()?;
+    Ok(())
 }
 
 /// The `N`-byte secret at `path`, or `None` if there is none. Refused
@@ -112,15 +142,11 @@ fn check_meta(platform: &dyn Platform, file: &std::fs::File) -> Result<Option<Ke
 /// a planted link is unlinked, never followed.
 pub(crate) fn wipe(platform: &dyn Platform, dir: &Path, name: &str, len: usize) -> Result<()> {
     let path = dir.join(name);
-    let Some(meta) = fsx::lstat(platform, &path)? else {
+    if fsx::lstat(platform, &path)?.is_none() {
         return Ok(());
-    };
-    if meta.kind == FileKind::File {
-        let mut f = platform.open_rw_nofollow(&path)?;
-        let len = usize::try_from(meta.size).map_or(len, |n| n.min(len));
-        f.seek(SeekFrom::Start(0))?;
-        f.write_all(&vec![0u8; len])?;
-        f.sync_all()?;
+    }
+    if let Some((mut file, size)) = open_regular(platform, &path)? {
+        zero(&mut file, size, len)?;
     }
     platform.remove_file(&path)?;
     platform.sync_dir(dir)?;
