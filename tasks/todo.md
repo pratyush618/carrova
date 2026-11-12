@@ -588,4 +588,4 @@ Follow-ups (after PR #9):
 - [ ] macOS/Windows file watch: `Platform::watch_dirs` unsupported (FSEvents / ReadDirectoryChangesW); presence polls every 5 s and the tray doesn't follow CLI visibility changes there
 - [ ] macOS device name: host name, not System Settings "Computer Name"
 - [ ] Real-hardware check of known devices / Nearby / Wake on Windows and macOS (Phase 5 exit gate)
-- [ ] Move the wake-hint save policy (clear hints, rollback, error order) out of `src-tauri/ops/settings.rs` into shared code (boundary rule 2; PR #9 CodeRabbit review 5870606766)
+- [x] Move the wake-hint save policy (clear hints, rollback, error order) out of `src-tauri/ops/settings.rs` into shared code (`Settings::save_over` in carrova-view) (boundary rule 2; PR #9 CodeRabbit review 5870606766)
