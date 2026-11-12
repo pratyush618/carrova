@@ -261,19 +261,34 @@ fn browsing_names_senders_only_while_they_offer_a_code() {
 
 #[test]
 fn no_name_is_answered_once_the_code_offer_is_withdrawn() {
+    /// Stops the browsers however the test ends.
+    struct StopOnDrop(Arc<AtomicBool>);
+    impl Drop for StopOnDrop {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Relaxed);
+        }
+    }
+
     if !loopback_broadcast_works() {
         return;
     }
     let name = format!("withdraw-test-{}", unique_code().nameplate());
     let mut listener = named_listener(&name);
-    let stop = Arc::new(AtomicBool::new(false));
+    let names = || -> Vec<String> {
+        browse(&*carrova_platform::current(), Duration::from_millis(300))
+            .unwrap()
+            .into_iter()
+            .filter_map(|n| n.advert.name)
+            .collect()
+    };
+    let stop = StopOnDrop(Arc::new(AtomicBool::new(false)));
     // Browsers query all along, so answers are queued at every switch.
     let browsers: Vec<_> = (0..3)
         .map(|_| {
-            let stop = Arc::clone(&stop);
+            let stop = Arc::clone(&stop.0);
             thread::spawn(move || {
                 while !stop.load(Ordering::Relaxed) {
-                    browse(&*carrova_platform::current(), Duration::from_millis(100)).unwrap();
+                    let _ = browse(&*carrova_platform::current(), Duration::from_millis(100));
                 }
             })
         })
@@ -282,17 +297,18 @@ fn no_name_is_answered_once_the_code_offer_is_withdrawn() {
         listener.advertise_pairing(&unique_code()).unwrap();
         // Long enough for the advert to be probed and answered over mDNS.
         thread::sleep(Duration::from_secs(1));
+        let found = names();
+        assert!(found.contains(&name), "round {round}: offered: {found:?}");
         listener
             .advertise_resume(&ResumeSecret::from_bytes([round; 32]))
             .unwrap();
-        let found: Vec<_> = browse(&*carrova_platform::current(), Duration::from_millis(300))
-            .unwrap()
-            .into_iter()
-            .filter_map(|n| n.advert.name)
-            .collect();
-        assert!(!found.contains(&name), "round {round}: {found:?}");
+        let found = names();
+        assert!(
+            !found.contains(&name),
+            "round {round}: withdrawn: {found:?}"
+        );
     }
-    stop.store(true, Ordering::Relaxed);
+    drop(stop);
     for browser in browsers {
         browser.join().unwrap();
     }
