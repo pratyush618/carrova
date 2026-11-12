@@ -2,14 +2,17 @@
 
 #![allow(clippy::unwrap_used)]
 
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use carrova_core::devices::{DeviceRecord, HintUpdate, KnownDevices};
 use carrova_core::{CoreError, KeyFileProblem};
 use carrova_crypto::identity::{DeviceKey, DevicePublic, Fingerprint};
 use carrova_crypto::pairing::{KNOWN_SECRET_LEN, KnownSecret};
-use carrova_platform::fake::FakePlatform;
-use carrova_platform::{OsKind, PermissionModel, Platform};
+use carrova_platform::fake::{FakePlatform, Hooks};
+use carrova_platform::{OsKind, PermissionModel, Platform, PlatformError};
 
 struct Fixture {
     _tmp: tempfile::TempDir,
@@ -436,6 +439,33 @@ fn partial_device_key_from_a_crash_is_discarded() {
     let key = f.devices.device_key(&f.platform).unwrap().public();
     assert!(!f.state.join("device.key.new").exists());
     assert_eq!(f.devices.device_key(&f.platform).unwrap().public(), key);
+}
+
+#[test]
+fn a_new_key_whose_dir_cannot_be_synced_is_not_left_behind() {
+    let tmp = tempfile::tempdir().unwrap();
+    let state = tmp.path().join("state");
+    let failing = Arc::new(AtomicBool::new(false));
+    let fail = Arc::clone(&failing);
+    let platform = FakePlatform::with_home(tmp.path())
+        .with_state_dir(&state)
+        .with_hooks(Hooks {
+            on_sync_dir: Some(Arc::new(move |dir| {
+                if fail.load(Ordering::SeqCst) {
+                    Err(PlatformError::Io {
+                        path: dir.to_owned(),
+                        source: ErrorKind::Other.into(),
+                    })
+                } else {
+                    Ok(())
+                }
+            })),
+            ..Hooks::default()
+        });
+    let devices = KnownDevices::open(&platform).unwrap();
+    failing.store(true, Ordering::SeqCst);
+    devices.device_key(&platform).unwrap_err();
+    assert!(!state.join("device.key.new").exists());
 }
 
 #[test]

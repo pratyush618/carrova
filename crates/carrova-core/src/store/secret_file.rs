@@ -17,7 +17,7 @@ const SECRET_MODE: u32 = 0o600;
 
 /// Store `bytes` as the new file `dir/name`: created new
 /// (`O_EXCL|O_NOFOLLOW`, never through a link or over an existing file),
-/// mode `600`, synced, then the dir synced. A partial file is wiped on
+/// mode `600`, synced, then the dir synced. The file is wiped on any
 /// failure (unless create-new failed because something already exists).
 pub(crate) fn write_new(
     platform: &dyn Platform,
@@ -25,21 +25,19 @@ pub(crate) fn write_new(
     name: &str,
     bytes: &[u8],
 ) -> Result<()> {
-    let result = (|| -> Result<()> {
-        let mut f = platform.create_new_file(&dir.join(name), Some(SECRET_MODE))?;
+    let mut f = platform.create_new_file(&dir.join(name), Some(SECRET_MODE))?;
+    // `move`: the file is closed before any wipe (Windows cannot remove an
+    // open file).
+    let written = (move || -> Result<()> {
         f.write_all(bytes)?;
         f.sync_all()?;
+        platform.sync_dir(dir)?;
         Ok(())
     })();
-    match result {
-        Ok(()) => platform.sync_dir(dir).map_err(Into::into),
-        Err(e) => {
-            if fsx::kind_of(&e) != Some(std::io::ErrorKind::AlreadyExists) {
-                wipe_after_failure(platform, dir, name, bytes.len());
-            }
-            Err(e)
-        }
+    if written.is_err() {
+        wipe_after_failure(platform, dir, name, bytes.len());
     }
+    written
 }
 
 /// Replace `dir/name` with `bytes`: written as `name.new` like
