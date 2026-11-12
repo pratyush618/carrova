@@ -40,13 +40,8 @@ export function NearbyGroup({
             />
           }
         />
-        <Row
-          title={t(ROW_TITLE.acceptKnown)}
-          sub={t('settings.nearby.acceptKnownSub')}
-          trail={toggle(t(ROW_TITLE.acceptKnown), nearby.accept_known, (accept_known) => {
-            on.onNearby({ accept_known });
-          })}
-        />
+        {/* shortcut: hidden until Phase 3 code-less requests; restore the
+            acceptKnown row here and in SECTIONS then. */}
       </Group>
       <Group title={t('settings.nearby.history')}>
         <Row

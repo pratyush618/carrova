@@ -245,6 +245,13 @@ describe('Settings', () => {
     await user.click(screen.getByRole('button', { name: 'Reset' }));
     expect(on.onResetIdentity).toHaveBeenCalledOnce();
   });
+
+  it('offers no requests from known devices until they work', () => {
+    renderScreen(inSection('nearby', settingsOn()));
+    expect(
+      screen.queryByRole('switch', { name: 'Accept requests from known devices' }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe('Nearby & devices failures', () => {

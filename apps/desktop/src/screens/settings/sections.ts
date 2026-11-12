@@ -56,7 +56,8 @@ export const SECTIONS: readonly SectionDef[] = [
   {
     id: 'nearby',
     icon: 'radar',
-    rows: ['visibility', 'acceptKnown', 'remember', 'knownDevices', 'wolHints', 'resetIdentity'],
+    // shortcut: acceptKnown hidden until Phase 3 code-less requests.
+    rows: ['visibility', 'remember', 'knownDevices', 'wolHints', 'resetIdentity'],
   },
   {
     id: 'notifications',

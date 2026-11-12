@@ -32,5 +32,6 @@ describe('searchSettings', () => {
     expect(rows(settingsModel, 'file manager')).toContain('fileManager');
     expect(rows(settingsNoFileManager, 'file manager')).not.toContain('fileManager');
     expect(rows({ ...settingsModel, recipes: null }, 'recipe')).not.toContain('recipes');
+    expect(rows(settingsModel, 'known devices')).not.toContain('acceptKnown');
   });
 });
