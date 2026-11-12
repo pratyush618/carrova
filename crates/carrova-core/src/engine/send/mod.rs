@@ -82,7 +82,8 @@ impl SendHandle {
             device_name: crate::about::device_name(s.platform())
                 .as_deref()
                 .and_then(crate::lan::clean_device_name),
-            device: s.engine.device_key()?,
+            // Identity is only exchanged when pairing with a code.
+            device: secret.is_none().then(|| s.engine.device_key()).flatten(),
             ..ListenOptions::default()
         })?;
         let peer = match secret {

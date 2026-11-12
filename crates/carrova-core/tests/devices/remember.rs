@@ -28,6 +28,10 @@ fn moved(sender: &Side, receiver: &Side) {
     running.thread.join().unwrap().unwrap();
 }
 
+fn state_dir(side: &Side) -> std::path::PathBuf {
+    side.tmp.path().join("state/carrova")
+}
+
 fn store(side: &Side) -> KnownDevices {
     KnownDevices::open(&*side.platform).unwrap()
 }
@@ -134,16 +138,44 @@ fn remember_off_stores_nothing() {
 }
 
 #[test]
+fn unreadable_identity_still_moves_and_remembers_nothing() {
+    for corrupt_on_sender in [false, true] {
+        let sender = Side::sender();
+        let receiver = Side::new();
+        let corrupt = if corrupt_on_sender {
+            &sender
+        } else {
+            &receiver
+        };
+        std::fs::create_dir_all(state_dir(corrupt)).unwrap();
+        std::fs::write(state_dir(corrupt).join(DEVICE_KEY_FILE), b"garbage").unwrap();
+        moved(&sender, &receiver);
+
+        for side in [&sender, &receiver] {
+            assert!(known(side).is_empty());
+            assert!(remembered(side).is_empty());
+        }
+        assert!(
+            corrupt
+                .sink
+                .events()
+                .iter()
+                .any(|e| matches!(e, Event::Warning { .. })),
+            "the user hears this computer will not be remembered"
+        );
+    }
+}
+
+#[test]
 fn peer_proving_this_devices_own_identity_fails_the_session() {
     let sender = Side::sender();
     let receiver = Side::new();
     // A cloned state dir: both sides hold the same device key.
     identity(&sender);
-    let state = |side: &Side| side.tmp.path().join("state/carrova");
-    std::fs::create_dir_all(state(&receiver)).unwrap();
+    std::fs::create_dir_all(state_dir(&receiver)).unwrap();
     std::fs::copy(
-        state(&sender).join(DEVICE_KEY_FILE),
-        state(&receiver).join(DEVICE_KEY_FILE),
+        state_dir(&sender).join(DEVICE_KEY_FILE),
+        state_dir(&receiver).join(DEVICE_KEY_FILE),
     )
     .unwrap();
 

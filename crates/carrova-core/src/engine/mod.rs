@@ -64,8 +64,7 @@ use carrova_plugin::Plugin;
 use carrova_recipe::Recipe;
 
 use crate::devices::KnownDevices;
-use crate::error::Result;
-use crate::session::EventSink;
+use crate::session::{Event, EventSink};
 
 mod archive;
 mod checklist;
@@ -123,14 +122,25 @@ impl Engine {
     }
 
     /// This install's device key when it remembers devices (made on first
-    /// need), for the transport to prove at code pairing.
-    fn device_key(&self) -> Result<Option<Arc<DeviceKey>>> {
+    /// need), for the transport to prove at code pairing. An unusable key
+    /// never blocks a move: it pairs without identity (nothing is
+    /// remembered) and the user is warned.
+    fn device_key(&self) -> Option<Arc<DeviceKey>> {
         if !self.remember_devices {
-            return Ok(None);
+            return None;
         }
         let platform = &*self.platform;
-        let key = KnownDevices::open(platform)?.device_key(platform)?;
-        Ok(Some(Arc::new(key)))
+        match KnownDevices::open(platform).and_then(|known| known.device_key(platform)) {
+            Ok(key) => Some(Arc::new(key)),
+            Err(e) => {
+                let kind = e.class().kind;
+                tracing::warn!(?kind, "device key unusable; pairing without identity");
+                self.sink.emit(Event::Warning {
+                    message: format!("devices are not remembered: {e}"),
+                });
+                None
+            }
+        }
     }
 
     /// This engine with `plugins` (loaded from the same source as the
