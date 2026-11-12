@@ -83,11 +83,21 @@ test('every device on the map stays inside the field at the smallest window', as
   }
 });
 
+interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+const apart = (a: Box, b: Box) =>
+  a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y;
+
 for (const size of [
   { width: 1100, height: 520 },
   { width: 720, height: 560 },
+  { width: 1440, height: 900 },
 ]) {
-  test(`no device sits under the visibility pill or the card at ${String(size.width)}x${String(size.height)}`, async ({
+  test(`no device sits under another, the centre, the pill or the card at ${String(size.width)}x${String(size.height)}`, async ({
     page,
   }) => {
     await page.setViewportSize(size);
@@ -101,22 +111,22 @@ for (const size of [
     await devices.first().click();
     const card = page.getByRole('region', { name: "Ana's laptop" });
     await expect(card).toBeVisible();
-    const covers = [
-      await page.getByRole('button', { name: /^Visible to/ }).boundingBox(),
-      await card.boundingBox(),
-    ];
+    const others = new Map<string, Box | null>([
+      ['pill', await page.getByRole('button', { name: /^Visible to/ }).boundingBox()],
+      ['card', await card.boundingBox()],
+      ['centre', await page.locator('.s-near__me').boundingBox()],
+    ]);
+    const boxes: [string, Box | null][] = [];
     for (const device of await devices.all()) {
-      const box = await device.boundingBox();
+      boxes.push([(await device.textContent()) ?? '', await device.boundingBox()]);
+    }
+    for (const [i, [name, box]] of boxes.entries()) {
       expect(box).not.toBeNull();
-      for (const over of covers) {
+      if (box === null) continue;
+      const rivals = [...others, ...boxes.slice(i + 1)];
+      for (const [rival, over] of rivals) {
         expect(over).not.toBeNull();
-        if (box === null || over === null) continue;
-        const apart =
-          box.x + box.width <= over.x ||
-          over.x + over.width <= box.x ||
-          box.y + box.height <= over.y ||
-          over.y + over.height <= box.y;
-        expect.soft(apart, `${(await device.textContent()) ?? ''} overlaps`).toBe(true);
+        if (over !== null) expect.soft(apart(box, over), `${name} overlaps ${rival}`).toBe(true);
       }
     }
     await page.screenshot({
