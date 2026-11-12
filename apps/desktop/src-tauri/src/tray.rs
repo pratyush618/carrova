@@ -10,9 +10,11 @@
 //! closed or hidden, and keeps the app from exiting.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, PoisonError};
+use std::time::Duration;
 
+use carrova_core::time::now_unix;
 use carrova_view::devices::VisibilityChoice;
 use carrova_view::ipc::EVENT_CHANNEL;
 use carrova_view::tray::{
@@ -44,6 +46,8 @@ struct TrayShown {
     shown: AtomicBool,
     moving: AtomicBool,
     nearby: Mutex<Option<u32>>,
+    /// The "everyone" deadline a menu rebuild is waiting for (0: none).
+    rebuild_at: AtomicU64,
 }
 
 /// Start-up: open the window, or with `--background` do what closing it
@@ -238,6 +242,32 @@ fn set_tray_shown(app: &AppHandle, shown: bool) {
     }
 }
 
+/// Rebuild the menu once "everyone" ends, so "Visible to" ticks the
+/// choice then in force (once per deadline).
+fn rebuild_when_everyone_ends(app: &AppHandle) {
+    let (Some(state), Some(flags)) = (app.try_state::<AppState>(), tray_flags(app)) else {
+        return;
+    };
+    let Some(until) = background::everyone_until(&state) else {
+        return;
+    };
+    if flags.rebuild_at.swap(until, Ordering::SeqCst) == until {
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        // A second past the deadline, so it reads as over.
+        let wait = until.saturating_sub(now_unix()).saturating_add(1);
+        std::thread::sleep(Duration::from_secs(wait));
+        if let Some(state) = app.try_state::<AppState>()
+            && tray_shown(&app)
+        {
+            // Logged inside; the menu stays as it was.
+            let _ = show_tray(&app, &state);
+        }
+    });
+}
+
 /// Show `model` in the tray, with the tray's own nearby count.
 fn set_menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<()> {
     let flags = tray_flags(app);
@@ -250,6 +280,9 @@ fn set_menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<()> {
     let menu = menu(app, model)?;
     if let Some(flags) = flags {
         flags.moving.store(model.moving, Ordering::SeqCst);
+    }
+    if model.visible_to == VisibilityChoice::Everyone {
+        rebuild_when_everyone_ends(app);
     }
     if let Some(tray) = app.tray_by_id(MAIN_WINDOW) {
         tray.set_tooltip(Some(tray_tooltip(model)))?;

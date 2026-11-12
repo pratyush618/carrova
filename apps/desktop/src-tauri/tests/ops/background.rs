@@ -355,3 +355,14 @@ fn the_tray_shows_the_saved_visibility() {
         VisibilityChoice::NoOne
     );
 }
+
+#[test]
+fn the_tray_knows_when_everyone_ends() {
+    let machine = Machine::new();
+    let (state, _) = with_fake(&machine);
+    assert_eq!(background::everyone_until(&state), None);
+
+    let view = devices::apply_visibility(&state, VisibilityChoice::Everyone).unwrap();
+
+    assert_eq!(background::everyone_until(&state), view.until);
+}

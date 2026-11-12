@@ -114,6 +114,13 @@ pub fn nearby_count(state: &AppState) -> Option<u32> {
         .map(|found| u32::try_from(found.len()).unwrap_or(u32::MAX))
 }
 
+/// When "everyone" ends, if this computer is shown to everyone now.
+pub fn everyone_until(state: &AppState) -> Option<u64> {
+    load_visibility(state.platform.as_ref(), now_unix())
+        .ok()
+        .and_then(|visibility| visibility_view(visibility).until)
+}
+
 /// The tray at `now`; the nearby count is the tray's own (it looks when it
 /// shows).
 fn model_of(state: &AppState, settings: &Settings, now: u64) -> TrayModel {
