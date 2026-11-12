@@ -5,7 +5,6 @@ export const nearby = {
   views: { map: 'Map', list: 'List' },
   me: 'This computer',
   map: 'Nearby devices',
-  rings: { inner: 'answering now', outer: 'slower, or a while ago' },
   here: 'Here now',
   away: 'Known, not here',
   status: { known: 'Known', new: 'New, needs a code', away: 'Away' },
@@ -60,5 +59,4 @@ export const nearby = {
     reset: "Couldn't reset this computer's identity. Nothing changed. Try again.",
   },
   remembered: 'Remembered {{name}} ({{fingerprint}})',
-  forget: 'Forget',
 } as const;

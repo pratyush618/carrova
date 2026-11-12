@@ -44,7 +44,7 @@ export function RememberedToast({
             onClose();
           }}
         >
-          {t('nearby.forget')}
+          {t('nearby.actions.forget')}
         </Button>
       }
     >
