@@ -118,14 +118,15 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
     void port.clearErrorReports().then(() => reloadReports());
   }, [port, reloadReports]);
 
-  // A pause ends on its own: the clock moves to its end, even with Settings left open.
-  const [now, setNow] = useState(() => new Date());
+  // A pause ends on its own: when it does, the model is built again, past its end,
+  // even with Settings left open (every other rebuild reads the clock afresh).
+  const [ended, setEnded] = useState(0);
   const pauseEnd = (settings?.alerts.paused_until ?? 0) * 1000;
   useEffect(() => {
     const left = pauseEnd - Date.now();
     if (left <= 0) return;
     const timer = setTimeout(() => {
-      setNow(new Date(Math.max(Date.now(), pauseEnd)));
+      setEnded(pauseEnd);
     }, left);
     return () => {
       clearTimeout(timer);
@@ -150,7 +151,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
               update,
               about: current(about.state),
             },
-            now,
+            new Date(Math.max(new Date().getTime(), ended)),
           ),
     [
       settings,
@@ -163,7 +164,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       install.state,
       update,
       about.state,
-      now,
+      ended,
     ],
   );
 

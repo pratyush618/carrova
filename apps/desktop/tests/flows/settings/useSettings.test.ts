@@ -124,6 +124,24 @@ describe('saving settings', () => {
 });
 
 describe('a pause', () => {
+  it('shows as over when it ended while the settings were loading', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const port = createFakePort({ stepMs: 0 });
+      const mounted = Date.now();
+      await port.saveSettings({ alerts: { paused_until: Math.floor(mounted / 1000) + 5 } });
+      const settings = renderHook(() => useSettings(port, idle));
+      // The pause ends before the stored settings arrive.
+      vi.setSystemTime(mounted + 10_000);
+      await waitFor(() => {
+        expect(settings.result.current.model).not.toBeNull();
+      });
+      expect(settings.result.current.model?.pausedUntil).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('shows as over once its time passes, with Settings left open', async () => {
     const port = createFakePort({ stepMs: 0 });
     await port.saveSettings({ alerts: { paused_until: Math.ceil(Date.now() / 1000) + 1 } });
