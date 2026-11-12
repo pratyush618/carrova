@@ -13,7 +13,7 @@ use carrova_platform::Platform;
 use crate::command_error::CommandError;
 use crate::events::{Emit, SessionSink};
 use crate::pairing::{ANSWER_TIMEOUT, PairingAnswers};
-use crate::presence::{Advertise, BackgroundPresence};
+use crate::presence::Advertise;
 use crate::recipes::RecipeService;
 use crate::registry::Registry;
 use crate::send_request::SendRequests;
@@ -79,7 +79,7 @@ impl std::fmt::Debug for AppState {
 
 impl AppState {
     /// The bridge on `platform`, with recipes from `locations`, emitting on
-    /// `out`; not advertised until the app starts its presence.
+    /// `out`, telling `presence` of device and visibility changes.
     ///
     /// # Errors
     ///
@@ -88,6 +88,7 @@ impl AppState {
         platform: Arc<dyn Platform>,
         locations: RecipeLocations,
         out: Arc<dyn Emit>,
+        presence: Arc<dyn Advertise>,
         config: BridgeConfig,
     ) -> Result<Self, CommandError> {
         let (inbox, set_aside) = Inbox::open(Arc::clone(&platform))?;
@@ -109,7 +110,7 @@ impl AppState {
             settings: SettingsStore::new(Arc::clone(&platform)),
             pending_send: SendRequests::default(),
             entries_lock: Arc::default(),
-            presence: Arc::new(BackgroundPresence::new(Arc::clone(&platform))),
+            presence,
             platform,
             out,
             config,

@@ -91,10 +91,7 @@ pub fn run() -> tauri::Result<()> {
             reports.install_panic_hook();
             app.manage(reports);
             let presence = Arc::new(BackgroundPresence::new(Arc::clone(&platform)));
-            let state = AppState {
-                presence: presence.clone(),
-                ..app_state(app.handle(), platform, pending_send)?
-            };
+            let state = app_state(app.handle(), platform, pending_send, presence.clone())?;
             refresh_launchers(state.clone());
             start_presence(&presence);
             app.manage(presence);
@@ -216,6 +213,7 @@ fn app_state(
     app: &AppHandle,
     platform: Arc<dyn carrova_platform::Platform>,
     pending_send: send_request::SendRequests,
+    presence: Arc<BackgroundPresence>,
 ) -> Result<AppState, command_error::CommandError> {
     let resources = app
         .path()
@@ -228,6 +226,7 @@ fn app_state(
             platform,
             recipes::app_locations(resources.as_deref()),
             Arc::new(app.clone()),
+            presence,
             BridgeConfig::default(),
         )?
     })

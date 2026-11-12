@@ -106,6 +106,8 @@ pub(crate) struct Machine {
     tmp: TempDir,
     pub(crate) home: PathBuf,
     pub(crate) events: Arc<Events>,
+    /// What the state tells of device and visibility changes.
+    pub(crate) presence: Arc<Refreshes>,
     /// The fake the state runs on (for what only the fake can tell).
     pub(crate) platform: FakePlatform,
     pub(crate) state: AppState,
@@ -142,6 +144,7 @@ impl Machine {
             None => platform,
         };
         let events = Arc::new(Events::default());
+        let presence = Arc::new(Refreshes::default());
         let state = AppState::new(
             Arc::new(platform.clone()),
             RecipeLocations {
@@ -149,6 +152,7 @@ impl Machine {
                 ..RecipeLocations::default()
             },
             events.clone(),
+            presence.clone(),
             BridgeConfig {
                 kdf: |_| KdfParams::FLOOR,
                 answer_timeout: Duration::from_millis(50),
@@ -159,6 +163,7 @@ impl Machine {
             tmp,
             home,
             events,
+            presence,
             platform,
             state,
         }

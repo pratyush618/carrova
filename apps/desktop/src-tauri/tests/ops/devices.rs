@@ -16,14 +16,9 @@ use crate::ops::{devices, settings};
 use crate::state::AppState;
 use crate::testing::{Machine, Refreshes};
 
-/// `machine`'s state with a presence that counts refreshes.
+/// `machine`'s state and the presence refreshes it counts.
 fn counting(machine: &Machine) -> (AppState, Arc<Refreshes>) {
-    let presence = Arc::new(Refreshes::default());
-    let state = AppState {
-        presence: presence.clone(),
-        ..machine.state.clone()
-    };
-    (state, presence)
+    (machine.state.clone(), machine.presence.clone())
 }
 
 fn public(seed: u8) -> DevicePublic {
