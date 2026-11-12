@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 use carrova_core::time::SECS_PER_DAY;
 use carrova_core::{Inbox, NoticeKind, RETENTION_DAYS};
-use carrova_platform::Platform;
 use carrova_platform::fake::FakePlatform;
+use carrova_platform::{PermissionModel, Platform};
 use tempfile::TempDir;
 
 const NOW: u64 = 1_800_000_000;
@@ -90,8 +90,12 @@ fn inbox_file_is_0600() {
     inbox
         .push(NoticeKind::MoveFailed, NOW, None, "x".into())
         .unwrap();
-    let mode = platform(&home).metadata(&inbox_file(&home)).unwrap().mode;
-    assert_eq!(mode.map(|m| m & 0o777), Some(0o600));
+    let platform = platform(&home);
+    let mode = platform.metadata(&inbox_file(&home)).unwrap().mode;
+    // Only Unix has modes; elsewhere the file carries none to check.
+    if platform.permission_model() == PermissionModel::Unix {
+        assert_eq!(mode.map(|m| m & 0o777), Some(0o600));
+    }
 }
 
 #[test]
