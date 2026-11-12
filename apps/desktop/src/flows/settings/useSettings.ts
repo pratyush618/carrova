@@ -7,8 +7,10 @@ import type {
   RecipesStatus,
   ReportConsent,
   Settings,
+  SettingsPatch,
   UpdateStatus,
 } from '../../engine/types';
+import { withPatch } from '../../ipc/settingsPatch';
 import { current, type Remote } from '../remote';
 import { useCommand, useRemote } from '../useRemote';
 import { offerFileManager, settingsModel } from './settingsViews';
@@ -28,7 +30,8 @@ export interface SettingsController {
   readonly offerFileManager: boolean;
   /** The last write or removal of the file-manager entries failed. */
   readonly fileManagerFailed: boolean;
-  readonly save: (patch: Partial<Settings>) => void;
+  /** Save the changed fields only, on top of the settings as saved then. */
+  readonly save: (patch: SettingsPatch) => void;
   /** Change the background settings (and start at sign-in with them); a refused change goes back to the stored one. */
   readonly setBackground: (patch: Partial<BackgroundSettings>) => void;
   /** Write (`true`) or remove the file-manager entries; once done, the one-time question counts as answered. */
@@ -64,11 +67,10 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
   }, [install.state, reloadRecipes]);
 
   const save = useCallback(
-    (patch: Partial<Settings>) => {
+    (patch: SettingsPatch) => {
       if (settings === null) return;
-      const next = { ...settings, ...patch };
-      setEdited(next);
-      void port.saveSettings(next);
+      setEdited(withPatch(settings, patch));
+      void port.saveSettings(patch);
     },
     [port, settings],
   );

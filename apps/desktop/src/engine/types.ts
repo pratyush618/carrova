@@ -61,3 +61,4 @@ export type { Skipped } from '../bindings/Skipped';
 export type { State as SessionState } from '../bindings/State';
 export type { UpdateStatus } from '../bindings/UpdateStatus';
 export type { CarrovaPort, Unsubscribe } from '../ipc/port';
+export type { SettingsPatch } from '../ipc/settingsPatch';

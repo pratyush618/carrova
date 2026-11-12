@@ -12,6 +12,7 @@ import type { Notice } from '../../bindings/Notice';
 import type { ReportConsent } from '../../bindings/ReportConsent';
 import type { Settings } from '../../bindings/Settings';
 import type { CarrovaPort } from '../port';
+import { withPatch } from '../settingsPatch';
 import { bridgeError, raise } from '../reject';
 import * as fx from './fixtures';
 import { FakeReceiver } from './receive';
@@ -204,9 +205,9 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
     about: () => later(() => ABOUT),
 
     settings: () => later(() => settings),
-    saveSettings: (next) =>
+    saveSettings: (patch) =>
       later(() => {
-        settings = next;
+        settings = withPatch(settings, patch);
       }),
     fileManagerStatus: () => later(() => fileManager),
     setFileManagerEntries: (on) =>

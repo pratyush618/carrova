@@ -47,6 +47,7 @@ import type { SessionId } from '../bindings/SessionId';
 import type { SessionOpened } from '../bindings/SessionOpened';
 import type { SessionRecord } from '../bindings/SessionRecord';
 import type { Settings } from '../bindings/Settings';
+import type { SettingsPatch } from './settingsPatch';
 import type { UpdateStatus } from '../bindings/UpdateStatus';
 
 /** Stops a subscription. */
@@ -183,7 +184,8 @@ export interface CarrovaPort {
 
   // --- Settings -----------------------------------------------------------
   settings(): Promise<Settings>;
-  saveSettings(settings: Settings): Promise<void>;
+  /** Save the changed fields (see {@link SettingsPatch}). */
+  saveSettings(patch: SettingsPatch): Promise<void>;
   /** Whether the "Send with Carrova" file-manager entries are written. */
   fileManagerStatus(): Promise<FileManagerStatus>;
   /** Write (`true`) or remove (`false`) the file-manager entries. */

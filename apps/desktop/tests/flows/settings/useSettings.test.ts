@@ -80,3 +80,25 @@ describe('background settings', () => {
     });
   });
 });
+
+describe('saving settings', () => {
+  it('keeps a pause set in the tray while the window was open', async () => {
+    const port = createFakePort({ stepMs: 0 });
+    const settings = renderHook(() => useSettings(port, idle));
+    await waitFor(() => {
+      expect(settings.result.current.settings).not.toBeNull();
+    });
+    // The tray pauses pop-ups behind this window's back.
+    const stored = await port.settings();
+    await port.saveSettings({ alerts: { ...stored.alerts, paused_until: 4_000_000_000 } });
+
+    act(() => {
+      settings.result.current.save({ theme: 'dark' });
+    });
+
+    await waitFor(async () => {
+      expect((await port.settings()).theme).toBe('dark');
+    });
+    expect((await port.settings()).alerts.paused_until).toBe(4_000_000_000);
+  });
+});

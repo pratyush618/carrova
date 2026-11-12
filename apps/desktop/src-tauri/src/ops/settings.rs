@@ -1,8 +1,10 @@
 //! User settings.
 
 use carrova_view::ipc::Settings;
+use serde_json::Value;
 
 use crate::command_error::CommandError;
+use crate::settings::patched;
 use crate::state::AppState;
 use crate::worker::blocking;
 
@@ -16,16 +18,17 @@ pub async fn load(state: &AppState) -> Result<Settings, CommandError> {
     blocking(move || store.load()).await
 }
 
-/// Save `settings`.
+/// Apply `patch` (the changed fields, see [`patched`]) to the saved
+/// settings.
 ///
 /// # Errors
 ///
-/// The settings file cannot be written.
-pub async fn save(state: &AppState, settings: Settings) -> Result<(), CommandError> {
+/// The settings file cannot be read or written, or the patch does not fit.
+pub async fn save(state: &AppState, patch: Value) -> Result<(), CommandError> {
     let store = state.settings.clone();
     blocking(move || {
         let _writing = store.lock();
-        store.save(&settings)
+        store.save(&patched(&store.load()?, patch)?)
     })
     .await
 }

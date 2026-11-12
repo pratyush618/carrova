@@ -44,6 +44,6 @@ describe('suggested defaults for new moves', () => {
     await openSettings(user, 'Sending');
     await user.click(await screen.findByRole('switch', { name: 'Bring caches' }));
 
-    expect(save.mock.calls.at(-1)?.[0].move_defaults.include_caches).toBe(true);
+    expect(save.mock.calls.at(-1)?.[0].move_defaults?.include_caches).toBe(true);
   });
 });

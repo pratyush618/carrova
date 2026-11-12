@@ -241,3 +241,20 @@ fn a_failed_save_leaves_autostart_as_it_was() {
         BackgroundSettings::default()
     );
 }
+
+#[test]
+fn a_settings_change_keeps_a_pause_set_in_the_tray() {
+    let machine = Machine::new();
+    let (state, _) = with_fake(&machine);
+    background::toggle_pause(&state).unwrap();
+
+    block_on(settings::save(
+        &state,
+        serde_json::json!({ "theme": "dark" }),
+    ))
+    .unwrap();
+
+    let saved = block_on(settings::load(&state)).unwrap();
+    assert_eq!(saved.theme, Some(carrova_view::ipc::Theme::Dark));
+    assert!(saved.alerts.paused_until.is_some());
+}

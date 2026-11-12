@@ -1,8 +1,7 @@
 import { render, type RenderResult } from '@testing-library/react';
-import type { Settings } from '@/bindings/Settings';
 import { App } from '@/app/App';
 import type { DesktopHost } from '@/engine/host';
-import type { CarrovaPort } from '@/engine/types';
+import type { CarrovaPort, SettingsPatch } from '@/engine/types';
 import { createFakePort, type FakeOptions, type Scenario } from '@/ipc/fake';
 
 export interface AppOptions {
@@ -10,7 +9,7 @@ export interface AppOptions {
   /** Error-report consent and the file-manager question already answered (Home doesn't ask). */
   readonly returning?: boolean;
   /** Settings saved before the app starts. */
-  readonly settings?: Partial<Settings>;
+  readonly settings?: SettingsPatch;
   /** A port to use instead of a fresh fake (scenario, step and sleep options are then ignored). */
   readonly port?: CarrovaPort;
   readonly host?: DesktopHost;
@@ -34,9 +33,7 @@ export async function renderApp(
   const returning = options.returning === true;
   if (returning) await port.setErrorReportConsent('denied');
   if (returning || options.settings !== undefined) {
-    const saved = await port.settings();
     await port.saveSettings({
-      ...saved,
       ...(returning && { file_manager_asked: true }),
       ...options.settings,
     });

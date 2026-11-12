@@ -142,12 +142,10 @@ export function SettingsRoute({ section }: { readonly section: SettingsSection }
         },
         onBackground: settings.setBackground,
         onAlerts: (patch) => {
-          settings.save({ alerts: { ...model.alerts, ...patch } });
+          settings.save({ alerts: patch });
         },
         onPause: (choice) => {
-          settings.save({
-            alerts: { ...model.alerts, paused_until: pausedUntil(choice, new Date()) },
-          });
+          settings.save({ alerts: { paused_until: pausedUntil(choice, new Date()) } });
         },
         onAppearance: (value) => {
           settings.save({ theme: value === 'system' ? null : value });
@@ -181,8 +179,7 @@ export function SettingsRoute({ section }: { readonly section: SettingsSection }
         },
         onFileManager: settings.setFileManager,
         onMoveDefaults: (patch) => {
-          const current = settings.settings?.move_defaults;
-          if (current !== undefined) settings.save({ move_defaults: { ...current, ...patch } });
+          settings.save({ move_defaults: patch });
         },
       }}
     />

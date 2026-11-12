@@ -21,7 +21,8 @@ fn alerts(machine: &Machine, alerts: AlertSettings) {
         alerts,
         ..Settings::default()
     };
-    block_on(settings::save(&machine.state, settings)).unwrap();
+    let patch = serde_json::to_value(settings).unwrap();
+    block_on(settings::save(&machine.state, patch)).unwrap();
 }
 
 /// Waits (up to 5 s) until `done` holds: alerts are delivered off the
