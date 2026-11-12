@@ -139,10 +139,14 @@ impl KnownDevices {
         self.remember_locked(platform, record, secret, hint, Some(at))
     }
 
-    /// Drop every saved wake hint (the user turned hints off).
+    /// Drop every saved wake hint (the user turned hints off); writes
+    /// nothing when there is none.
     pub fn clear_wake_hints(&self, platform: &dyn Platform) -> Result<()> {
         let _lock = self.lock(platform)?;
         let mut file = self.load(platform)?;
+        if file.devices.iter().all(|d| d.mac_hint.is_none()) {
+            return Ok(());
+        }
         for device in &mut file.devices {
             device.mac_hint = None;
         }

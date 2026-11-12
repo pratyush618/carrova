@@ -9,8 +9,8 @@ use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::{CoreError, Engine};
 use carrova_crypto::identity::DeviceKey;
 use carrova_crypto::pairing::KnownSecret;
-use carrova_platform::OsKind;
 use carrova_platform::fake::{FakePlatform, Hooks};
+use carrova_platform::{OsKind, Platform};
 
 use super::lan_support::Side;
 use super::remember::{known, moved};
@@ -188,6 +188,14 @@ fn clear_wake_hints_removes_all() {
             .iter()
             .all(|d| d.mac_hint.is_none())
     );
+}
+
+#[test]
+fn clearing_without_hints_writes_nothing() {
+    let s = Store::new();
+    s.devices.clear_wake_hints(&s.platform).unwrap();
+    let known = s.platform.state_dir().unwrap().join("devices/known.json");
+    assert!(!known.exists(), "no known.json made just to clear it");
 }
 
 #[test]
