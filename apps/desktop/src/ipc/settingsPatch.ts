@@ -18,4 +18,5 @@ export const withPatch = (settings: Settings, patch: SettingsPatch): Settings =>
   ...patch,
   alerts: { ...settings.alerts, ...patch.alerts },
   move_defaults: { ...settings.move_defaults, ...patch.move_defaults },
+  nearby: { ...settings.nearby, ...patch.nearby },
 });

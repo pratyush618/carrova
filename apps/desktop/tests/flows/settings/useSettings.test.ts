@@ -124,6 +124,27 @@ describe('saving settings', () => {
     });
     expect((await port.settings()).alerts.paused_until).toBe(4_000_000_000);
   });
+
+  it('changes one nearby setting and keeps the others', async () => {
+    const port = createFakePort({ stepMs: 0 });
+    await port.saveSettings({ nearby: { remember: false } });
+    const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
+    await waitFor(() => {
+      expect(settings.result.current.settings).not.toBeNull();
+    });
+
+    act(() => {
+      settings.result.current.save({ nearby: { wol_hints: true } });
+    });
+
+    await waitFor(async () => {
+      expect((await port.settings()).nearby).toEqual({
+        remember: false,
+        accept_known: true,
+        wol_hints: true,
+      });
+    });
+  });
 });
 
 describe('a pause', () => {
