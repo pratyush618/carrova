@@ -1,9 +1,9 @@
 import type { Ring } from '../../engine/types';
 
 /** Ring radius in field units (`--u`, 1px on a roomy field; inner = answering now), and where on it the first device sits.
- * The starts are 50° apart so, for 1–3 inner and 1–5 outer devices, no two ever share an angle (60° would, at 1 inner and 4 outer). */
+ * Starts (15° and -30°) are chosen so that up to 5 devices, at most 4 of them outer, never touch (6px gap) at the narrowest field (508px) and a roomy one; tests/screens/nearby/spots.test.ts proves it. */
 const RINGS: Readonly<Record<Ring, { readonly radius: number; readonly start: number }>> = {
-  inner: { radius: 170, start: 20 },
+  inner: { radius: 170, start: 15 },
   outer: { radius: 290, start: -30 },
 };
 
