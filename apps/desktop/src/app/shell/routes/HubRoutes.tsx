@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
 import { catalogModel, type CatalogUi } from '../../../flows/catalog/catalogViews';
 import { historyEntry, homeModel, sessionModel } from '../../../flows/history/historyViews';
+import { nearbyEntries, visibilityModel, wakeFailure } from '../../../flows/nearby/nearbyViews';
+import { useNearby } from '../../../flows/nearby/useNearby';
 import { pausedUntil } from '../../../flows/settings/settingsViews';
 import { useUndoPreview } from '../../../flows/undo/useUndoPreview';
 import { current, type Remote } from '../../../flows/remote';
 import { AppsScreen } from '../../../screens/apps/AppsScreen';
 import { HistoryScreen } from '../../../screens/history/HistoryScreen';
+import type { NearbyView, WakeNote } from '../../../screens/nearby/model';
+import { NearbyScreen } from '../../../screens/nearby/NearbyScreen';
 import type { SettingsSection } from '../../../screens/settings/sections';
 import { SettingsScreen } from '../../../screens/settings/SettingsScreen';
 import { HomeScreen } from '../../../screens/start/HomeScreen';
@@ -94,6 +98,59 @@ export function HistoryRoute() {
   );
 }
 
+/** Nearby: looks again every few seconds while open; visibility and remembered devices are shared with Settings. */
+export function NearbyRoute() {
+  const { devices, settings } = useControllers();
+  const nav = useNav();
+  const start = useStartFlows();
+  const [view, setView] = useState<NearbyView>('map');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [wake, setWake] = useState<WakeNote | null>(null);
+  const { refresh } = devices;
+  useEffect(refresh, [refresh]);
+  const found = useNearby(devices.browse, true);
+  return (
+    <NearbyScreen
+      model={{
+        view,
+        ...nearbyEntries(found, devices.known),
+        selected,
+        visibility: devices.visibility && visibilityModel(devices.visibility),
+        me: settings.about?.device_name ?? null,
+        wake,
+        now: new Date(),
+      }}
+      on={{
+        onView: setView,
+        onSelect: setSelected,
+        onVisibility: devices.setVisibility,
+        onSettings: () => {
+          nav.go({ type: 'openHub', page: 'settings', section: 'nearby' });
+        },
+        onSendWithCode: start.send,
+        onWake: ({ id, name }) => {
+          if (id === null) return;
+          void devices.wake(id).then(
+            () => {
+              setWake({ name, outcome: 'sent' });
+            },
+            (reason: unknown) => {
+              setWake({ name, outcome: wakeFailure(reason) });
+            },
+          );
+        },
+        onForget: ({ id }) => {
+          if (id !== null) devices.forget({ device: id });
+          setSelected(null);
+        },
+        onDismissWake: () => {
+          setWake(null);
+        },
+      }}
+    />
+  );
+}
+
 export function AppsRoute() {
   const { catalog } = useControllers();
   const [ui, setUi] = useState<CatalogUi>({
@@ -125,7 +182,7 @@ export function AppsRoute() {
 }
 
 export function SettingsRoute({ section }: { readonly section: SettingsSection }) {
-  const { settings, update, report } = useControllers();
+  const { settings, update, report, devices } = useControllers();
   const nav = useNav();
   const { model } = settings;
   if (model === null) return <HubLayout>{null}</HubLayout>;
@@ -141,6 +198,16 @@ export function SettingsRoute({ section }: { readonly section: SettingsSection }
           nav.go({ type: 'back' });
         },
         onBackground: settings.setBackground,
+        onNearby: (patch) => {
+          settings.save({ nearby: { ...model.nearby, ...patch } });
+        },
+        onVisibility: devices.setVisibility,
+        onKnownDevices: () => {
+          nav.open({ kind: 'known-devices' });
+        },
+        onResetIdentity: () => {
+          nav.open({ kind: 'forget-devices', what: 'identity' });
+        },
         onAlerts: (patch) => {
           settings.save({ alerts: patch });
         },

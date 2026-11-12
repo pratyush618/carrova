@@ -9,12 +9,23 @@ import {
 import type { CatalogModel } from '../../screens/apps/model';
 import { HistoryScreen } from '../../screens/history/HistoryScreen';
 import { historyEmpty, historyTimeline, historyUndone } from '../../screens/history/fixtures';
+import { NearbyScreen } from '../../screens/nearby/NearbyScreen';
+import {
+  nearbyEmpty,
+  nearbyList,
+  nearbyMap,
+  nearbyNoHint,
+  nearbySelected,
+} from '../../screens/nearby/fixtures';
+import type { NearbyModel } from '../../screens/nearby/model';
+import { ForgetDevicesDialog, KnownDevicesSheet } from '../../screens/settings/KnownDevicesSheet';
 import { AboutSheet, CrashDialog, UpdateDialog } from '../../screens/settings/SettingsDialogs';
 import { SECTIONS } from '../../screens/settings/sections';
 import { SettingsScreen } from '../../screens/settings/SettingsScreen';
 import {
   about,
   crash,
+  knownDevices,
   settingsFileManagerNotes,
   settingsModel,
   settingsNoFileManager,
@@ -52,6 +63,10 @@ const settingsOn = noops(
   'onStartInManual',
   'onFileManager',
   'onBackground',
+  'onNearby',
+  'onVisibility',
+  'onKnownDevices',
+  'onResetIdentity',
   'onAlerts',
   'onPause',
   'onSection',
@@ -62,8 +77,39 @@ const SETTINGS = {
   unsupported: settingsNoFileManager,
 } as const;
 const settingsBase = <SettingsScreen section="general" model={settingsModel} on={settingsOn} />;
+const settingsNearby = <SettingsScreen section="nearby" model={settingsModel} on={settingsOn} />;
+const nearbyOn = noops(
+  'onView',
+  'onSelect',
+  'onVisibility',
+  'onSettings',
+  'onSendWithCode',
+  'onWake',
+  'onForget',
+  'onDismissWake',
+);
+const NEARBY: Readonly<Record<string, NearbyModel>> = {
+  selected: nearbySelected,
+  list: nearbyList,
+  empty: nearbyEmpty,
+  'no-hint': nearbyNoHint,
+};
 
 export const hubScreens: readonly GalleryScreen[] = [
+  {
+    id: 'nearby',
+    group: 'Nearby',
+    title: 'Nearby',
+    view: { kind: 'hub', page: 'nearby' },
+    states: states(
+      ['map', 'Map'],
+      ['selected', 'Device selected'],
+      ['list', 'List'],
+      ['empty', 'Nobody nearby'],
+      ['no-hint', 'Wake without a saved address'],
+    ),
+    render: (s) => ({ base: <NearbyScreen model={NEARBY[s] ?? nearbyMap} on={nearbyOn} /> }),
+  },
   {
     id: 'history',
     group: 'History',
@@ -124,6 +170,41 @@ export const hubScreens: readonly GalleryScreen[] = [
         (fixture === settingsModel ? 'general' : 'sending');
       return { base: <SettingsScreen section={section} model={fixture} on={settingsOn} /> };
     },
+  },
+  {
+    id: 'known-devices',
+    group: 'Settings',
+    title: 'Known devices (sheet)',
+    view: { kind: 'hub', page: 'settings', section: 'nearby' },
+    states: states(
+      ['list', 'Four remembered'],
+      ['forget-all', 'Forget all?'],
+      ['reset', 'Reset identity?'],
+    ),
+    render: (s) => ({
+      base: settingsNearby,
+      overlays: [
+        ...(s === 'reset'
+          ? []
+          : [
+              <KnownDevicesSheet
+                key="k"
+                devices={knownDevices}
+                now={settingsModel.now}
+                on={noops('onRename', 'onForget', 'onForgetAll', 'onDone')}
+              />,
+            ]),
+        ...(s === 'list'
+          ? []
+          : [
+              <ForgetDevicesDialog
+                key="f"
+                what={s === 'reset' ? 'identity' : 'all'}
+                on={noops('onCancel', 'onConfirm')}
+              />,
+            ]),
+      ],
+    }),
   },
   {
     id: 'update',

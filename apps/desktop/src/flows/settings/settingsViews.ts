@@ -17,6 +17,7 @@ import type {
   SettingsModel,
   UpdateModel,
 } from '../../screens/settings/model';
+import type { DevicesController } from '../nearby/useDevices';
 import { current, type Remote } from '../remote';
 
 /** Where the recipes came from, as Settings words it. */
@@ -79,6 +80,8 @@ export interface SettingsSources {
   readonly update: Remote<UpdateStatus>;
   /** This app and computer; `null` until the engine answered. */
   readonly about: About | null;
+  /** Who can find this computer and how many devices it remembers. */
+  readonly devices: Pick<DevicesController, 'visibility' | 'known'>;
 }
 
 const HOUR = 3600;
@@ -142,6 +145,9 @@ export function settingsModel(s: SettingsSources, now: Date): SettingsModel {
             failed: s.fileManagerFailed,
           }
         : null,
+    nearby: s.settings.nearby,
+    visibility: s.devices.visibility?.choice ?? null,
+    knownDevices: s.devices.known.length,
   };
 }
 

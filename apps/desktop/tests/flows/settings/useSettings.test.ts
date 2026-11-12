@@ -4,6 +4,9 @@ import { idle } from '@/flows/remote';
 import { useSettings } from '@/flows/settings/useSettings';
 import { createFakePort } from '@/ipc/fake';
 
+/** Visibility not loaded, nothing remembered. */
+const NO_DEVICES = { visibility: null, known: [] };
+
 const FAILED = { code: 'io', message: 'read-only folder', hint: null } as const;
 
 /** Settings over the fake port, once Home would offer the file-manager entry. */
@@ -11,7 +14,7 @@ async function offered(add: 'works' | 'fails') {
   const port = createFakePort({ stepMs: 0 });
   if (add === 'fails') vi.spyOn(port, 'setFileManagerEntries').mockRejectedValue(FAILED);
   const save = vi.spyOn(port, 'saveSettings');
-  const settings = renderHook(() => useSettings(port, idle));
+  const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
   await waitFor(() => {
     expect(settings.result.current.offerFileManager).toBe(true);
   });
@@ -48,7 +51,7 @@ describe('the one-time file-manager question', () => {
 describe('background settings', () => {
   const loaded = async () => {
     const port = createFakePort({ stepMs: 0 });
-    const settings = renderHook(() => useSettings(port, idle));
+    const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
     await waitFor(() => {
       expect(settings.result.current.settings).not.toBeNull();
     });

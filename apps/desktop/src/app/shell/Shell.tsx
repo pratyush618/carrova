@@ -72,9 +72,11 @@ export function Shell({ initial }: { readonly initial: Nav }) {
   const forwarded = useForwardedSends(go, nav.view);
   const recipes = controllers.settings.recipes;
   const bell = useBell(go);
+  const visibility = controllers.devices.visibility;
+  const visible = visibility !== null && visibility.choice !== 'no_one';
   const chrome = useMemo(
-    () => buildChrome(view, t, go, bundleStatus(recipes, t), bell),
-    [view, t, go, recipes, bell],
+    () => buildChrome(view, t, go, bundleStatus(recipes, t), bell, visible),
+    [view, t, go, recipes, bell, visible],
   );
   useScreenFocus(viewKey(view), root);
 

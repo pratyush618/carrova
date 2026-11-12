@@ -3,6 +3,7 @@ import { common } from './common';
 import { errors } from './errors';
 import { file } from './file';
 import { history } from './history';
+import { nearby } from './nearby';
 import { override } from './override';
 import { receive } from './receive';
 import { send } from './send';
@@ -22,6 +23,7 @@ export const en = {
   file,
   undo,
   history,
+  nearby,
   apps,
   settings,
   override,

@@ -1,4 +1,9 @@
 import { historyEntry } from '../../../flows/history/historyViews';
+import { knownDeviceLine } from '../../../flows/nearby/nearbyViews';
+import {
+  ForgetDevicesDialog,
+  KnownDevicesSheet,
+} from '../../../screens/settings/KnownDevicesSheet';
 import { ForgetDialog } from '../../../screens/history/ForgetDialog';
 import { aboutModel } from '../../../flows/settings/settingsViews';
 import { AboutSheet, CrashDialog, UpdateDialog } from '../../../screens/settings/SettingsDialogs';
@@ -79,4 +84,45 @@ export function AboutOverlay() {
   const { settings } = useControllers();
   const nav = useNav();
   return <AboutSheet model={aboutModel(settings.about)} on={{ onClose: nav.close }} />;
+}
+
+/** Remembered devices: rename or forget each; Forget all asks first. */
+export function KnownDevicesOverlay() {
+  const { devices } = useControllers();
+  const nav = useNav();
+  return (
+    <KnownDevicesSheet
+      devices={devices.known.map(knownDeviceLine)}
+      now={new Date()}
+      on={{
+        onRename: devices.rename,
+        onForget: (id) => {
+          devices.forget({ device: id });
+        },
+        onForgetAll: () => {
+          nav.open({ kind: 'forget-devices', what: 'all' });
+        },
+        onDone: nav.close,
+      }}
+    />
+  );
+}
+
+/** Forget every remembered device, or give this computer a new identity, once confirmed. */
+export function ForgetDevicesOverlay({ what }: { readonly what: 'all' | 'identity' }) {
+  const { devices } = useControllers();
+  const nav = useNav();
+  return (
+    <ForgetDevicesDialog
+      what={what}
+      on={{
+        onCancel: nav.close,
+        onConfirm: () => {
+          if (what === 'all') devices.forget('all');
+          else devices.resetIdentity();
+          nav.close();
+        },
+      }}
+    />
+  );
 }

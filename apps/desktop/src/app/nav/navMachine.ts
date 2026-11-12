@@ -2,7 +2,7 @@ import type { SettingsSection } from '../../screens/settings/sections';
 import { flowStart, position, stepIndex, type FlowId, type FlowPosition } from './flows';
 
 /** Places reachable from the hub's top bar. */
-export type HubPage = 'home' | 'history' | 'apps' | 'settings';
+export type HubPage = 'home' | 'nearby' | 'history' | 'apps' | 'settings';
 
 /** What fills the window. */
 export type View =
@@ -32,7 +32,11 @@ export type Overlay =
   /** Restore an item somewhere else (after the "elsewhere" warning). */
   | { readonly kind: 'remap'; readonly item: string }
   /** Confirm forgetting a session and its undo point. */
-  | { readonly kind: 'forget'; readonly id: string };
+  | { readonly kind: 'forget'; readonly id: string }
+  /** Rename or forget remembered devices (Settings → Nearby & devices). */
+  | { readonly kind: 'known-devices' }
+  /** Confirm forgetting every remembered device, or giving this computer a new identity. */
+  | { readonly kind: 'forget-devices'; readonly what: 'all' | 'identity' };
 
 /** Navigation state: one view, the hub page a flow returns to, and a stack of overlays (top last). */
 export interface Nav {

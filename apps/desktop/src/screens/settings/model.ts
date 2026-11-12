@@ -1,6 +1,7 @@
 import type { AlertSettings } from '../../bindings/AlertSettings';
 import type { BackgroundSettings } from '../../bindings/BackgroundSettings';
-import type { BridgeError, MoveDefaults, OsKind } from '../../engine/types';
+import type { NearbySettings } from '../../bindings/NearbySettings';
+import type { BridgeError, MoveDefaults, OsKind, VisibilityChoice } from '../../engine/types';
 import type { SettingsSection } from './sections';
 
 export type Appearance = 'system' | 'light' | 'dark';
@@ -67,6 +68,30 @@ export interface SettingsModel {
     /** The last change could not be made. */
     readonly failed: boolean;
   } | null;
+  /** Remembering devices, requests from them, Wake-on-LAN hints. */
+  readonly nearby: NearbySettings;
+  /** Who can find this computer (the Nearby pill's value); `null` until loaded. */
+  readonly visibility: VisibilityChoice | null;
+  /** How many devices this computer remembers. */
+  readonly knownDevices: number;
+}
+
+/** One remembered device, as Settings → Known devices lists it. */
+export interface KnownDeviceLine {
+  readonly id: string;
+  /** Its local (renamable) name. */
+  readonly name: string;
+  readonly os: OsKind;
+  /** Its key's fingerprint (`7F3A·19C2`). */
+  readonly fingerprint: string;
+  readonly lastMove: Date | null;
+}
+
+export interface KnownDevicesIntents {
+  readonly onRename: (id: string, name: string) => void;
+  readonly onForget: (id: string) => void;
+  readonly onForgetAll: () => void;
+  readonly onDone: () => void;
 }
 
 export interface SettingsIntents {
@@ -87,6 +112,12 @@ export interface SettingsIntents {
   /** Write (`true`) or remove the file-manager entries. */
   readonly onFileManager: (on: boolean) => void;
   readonly onBackground: (patch: Partial<BackgroundSettings>) => void;
+  readonly onNearby: (patch: Partial<NearbySettings>) => void;
+  readonly onVisibility: (choice: VisibilityChoice) => void;
+  /** Open the known devices sheet. */
+  readonly onKnownDevices: () => void;
+  /** Ask before giving this computer a new identity. */
+  readonly onResetIdentity: () => void;
   readonly onAlerts: (patch: Partial<AlertSettings>) => void;
   readonly onPause: (choice: PauseChoice) => void;
   readonly onSection: (section: SettingsSection) => void;

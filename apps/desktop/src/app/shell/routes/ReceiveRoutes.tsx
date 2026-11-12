@@ -6,7 +6,7 @@ import {
   receiveProgressModel,
 } from '../../../flows/receive/progressViews';
 import { arrivedModel, reviewModel } from '../../../flows/receive/reviewViews';
-import { useNearby } from '../../../flows/receive/useNearby';
+import { useNearby } from '../../../flows/nearby/useNearby';
 import { current } from '../../../flows/remote';
 import { sourceComputer, thisComputer } from '../../../flows/shared/manifestViews';
 import { useTransferRate } from '../../../flows/shared/useTransferRate';
@@ -168,7 +168,7 @@ export function ReceiveRoute({ step }: { readonly step: FlowStep<'receive'> }) {
   const nav = useNav();
   const peer = usePeer();
   const typing = step === 'code' && receive.state.code.status !== 'connecting';
-  const nearby = useNearby(receive.browseNearby, typing);
+  const nearby = useNearby(receive.browseNearby, typing).map(({ device_name }) => device_name);
   if (step !== 'code') return <ReceiveTail step={step} />;
   return (
     <RecvCodeScreen

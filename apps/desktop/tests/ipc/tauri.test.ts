@@ -72,6 +72,35 @@ describe('the Tauri port', () => {
     ]);
   });
 
+  it('names the device commands as the bridge registers them', async () => {
+    const calls: [string, unknown][] = [];
+    mockIPC((command, args) => {
+      calls.push([command, args]);
+      return null;
+    });
+    const port = createTauriPort();
+    await port.nearby();
+    await port.knownDevices();
+    await port.renameDevice('7F3A·19C2', 'Ana at work');
+    await port.forgetDevice({ device: '7F3A·19C2' });
+    await port.forgetDevice('all');
+    await port.resetIdentity();
+    await port.visibility();
+    await port.setVisibility('everyone');
+    await port.wakeDevice('7F3A·19C2');
+    expect(calls).toEqual([
+      ['nearby', {}],
+      ['known_devices', {}],
+      ['rename_device', { device: '7F3A·19C2', name: 'Ana at work' }],
+      ['forget_device', { which: { device: '7F3A·19C2' } }],
+      ['forget_device', { which: 'all' }],
+      ['reset_identity', {}],
+      ['visibility', {}],
+      ['set_visibility', { choice: 'everyone' }],
+      ['wake_device', { device: '7F3A·19C2' }],
+    ]);
+  });
+
   it('rejects with the bridge error the command failed with', async () => {
     const error: BridgeError = { code: 'blocked', message: 'plan is blocked', hint: 'Close it.' };
     mockIPC(() => raise(error));

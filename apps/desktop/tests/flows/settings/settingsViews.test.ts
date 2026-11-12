@@ -32,6 +32,9 @@ const SETTINGS: Settings = {
   nearby: { remember: true, accept_known: true, wol_hints: false },
 };
 
+/** Visibility not loaded, nothing remembered. */
+const NO_DEVICES = { visibility: null, known: [] };
+
 const error = { code: 'network', message: 'Offline', hint: null } as const;
 
 describe('settings views', () => {
@@ -56,6 +59,7 @@ describe('settings views', () => {
           recipes: null,
           check: idle,
           install: idle,
+          devices: NO_DEVICES,
           update: idle,
           about: statusTray === null ? null : { ...about, status_tray: statusTray },
         },
@@ -118,6 +122,7 @@ describe('settings views', () => {
       recipes: null,
       check: idle,
       install: idle,
+      devices: NO_DEVICES,
       update: idle,
       about: null,
     });
@@ -140,6 +145,7 @@ describe('settings views', () => {
         recipes: null,
         check: idle,
         install: idle,
+        devices: NO_DEVICES,
         update: {
           status: 'ready',
           value: {
@@ -172,6 +178,7 @@ describe('settings views', () => {
           recipes: null,
           check: idle,
           install: idle,
+          devices: NO_DEVICES,
           update: idle,
           about: null,
         },

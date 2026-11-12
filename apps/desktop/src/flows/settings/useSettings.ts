@@ -11,6 +11,7 @@ import type {
   UpdateStatus,
 } from '../../engine/types';
 import { withPatch } from '../../ipc/settingsPatch';
+import type { DevicesController } from '../nearby/useDevices';
 import { current, type Remote } from '../remote';
 import { useCommand, useRemote } from '../useRemote';
 import { offerFileManager, settingsModel } from './settingsViews';
@@ -43,8 +44,15 @@ export interface SettingsController {
   readonly reloadReports: () => void;
 }
 
-/** Settings, recipes status and error-report consent; every change is saved through the port. */
-export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): SettingsController {
+/**
+ * Settings, recipes status and error-report consent; every change is saved
+ * through the port. `devices` supplies visibility and the remembered count.
+ */
+export function useSettings(
+  port: CarrovaPort,
+  update: Remote<UpdateStatus>,
+  { visibility, known }: Pick<DevicesController, 'visibility' | 'known'>,
+): SettingsController {
   const loaded = useRemote(useCallback(() => port.settings(), [port]));
   const consent = useRemote(useCallback(() => port.errorReportConsent(), [port]));
   const reports = useRemote(useCallback(() => port.errorReports(), [port]));
@@ -150,6 +158,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
               install: install.state,
               update,
               about: current(about.state),
+              devices: { visibility, known },
             },
             new Date(Math.max(new Date().getTime(), ended)),
           ),
@@ -165,6 +174,8 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       update,
       about.state,
       ended,
+      visibility,
+      known,
     ],
   );
 

@@ -1,6 +1,6 @@
 import type { SettingsSection } from '../../../screens/settings/sections';
 import type { HubPage, View } from '../../nav/navMachine';
-import { AppsRoute, HistoryRoute, HomeRoute, SettingsRoute } from './HubRoutes';
+import { AppsRoute, HistoryRoute, HomeRoute, NearbyRoute, SettingsRoute } from './HubRoutes';
 import { OpenRoute, ReceiveRoute } from './ReceiveRoutes';
 import { SaveRoute, SendRoute } from './SendRoutes';
 import { UndoRoute } from './UndoRoute';
@@ -15,6 +15,8 @@ function HubRoute({
   switch (page) {
     case 'home':
       return <HomeRoute />;
+    case 'nearby':
+      return <NearbyRoute />;
     case 'history':
       return <HistoryRoute />;
     case 'apps':

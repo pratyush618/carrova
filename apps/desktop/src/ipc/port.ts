@@ -20,8 +20,11 @@ import type { CatalogEntry } from '../bindings/CatalogEntry';
 import type { Checklist } from '../bindings/Checklist';
 import type { ErrorReport } from '../bindings/ErrorReport';
 import type { FileManagerStatus } from '../bindings/FileManagerStatus';
+import type { ForgetDevices } from '../bindings/ForgetDevices';
 import type { IssueDraft } from '../bindings/IssueDraft';
 import type { KdfStrength } from '../bindings/KdfStrength';
+import type { KnownDeviceView } from '../bindings/KnownDeviceView';
+import type { NearbyDeviceView } from '../bindings/NearbyDeviceView';
 import type { NearbyPeer } from '../bindings/NearbyPeer';
 import type { Picked } from '../bindings/Picked';
 import type { Notice } from '../bindings/Notice';
@@ -49,6 +52,8 @@ import type { SessionRecord } from '../bindings/SessionRecord';
 import type { Settings } from '../bindings/Settings';
 import type { SettingsPatch } from './settingsPatch';
 import type { UpdateStatus } from '../bindings/UpdateStatus';
+import type { VisibilityChoice } from '../bindings/VisibilityChoice';
+import type { VisibilityView } from '../bindings/VisibilityView';
 
 /** Stops a subscription. */
 export type Unsubscribe = () => void;
@@ -160,6 +165,27 @@ export interface CarrovaPort {
   rollbackPreview(session: SessionId | null): Promise<RollbackPreview>;
   /** Forget a session and its staged data. */
   dismiss(session: SessionId): Promise<void>;
+
+  // --- Nearby and known devices -----------------------------------------
+  /** Devices nearby now (presences and code offers; a known one listed once), by answer time. */
+  nearby(): Promise<NearbyDeviceView[]>;
+  /** Devices this computer remembers. */
+  knownDevices(): Promise<KnownDeviceView[]>;
+  /** Rename a known `device` (id or fingerprint) on this computer only. */
+  renameDevice(device: string, name: string): Promise<void>;
+  /** Forget one known device, or `'all'`; it needs a code next time. */
+  forgetDevice(which: ForgetDevices): Promise<void>;
+  /** Give this computer a new identity: every device forgets it, it forgets them all. */
+  resetIdentity(): Promise<void>;
+  /** Who can find this computer nearby. */
+  visibility(): Promise<VisibilityView>;
+  /** Change who can find this computer; resolves with the visibility now in force. */
+  setVisibility(choice: VisibilityChoice): Promise<VisibilityView>;
+  /**
+   * Wake a sleeping known `device` (Wake-on-LAN). Rejects with `known_device`
+   * when it has no saved network address.
+   */
+  wakeDevice(device: string): Promise<void>;
 
   // --- Notifications ------------------------------------------------------
   /** The bell's notices (kept 30 days), newest first. */
