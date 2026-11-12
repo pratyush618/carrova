@@ -40,8 +40,10 @@ export function RememberedToast({
           kind="quiet"
           size="sm"
           onClick={() => {
-            devices.forget({ device: remembered.fingerprint });
-            onClose();
+            // A refused Forget leaves the notice up, to try again.
+            void devices.forget({ device: remembered.fingerprint }).then((done) => {
+              if (done) onClose();
+            });
           }}
         >
           {t('nearby.actions.forget')}

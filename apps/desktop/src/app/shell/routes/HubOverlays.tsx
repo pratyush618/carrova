@@ -98,7 +98,7 @@ export function KnownDevicesOverlay() {
       on={{
         onRename: devices.rename,
         onForget: (id) => {
-          devices.forget({ device: id });
+          void devices.forget({ device: id });
         },
         onForgetAll: () => {
           nav.open({ kind: 'forget-devices', what: 'all' });
@@ -119,7 +119,7 @@ export function ForgetDevicesOverlay({ what }: { readonly what: 'all' | 'identit
       on={{
         onCancel: nav.close,
         onConfirm: () => {
-          if (what === 'all') devices.forget('all');
+          if (what === 'all') void devices.forget('all');
           else devices.resetIdentity();
           nav.close();
         },

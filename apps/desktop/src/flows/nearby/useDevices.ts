@@ -21,7 +21,8 @@ export interface DevicesController {
   readonly browse: () => Promise<NearbyDeviceView[]>;
   readonly setVisibility: (choice: VisibilityChoice) => void;
   readonly rename: (device: string, name: string) => void;
-  readonly forget: (which: ForgetDevices) => void;
+  /** Resolves `true` once forgotten, `false` if the engine refused (see `failed`). */
+  readonly forget: (which: ForgetDevices) => Promise<boolean>;
   readonly resetIdentity: () => void;
   /** Wake a sleeping known device; rejects with the bridge error. */
   readonly wake: (device: string) => Promise<void>;
@@ -116,9 +117,7 @@ export function useDevices(port: CarrovaPort): DevicesController {
     [port, change],
   );
   const forget = useCallback(
-    (which: ForgetDevices) => {
-      void change('forget', () => port.forgetDevice(which));
-    },
+    (which: ForgetDevices) => change('forget', () => port.forgetDevice(which)),
     [port, change],
   );
   const resetIdentity = useCallback(() => {

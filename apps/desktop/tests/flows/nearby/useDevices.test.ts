@@ -74,7 +74,7 @@ describe('useDevices', () => {
       expect(hook.result.current.failed).toBe('rename');
     });
     act(() => {
-      hook.result.current.forget({ device: 'a1' });
+      void hook.result.current.forget({ device: 'a1' });
     });
     await waitFor(() => {
       expect(hook.result.current.failed).toBeNull();
@@ -108,5 +108,20 @@ describe('useDevices', () => {
       expect(hook.result.current.visibility?.choice).toBe('no_one');
     });
     expect(hook.result.current.failed).toBeNull();
+  });
+
+  it('tells the caller whether a forget went through', async () => {
+    const { port, hook } = await devices();
+    const refused = { code: 'known_device', message: 'no such device', hint: null } as const;
+    vi.spyOn(port, 'forgetDevice').mockRejectedValueOnce(refused);
+    let done: boolean | undefined;
+    await act(async () => {
+      done = await hook.result.current.forget({ device: 'a1' });
+    });
+    expect(done).toBe(false);
+    await act(async () => {
+      done = await hook.result.current.forget({ device: 'a1' });
+    });
+    expect(done).toBe(true);
   });
 });

@@ -139,7 +139,7 @@ export function NearbyRoute() {
           );
         },
         onForget: ({ id }) => {
-          if (id !== null) devices.forget({ device: id });
+          if (id !== null) void devices.forget({ device: id });
           setSelected(null);
         },
         onDismissWake: () => {

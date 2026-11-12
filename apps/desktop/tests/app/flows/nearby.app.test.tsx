@@ -1,4 +1,4 @@
-import { act, screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { BridgeEvent } from '@/engine/types';
@@ -90,10 +90,38 @@ describe('nearby', () => {
     if (notice === null) throw new Error('the notice is a status');
     await user.click(within(notice).getByRole('button', { name: 'Forget' }));
     expect(forget).toHaveBeenCalledWith({ device: '7F3A·19C2' });
-    expect(screen.queryByText(/Remembered Ana's laptop/)).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText(/Remembered Ana's laptop/)).not.toBeInTheDocument();
+    });
     // Closed stays closed across navigation.
     await user.click(screen.getByRole('button', { name: 'History' }));
     expect(screen.queryByText(/Remembered Ana's laptop/)).not.toBeInTheDocument();
+  });
+
+  it('keeps the remembered notice when its Forget fails, so it can be tried again', async () => {
+    const user = userEvent.setup();
+    const { port, push } = nearbyPort();
+    const forget = vi
+      .spyOn(port, 'forgetDevice')
+      .mockRejectedValueOnce(bridgeError('known_device', 'could not forget'));
+    await renderApp({ port, returning: true });
+    await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
+    push({
+      kind: 'engine',
+      session: 's1',
+      event: { event: 'device_remembered', name: "Ana's laptop", fingerprint: '7F3A·19C2' },
+    });
+    const text = await screen.findByText("Remembered Ana's laptop (7F3A·19C2)");
+    const notice = text.closest<HTMLElement>('[role=status]');
+    if (notice === null) throw new Error('the notice is a status');
+    await user.click(within(notice).getByRole('button', { name: 'Forget' }));
+    await waitFor(() => {
+      expect(forget).toHaveBeenCalledTimes(1);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText("Remembered Ana's laptop (7F3A·19C2)")).toBeInTheDocument();
   });
 
   it('stacks the remembered notice with a Wake toast instead of covering one', async () => {
