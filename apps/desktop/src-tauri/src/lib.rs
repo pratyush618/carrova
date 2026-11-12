@@ -154,6 +154,7 @@ pub fn run() -> tauri::Result<()> {
             commands::devices::visibility,
             commands::devices::set_visibility,
             commands::devices::wake_device,
+            commands::devices::take_show_nearby,
             updater::check_update,
             updater::install_update,
             updater::restart_app,

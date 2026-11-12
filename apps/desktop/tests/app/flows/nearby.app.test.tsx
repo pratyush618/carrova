@@ -92,7 +92,15 @@ describe('nearby', () => {
     const { port, push } = nearbyPort();
     await renderApp({ port, returning: true });
     await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
+    vi.spyOn(port, 'takeShowNearby').mockResolvedValueOnce(true);
     push({ kind: 'show_nearby' });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Nearby' })).toBeInTheDocument();
+  });
+
+  it('opens Nearby when the tray asked before the window was listening', async () => {
+    const { port } = nearbyPort();
+    vi.spyOn(port, 'takeShowNearby').mockResolvedValueOnce(true);
+    await renderApp({ port, returning: true });
     expect(await screen.findByRole('heading', { level: 1, name: 'Nearby' })).toBeInTheDocument();
   });
 });

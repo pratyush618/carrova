@@ -186,6 +186,11 @@ export interface CarrovaPort {
    * when it has no saved network address.
    */
   wakeDevice(device: string): Promise<void>;
+  /**
+   * Whether the tray asked for the Nearby page since the last call (asked at
+   * start, then on each `show_nearby`; a window built for it was not listening).
+   */
+  takeShowNearby(): Promise<boolean>;
 
   // --- Notifications ------------------------------------------------------
   /** The bell's notices (kept 30 days), newest first. */

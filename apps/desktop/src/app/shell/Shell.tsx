@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
+import { usePort } from '../../engine/port';
 import { bundleStatus } from '../../flows/catalog/catalogViews';
 import { ChromeContext, Toast, Window } from '../../ui';
 import { useControllers } from '../controllers/Controllers';
@@ -34,16 +35,26 @@ function useScreenFocus(key: string, root: RefObject<HTMLDivElement | null>): vo
   }, [key, root]);
 }
 
-/** The tray's "Nearby" opens the Nearby page, unless a flow is open (a move is never left mid-way). */
+/**
+ * The tray's "Nearby" opens the Nearby page, unless a flow is open (a move is
+ * never left mid-way). Asked at start too: a window built for it was not
+ * listening when the tray asked.
+ */
 function useTrayNearby(onHub: boolean, dispatch: (event: NavEvent) => void): void {
+  const port = usePort();
   const asked = useNearbyRequests();
   const hub = useRef(onHub);
   useEffect(() => {
     hub.current = onHub;
   });
   useEffect(() => {
-    if (asked > 0 && hub.current) dispatch({ type: 'openHub', page: 'nearby' });
-  }, [asked, dispatch]);
+    void port.takeShowNearby().then(
+      (yes) => {
+        if (yes && hub.current) dispatch({ type: 'openHub', page: 'nearby' });
+      },
+      () => undefined,
+    );
+  }, [port, asked, dispatch]);
 }
 
 /** The app: navigation state, chrome, the current screen and its overlays. */

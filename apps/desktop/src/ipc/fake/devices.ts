@@ -89,6 +89,7 @@ type DevicesPort = Pick<
   | 'visibility'
   | 'setVisibility'
   | 'wakeDevice'
+  | 'takeShowNearby'
 >;
 
 /** The device commands of a fake port acting out `scenario`. */
@@ -142,5 +143,7 @@ export function fakeDevices(scenario: Scenario): DevicesPort {
         if (!find(device).has_wake_hint)
           raise(bridgeError('known_device', 'no network address is saved for this device'));
       }),
+    // The fake has no tray.
+    takeShowNearby: () => later(() => false),
   };
 }

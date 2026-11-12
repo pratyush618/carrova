@@ -2,6 +2,7 @@
 //! to clone (every part is shared), so a command can move a copy into a
 //! worker.
 
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -56,6 +57,9 @@ pub struct AppState {
     pub inbox: Inbox,
     /// Paths sent from outside, until the UI takes them.
     pub pending_send: SendRequests,
+    /// The tray asked for the Nearby page, until the UI takes it (a window
+    /// built for it is not listening yet).
+    pub nearby_asked: Arc<AtomicBool>,
     /// Held across every check-and-write of the file-manager entries, so
     /// the start-up refresh never undoes the user's latest choice.
     pub entries_lock: Arc<Mutex<()>>,
@@ -109,6 +113,7 @@ impl AppState {
             answers: Arc::new(PairingAnswers::default()),
             settings: SettingsStore::new(Arc::clone(&platform)),
             pending_send: SendRequests::default(),
+            nearby_asked: Arc::default(),
             entries_lock: Arc::default(),
             presence,
             platform,

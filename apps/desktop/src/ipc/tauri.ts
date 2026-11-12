@@ -78,6 +78,7 @@ export function createTauriPort(): CarrovaPort {
     visibility: () => call('visibility'),
     setVisibility: (choice) => call('set_visibility', { choice }),
     wakeDevice: (device) => call('wake_device', { device }),
+    takeShowNearby: () => call('take_show_nearby'),
 
     notices: () => call('notices'),
     markNoticesRead: (ids) => call('mark_notices_read', { ids: ids === 'all' ? null : ids }),

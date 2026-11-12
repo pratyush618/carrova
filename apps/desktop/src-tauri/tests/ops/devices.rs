@@ -203,3 +203,16 @@ fn turning_wake_hints_off_clears_the_saved_hints() {
     assert!(!has_wake_hint(&state));
     assert!(!block_on(settings::load(&state)).unwrap().nearby.wol_hints);
 }
+
+#[test]
+fn the_trays_nearby_waits_until_the_window_takes_it_once() {
+    let machine = Machine::new();
+    assert!(!devices::take_show_nearby(&machine.state));
+
+    devices::ask_nearby(&machine.state);
+
+    assert_eq!(machine.events.recorded.of_kind("show_nearby").len(), 1);
+    // A window built after the event (lean mode) still finds it at start.
+    assert!(devices::take_show_nearby(&machine.state));
+    assert!(!devices::take_show_nearby(&machine.state));
+}

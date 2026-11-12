@@ -2,6 +2,8 @@
 //! change to visibility or the known devices refreshes the presence advert
 //! ([`crate::presence`]).
 
+use std::sync::atomic::Ordering;
+
 use carrova_core::devices::KnownDevices;
 use carrova_core::lan::browse_nearby;
 use carrova_core::presence::{load_visibility, save_visibility};
@@ -10,6 +12,7 @@ use carrova_view::devices::{
     ForgetDevices, KnownDeviceView, NearbyDeviceView, VisibilityChoice, VisibilityView,
     chosen_visibility, known_device_views, nearby_views, visibility_view,
 };
+use carrova_view::ipc::BridgeEvent;
 
 use crate::command_error::CommandError;
 use crate::state::AppState;
@@ -160,4 +163,17 @@ pub fn apply_visibility(
     save_visibility(state.platform.as_ref(), visibility)?;
     state.presence.refresh();
     Ok(visibility_view(visibility))
+}
+
+/// The tray's "Nearby": kept until the UI takes it, and announced to a
+/// window already listening ([`BridgeEvent::ShowNearby`]).
+pub fn ask_nearby(state: &AppState) {
+    state.nearby_asked.store(true, Ordering::SeqCst);
+    state.out.emit(&BridgeEvent::ShowNearby);
+}
+
+/// Whether the tray asked for the Nearby page since the last call.
+#[must_use]
+pub fn take_show_nearby(state: &AppState) -> bool {
+    state.nearby_asked.swap(false, Ordering::SeqCst)
 }

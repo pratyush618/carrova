@@ -88,6 +88,7 @@ describe('the Tauri port', () => {
     await port.visibility();
     await port.setVisibility('everyone');
     await port.wakeDevice('7F3A·19C2');
+    await port.takeShowNearby();
     expect(calls).toEqual([
       ['nearby', {}],
       ['known_devices', {}],
@@ -98,6 +99,7 @@ describe('the Tauri port', () => {
       ['visibility', {}],
       ['set_visibility', { choice: 'everyone' }],
       ['wake_device', { device: '7F3A·19C2' }],
+      ['take_show_nearby', {}],
     ]);
   });
 

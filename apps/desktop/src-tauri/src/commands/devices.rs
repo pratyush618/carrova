@@ -68,3 +68,9 @@ pub async fn set_visibility(
 pub async fn wake_device(state: State<'_, AppState>, device: String) -> Result<(), CommandError> {
     ops::devices::wake_device(&state, device).await
 }
+
+/// `CarrovaPort.takeShowNearby`.
+#[tauri::command]
+pub async fn take_show_nearby(state: State<'_, AppState>) -> Result<bool, CommandError> {
+    Ok(ops::devices::take_show_nearby(&state))
+}
