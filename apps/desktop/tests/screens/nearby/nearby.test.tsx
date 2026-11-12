@@ -156,7 +156,7 @@ describe('Nearby', () => {
       renderScreen(page({ ...nearbyMap, here: [], away: lab(21) }));
       const map = screen.getByRole('list', { name: 'Nearby devices' });
       // 1228px opens 12 outer slots (508px: 3).
-      expect(map.querySelectorAll('button[data-key]')).toHaveLength(12);
+      expect(within(map).getAllByRole('button', { name: /^Lab PC / })).toHaveLength(12);
       expect(within(map).getByRole('button', { name: /^\+9 more/ })).toBeInTheDocument();
     });
 
@@ -227,7 +227,7 @@ describe('Nearby', () => {
         );
       });
       const map = screen.getByRole('list', { name: 'Nearby devices' });
-      expect(map.querySelectorAll('button[data-key]')).toHaveLength(12);
+      expect(within(map).getAllByRole('button', { name: /^Lab PC / })).toHaveLength(12);
     });
   });
 
@@ -237,6 +237,35 @@ describe('Nearby', () => {
       'title',
       "Ana's laptop",
     );
+  });
+
+  describe('opening the list', () => {
+    function Viewing() {
+      const [view, setView] = useState<NearbyView>('map');
+      const lab = Array.from({ length: 6 }, (_, i) => ({
+        ...nearbyMap.away[1],
+        key: `l${String(i)}`,
+        name: `Lab PC ${String(i)}`,
+      })) as DeviceEntry[];
+      return page(
+        { ...nearbyMap, away: [...nearbyMap.away, ...lab], view },
+        { ...nearbyOn(), onView: setView },
+      );
+    }
+
+    it('moves focus into the list when the chip opens it', async () => {
+      const user = userEvent.setup();
+      renderScreen(<Viewing />);
+      await user.click(screen.getByRole('button', { name: /more: show all/ }));
+      expect(screen.getByRole('heading', { level: 2, name: 'Here now' })).toHaveFocus();
+    });
+
+    it('leaves focus alone when the Segmented control opens it', async () => {
+      const user = userEvent.setup();
+      renderScreen(<Viewing />);
+      await user.click(screen.getByRole('radio', { name: 'List' }));
+      expect(screen.getByRole('heading', { level: 2, name: 'Here now' })).not.toHaveFocus();
+    });
   });
 
   it('moves focus to the card when a device is chosen on the map', async () => {
