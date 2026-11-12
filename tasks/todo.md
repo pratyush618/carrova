@@ -584,7 +584,7 @@ Deferred: fake port doesn't re-check sensitivity for remapped items; `planOption
 
 Follow-ups (after PR #9):
 - [x] Nearby map: devices clear the pill, card, centre and each other at 720×560 / 1100×520 / 1440×900, inner ring nearer than outer (e2e overlap + ring-order checks)
-- [ ] Nearby map density: at 12 inner-ring devices neighbouring buttons overlap (spots sit SWEEP=240/count apart, so 12 devices are 20° apart), sooner on fields narrower than ~772 px where `--u` < 1 px shrinks offsets but not buttons — pick a layout (group extras, smaller buttons, radius/start angle) once the device-count limit is settled (PR #9 CodeRabbit review 5871734187)
+- [ ] Nearby map density: at 12 inner-ring devices neighbouring buttons overlap (spots sit SWEEP=240/count apart, so 12 devices are 20° apart), sooner on fields narrower than ~772 px where `--u` < 1 px shrinks offsets but not buttons — pick a layout (group extras, smaller buttons, radius/start angle) once the device-count limit is settled; 4+ inner devices overlap at narrow fields (508 px), as do 5 outer or 6+ devices overall (PR #9 CodeRabbit review 5871734187)
 - [x] macOS/Windows wake hints: `neighbour_mac` via `arp -an` / `ARP.EXE -a`, shared pure parsers (`neighbours.rs`), IPv4 only
 - [x] macOS/Windows file watch: `watch_dirs` via `notify`; presence polls only when a watch fails; tray follows CLI visibility on all OSes (limit: Windows watch dies if a dir is deleted + re-created within 2 s)
 - [x] macOS device name: `scutil --get ComputerName`, host-name fallback
