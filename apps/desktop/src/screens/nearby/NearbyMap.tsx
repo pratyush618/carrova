@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cx } from '../../ui/cx';
 import { Icon, useReducedMotion } from '../../ui';
@@ -20,9 +20,14 @@ const sameSeats = (a: readonly Placement[], b: readonly Placement[]) =>
 function useFieldWidth() {
   const field = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState<number | null>(null);
-  useEffect(() => {
+  // Measured before the first paint, so a wide field never shows the narrow layout first.
+  useLayoutEffect(() => {
     const element = field.current;
-    if (element === null || typeof ResizeObserver === 'undefined') return;
+    if (element === null) return;
+    // 0: not laid out (yet), not a width.
+    const now = element.getBoundingClientRect().width;
+    if (now > 0) setWidth(now);
+    if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(([entry]) => {
       if (entry) setWidth(entry.contentRect.width);
     });
