@@ -1,7 +1,26 @@
-//! User settings the bridge persists.
+//! User settings the bridge persists, and their read-only load for every
+//! front-end (the CLI follows the app's Nearby settings).
 
 use carrova_core::{ConflictRule, Retention};
+use carrova_platform::{Platform, PlatformError};
 use serde::{Deserialize, Serialize};
+
+/// Settings file name in Carrova's state directory.
+pub const SETTINGS_FILE: &str = "desktop-settings.json";
+
+/// The saved settings cannot be read.
+#[derive(Debug, thiserror::Error)]
+pub enum SettingsError {
+    /// The state directory is unknown.
+    #[error(transparent)]
+    Platform(#[from] PlatformError),
+    /// The file exists but cannot be read.
+    #[error("cannot read the settings")]
+    Io(#[from] std::io::Error),
+    /// The file is not valid settings.
+    #[error("the saved settings are not valid")]
+    Parse(#[from] serde_json::Error),
+}
 
 /// User settings the bridge persists (front-end owns presentation only).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,6 +68,20 @@ pub struct NearbySettings {
     /// Keep a Wake-on-LAN hint (the device's network address) for known
     /// devices.
     pub wol_hints: bool,
+}
+
+impl NearbySettings {
+    /// The saved nearby settings, for a new engine. Unreadable settings
+    /// never block a move: they read as the defaults.
+    pub fn saved(platform: &dyn Platform) -> Self {
+        Settings::load(platform).map_or_else(
+            |error| {
+                tracing::warn!(%error, "settings unreadable; using the nearby defaults");
+                Self::default()
+            },
+            |settings| settings.nearby,
+        )
+    }
 }
 
 impl Default for NearbySettings {
@@ -157,6 +190,23 @@ pub enum Theme {
     Light,
     /// Dark.
     Dark,
+}
+
+impl Settings {
+    /// The settings saved in `platform`'s state directory; the defaults if
+    /// none were saved yet.
+    ///
+    /// # Errors
+    ///
+    /// The file exists but cannot be read or parsed.
+    pub fn load(platform: &dyn Platform) -> Result<Self, SettingsError> {
+        let path = platform.state_dir()?.join(SETTINGS_FILE);
+        match std::fs::read(&path) {
+            Ok(bytes) => Ok(serde_json::from_slice(&bytes)?),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
 impl Default for Settings {

@@ -196,6 +196,7 @@ macro_rules! internal_errors {
 internal_errors!(
     carrova_report::ReportError,
     carrova_platform::PlatformError,
+    carrova_view::ipc::SettingsError,
     serde_json::Error,
     std::io::Error,
     tauri::Error,

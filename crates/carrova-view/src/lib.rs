@@ -1,6 +1,7 @@
 //! Pure presentation models of engine results: what to show and how much
-//! of it. No I/O and no escaping: front-ends (CLI text, desktop UI) render them
-//! and escape every peer-provided string themselves.
+//! of it. No I/O (except reading the saved [`ipc::Settings`]) and no
+//! escaping: front-ends (CLI text, desktop UI) render them and escape every
+//! peer-provided string themselves.
 
 pub mod devices;
 pub mod ipc;

@@ -25,7 +25,7 @@ fn whole(background: BackgroundSettings) -> serde_json::Value {
 fn block_saves(machine: &Machine) {
     let blocker = machine
         .scratch("state")
-        .join(format!("{}.tmp", crate::settings::SETTINGS_FILE));
+        .join(format!("{}.tmp", carrova_view::ipc::SETTINGS_FILE));
     std::fs::create_dir_all(blocker.join("in-the-way")).unwrap();
 }
 
