@@ -10,8 +10,7 @@ use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 use super::presence::PresenceAdvert;
-use super::query::{broadcast_query, mdns_browse};
-use super::seek::{Seek, SeekKey};
+use super::query::{Announced, broadcast_query, mdns_browse, offers_a_code};
 use crate::error::Result;
 use crate::runtime::runtime;
 use crate::{BROADCAST_BROWSE, PROTOCOL_VERSION, TXT_VERSION};
@@ -22,6 +21,8 @@ use crate::{BROADCAST_BROWSE, PROTOCOL_VERSION, TXT_VERSION};
 pub struct Nearby {
     /// What it announced about itself.
     pub advert: PresenceAdvert,
+    /// Whether it is a sender offering a pairing code (else a presence).
+    pub offers_code: bool,
     /// How long after the browse started it first answered.
     pub answered: Duration,
 }
@@ -39,7 +40,7 @@ pub fn browse(platform: &dyn Platform, timeout: Duration) -> Result<Vec<Nearby>>
     let rt = runtime()?;
     let start = Instant::now();
     let deadline = start + timeout;
-    let (tx, mut rx) = mpsc::channel::<(SocketAddrV4, PresenceAdvert)>(16);
+    let (tx, mut rx) = mpsc::channel::<(SocketAddrV4, Announced)>(16);
     let mdns_tx = tx.clone();
     rt.spawn_blocking(move || {
         mdns_browse(browsable, &mdns_tx, deadline.into_std(), |a, n| (a, n));
@@ -51,11 +52,19 @@ pub fn browse(platform: &dyn Platform, timeout: Duration) -> Result<Vec<Nearby>>
         let collect = async {
             let mut seen = HashSet::new();
             let mut nearby = Vec::new();
-            while let Some((addr, advert)) = rx.recv().await {
+            while let Some((
+                addr,
+                Announced {
+                    advert,
+                    offers_code,
+                },
+            )) = rx.recv().await
+            {
                 let telling = advert.name.is_some() || advert.known.is_some();
-                if telling && seen.insert((addr.port(), advert.clone())) {
+                if telling && seen.insert((addr.port(), advert.clone(), offers_code)) {
                     nearby.push(Nearby {
                         advert,
+                        offers_code,
                         answered: start.elapsed(),
                     });
                 }
@@ -70,13 +79,8 @@ pub fn browse(platform: &dyn Platform, timeout: Duration) -> Result<Vec<Nearby>>
 /// pairing code (a well-formed nameplate) or a presence (known-device tags
 /// or an OS)?
 fn browsable(service: &mdns_sd::ResolvedService) -> bool {
-    let key = SeekKey::Nameplate;
     let get = |key: &str| service.get_property_val_str(key);
     let presence = PresenceAdvert::from_txt(get);
     get(TXT_VERSION) == Some(PROTOCOL_VERSION.to_string().as_str())
-        && (get(key.as_str())
-            .and_then(|value| Seek::parse(key, value))
-            .is_some()
-            || presence.known.is_some()
-            || presence.os.is_some())
+        && (offers_a_code(get) || presence.known.is_some() || presence.os.is_some())
 }

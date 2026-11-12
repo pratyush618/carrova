@@ -23,6 +23,11 @@ pub struct NearbyDevice {
     /// The known device it is (its advert carried a tag only that device
     /// could make), never inferred from a name.
     pub known: Option<DeviceId>,
+    /// Whether this is a sender offering a pairing code (only these belong
+    /// in a "type the code" picker), else a presence. A known device that
+    /// offers a code and is present shows once as each: a code offer
+    /// carries no tag, so the two are never merged by name.
+    pub offers_code: bool,
     /// Milliseconds after the browse started that it first answered.
     pub answered_ms: u32,
 }
@@ -78,12 +83,14 @@ fn nearby_device(found: Nearby, known: &[(DeviceRecord, KnownSecret)]) -> Option
             name: record.name.clone(),
             os: Some(record.os),
             known: Some(record.public),
+            offers_code: found.offers_code,
             answered_ms,
         },
         None => NearbyDevice {
             name: clean_device_name(advert.name.as_deref()?)?,
             os: advert.os,
             known: None,
+            offers_code: found.offers_code,
             answered_ms,
         },
     })

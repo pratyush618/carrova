@@ -12,15 +12,25 @@ use tokio::time::Instant;
 use super::broadcast_socket;
 use super::interfaces::{broadcast_targets, plausible_sender};
 use super::presence::PresenceAdvert;
-use super::seek::{Seek, Subject};
+use super::seek::{Seek, SeekKey, Subject};
 use crate::error::Result;
 use crate::runtime::runtime;
 use crate::tuning::{BROADCAST_MAX_DATAGRAM, BROADCAST_RETRY, MDNS_POLL};
 use crate::{BROADCAST_PORT, BROADCAST_REPLY, PROTOCOL_VERSION, SERVICE_TYPE, TXT_VERSION};
 
+/// What a peer said about itself in a discovery answer.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(super) struct Announced {
+    /// Its advert (empty if it gave nothing).
+    pub(super) advert: PresenceAdvert,
+    /// Whether it answered as a sender offering a pairing code (not as a
+    /// presence).
+    pub(super) offers_code: bool,
+}
+
 /// What a discovery answer yields, from a plausible sender `addr` that
-/// announced `advert` about itself (empty if nothing).
-type Make<T> = fn(SocketAddrV4, PresenceAdvert) -> T;
+/// announced itself.
+type Make<T> = fn(SocketAddrV4, Announced) -> T;
 
 /// Look for `wanted` until `deadline` or until the returned receiver is
 /// dropped. Plausible candidate addresses arrive as found (duplicates
@@ -79,7 +89,7 @@ pub(super) async fn broadcast_query<T>(
         while let Ok(Ok((n, from))) =
             tokio::time::timeout_at(round_end, socket.recv_from(&mut buf)).await
         {
-            let (SocketAddr::V4(from), Some((port, advert))) = (from, parse_reply(&buf[..n]))
+            let (SocketAddr::V4(from), Some((port, announced))) = (from, parse_reply(&buf[..n]))
             else {
                 continue;
             };
@@ -88,25 +98,32 @@ pub(super) async fn broadcast_query<T>(
                 tracing::debug!(%candidate, "implausible broadcast answer ignored");
                 continue;
             }
-            if tx.send(make(candidate, advert)).await.is_err() {
+            if tx.send(make(candidate, announced)).await.is_err() {
                 return;
             }
         }
     }
 }
 
-/// A broadcast reply's port and what it announced: answering a browse, a
-/// sender offering a code gives its name after a space; a presence gives
-/// TXT entries, `'\n'` before each (the first of a repeated key counts).
-fn parse_reply(datagram: &[u8]) -> Option<(u16, PresenceAdvert)> {
+/// A broadcast reply's port and what it announced: a sender's offer gives
+/// at most a name after a space (answering a browse); a presence gives TXT
+/// entries, `'\n'` before each (the first of a repeated key counts).
+fn parse_reply(datagram: &[u8]) -> Option<(u16, Announced)> {
     let body = std::str::from_utf8(datagram.strip_prefix(BROADCAST_REPLY)?).ok()?;
-    let (port, advert) = if let Some((port, entries)) = body.split_once('\n') {
+    let (port, announced) = if let Some((port, entries)) = body.split_once('\n') {
         let entries: Vec<_> = entries
             .split('\n')
             .filter_map(|e| e.split_once('='))
             .collect();
         let get = |key: &str| entries.iter().find(|(k, _)| *k == key).map(|(_, v)| *v);
-        (port, PresenceAdvert::from_txt(get))
+        let advert = PresenceAdvert::from_txt(get);
+        (
+            port,
+            Announced {
+                advert,
+                offers_code: false,
+            },
+        )
     } else {
         let (port, name) = body
             .split_once(' ')
@@ -115,9 +132,24 @@ fn parse_reply(datagram: &[u8]) -> Option<(u16, PresenceAdvert)> {
             name,
             ..PresenceAdvert::default()
         };
-        (port, advert)
+        (
+            port,
+            Announced {
+                advert,
+                offers_code: true,
+            },
+        )
     };
-    Some((port.parse().ok()?, advert))
+    Some((port.parse().ok()?, announced))
+}
+
+/// Does a TXT record (`get(key)`) carry a well-formed nameplate, i.e. a
+/// pairing code on offer?
+pub(super) fn offers_a_code<'a>(get: impl Fn(&str) -> Option<&'a str>) -> bool {
+    let key = SeekKey::Nameplate;
+    get(key.as_str())
+        .and_then(|value| Seek::parse(key, value))
+        .is_some()
 }
 
 /// Does a resolved mDNS service advertise `wanted` (current protocol
@@ -162,13 +194,17 @@ pub(super) fn mdns_browse<T>(
         if !matches(&service) {
             continue;
         }
-        let advert = PresenceAdvert::from_txt(|key| service.get_property_val_str(key));
+        let get = |key: &str| service.get_property_val_str(key);
+        let announced = Announced {
+            advert: PresenceAdvert::from_txt(get),
+            offers_code: offers_a_code(get),
+        };
         for ip in service.get_addresses_v4() {
             let addr = SocketAddrV4::new(ip, service.get_port());
             // mDNS queries go to multicast, never to loopback.
             if plausible_sender(addr, false)
                 && seen.insert(addr)
-                && tx.blocking_send(make(addr, advert.clone())).is_err()
+                && tx.blocking_send(make(addr, announced.clone())).is_err()
             {
                 break 'browse;
             }

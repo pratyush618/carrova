@@ -13,11 +13,12 @@ use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::lan::{NearbyDevice, browse_nearby};
 use carrova_core::presence::{Presence, Visibility, advert};
 use carrova_core::time::now_unix;
+use carrova_core::{Importer, PlanOptions};
 use carrova_crypto::identity::{DeviceKey, DevicePublic};
 use carrova_crypto::pairing::{KnownSecret, TagNonce};
 use carrova_platform::{OsKind, Platform};
 use carrova_transport::{MAX_KNOWN_TAGS, PresenceAdvert};
-use lan_support::{Side, loopback_broadcast_works};
+use lan_support::{Side, loopback_broadcast_works, run};
 
 const NOW: u64 = 1_800_000_000;
 
@@ -39,6 +40,18 @@ fn unique(prefix: &str) -> String {
 
 fn remember(side: &Side, public: DevicePublic, name: &str, last_move: Option<u64>) -> KnownSecret {
     let secret = fresh_secret();
+    remember_with(side, public, name, last_move, &secret);
+    secret
+}
+
+/// `side` remembers the device `public` as `name`, sharing `secret`.
+fn remember_with(
+    side: &Side,
+    public: DevicePublic,
+    name: &str,
+    last_move: Option<u64>,
+    secret: &KnownSecret,
+) {
     let record = DeviceRecord {
         public,
         name: name.into(),
@@ -50,9 +63,8 @@ fn remember(side: &Side, public: DevicePublic, name: &str, last_move: Option<u64
     };
     KnownDevices::open(&*side.platform)
         .unwrap()
-        .remember(&*side.platform, record, &secret)
+        .remember(&*side.platform, record, secret)
         .unwrap();
-    secret
 }
 
 fn advert_at(side: &Side, visibility: Visibility, now: u64) -> Option<PresenceAdvert> {
@@ -277,5 +289,44 @@ fn a_device_does_not_find_itself_by_its_own_tags() {
         found.iter().all(|d| d.known != Some(laptop)),
         "the laptop is off: only the desk's own advert is out there: {found:?}"
     );
+    presence.stop();
+}
+
+#[test]
+fn a_known_sender_offering_a_code_is_one_code_offer_and_one_known_device() {
+    if !loopback_broadcast_works() {
+        return;
+    }
+    let name = unique("sender");
+    let sender = Side::seeded(Side::named(Some(&name)));
+    let receiver = Side::new();
+    let secret = remember(&sender, own_key(&receiver), "receiver", Some(1));
+    remember_with(&receiver, own_key(&sender), "my sender", None, &secret);
+    let until = now_unix() + 60;
+    let presence = Presence::start(&sender.engine, Visibility::Everyone { until });
+    let mut exp = sender.selected_exporter();
+    let running = run(exp.prepare_send().unwrap());
+
+    let found = browse_nearby(&*receiver.platform).unwrap();
+    let offers: Vec<_> = found.iter().filter(|d| d.offers_code).collect();
+    assert_eq!(offers.len(), 1, "{found:?}");
+    assert_eq!(
+        (offers[0].name.as_str(), offers[0].known),
+        (name.as_str(), None)
+    );
+    let present: Vec<_> = found.iter().filter(|d| d.known.is_some()).collect();
+    assert_eq!(present.len(), 1, "{found:?}");
+    assert!(!present[0].offers_code);
+    assert_eq!(present[0].name, "my sender");
+
+    let mut imp =
+        Importer::connect(receiver.engine.clone(), running.first.as_ref().unwrap()).unwrap();
+    imp.plan(&PlanOptions {
+        confirmed_sensitive: vec!["app/keys".into()],
+        ..PlanOptions::default()
+    })
+    .unwrap();
+    imp.end_dry_run().unwrap();
+    running.thread.join().unwrap().unwrap();
     presence.stop();
 }
