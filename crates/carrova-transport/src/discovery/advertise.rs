@@ -139,6 +139,7 @@ impl Advertiser {
             let retry = std::thread::Builder::new()
                 .name("mdns-retire".into())
                 .spawn(move || {
+                    // `retire_mdns` already made the first try.
                     if !(1..MDNS_RETIRE_TRIES).any(|_| withdraw(&daemon)) {
                         tracing::warn!("mDNS daemon still advertising: shutdown refused");
                     }

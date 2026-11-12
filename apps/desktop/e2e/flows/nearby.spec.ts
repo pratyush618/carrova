@@ -194,7 +194,7 @@ test('the chip opens the list with every device, the long name whole', async ({ 
   const visible = page.getByRole('button', { name: /^Visible to/ });
   await expect(visible).toHaveAttribute(
     'title',
-    /^Visible to .* as ana-render-workstation-.*desk-14$/,
+    /^Visible to .* as ana-render-workstation-third-floor-north-building-desk-14$/,
   );
   const width = (await visible.boundingBox())?.width ?? 0;
   expect(width).toBeLessThanOrEqual(300);
