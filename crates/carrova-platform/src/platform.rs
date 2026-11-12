@@ -279,6 +279,8 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     /// Hardware address the OS has cached for the LAN host `addr` (Linux:
     /// the kernel neighbour table), if it has talked to it lately. Used to
     /// remember a device's address so it can be woken later.
+    // shortcut: macOS and Windows keep this `None` (they need `arp -an` or
+    // sysctl PF_ROUTE, and iphlpapi FFI); upgrade when Wake is wanted there.
     fn neighbour_mac(&self, addr: IpAddr) -> Option<[u8; 6]> {
         let _ = addr;
         None

@@ -242,8 +242,6 @@ impl Platform for WindowsPlatform {
         crate::netops::lan_ipv4_interfaces()
     }
 
-    // shortcut: no neighbour lookup on Windows (needs iphlpapi FFI); the
-    // default `None` stands until Wake is wanted there.
     fn send_magic_packet(&self, mac: [u8; 6]) -> Result<(), PlatformError> {
         crate::netops::send_magic_packet(mac)
     }
