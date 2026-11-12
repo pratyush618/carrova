@@ -247,8 +247,6 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     /// is refused. If watching fails later (a dir refused, or none of
     /// `dirs` left), the watch ends by itself and drops `changed`: a caller
     /// that must know keeps a guard in it.
-    // shortcut: unsupported on macOS/Windows (callers poll instead); add
-    // FSEvents/ReadDirectoryChangesW when those ship background presence.
     fn watch_dirs(
         &self,
         dirs: &[PathBuf],

@@ -230,6 +230,14 @@ impl Platform for WindowsPlatform {
         crate::sys::lock_exclusive(path)
     }
 
+    fn watch_dirs(
+        &self,
+        dirs: &[PathBuf],
+        changed: Box<dyn Fn() + Send>,
+    ) -> Result<crate::DirWatch, PlatformError> {
+        crate::notify_watch::watch_dirs(dirs, changed)
+    }
+
     /// The NetBIOS computer name (what `%COMPUTERNAME%` holds), read from
     /// the OS rather than the inheritable environment.
     fn device_name(&self) -> Option<String> {

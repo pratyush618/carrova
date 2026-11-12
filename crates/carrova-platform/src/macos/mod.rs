@@ -209,6 +209,14 @@ impl Platform for MacPlatform {
         Some(crate::netops::current_uid())
     }
 
+    fn watch_dirs(
+        &self,
+        dirs: &[PathBuf],
+        changed: Box<dyn Fn() + Send>,
+    ) -> Result<crate::DirWatch, PlatformError> {
+        crate::notify_watch::watch_dirs(dirs, changed)
+    }
+
     /// The System Settings "Computer Name"; failing that, the host name
     /// without Bonjour's `.local` suffix.
     fn device_name(&self) -> Option<String> {

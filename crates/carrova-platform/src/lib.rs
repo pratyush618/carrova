@@ -9,6 +9,8 @@ mod error;
 mod lock;
 mod meta;
 mod neighbours;
+#[cfg(any(target_os = "macos", windows))]
+mod notify_watch;
 mod os;
 pub mod path;
 mod platform;
