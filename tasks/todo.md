@@ -583,7 +583,7 @@ Deferred: fake port doesn't re-check sensitivity for remapped items; `planOption
 - [ ] Phase 3 (code-less requests): needs its own ADR sign-off (Task 3.0)
 
 Follow-ups (after PR #9):
-- [ ] Nearby map: at 1100×520 an outer-ring device sits under the visibility pill (adjust orbit, visual check vs mockup)
+- [ ] Nearby map: at 1100×520 an outer-ring device sits under the visibility pill (adjust orbit, visual check vs mockup); no density handling: at 12 inner-ring devices neighbouring buttons overlap (60°/90°/120° spots), sooner on fields narrower than ~772 px where `--u` < 1 px shrinks offsets but not buttons — pick a layout (group extras, smaller buttons, radius/start angle) once the device-count limit is settled (PR #9 CodeRabbit review 5871734187)
 - [ ] macOS/Windows wake hints: `Platform::neighbour_mac` returns `None` there (needs `arp -an` / `GetIpNetTable2`), so no hint is saved and Wake never shows
 - [ ] macOS/Windows file watch: `Platform::watch_dirs` unsupported (FSEvents / ReadDirectoryChangesW); presence polls every 5 s and the tray doesn't follow CLI visibility changes there
 - [ ] macOS device name: host name, not System Settings "Computer Name"
