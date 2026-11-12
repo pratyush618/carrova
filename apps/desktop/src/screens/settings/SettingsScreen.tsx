@@ -47,7 +47,7 @@ export function SettingsScreen({
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const searching = query.trim() !== '';
-  const hits = searchSettings(query, t);
+  const hits = searchSettings(query, t, model);
   const open = (target: SettingsSection) => {
     setQuery('');
     on.onSection(target);
