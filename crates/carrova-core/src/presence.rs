@@ -157,15 +157,16 @@ pub fn advert(
     }))
 }
 
-/// The background presence advert, for the app's lifetime: follows the
-/// visibility it is [`set`](Self::set) to, re-announces every [`REFRESH`],
-/// and drops back to known devices by itself when "everyone" ends. Stops
-/// on [`Self::stop`] or drop.
+/// The background presence advert, for the app's lifetime: announces what
+/// the saved visibility ([`save_visibility`]) allows, re-announces every
+/// [`REFRESH`], and drops back to known devices by itself when "everyone"
+/// ends. Stops on [`Self::stop`] or drop.
 ///
-/// It follows the saved visibility ([`save_visibility`]) and the known
-/// devices wherever they were changed (the CLI too): at once when the
-/// state dir is reported changed ([`Platform::watch_dirs`]), else within
-/// [`POLL`]. [`set`](Self::set) applies a visibility at once.
+/// The saved state is the only source of the choice, so a stale value can
+/// never override it. It follows the visibility and the known devices
+/// wherever they were changed (the CLI too): at once when the state dir is
+/// reported changed ([`Platform::watch_dirs`]) or on [`Self::refresh`],
+/// else within [`POLL`].
 ///
 /// The "everyone" deadline is wall-clock time, waited for with a
 /// monotonic timer and re-checked against the clock on every wake: if the
@@ -180,27 +181,23 @@ pub struct Presence {
     thread: Option<JoinHandle<()>>,
 }
 
-/// Why a running presence wakes, besides its advert's own deadline.
-enum Wake {
-    /// [`Presence::set`].
-    Set(Visibility),
-    /// The saved state may have changed.
-    Saved,
-}
+/// Why a running presence wakes, besides its advert's own deadline: the
+/// saved state may have changed.
+struct Wake;
 
 impl Presence {
-    /// Start advertising for `engine`'s platform under `visibility`.
-    /// Failures are logged and leave the device unadvertised until the
-    /// next [`set`](Self::set).
+    /// Start advertising for `engine`'s platform under the saved
+    /// visibility. Failures are logged and leave the device unadvertised
+    /// until the saved state next changes.
     #[must_use]
-    pub fn start(engine: &Engine, visibility: Visibility) -> Self {
+    pub fn start(engine: &Engine) -> Self {
         let platform = Arc::clone(engine.platform());
         let (tx, rx) = mpsc::channel();
         let watch = watch_saved(platform.as_ref(), tx.clone());
         let poll = watch.is_none().then_some(POLL);
         let thread = thread::Builder::new()
             .name("carrova-presence".into())
-            .spawn(move || run(platform.as_ref(), visibility, &rx, poll))
+            .spawn(move || run(platform.as_ref(), &rx, poll))
             .inspect_err(|e| tracing::warn!(error = %e, "presence could not start"))
             .ok();
         Self {
@@ -210,12 +207,12 @@ impl Presence {
         }
     }
 
-    /// Advertise under `visibility` from now on (fresh instance and tags,
-    /// the known devices read again).
-    pub fn set(&self, visibility: Visibility) {
+    /// Read the saved state now and re-announce if it changed (after this
+    /// process saved it, without waiting for the platform to report it).
+    pub fn refresh(&self) {
         if let Some(tx) = &self.wakes {
             // The thread only ends when this handle drops the sender.
-            let _ = tx.send(Wake::Set(visibility));
+            let _ = tx.send(Wake);
         }
     }
 
@@ -248,7 +245,7 @@ fn watch_saved(platform: &dyn Platform, wakes: mpsc::Sender<Wake>) -> Option<Dir
         ensure_dir(platform, &dir, 0o700)?;
         let dirs = [dir.join(DEVICES_DIR), dir];
         let changed = Box::new(move || {
-            let _ = wakes.send(Wake::Saved);
+            let _ = wakes.send(Wake);
         });
         Ok(platform.watch_dirs(&dirs, changed)?)
     };
@@ -259,17 +256,15 @@ fn watch_saved(platform: &dyn Platform, wakes: mpsc::Sender<Wake>) -> Option<Dir
         .ok()
 }
 
-/// Advertise under `visibility`, again at each [`next_wake`], and at once
-/// when told a new one or when the saved visibility or known devices
-/// change (on a [`Wake::Saved`], or checked every `poll`), until every
-/// sender of `wakes` is dropped.
-fn run(
-    platform: &dyn Platform,
-    mut visibility: Visibility,
-    wakes: &mpsc::Receiver<Wake>,
-    poll: Option<Duration>,
-) {
+/// Advertise under the saved visibility, again at each [`next_wake`], and
+/// at once when the saved visibility or known devices change (read on a
+/// [`Wake`], or every `poll`), until every sender of `wakes` is dropped.
+/// What is announced always comes from the last read that succeeded.
+fn run(platform: &dyn Platform, wakes: &mpsc::Receiver<Wake>, poll: Option<Duration>) {
     let mut seen = Saved::read(platform);
+    let mut visibility = seen
+        .as_ref()
+        .map_or_else(Visibility::default, |s| s.visibility);
     loop {
         let now = now_unix();
         // A new beacon each round (the last one is gone): new instance
@@ -281,25 +276,13 @@ fn run(
                 Some(wait) => wakes.recv_timeout(wait),
                 None => wakes.recv().map_err(|_| RecvTimeoutError::Disconnected),
             };
-            match wake {
-                Ok(Wake::Set(next)) => {
-                    visibility = next;
-                    seen = Saved::read(platform);
-                    break;
-                }
-                Err(RecvTimeoutError::Disconnected) => return,
-                Ok(Wake::Saved) | Err(RecvTimeoutError::Timeout) => {}
+            if let Err(RecvTimeoutError::Disconnected) = wake {
+                return;
             }
             let saved = Saved::read(platform);
             if saved != seen {
-                // Only a changed choice overrides the one in force; a
-                // changed known set just re-announces.
-                if let Some(now_saved) = &saved
-                    && seen
-                        .as_ref()
-                        .is_none_or(|s| s.visibility != now_saved.visibility)
-                {
-                    visibility = now_saved.visibility;
+                if let Some(saved) = &saved {
+                    visibility = saved.visibility;
                 }
                 seen = saved;
                 break;

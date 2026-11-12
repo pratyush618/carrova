@@ -168,8 +168,8 @@ fn everyone_already_past_deadline_on_start_is_known() {
         return;
     }
     remember_with(&laptop, own_key(&desk), "my desk", None, &secret);
-    let presence = Presence::start(
-        &desk.engine,
+    let presence = shown(
+        &desk,
         Visibility::Everyone {
             until: now_unix() - 1,
         },
@@ -236,7 +236,7 @@ fn a_known_peer_finds_a_present_device_by_its_stored_name_and_strangers_do_not()
         .unwrap()
         .remember(&*laptop.platform, record, &secret)
         .unwrap();
-    let presence = Presence::start(&desk.engine, Visibility::Known);
+    let presence = Presence::start(&desk.engine);
 
     let found = browse_nearby(&*laptop.platform).unwrap();
     let desk_seen: Vec<_> = found.iter().filter(|d| d.known == Some(desk_id)).collect();
@@ -265,7 +265,7 @@ fn a_running_presence_stops_naming_itself_when_everyone_ends() {
     let name = unique("everyone");
     let side = Side::named(Some(&name));
     let until = now_unix() + 3;
-    let presence = Presence::start(&side.engine, Visibility::Everyone { until });
+    let presence = shown(&side, Visibility::Everyone { until });
     let stranger = Side::new();
     let seen = names(&browse_nearby(&*stranger.platform).unwrap());
     assert!(
@@ -277,11 +277,14 @@ fn a_running_presence_stops_naming_itself_when_everyone_ends() {
     }
     let seen = names(&browse_nearby(&*stranger.platform).unwrap());
     assert!(!seen.contains(&name), "reverted to known devices: {seen:?}");
-    presence.set(Visibility::Everyone {
+    let everyone = Visibility::Everyone {
         until: now_unix() + 60,
-    });
+    };
+    save_visibility(&*side.platform, everyone).unwrap();
+    presence.refresh();
+    std::thread::sleep(std::time::Duration::from_millis(300));
     let seen = names(&browse_nearby(&*stranger.platform).unwrap());
-    assert!(seen.contains(&name), "shown again when set: {seen:?}");
+    assert!(seen.contains(&name), "shown again when saved: {seen:?}");
     presence.stop();
 }
 
@@ -293,7 +296,7 @@ fn a_device_does_not_find_itself_by_its_own_tags() {
     let desk = Side::new();
     let laptop = public(9);
     remember(&desk, laptop, "laptop", Some(5));
-    let presence = Presence::start(&desk.engine, Visibility::Known);
+    let presence = Presence::start(&desk.engine);
     let found = browse_nearby(&*desk.platform).unwrap();
     assert!(
         found.iter().all(|d| d.known != Some(laptop)),
@@ -313,7 +316,7 @@ fn a_known_sender_offering_a_code_is_one_code_offer_and_one_known_device() {
     let secret = remember(&sender, own_key(&receiver), "receiver", Some(1));
     remember_with(&receiver, own_key(&sender), "my sender", None, &secret);
     let until = now_unix() + 60;
-    let presence = Presence::start(&sender.engine, Visibility::Everyone { until });
+    let presence = shown(&sender, Visibility::Everyone { until });
     let mut exp = sender.selected_exporter();
     let running = run(exp.prepare_send().unwrap());
 
@@ -383,8 +386,8 @@ fn this_computer_does_not_list_itself_when_shown_to_everyone() {
     }
     let name = unique("self");
     let side = Side::named(Some(&name));
-    let presence = Presence::start(
-        &side.engine,
+    let presence = shown(
+        &side,
         Visibility::Everyone {
             until: now_unix() + 60,
         },
@@ -405,7 +408,7 @@ fn a_running_presence_follows_the_saved_visibility() {
     }
     let name = unique("follows");
     let side = Side::named(Some(&name));
-    let presence = Presence::start(&side.engine, Visibility::NoOne);
+    let presence = shown(&side, Visibility::NoOne);
     let stranger = Side::new();
     let state = side.platform.state_dir().unwrap();
     // As the platform reports a file saved there (the CLI's).
@@ -426,5 +429,53 @@ fn a_running_presence_follows_the_saved_visibility() {
     settle();
     let seen = names(&browse_nearby(&*stranger.platform).unwrap());
     assert!(!seen.contains(&name), "hidden once saved: {seen:?}");
+    presence.stop();
+}
+
+/// A presence started once `visibility` is saved (as the app starts one).
+fn shown(side: &Side, visibility: Visibility) -> Presence {
+    save_visibility(&*side.platform, visibility).unwrap();
+    Presence::start(&side.engine)
+}
+
+/// Let a running presence take in a change the platform reports in `dir`.
+fn settle(side: &Side, dir: &std::path::Path) {
+    side.platform.fire_dir_change(dir);
+    std::thread::sleep(std::time::Duration::from_millis(300));
+}
+
+#[test]
+fn a_presence_started_under_a_stale_choice_advertises_the_saved_one() {
+    if !loopback_broadcast_works() {
+        return;
+    }
+    let desk = Side::new();
+    let laptop = Side::new();
+    let secret = remember(&desk, own_key(&laptop), "laptop", Some(1));
+    remember_with(&laptop, own_key(&desk), "my desk", None, &secret);
+    // The CLI saved "no one" after the app read "known devices".
+    save_visibility(&*desk.platform, Visibility::NoOne).unwrap();
+    let presence = Presence::start(&desk.engine);
+    let found = browse_nearby(&*laptop.platform).unwrap();
+    assert!(
+        found.iter().all(|d| d.known != Some(own_key(&desk))),
+        "hidden from known devices too: {found:?}"
+    );
+    presence.stop();
+}
+
+#[test]
+fn a_refresh_announces_the_saved_choice() {
+    if !loopback_broadcast_works() {
+        return;
+    }
+    let name = unique("stale");
+    let side = Side::named(Some(&name));
+    let presence = shown(&side, Visibility::NoOne);
+    // The refresh carries no choice of its own that could be stale.
+    presence.refresh();
+    settle(&side, &side.platform.state_dir().unwrap());
+    let seen = names(&browse_nearby(&*Side::new().platform).unwrap());
+    assert!(!seen.contains(&name), "the saved choice wins: {seen:?}");
     presence.stop();
 }

@@ -54,7 +54,7 @@ fn reads_reach(reads: &AtomicUsize, n: usize, within: Duration) -> bool {
 #[test]
 fn a_change_in_the_state_dir_or_the_devices_dir_is_read_at_once() {
     let (side, reads) = counting(false);
-    let presence = Presence::start(&side.engine, Visibility::NoOne);
+    let presence = Presence::start(&side.engine);
     assert!(reads_reach(&reads, 1, POLL), "read on start");
     let state = side.platform.state_dir().unwrap();
 
@@ -72,7 +72,7 @@ fn a_change_in_the_state_dir_or_the_devices_dir_is_read_at_once() {
 #[test]
 fn a_watched_presence_with_nothing_due_does_not_wake() {
     let (side, reads) = counting(false);
-    let presence = Presence::start(&side.engine, Visibility::NoOne);
+    let presence = Presence::start(&side.engine);
     assert!(reads_reach(&reads, 1, POLL), "read on start");
     std::thread::sleep(POLL + Duration::from_secs(1));
     assert_eq!(reads.load(Ordering::SeqCst), 1, "no timed re-read");
@@ -82,7 +82,7 @@ fn a_watched_presence_with_nothing_due_does_not_wake() {
 #[test]
 fn without_a_watch_it_checks_every_poll() {
     let (side, reads) = counting(true);
-    let presence = Presence::start(&side.engine, Visibility::NoOne);
+    let presence = Presence::start(&side.engine);
     assert!(reads_reach(&reads, 1, POLL), "read on start");
     assert!(
         reads_reach(&reads, 2, POLL + Duration::from_secs(1)),

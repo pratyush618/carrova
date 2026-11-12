@@ -4,7 +4,7 @@ use std::net::{Ipv4Addr, UdpSocket};
 use std::time::Duration;
 
 use carrova_core::lan::browse_nearby;
-use carrova_core::presence::save_visibility;
+use carrova_core::presence::{Visibility, save_visibility};
 use carrova_core::time::now_unix;
 use carrova_platform::fake::FakePlatform;
 use tempfile::TempDir;

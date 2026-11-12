@@ -4,8 +4,7 @@
 
 use std::sync::{Arc, Mutex, PoisonError};
 
-use carrova_core::presence::{Presence, Visibility, load_visibility};
-use carrova_core::time::now_unix;
+use carrova_core::presence::Presence;
 use carrova_core::{Engine, NullSink, Recipe};
 use carrova_platform::Platform;
 
@@ -48,8 +47,8 @@ impl BackgroundPresence {
         }
     }
 
-    /// Start advertising under the saved visibility (blocking: reads it),
-    /// unless already started or stopped.
+    /// Start advertising under the saved visibility, unless already
+    /// started or stopped.
     pub fn start(&self) {
         let mut running = self.lock();
         if !matches!(*running, Running::NotYet) {
@@ -60,7 +59,7 @@ impl BackgroundPresence {
             Vec::<Recipe>::new(),
             Arc::new(NullSink),
         );
-        *running = Running::Now(Presence::start(&engine, self.saved()));
+        *running = Running::Now(Presence::start(&engine));
     }
 
     /// Withdraw the advert for good (blocking until it is gone).
@@ -71,14 +70,6 @@ impl BackgroundPresence {
         }
     }
 
-    /// The saved visibility in force now; known devices only if it cannot
-    /// be read (logged).
-    fn saved(&self) -> Visibility {
-        load_visibility(self.platform.as_ref(), now_unix())
-            .inspect_err(|error| tracing::warn!(%error, "visibility unreadable: known devices"))
-            .unwrap_or_default()
-    }
-
     fn lock(&self) -> std::sync::MutexGuard<'_, Running> {
         self.running.lock().unwrap_or_else(PoisonError::into_inner)
     }
@@ -86,9 +77,8 @@ impl BackgroundPresence {
 
 impl Advertise for BackgroundPresence {
     fn refresh(&self) {
-        let visibility = self.saved();
         if let Running::Now(presence) = &*self.lock() {
-            presence.set(visibility);
+            presence.refresh();
         }
     }
 }
