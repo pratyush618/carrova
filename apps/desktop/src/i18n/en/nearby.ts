@@ -38,7 +38,7 @@ export const nearby = {
       nobody: { title: 'No one', body: 'Nobody can find this computer. Codes still work.' },
       known: {
         title: 'Known devices',
-        body: "Computers you've moved with can find you and ask to send.",
+        body: "Only computers you've moved with can find this computer.",
       },
       everyone: {
         title: 'Everyone for 10 minutes',
