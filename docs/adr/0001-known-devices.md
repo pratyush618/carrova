@@ -1,8 +1,8 @@
 # ADR 0001: Known-device identity
 
-- Status: Proposed — awaiting user sign-off
+- Status: Accepted
 - Date: 2026-11-12
-- Signed off:
+- Signed off: 2026-11-12 by the user, with the answers below
 - Scope: Phase 2 of `docs/superpowers/plans/2026-11-12-background-nearby.md`
   (Tasks 2.1–2.3). Phase 3 (code-less requests, Task 3.0) builds on it and
   gets its own ADR.
@@ -285,7 +285,16 @@ Allowed: the display fingerprint (`7F3A·19C2`) and the user-chosen device
 name in local logs at debug level. Error reports (`carrova-report`) redact
 both. A failed `Identify` logs the failure kind only.
 
-## Open questions for the user
+## Answers (signed off 2026-11-12)
+
+All eight as proposed: (1) yes; (2) remember silently, show
+"Remembered <name> (7F3A·19C2)" with Forget; (3) leave the other side
+stale, no "forget me" notice now; (4) add "Reset this computer's
+identity"; (5) cap 13 most recently used, 8-byte tags; (6) no padding;
+(7) no time window; (8) full public key as store and request key.
+Wake-on-LAN hints (Task 2.5) are in Phase 2.
+
+## Open questions for the user (as asked)
 
 1. **Identify before `Established`** instead of after, with a `Hello.identify`
    flag and no protocol version bump. Agree?
