@@ -450,6 +450,21 @@ fn a_reset_that_cannot_replace_the_key_forgets_nothing() {
 }
 
 #[test]
+fn reset_replaces_a_read_only_device_key() {
+    let f = Fixture::new();
+    if !unix(&f.platform) {
+        return; // No mode bits to make it read-only with.
+    }
+    let old = f.devices.device_key(&f.platform).unwrap().public();
+    let path = f.state.join("device.key");
+    f.platform.set_mode(&path, 0o400).unwrap();
+    let new = f.devices.reset_identity(&f.platform).unwrap().public();
+    assert_ne!(new, old);
+    assert_eq!(f.devices.device_key(&f.platform).unwrap().public(), new);
+    assert_mode(&f.platform, &path, 0o600);
+}
+
+#[test]
 fn resolve_accepts_a_fingerprint_or_the_full_key() {
     let f = Fixture::new();
     f.remember(&record(1, "laptop"), 7);

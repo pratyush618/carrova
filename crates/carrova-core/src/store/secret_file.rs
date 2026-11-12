@@ -51,7 +51,12 @@ pub(crate) fn replace(platform: &dyn Platform, dir: &Path, name: &str, bytes: &[
     let new = format!("{name}.new");
     wipe(platform, dir, &new, bytes.len())?;
     write_new(platform, dir, &new, bytes)?;
-    let old = open_regular(platform, &dir.join(name))?;
+    // An old file that cannot be opened (read-only) is still replaced,
+    // like one that cannot be zeroed: refusing would leave a bad key stuck.
+    let old = open_regular(platform, &dir.join(name)).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "could not open a key file to zero it");
+        None
+    });
     let renamed = platform
         .rename_replace(&dir.join(&new), &dir.join(name))
         .map_err(CoreError::from)
