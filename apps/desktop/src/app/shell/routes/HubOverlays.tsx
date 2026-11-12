@@ -93,6 +93,7 @@ export function KnownDevicesOverlay() {
   return (
     <KnownDevicesSheet
       devices={devices.known.map(knownDeviceLine)}
+      failed={devices.failed}
       now={new Date()}
       on={{
         onRename: devices.rename,

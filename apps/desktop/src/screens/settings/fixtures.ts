@@ -36,6 +36,7 @@ export const settingsModel: SettingsModel = {
   nearby: { remember: true, accept_known: true, wol_hints: false },
   visibility: 'known',
   knownDevices: 4,
+  devicesFailed: null,
 };
 
 /** A desktop where one file manager was left alone, and the last change failed. */

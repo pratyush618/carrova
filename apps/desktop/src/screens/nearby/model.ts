@@ -1,5 +1,8 @@
 import type { OsKind, Ring, VisibilityChoice } from '../../engine/types';
 
+/** A change to visibility or the known devices that the engine can refuse. */
+export type DeviceChange = 'visibility' | 'rename' | 'forget' | 'reset';
+
 /** How the page shows the devices. */
 export type NearbyView = 'map' | 'list';
 
@@ -74,6 +77,8 @@ export interface NearbyModel {
   /** This computer's name, when the system tells it. */
   readonly me: string | null;
   readonly wake: WakeNote | null;
+  /** The last change to the devices the engine refused. */
+  readonly failed: DeviceChange | null;
   readonly now: Date;
 }
 

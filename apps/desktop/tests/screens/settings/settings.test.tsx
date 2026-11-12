@@ -247,6 +247,30 @@ describe('Settings', () => {
   });
 });
 
+describe('Nearby & devices failures', () => {
+  it('says when the engine refused a reset', () => {
+    renderScreen(inSection('nearby', settingsOn(), { devicesFailed: 'reset' }));
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "Couldn't reset this computer's identity. Nothing changed.",
+    );
+  });
+
+  it('says in the sheet when a rename was refused', () => {
+    renderScreen(<div />, {
+      overlays: [
+        <KnownDevicesSheet
+          key="k"
+          devices={knownDevices}
+          failed="rename"
+          now={settingsModel.now}
+          on={{ onRename: vi.fn(), onForget: vi.fn(), onForgetAll: vi.fn(), onDone: vi.fn() }}
+        />,
+      ],
+    });
+    expect(screen.getByRole('status')).toHaveTextContent("Couldn't rename the device. Try again.");
+  });
+});
+
 describe('Known devices', () => {
   const sheetOn = () => ({
     onRename: vi.fn(),

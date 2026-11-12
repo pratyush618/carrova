@@ -33,7 +33,7 @@ const SETTINGS: Settings = {
 };
 
 /** Visibility not loaded, nothing remembered. */
-const NO_DEVICES = { visibility: null, known: [] };
+const NO_DEVICES = { visibility: null, known: [], failed: null };
 
 const error = { code: 'network', message: 'Offline', hint: null } as const;
 

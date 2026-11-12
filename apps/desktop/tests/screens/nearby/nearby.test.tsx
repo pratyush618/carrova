@@ -118,4 +118,9 @@ describe('Nearby', () => {
     const still = renderScreen(page(nearbyMap), { reduceMotion: true });
     expect(still.container.querySelector('.s-near__pulse')).toBeNull();
   });
+
+  it('says when a change to the devices was refused', () => {
+    renderScreen(page({ ...nearbyList, failed: 'forget' }));
+    expect(screen.getByRole('status')).toHaveTextContent("Couldn't forget the device. Try again.");
+  });
 });

@@ -8,9 +8,7 @@ import type {
   VisibilityChoice,
   VisibilityView,
 } from '../../engine/types';
-
-/** A change to visibility or the known devices that the engine can refuse. */
-export type DeviceChange = 'visibility' | 'rename' | 'forget' | 'reset';
+import type { DeviceChange } from '../../screens/nearby/model';
 
 export interface DevicesController {
   /** Who can find this computer: the one value the Nearby pill and Settings share. `null` until loaded. */

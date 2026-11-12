@@ -116,6 +116,7 @@ export function NearbyRoute() {
         visibility: devices.visibility && visibilityModel(devices.visibility),
         me: settings.about?.device_name ?? null,
         wake,
+        failed: devices.failed,
         now: new Date(),
       }}
       on={{

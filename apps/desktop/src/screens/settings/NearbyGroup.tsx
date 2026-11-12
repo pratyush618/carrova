@@ -8,7 +8,7 @@ import { ROW_TITLE } from './sections';
 
 /** Who can find this computer (the Nearby pill's value), and the devices it remembers. */
 export function NearbyGroup({
-  model: { nearby, visibility, knownDevices },
+  model: { nearby, visibility, knownDevices, devicesFailed },
   on,
 }: {
   readonly model: SettingsModel;
@@ -90,6 +90,11 @@ export function NearbyGroup({
           }
         />
       </Group>
+      {devicesFailed !== null && (
+        <p role="status" className="s-settings-note">
+          {t(`nearby.failed.${devicesFailed}`)}
+        </p>
+      )}
     </>
   );
 }

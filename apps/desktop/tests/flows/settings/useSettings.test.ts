@@ -5,7 +5,7 @@ import { useSettings } from '@/flows/settings/useSettings';
 import { createFakePort } from '@/ipc/fake';
 
 /** Visibility not loaded, nothing remembered. */
-const NO_DEVICES = { visibility: null, known: [] };
+const NO_DEVICES = { visibility: null, known: [], failed: null };
 
 const FAILED = { code: 'io', message: 'read-only folder', hint: null } as const;
 

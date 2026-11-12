@@ -81,7 +81,7 @@ export interface SettingsSources {
   /** This app and computer; `null` until the engine answered. */
   readonly about: About | null;
   /** Who can find this computer and how many devices it remembers. */
-  readonly devices: Pick<DevicesController, 'visibility' | 'known'>;
+  readonly devices: Pick<DevicesController, 'visibility' | 'known' | 'failed'>;
 }
 
 const HOUR = 3600;
@@ -148,6 +148,7 @@ export function settingsModel(s: SettingsSources, now: Date): SettingsModel {
     nearby: s.settings.nearby,
     visibility: s.devices.visibility?.choice ?? null,
     knownDevices: s.devices.known.length,
+    devicesFailed: s.devices.failed,
   };
 }
 

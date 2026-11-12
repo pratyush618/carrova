@@ -51,7 +51,7 @@ export interface SettingsController {
 export function useSettings(
   port: CarrovaPort,
   update: Remote<UpdateStatus>,
-  { visibility, known }: Pick<DevicesController, 'visibility' | 'known'>,
+  { visibility, known, failed }: Pick<DevicesController, 'visibility' | 'known' | 'failed'>,
 ): SettingsController {
   const loaded = useRemote(useCallback(() => port.settings(), [port]));
   const consent = useRemote(useCallback(() => port.errorReportConsent(), [port]));
@@ -158,7 +158,7 @@ export function useSettings(
               install: install.state,
               update,
               about: current(about.state),
-              devices: { visibility, known },
+              devices: { visibility, known, failed },
             },
             new Date(Math.max(new Date().getTime(), ended)),
           ),
@@ -176,6 +176,7 @@ export function useSettings(
       ended,
       visibility,
       known,
+      failed,
     ],
   );
 

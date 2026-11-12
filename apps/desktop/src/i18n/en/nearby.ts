@@ -53,6 +53,12 @@ export const nearby = {
     no_hint: "No network address is saved for {{name}}, so it can't be woken from here.",
     failed: "Couldn't wake {{name}}. Try again, or start it by hand.",
   },
+  failed: {
+    visibility: "Couldn't change who can see this computer. Try again.",
+    rename: "Couldn't rename the device. Try again.",
+    forget: "Couldn't forget the device. Try again.",
+    reset: "Couldn't reset this computer's identity. Nothing changed. Try again.",
+  },
   remembered: 'Remembered {{name}} ({{fingerprint}})',
   forget: 'Forget',
 } as const;

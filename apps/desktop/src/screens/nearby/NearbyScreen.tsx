@@ -90,7 +90,12 @@ export function NearbyScreen({
             {t('nearby.wake.sent', { name: model.wake.name })}
           </Toast>
         )}
-        {model.wake !== null && model.wake.outcome !== 'sent' && (
+        {model.failed !== null && (
+          <div className="s-near__note">
+            <Banner tone="warning" title={t(`nearby.failed.${model.failed}`)} />
+          </div>
+        )}
+        {model.failed === null && model.wake !== null && model.wake.outcome !== 'sent' && (
           <div className="s-near__note">
             <Banner
               tone="warning"

@@ -2,6 +2,7 @@ import type { AlertSettings } from '../../bindings/AlertSettings';
 import type { BackgroundSettings } from '../../bindings/BackgroundSettings';
 import type { NearbySettings } from '../../bindings/NearbySettings';
 import type { BridgeError, MoveDefaults, OsKind, VisibilityChoice } from '../../engine/types';
+import type { DeviceChange } from '../nearby/model';
 import type { SettingsSection } from './sections';
 
 export type Appearance = 'system' | 'light' | 'dark';
@@ -74,6 +75,8 @@ export interface SettingsModel {
   readonly visibility: VisibilityChoice | null;
   /** How many devices this computer remembers. */
   readonly knownDevices: number;
+  /** The last change to the devices the engine refused. */
+  readonly devicesFailed: DeviceChange | null;
 }
 
 /** One remembered device, as Settings → Known devices lists it. */

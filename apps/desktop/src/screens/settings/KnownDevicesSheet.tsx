@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFormat } from '../../i18n/useFormat';
 import { Button, Dialog, IconButton, Input, List, Note, OsBadge, Row, Sheet } from '../../ui';
+import type { DeviceChange } from '../nearby/model';
 import type { KnownDeviceLine, KnownDevicesIntents } from './model';
 
 /** One remembered device: name, system, last move and key; renamed in place. */
@@ -83,10 +84,13 @@ function DeviceRow({
 /** Remembered devices: rename or forget each, or forget them all. */
 export function KnownDevicesSheet({
   devices,
+  failed = null,
   now,
   on,
 }: {
   readonly devices: readonly KnownDeviceLine[];
+  /** The last change the engine refused. */
+  readonly failed?: DeviceChange | null;
   readonly now: Date;
   readonly on: KnownDevicesIntents;
 }) {
@@ -118,6 +122,11 @@ export function KnownDevicesSheet({
             <DeviceRow key={device.id} device={device} now={now} on={on} />
           ))}
         </List>
+      )}
+      {failed !== null && (
+        <p role="status" className="s-settings-note">
+          {t(`nearby.failed.${failed}`)}
+        </p>
       )}
       <Note>{t('settings.devices.why')}</Note>
     </Sheet>

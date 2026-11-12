@@ -75,6 +75,7 @@ export const nearbyMap: NearbyModel = {
   visibility: { choice: 'known', until: null },
   me: 'ezio-thinkpad',
   wake: null,
+  failed: null,
   now: NOW,
 };
 
