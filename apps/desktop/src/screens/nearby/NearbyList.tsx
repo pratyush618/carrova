@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppGlyph, Badge, List, Row } from '../../ui';
 import { DeviceActions, useDeviceSub } from './DeviceCard';
@@ -52,15 +53,19 @@ export function NearbyList({
   away,
   now,
   on,
+  children,
 }: {
   readonly here: readonly DeviceEntry[];
   readonly away: readonly DeviceEntry[];
   readonly now: Date;
   readonly on: NearbyIntents;
+  /** Above the rows: the "looking" note while nobody answers. */
+  readonly children?: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
     <div className="s-near__list">
+      {children}
       <DeviceRows title={t('nearby.here')} devices={here} now={now} on={on} />
       <DeviceRows title={t('nearby.away')} devices={away} now={now} on={on} />
     </div>

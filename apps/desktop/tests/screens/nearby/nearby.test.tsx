@@ -124,6 +124,12 @@ describe('Nearby', () => {
     expect(screen.getByRole('button', { name: /Desk PC/ })).toHaveFocus();
   });
 
+  it('keeps the looking note in the list, above the devices away', () => {
+    const { container } = renderScreen(page({ ...nearbyList, here: [] }));
+    expect(nearbyList.away.length).toBeGreaterThan(0);
+    expect(container.querySelector('.s-near__list > .s-near__looking')).not.toBeNull();
+  });
+
   it('says it is still looking, and offers a code, while nobody answers', async () => {
     const user = userEvent.setup();
     const on = nearbyOn();

@@ -73,10 +73,9 @@ export function NearbyScreen({
             {selected === null ? looking : <DeviceCard device={selected} now={model.now} on={on} />}
           </NearbyMap>
         ) : (
-          <>
+          <NearbyList here={model.here} away={model.away} now={model.now} on={on}>
             {looking}
-            <NearbyList here={model.here} away={model.away} now={model.now} on={on} />
-          </>
+          </NearbyList>
         )}
         {model.visibility !== null && (
           <VisibilityPill
