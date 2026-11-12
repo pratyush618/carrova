@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFormat } from '../../i18n/useFormat';
 import { AppGlyph, Badge, Button, IconButton } from '../../ui';
@@ -77,6 +78,11 @@ export function DeviceCard({
 }) {
   const { t } = useTranslation();
   const format = useFormat();
+  // Choosing a device takes the keyboard to its card.
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    heading.current?.focus();
+  }, [device.key]);
   return (
     <section className="s-near__card" aria-label={device.name}>
       <header className="s-near__card-head">
@@ -85,7 +91,7 @@ export function DeviceCard({
           tone={device.kind === 'known' ? 'accent' : 'neutral'}
         />
         <div>
-          <h2>
+          <h2 ref={heading} tabIndex={-1}>
             {device.name}
             {device.kind === 'new' && <Badge tone="warning">{t('nearby.new')}</Badge>}
           </h2>
