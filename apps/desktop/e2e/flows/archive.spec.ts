@@ -72,5 +72,11 @@ test('a wide choice bar drops below its setting instead of squeezing the title',
   const title = (text: string) => page.locator('.p-row__title', { hasText: text });
   const oneLine = await title('When a file already exists').boundingBox();
   const undo = await title('Keep the undo point').boundingBox();
-  expect(undo?.height).toBe(oneLine?.height);
+  const bar = await page
+    .locator('.p-row', { has: title('Keep the undo point') })
+    .getByRole('radiogroup')
+    .boundingBox();
+  if (oneLine === null || undo === null || bar === null) throw new Error('not laid out');
+  expect(undo.height, 'the title keeps one line').toBe(oneLine.height);
+  expect(bar.y, 'the bar sits below the title').toBeGreaterThanOrEqual(undo.y + undo.height);
 });
