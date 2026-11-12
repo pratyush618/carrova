@@ -144,8 +144,5 @@ for (const size of [
         Math.min(...dist(/^(new-mbp|Old ThinkPad|Work laptop)/)),
       );
     }
-    await page.screenshot({
-      path: `/tmp/carrova-nearby-${String(size.width)}x${String(size.height)}.png`,
-    });
   });
 }
