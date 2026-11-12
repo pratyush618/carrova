@@ -54,7 +54,8 @@ export function VisibilityPill({
     run();
   };
   const who = t(`nearby.visibility.who.${VISIBILITY_KEY[visibility.choice]}`);
-  const named = me !== null;
+  // Hidden from everyone, the name is shown to no one either.
+  const named = me !== null && visibility.choice !== 'no_one';
 
   // The menu follows the pill in the DOM, so Tab reaches it; CSS shows it above.
   return (

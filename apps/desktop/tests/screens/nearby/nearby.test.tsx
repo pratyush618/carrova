@@ -137,4 +137,9 @@ describe('Nearby', () => {
     await user.click(screen.getByRole('button', { name: /^Everyone for 10 minutes/ }));
     expect(pill).toHaveFocus();
   });
+
+  it('says no one can see this computer without naming it', () => {
+    renderScreen(page({ ...nearbyMap, visibility: { choice: 'no_one', until: null } }));
+    expect(screen.getByRole('button', { name: 'Visible to no one' })).toBeInTheDocument();
+  });
 });
