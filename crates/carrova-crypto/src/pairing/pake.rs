@@ -103,22 +103,28 @@ impl Pake {
                 .finish(peer.as_bytes())
                 .map_err(|_| PairingError::InvalidPakeMessage)?,
         );
-        let hk = Hkdf::<Sha256>::new(Some(HKDF_SALT), &key);
-        let expand = |info: &[u8]| -> Result<Zeroizing<[u8; 32]>> {
-            let mut out = Zeroizing::new([0u8; 32]);
-            hk.expand(info, &mut *out)
-                .map_err(|_| PairingError::KeySchedule)?;
-            Ok(out)
-        };
-        let confirm = expand(INFO_CONFIRM)?;
-        let resume = expand(INFO_RESUME)?;
-        let known = expand(INFO_KNOWN)?;
-        Ok(SessionKeys {
-            confirm: MacKey::new(&confirm),
-            resume: ResumeSecret::from_key(resume),
-            known: KnownSecret::from_key(known),
-        })
+        derive_keys(&key[..])
     }
+}
+
+/// The session keys of a SPAKE2 `key`: HKDF-SHA256 with salt
+/// [`HKDF_SALT`], one expansion per info.
+pub(super) fn derive_keys(key: &[u8]) -> Result<SessionKeys> {
+    let hk = Hkdf::<Sha256>::new(Some(HKDF_SALT), key);
+    let expand = |info: &[u8]| -> Result<Zeroizing<[u8; 32]>> {
+        let mut out = Zeroizing::new([0u8; 32]);
+        hk.expand(info, &mut *out)
+            .map_err(|_| PairingError::KeySchedule)?;
+        Ok(out)
+    };
+    let confirm = expand(INFO_CONFIRM)?;
+    let resume = expand(INFO_RESUME)?;
+    let known = expand(INFO_KNOWN)?;
+    Ok(SessionKeys {
+        confirm: MacKey::new(&confirm),
+        resume: ResumeSecret::from_key(resume),
+        known: KnownSecret::from_key(known),
+    })
 }
 
 impl fmt::Debug for Pake {
