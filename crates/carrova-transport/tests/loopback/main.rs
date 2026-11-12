@@ -252,6 +252,10 @@ fn browsing_names_senders_only_while_they_offer_a_code() {
     listener
         .advertise_resume(&ResumeSecret::from_bytes([5; 32]))
         .unwrap();
+    // mDNS responders defer shared answers by up to 120 ms and resend
+    // goodbyes once after 120 ms: a pairing answer already queued (to
+    // another browser) may still go out after the switch.
+    thread::sleep(Duration::from_millis(250));
     assert!(
         !browsed_names().contains(&name),
         "resume adverts never carry the name"
