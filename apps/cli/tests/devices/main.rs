@@ -170,7 +170,7 @@ fn visibility_everyone_sets_deadline() {
     assert_eq!(user.json(&["visibility"]), set, "kept for the next command");
     let shown = user.ok(&["visibility"]);
     assert!(shown.contains("everyone until"), "{shown}");
-    assert!(shown.contains("app on this computer follows"), "{shown}");
+    assert!(shown.contains("while the Carrova app runs"), "{shown}");
 
     user.ok(&["visibility", "no-one"]);
     assert_eq!(user.json(&["visibility"])["choice"], "no_one");

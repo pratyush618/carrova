@@ -30,9 +30,8 @@ pub fn device_list(out: &mut impl Write, list: &[KnownDeviceView]) -> io::Result
     }
     Ok(())
 }
-
-/// `carrova visibility`: who may find this computer now, and that a
-/// running Carrova app follows it.
+/// `carrova visibility`: who may find this computer now, and that it only
+/// takes effect while the Carrova app runs (the app advertises).
 pub fn visibility(out: &mut impl Write, view: VisibilityView) -> io::Result<()> {
     match (view.choice, view.until) {
         (VisibilityChoice::NoOne, _) => writeln!(out, "Visible to no one."),
@@ -45,7 +44,7 @@ pub fn visibility(out: &mut impl Write, view: VisibilityView) -> io::Result<()> 
     }?;
     writeln!(
         out,
-        "The Carrova app on this computer follows within {} seconds.",
+        "Takes effect within {} seconds while the Carrova app runs on this computer.",
         POLL.as_secs()
     )
 }
