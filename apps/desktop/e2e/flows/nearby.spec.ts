@@ -134,15 +134,19 @@ for (const { scenario, size, shown } of cases)
     for (const button of await map.getByRole('button').all()) {
       boxes.push([(await button.textContent()) ?? '', await button.boundingBox()]);
     }
-    const field = await page.locator('.s-near__field').boundingBox();
+    // The page, not the field: on a short window the field runs on below what shows.
+    const field = await page.locator('.s-near').boundingBox();
     expect(field).not.toBeNull();
     for (const [i, [name, box]] of boxes.entries()) {
       expect(box).not.toBeNull();
       if (box === null || field === null) continue;
       expect
         .soft(
-          box.x >= field.x && box.x + box.width <= field.x + field.width,
-          `${name} leaves the field`,
+          box.x >= field.x &&
+            box.x + box.width <= field.x + field.width &&
+            box.y >= field.y &&
+            box.y + box.height <= field.y + field.height,
+          `${name} leaves the page`,
         )
         .toBe(true);
       const rivals = [...others, ...boxes.slice(i + 1)];
