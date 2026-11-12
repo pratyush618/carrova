@@ -9,7 +9,7 @@ use carrova_core::{CoreError, KeyFileProblem};
 use carrova_crypto::identity::{DeviceKey, DevicePublic, Fingerprint};
 use carrova_crypto::pairing::{KNOWN_SECRET_LEN, KnownSecret};
 use carrova_platform::fake::FakePlatform;
-use carrova_platform::{OsKind, Platform};
+use carrova_platform::{OsKind, PermissionModel, Platform};
 
 struct Fixture {
     _tmp: tempfile::TempDir,
@@ -76,8 +76,20 @@ fn record(seed: u8, name: &str) -> DeviceRecord {
     }
 }
 
-fn mode(platform: &dyn Platform, path: &Path) -> u32 {
-    platform.metadata(path).unwrap().mode.unwrap() & 0o777
+/// Asserts `path` has exactly `expected` permission bits, where the
+/// platform has them (ACLs decide access elsewhere).
+fn assert_mode(platform: &dyn Platform, path: &Path, expected: u32) {
+    if unix(platform) {
+        assert_eq!(
+            platform.metadata(path).unwrap().mode.unwrap() & 0o777,
+            expected
+        );
+    }
+}
+
+/// Whether the platform keeps permission bits (not ACLs).
+fn unix(platform: &dyn Platform) -> bool {
+    platform.permission_model() == PermissionModel::Unix
 }
 
 #[test]
@@ -178,15 +190,18 @@ fn files_are_0600() {
     let f = Fixture::new();
     f.remember(&record(1, "laptop"), 7);
     f.devices.device_key(&f.platform).unwrap();
-    assert_eq!(mode(&f.platform, &f.state.join("device.key")), 0o600);
-    assert_eq!(mode(&f.platform, &f.known_json()), 0o600);
-    assert_eq!(mode(&f.platform, &f.key_file(&public(1))), 0o600);
-    assert_eq!(mode(&f.platform, &f.state.join("devices")), 0o700);
+    assert_mode(&f.platform, &f.state.join("device.key"), 0o600);
+    assert_mode(&f.platform, &f.known_json(), 0o600);
+    assert_mode(&f.platform, &f.key_file(&public(1)), 0o600);
+    assert_mode(&f.platform, &f.state.join("devices"), 0o700);
 }
 
 #[test]
 fn key_file_others_can_read_is_refused() {
     let f = Fixture::new();
+    if !unix(&f.platform) {
+        return; // ACLs, not mode bits, keep the state dir private there.
+    }
     f.remember(&record(1, "laptop"), 7);
     f.platform.set_mode(&f.key_file(&public(1)), 0o644).unwrap();
     let err = f.devices.secret_for(&f.platform, &public(1)).unwrap_err();
@@ -305,7 +320,7 @@ fn reset_identity_changes_key_and_forgets_all() {
     assert_eq!(f.devices.device_key(&f.platform).unwrap().public(), new);
     assert_eq!(f.devices.list(&f.platform).unwrap(), vec![]);
     assert!(!f.key_file(&public(1)).exists());
-    assert_eq!(mode(&f.platform, &f.state.join("device.key")), 0o600);
+    assert_mode(&f.platform, &f.state.join("device.key"), 0o600);
 }
 
 #[test]
