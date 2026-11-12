@@ -258,6 +258,26 @@ All under the state dir, through `carrova-platform` (no OS calls elsewhere):
 - In memory: `DeviceKey` and `KnownSecret` zeroize on drop and print
   `<redacted>` in `Debug`, like `ResumeSecret` (`pairing/keys.rs:122-126`).
 
+### How the implementation handles the PR #8 review points
+
+Three CodeRabbit points on PR #8 were left to this phase:
+
+- **Interrupted secret replace.** `store::secret_file::replace` writes
+  `<name>.new` with `create_new_file` (mode `0600`, `fsync`), renames it
+  over the old file and syncs the dir. The old file is opened before the
+  rename and zeroed through that handle after it. A crash leaves either the
+  old secret or the new one in place, never a partial or zeroed file. The
+  device key (`device.key`) is written the same way.
+- **Stale `.key.new`.** A `.new` file left by a crash is wiped (zeros,
+  sync, unlink) before the next replace writes a fresh one, and a failed
+  rename wipes the `.new` it just wrote.
+- **Overlapping pairings.** Every change to the store (remember, record a
+  move, rename, forget, forget all, reset identity, first device key) runs
+  under an exclusive lock on `devices/known.lock`, and `known.json` is
+  replaced atomically, so reads take no lock. Two pairings with the same
+  peer that finish together are applied one after the other, and the later
+  one's secret wins, as "Latest code pairing wins" (§4) requires.
+
 ## Versioning and compatibility
 
 - `Hello` gains `identify: bool` with `#[serde(default)]`. Old senders
