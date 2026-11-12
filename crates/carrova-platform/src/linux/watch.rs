@@ -45,18 +45,21 @@ pub(super) fn watch_dirs(
 }
 
 /// Watch each of `dirs` that exists now (again for one re-created since:
-/// it gets a fresh watch; an existing watch is kept).
-fn add_watches(fd: &OwnedFd, dirs: &[PathBuf]) -> Result<(), PlatformError> {
+/// it gets a fresh watch; an existing watch is kept); returns how many are
+/// watched.
+fn add_watches(fd: &OwnedFd, dirs: &[PathBuf]) -> Result<usize, PlatformError> {
+    let mut watched = 0;
     for dir in dirs {
         match inotify::add_watch(fd, dir.as_path(), CHANGES) {
-            Ok(_) | Err(Errno::NOENT) => {}
+            Ok(_) => watched += 1,
+            Err(Errno::NOENT) => {}
             Err(e) => return Err(PlatformError::io(dir, e.into())),
         }
     }
-    Ok(())
+    Ok(watched)
 }
 
-/// Report changes until `stopped` hangs up (or polling fails).
+/// Report changes until `stopped` hangs up (or watching cannot go on).
 fn follow(fd: &OwnedFd, stopped: &UnixStream, dirs: &[PathBuf], changed: &dyn Fn()) {
     let mut events = [0u8; 4096];
     loop {
@@ -76,10 +79,13 @@ fn follow(fd: &OwnedFd, stopped: &UnixStream, dirs: &[PathBuf], changed: &dyn Fn
         // Which entry changed does not matter: callers re-read what they
         // follow. Drain everything queued so a burst costs one call.
         while rustix::io::read(fd, &mut events).is_ok_and(|n| n > 0) {}
-        // shortcut: a watch the inotify limit refuses after start is
-        // skipped silently; report it if a caller ever needs to know.
-        let _ = add_watches(fd, dirs);
+        let watched = add_watches(fd, dirs);
         changed();
+        // A dir refused (e.g. the inotify limit), or none left to report
+        // one appearing: end, so the caller learns it as `changed` drops.
+        if !watched.is_ok_and(|n| n > 0) {
+            return;
+        }
     }
 }
 

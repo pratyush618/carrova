@@ -67,3 +67,36 @@ fn a_dir_that_is_a_file_is_refused() {
     fs::write(&file, b"").unwrap();
     assert!(watch_dirs(&[file], Box::new(|| {})).is_err());
 }
+
+/// Whether the watch let go of its callback within [`SOON`] (changes it
+/// reported meanwhile are skipped).
+fn ends(changes: &mpsc::Receiver<()>) -> bool {
+    loop {
+        match changes.recv_timeout(SOON) {
+            Ok(()) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => return true,
+            Err(mpsc::RecvTimeoutError::Timeout) => return false,
+        }
+    }
+}
+
+#[test]
+fn a_watched_dir_that_cannot_be_watched_again_ends_the_watch() {
+    let tmp = TempDir::new().unwrap();
+    let devices = tmp.path().join("devices");
+    fs::create_dir(&devices).unwrap();
+    let (_watch, changes) = watching(&[tmp.path().to_path_buf(), devices.clone()]);
+    fs::remove_dir(&devices).unwrap();
+    fs::write(&devices, b"").unwrap();
+    assert!(ends(&changes), "a dir it misses must not go unreported");
+}
+
+#[test]
+fn a_watch_left_with_no_dir_ends() {
+    let tmp = TempDir::new().unwrap();
+    let state = tmp.path().join("state");
+    fs::create_dir(&state).unwrap();
+    let (_watch, changes) = watching(std::slice::from_ref(&state));
+    fs::remove_dir(&state).unwrap();
+    assert!(ends(&changes), "nothing could wake it any more");
+}
