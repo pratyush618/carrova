@@ -11,7 +11,7 @@ export type DeviceKind = 'known' | 'new' | 'away';
 
 /** One device on the Nearby page. */
 export interface DeviceEntry {
-  /** Stable key: the device id, or `new:<name>` for a new one. */
+  /** Stable key: the device id, or `new:<name>` for a new one (`new:<name>:2`… for a repeated name). */
   readonly key: string;
   /** What device commands take; `null` for a new device. */
   readonly id: string | null;

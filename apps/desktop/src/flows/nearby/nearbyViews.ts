@@ -7,10 +7,14 @@ const date = (seconds: number | null): Date | null =>
   seconds === null ? null : new Date(seconds * 1000);
 
 /** A device that answered the browse, with what this computer remembers of it. */
-function hereEntry(device: NearbyDeviceView, record: KnownDeviceView | undefined): DeviceEntry {
+function hereEntry(
+  device: NearbyDeviceView,
+  record: KnownDeviceView | undefined,
+  key: string,
+): DeviceEntry {
   const known = device.known && device.id !== null;
   return {
-    key: device.id ?? `new:${device.name}`,
+    key,
     id: known ? device.id : null,
     name: device.name,
     os: device.os,
@@ -49,9 +53,18 @@ export function nearbyEntries(
 ): { readonly here: DeviceEntry[]; readonly away: DeviceEntry[] } {
   const byId = new Map(known.map((record) => [record.id, record]));
   const answered = new Set(found.flatMap((device) => (device.id === null ? [] : [device.id])));
+  // New devices have no id: key them by name, the 2nd of a name `new:<name>:2`, and so on.
+  const named = new Map<string, number>();
+  const newKey = (name: string): string => {
+    const nth = (named.get(name) ?? 0) + 1;
+    named.set(name, nth);
+    return nth === 1 ? `new:${name}` : `new:${name}:${String(nth)}`;
+  };
   return {
     here: found.map((device) =>
-      hereEntry(device, device.id === null ? undefined : byId.get(device.id)),
+      device.id === null
+        ? hereEntry(device, undefined, newKey(device.name))
+        : hereEntry(device, byId.get(device.id), device.id),
     ),
     away: known.filter((record) => !answered.has(record.id)).map(awayEntry),
   };

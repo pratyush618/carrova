@@ -31,6 +31,11 @@ const answer = (over: Partial<NearbyDeviceView>): NearbyDeviceView => ({
 });
 
 describe('nearby views', () => {
+  it('keys new devices that share a name apart', () => {
+    const { here } = nearbyEntries([answer({}), answer({ answered_ms: 90 }), answer({})], []);
+    expect(here.map((d) => d.key)).toEqual(['new:new-mbp', 'new:new-mbp:2', 'new:new-mbp:3']);
+  });
+
   it('lists who answered in answer order, then remembered devices that did not', () => {
     const known = [record('aa', 'Ana'), record('bb', 'Old ThinkPad', true)];
     const found = [
