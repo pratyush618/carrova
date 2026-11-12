@@ -226,6 +226,56 @@ fn hints_that_cannot_be_dropped_leave_wake_hints_on() {
 }
 
 #[test]
+fn hints_left_by_an_earlier_save_go_with_the_next_save_while_off() {
+    let machine = Machine::new();
+    let (state, _) = counting(&machine);
+    save_wol_hints(&state, true);
+    remember_with_hint(&machine, 1, "Desk", Some([2, 0, 0, 0, 0, 1]));
+    // As a save that replaced the file, then failed before dropping hints.
+    let mut off = block_on(settings::load(&state)).unwrap();
+    off.nearby.wol_hints = false;
+    state.settings.save(&off).unwrap();
+
+    save_wol_hints(&state, false);
+    assert!(!has_wake_hint(&state));
+}
+
+#[test]
+fn a_failed_save_turning_hints_off_still_drops_them() {
+    let machine = Machine::new();
+    let (state, _) = counting(&machine);
+    save_wol_hints(&state, true);
+    remember_with_hint(&machine, 1, "Desk", Some([2, 0, 0, 0, 0, 1]));
+    let temp = machine
+        .platform
+        .state_dir()
+        .unwrap()
+        .join("desktop-settings.json.tmp/blocked");
+    std::fs::create_dir_all(temp).unwrap();
+
+    let patch = serde_json::json!({ "nearby": { "wol_hints": false } });
+    assert!(block_on(settings::save(&state, patch)).is_err());
+    assert!(!has_wake_hint(&state), "the file may say off already");
+}
+
+#[test]
+fn unreadable_hints_do_not_block_a_save_while_hints_are_off() {
+    let machine = Machine::new();
+    let (state, _) = counting(&machine);
+    remember(&machine, 1, "Desk");
+    let known = machine
+        .platform
+        .state_dir()
+        .unwrap()
+        .join("devices/known.json");
+    std::fs::write(known, b"{not json").unwrap();
+
+    let patch = serde_json::json!({ "nearby": { "remember": false } });
+    block_on(settings::save(&state, patch)).unwrap();
+    assert!(!block_on(settings::load(&state)).unwrap().nearby.remember);
+}
+
+#[test]
 fn the_trays_nearby_waits_until_the_window_takes_it_once() {
     let machine = Machine::new();
     assert!(!devices::take_show_nearby(&machine.state));

@@ -24,15 +24,19 @@ pub async fn load(state: &AppState) -> Result<Settings, CommandError> {
 /// Apply `patch` (the changed fields, see [`patched`]) to the saved
 /// settings. Background settings change only through
 /// [`set_background`](super::background::set_background), which keeps
-/// start at sign-in in step with them. Turning wake hints off saves the
-/// setting, then drops every saved hint: a move remembered meanwhile asks
-/// the saved setting under the devices lock, so none comes back. If the
-/// hints cannot be dropped, the setting is put back on.
+/// start at sign-in in step with them. Every save with wake hints off
+/// saves the setting, then drops every saved hint: a move remembered
+/// meanwhile asks the saved setting under the devices lock, so none comes
+/// back. Hints are dropped even if the save fails (it may have replaced
+/// the file), and one an earlier save left behind goes with the next. If
+/// the hints cannot be dropped while turning them off, the setting is put
+/// back on; while already off, that is only logged.
 ///
 /// # Errors
 ///
 /// The patch changes background settings or does not fit, the settings
-/// file cannot be read or written, or the hints cannot be dropped.
+/// file cannot be read or written, or the hints cannot be dropped while
+/// turning them off.
 pub async fn save(state: &AppState, patch: Value) -> Result<(), CommandError> {
     if patch.get("background").is_some() {
         return Err(CommandError::new(
@@ -46,13 +50,17 @@ pub async fn save(state: &AppState, patch: Value) -> Result<(), CommandError> {
         let _writing = store.lock();
         let old = store.load()?;
         let new = patched(&old, patch)?;
-        store.save(&new)?;
-        if old.nearby.wol_hints && !new.nearby.wol_hints {
-            let platform = platform.as_ref();
-            let cleared = KnownDevices::open(platform).and_then(|k| k.clear_wake_hints(platform));
-            if let Err(e) = cleared {
-                // Logged first: a failed rollback below replaces it.
-                tracing::warn!(error = %e, "could not drop the wake hints: turning them back on");
+        let saved = store.save(&new);
+        if new.nearby.wol_hints {
+            return saved;
+        }
+        let platform = platform.as_ref();
+        let cleared = KnownDevices::open(platform).and_then(|k| k.clear_wake_hints(platform));
+        saved?;
+        if let Err(e) = cleared {
+            // Logged first: a failed rollback below replaces it.
+            tracing::warn!(error = %e, "could not drop the wake hints");
+            if old.nearby.wol_hints {
                 store.save(&old)?;
                 return Err(e.into());
             }
