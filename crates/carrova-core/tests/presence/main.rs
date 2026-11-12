@@ -348,3 +348,20 @@ fn a_corrupt_known_device_store_does_not_stop_browsing() {
     let found = browse_nearby(&*side.platform).unwrap();
     assert!(found.iter().all(|d| d.known.is_none()), "{found:?}");
 }
+
+#[test]
+fn an_advert_reads_only_the_secrets_it_tags() {
+    let side = Side::named(Some("desk"));
+    let oldest = public(1);
+    remember(&side, oldest, "oldest", Some(1));
+    for i in 0..u8::try_from(MAX_KNOWN_TAGS).unwrap() {
+        remember(&side, public(i + 2), "peer", Some(u64::from(i) + 2));
+    }
+    let key = side
+        .platform
+        .state_dir()
+        .unwrap()
+        .join(format!("devices/{}.key", oldest.to_hex()));
+    std::fs::write(key, b"short").unwrap();
+    assert!(advert(&*side.platform, Visibility::Known, NOW).is_ok());
+}

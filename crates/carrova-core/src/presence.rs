@@ -65,12 +65,12 @@ pub fn advert(
         Visibility::Known => false,
         Visibility::Everyone { .. } => true,
     };
-    let known = known_by_recent_use(platform)?;
+    let known = known_by_recent_use(platform, MAX_KNOWN_TAGS)?;
     let known = if known.is_empty() {
         None
     } else {
         let me = KnownDevices::open(platform)?.device_key(platform)?.public();
-        KnownTags::fresh(known.iter().take(MAX_KNOWN_TAGS).map(|(_, s)| s), &me)?
+        KnownTags::fresh(known.iter().map(|(_, s)| s), &me)?
     };
     if !everyone {
         return Ok(known.map(|known| PresenceAdvert {

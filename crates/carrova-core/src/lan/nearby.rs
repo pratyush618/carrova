@@ -47,7 +47,7 @@ pub struct NearbyDevice {
 /// Discovery could not start.
 pub fn browse_nearby(platform: &dyn Platform) -> Result<Vec<NearbyDevice>> {
     let found = browse(platform, BROWSE_WINDOW)?;
-    let known = known_by_recent_use(platform).unwrap_or_else(|e| {
+    let known = known_by_recent_use(platform, usize::MAX).unwrap_or_else(|e| {
         tracing::warn!(error = %e, "known devices unreadable: none recognised nearby");
         Vec::new()
     });
@@ -57,11 +57,13 @@ pub fn browse_nearby(platform: &dyn Platform) -> Result<Vec<NearbyDevice>> {
         .collect())
 }
 
-/// Known devices that have a secret, most recently moved with first (then
-/// most recently first seen). Read-only: without a store there are none
-/// (it is never created here).
+/// Up to `limit` known devices that have a secret, most recently moved
+/// with first (then most recently first seen); secrets past `limit` are not
+/// read. Read-only: without a store there are none (it is never created
+/// here).
 pub(crate) fn known_by_recent_use(
     platform: &dyn Platform,
+    limit: usize,
 ) -> Result<Vec<(DeviceRecord, KnownSecret)>> {
     if fsx::lstat(platform, &platform.state_dir()?.join(DEVICES_DIR))?.is_none() {
         return Ok(Vec::new());
@@ -69,8 +71,11 @@ pub(crate) fn known_by_recent_use(
     let store = KnownDevices::open(platform)?;
     let mut records = store.list(platform)?;
     records.sort_by_key(|r| Reverse((r.last_move, r.first_seen)));
-    let mut known = Vec::with_capacity(records.len());
+    let mut known = Vec::new();
     for record in records {
+        if known.len() == limit {
+            break;
+        }
         if let Some(secret) = store.secret_for(platform, &record.public)? {
             known.push((record, secret));
         }
