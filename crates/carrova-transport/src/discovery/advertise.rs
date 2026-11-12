@@ -165,8 +165,8 @@ impl Drop for Advertiser {
 
 /// Shut `daemon` down and wait until it sent its goodbyes and dropped the
 /// answers it had queued: no answer from it goes out afterwards. Returns
-/// whether the shutdown was queued (an ack past the wait counts); `false`
-/// means it was refused and the daemon still runs.
+/// whether nothing is left to retry: the shutdown was queued (an ack past the
+/// wait counts) or the daemon is gone; `false` means the queue refused it.
 fn withdraw(daemon: &ServiceDaemon) -> bool {
     let shutdown = daemon.shutdown().or_else(|e| match e {
         mdns_sd::Error::Again => {
@@ -181,7 +181,7 @@ fn withdraw(daemon: &ServiceDaemon) -> bool {
     if !matches!(done, Ok(true)) {
         tracing::warn!("mDNS daemon did not withdraw its advertisement");
     }
-    shutdown.is_ok()
+    !matches!(shutdown, Err(mdns_sd::Error::Again))
 }
 
 /// Longest device name in one TXT entry (`dn=<name>`, at most 255 bytes),
