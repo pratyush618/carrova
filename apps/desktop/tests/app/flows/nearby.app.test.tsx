@@ -3,6 +3,7 @@ import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { BridgeEvent } from '@/engine/types';
 import { createFakePort } from '@/ipc/fake';
+import { bridgeError } from '@/ipc/reject';
 import { renderApp } from '../../support/app';
 
 /** The fake `nearby` port, with a way to push bridge events at the app. */
@@ -64,6 +65,13 @@ describe('nearby', () => {
     await user.click(await screen.findByRole('button', { name: 'Wake: Old ThinkPad' }));
     expect(wake).toHaveBeenCalledWith('o3');
     expect(await screen.findByText(/Wake sent to Old ThinkPad/)).toBeInTheDocument();
+
+    // Its address was dropped meanwhile: the engine refuses, the page says why.
+    wake.mockRejectedValueOnce(bridgeError('known_device', 'no network address is saved'));
+    await user.click(screen.getByRole('button', { name: 'Wake: Old ThinkPad' }));
+    expect(
+      await screen.findByText(/No network address is saved for Old ThinkPad/),
+    ).toBeInTheDocument();
   });
 
   it('remembered notice offers forget', async () => {
