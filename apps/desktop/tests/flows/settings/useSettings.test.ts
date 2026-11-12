@@ -122,3 +122,20 @@ describe('saving settings', () => {
     expect((await port.settings()).alerts.paused_until).toBe(4_000_000_000);
   });
 });
+
+describe('a pause', () => {
+  it('shows as over once its time passes, with Settings left open', async () => {
+    const port = createFakePort({ stepMs: 0 });
+    await port.saveSettings({ alerts: { paused_until: Math.ceil(Date.now() / 1000) + 1 } });
+    const settings = renderHook(() => useSettings(port, idle));
+    await waitFor(() => {
+      expect(settings.result.current.model?.pausedUntil).not.toBeNull();
+    });
+    await waitFor(
+      () => {
+        expect(settings.result.current.model?.pausedUntil).toBeNull();
+      },
+      { timeout: 3000 },
+    );
+  });
+});
