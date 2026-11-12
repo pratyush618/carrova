@@ -36,6 +36,7 @@ pub mod key;
 pub mod lan;
 mod mode;
 pub mod plan;
+pub mod presence;
 mod rollback;
 pub mod scan;
 pub mod secrets;
