@@ -40,6 +40,9 @@ pub(crate) struct Advertiser {
     /// A fresh daemon per advert: shutting the old one down also drops the
     /// answers it still had queued (with the old offer and its name).
     mdns: Option<ServiceDaemon>,
+    /// Daemons whose shutdown the command queue refused: dropping one would
+    /// leave it advertising, so each is retried until it is queued.
+    refused: Vec<ServiceDaemon>,
     /// Whether "mDNS unavailable" was logged: once per advertiser, not per advert.
     mdns_failure_logged: bool,
     responder: Option<JoinHandle<()>>,
@@ -71,6 +74,7 @@ impl Advertiser {
             name,
             current,
             mdns: None,
+            refused: Vec::new(),
             mdns_failure_logged: false,
             responder,
         })
@@ -94,11 +98,9 @@ impl Advertiser {
     /// with TXT [`TXT_VERSION`] plus `txt`.
     fn publish(&mut self, advert: Advert, txt: &[(&str, String)]) {
         *self.current.lock().unwrap_or_else(PoisonError::into_inner) = Some(advert);
-        if let Some(old) = self.mdns.take() {
-            // shortcut: an old daemon past MDNS_WITHDRAW_WAIT may still run, so the new one
-            // renames the instance; use a fresh instance per daemon if that warning shows up.
-            withdraw(&old);
-        }
+        // shortcut: an old daemon past MDNS_WITHDRAW_WAIT may still run, so the new one
+        // renames the instance; use a fresh instance per daemon if that warning shows up.
+        self.retire_mdns();
         let daemon = match ServiceDaemon::new() {
             Ok(daemon) => daemon,
             Err(e) => {
@@ -129,6 +131,17 @@ impl Advertiser {
         }
         self.mdns = Some(daemon);
     }
+
+    /// Withdraw the current daemon, after retrying those refused before;
+    /// keep each whose shutdown is still refused.
+    fn retire_mdns(&mut self) {
+        self.refused.retain(|daemon| !withdraw(daemon));
+        if let Some(daemon) = self.mdns.take()
+            && !withdraw(&daemon)
+        {
+            self.refused.push(daemon);
+        }
+    }
 }
 
 impl std::fmt::Debug for Advertiser {
@@ -146,15 +159,15 @@ impl Drop for Advertiser {
         if let Some(task) = self.responder.take() {
             task.abort();
         }
-        if let Some(daemon) = self.mdns.take() {
-            withdraw(&daemon);
-        }
+        self.retire_mdns();
     }
 }
 
 /// Shut `daemon` down and wait until it sent its goodbyes and dropped the
-/// answers it had queued: no answer from it goes out afterwards.
-fn withdraw(daemon: &ServiceDaemon) {
+/// answers it had queued: no answer from it goes out afterwards. Returns
+/// whether the shutdown was queued (an ack past the wait counts); `false`
+/// means it was refused and the daemon still runs.
+fn withdraw(daemon: &ServiceDaemon) -> bool {
     let shutdown = daemon.shutdown().or_else(|e| match e {
         mdns_sd::Error::Again => {
             std::thread::sleep(MDNS_QUEUE_RETRY);
@@ -162,10 +175,13 @@ fn withdraw(daemon: &ServiceDaemon) {
         }
         e => Err(e),
     });
-    let done = shutdown.map(|done| done.recv_timeout(MDNS_WITHDRAW_WAIT).is_ok());
+    let done = shutdown
+        .as_ref()
+        .map(|done| done.recv_timeout(MDNS_WITHDRAW_WAIT).is_ok());
     if !matches!(done, Ok(true)) {
         tracing::warn!("mDNS daemon did not withdraw its advertisement");
     }
+    shutdown.is_ok()
 }
 
 /// Longest device name in one TXT entry (`dn=<name>`, at most 255 bytes),
