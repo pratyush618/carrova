@@ -2,6 +2,7 @@
 //! of it. No I/O and no escaping: front-ends (CLI text, desktop UI) render them
 //! and escape every peer-provided string themselves.
 
+pub mod devices;
 pub mod ipc;
 pub mod lan;
 pub mod notice;

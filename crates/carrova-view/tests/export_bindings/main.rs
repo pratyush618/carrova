@@ -29,6 +29,9 @@ use carrova_core::{
 };
 use carrova_platform::FileManagerStatus;
 use carrova_report::{ErrorReport, IssueDraft, ReportConsent, ReportId, ReportSummary};
+use carrova_view::devices::{
+    ForgetDevices, KnownDeviceView, NearbyDeviceView, Ring, VisibilityChoice, VisibilityView,
+};
 use carrova_view::ipc::{
     About, AlertChannel, AlertSettings, BackgroundSettings, BridgeError, BridgeEvent, CatalogEntry,
     EngineDefaults, NearbySettings, Picked, PlanReview, RecipesCheck, RecipesStatus, RecipesUpdate,
@@ -106,6 +109,11 @@ fn export_typescript_bindings() {
         PauseView::<'static>::export_all,
         PlanView::<'static>::export_all,
         SpaceView::export_all,
+        NearbyDeviceView::export_all,
+        Ring::export_all,
+        KnownDeviceView::export_all,
+        VisibilityView::export_all,
+        VisibilityChoice::export_all,
         // Desktop IPC contract.
         BridgeEvent::export_all,
         BridgeError::export_all,
@@ -127,6 +135,7 @@ fn export_typescript_bindings() {
         Picked::<'static>::export_all,
         FileManagerStatus::export_all,
         Notice::export_all,
+        ForgetDevices::export_all,
         // Error reports (carrova-report).
         ErrorReport::export_all,
         ReportSummary::export_all,
