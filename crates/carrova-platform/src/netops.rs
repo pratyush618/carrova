@@ -58,6 +58,26 @@ pub(crate) fn bind_broadcast_udp(port: u16) -> io::Result<UdpSocket> {
     Ok(socket.into())
 }
 
+/// Wake-on-LAN magic packet: six `0xFF` bytes, then `mac` sixteen times.
+pub(crate) fn magic_packet(mac: [u8; 6]) -> [u8; 102] {
+    let mut packet = [0xff; 102];
+    packet[6..].copy_from_slice(&[mac; 16].concat());
+    packet
+}
+
+/// Broadcast the magic packet for `mac` to `255.255.255.255:9`. Errors
+/// carry the OS message only, never the address.
+pub(crate) fn send_magic_packet(mac: [u8; 6]) -> Result<(), PlatformError> {
+    let send = || {
+        let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0))?;
+        socket.set_broadcast(true)?;
+        socket.send_to(&magic_packet(mac), (Ipv4Addr::BROADCAST, 9))
+    };
+    send()
+        .map(drop)
+        .map_err(|e| PlatformError::Network(e.to_string()))
+}
+
 /// Smallest buffer request [`bind_udp`] steps down to before giving up.
 const MIN_UDP_BUFFER: usize = 64 * 1024;
 

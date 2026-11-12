@@ -2,7 +2,7 @@
 
 use std::fs::File;
 use std::io;
-use std::net::UdpSocket;
+use std::net::{IpAddr, UdpSocket};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 
@@ -274,6 +274,21 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     fn bind_udp(&self, port: u16, buffer: usize) -> io::Result<(UdpSocket, SocketBuffers)> {
         let _ = (port, buffer);
         Err(io::Error::new(io::ErrorKind::Unsupported, "bind_udp"))
+    }
+
+    /// Hardware address the OS has cached for the LAN host `addr` (Linux:
+    /// the kernel neighbour table), if it has talked to it lately. Used to
+    /// remember a device's address so it can be woken later.
+    fn neighbour_mac(&self, addr: IpAddr) -> Option<[u8; 6]> {
+        let _ = addr;
+        None
+    }
+
+    /// Broadcast a Wake-on-LAN magic packet for `mac` (UDP, port 9). Best
+    /// effort: a delivered packet says nothing about the target waking.
+    fn send_magic_packet(&self, mac: [u8; 6]) -> Result<(), PlatformError> {
+        let _ = mac;
+        Err(PlatformError::Unsupported("send_magic_packet"))
     }
 
     /// User-facing advice for when [`Platform::bind_udp`] granted less than

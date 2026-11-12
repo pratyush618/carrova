@@ -219,6 +219,12 @@ impl Platform for FakePlatform {
         crate::netops::lan_ipv4_interfaces()
     }
 
+    /// Succeeds without sending: tests must not broadcast onto a real LAN.
+    fn send_magic_packet(&self, mac: [u8; 6]) -> Result<(), PlatformError> {
+        let _ = mac;
+        Ok(())
+    }
+
     #[cfg(any(unix, windows))]
     fn bind_broadcast_udp(&self, port: u16) -> std::io::Result<std::net::UdpSocket> {
         crate::netops::bind_broadcast_udp(port)
