@@ -40,6 +40,8 @@ pub(crate) struct Advertiser {
     /// A fresh daemon per advert: shutting the old one down also drops the
     /// answers it still had queued (with the old offer and its name).
     mdns: Option<ServiceDaemon>,
+    /// Whether "mDNS unavailable" was logged: once per advertiser, not per advert.
+    mdns_failure_logged: bool,
     responder: Option<JoinHandle<()>>,
 }
 
@@ -69,6 +71,7 @@ impl Advertiser {
             name,
             current,
             mdns: None,
+            mdns_failure_logged: false,
             responder,
         })
     }
@@ -96,10 +99,17 @@ impl Advertiser {
             // renames the instance; use a fresh instance per daemon if that warning shows up.
             withdraw(&old);
         }
-        let Ok(daemon) = ServiceDaemon::new()
-            .inspect_err(|e| tracing::warn!(error = %e, "mDNS discovery unavailable"))
-        else {
-            return;
+        let daemon = match ServiceDaemon::new() {
+            Ok(daemon) => daemon,
+            Err(e) => {
+                // Later adverts retry; only the first failure is loud.
+                if std::mem::replace(&mut self.mdns_failure_logged, true) {
+                    tracing::debug!(error = %e, "mDNS discovery still unavailable");
+                } else {
+                    tracing::warn!(error = %e, "mDNS discovery unavailable");
+                }
+                return;
+            }
         };
         let version = PROTOCOL_VERSION.to_string();
         let txt: Vec<(&str, &str)> = std::iter::once((TXT_VERSION, version.as_str()))
