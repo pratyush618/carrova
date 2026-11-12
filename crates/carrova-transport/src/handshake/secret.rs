@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use carrova_crypto::identity::DeviceKey;
 use carrova_crypto::pairing::{PairingCode, ResumeSecret, ResumeTag, TagNonce, TagPurpose};
 
 use crate::claim::CodeClaim;
@@ -14,8 +15,12 @@ use crate::wire::Intent;
 /// What the receiver brings to the handshake.
 #[derive(Debug, Clone)]
 pub(crate) enum Secret {
-    /// First contact: the pairing code.
-    Pair(PairingCode),
+    /// First contact: the pairing code, and this device's key if it
+    /// remembers devices.
+    Pair {
+        code: PairingCode,
+        device: Option<Arc<DeviceKey>>,
+    },
     /// Reconnect: the session's resume secret.
     Resume(ResumeSecret),
 }
@@ -25,7 +30,7 @@ impl Secret {
     /// resumable session.
     pub(crate) fn subject(&self) -> Subject {
         match self {
-            Self::Pair(code) => Subject::Pair(code.nameplate()),
+            Self::Pair { code, .. } => Subject::Pair(code.nameplate()),
             Self::Resume(secret) => Subject::Resume(secret.clone()),
         }
     }
@@ -33,7 +38,7 @@ impl Secret {
     /// The `Hello` intent (resume: a fresh `Hello` tag per attempt).
     pub(super) fn intent(&self) -> Result<Intent> {
         Ok(match self {
-            Self::Pair(code) => Intent::Pair {
+            Self::Pair { code, .. } => Intent::Pair {
                 nameplate: code.nameplate().get(),
             },
             Self::Resume(secret) => {
@@ -45,16 +50,26 @@ impl Secret {
             }
         })
     }
+
+    /// This device's key, when it remembers devices and pairs with a code.
+    pub(super) fn device(&self) -> Option<&DeviceKey> {
+        match self {
+            Self::Pair { device, .. } => device.as_deref(),
+            Self::Resume(_) => None,
+        }
+    }
 }
 
 /// What the sender offers, with the listener-wide state that keeps each
 /// secret's use single (cheap to clone).
 #[derive(Debug, Clone)]
 pub(crate) enum Expected {
-    /// A pairing code and its single-use claim.
+    /// A pairing code and its single-use claim, and this device's key if
+    /// it remembers devices.
     Pair {
         code: PairingCode,
         claim: Arc<CodeClaim>,
+        device: Option<Arc<DeviceKey>>,
     },
     /// A resumable session and the `Hello` nonces already used for it.
     Resume {
@@ -79,6 +94,14 @@ impl Expected {
                 proof.made_with(secret, TagPurpose::Hello) && nonces.first_use(proof.nonce)
             }
             _ => false,
+        }
+    }
+
+    /// This device's key, when it remembers devices and pairs with a code.
+    pub(super) fn device(&self) -> Option<&DeviceKey> {
+        match self {
+            Self::Pair { device, .. } => device.as_deref(),
+            Self::Resume { .. } => None,
         }
     }
 

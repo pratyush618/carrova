@@ -155,3 +155,12 @@ fn hostnames_match_beyond_the_allow_list_but_file_names_do_not() {
         assert_eq!(rule_name(file), None, "{file}");
     }
 }
+
+#[test]
+fn device_fingerprints_match_only_in_their_shown_form() {
+    assert_eq!(rule_name("7F3A\u{b7}19C2"), Some("device fingerprint"));
+    assert_eq!(rule_name("7f3a\u{b7}19c2"), Some("device fingerprint"));
+    assert_eq!(rule_name("7F3A\u{b7}19C"), None);
+    assert_eq!(rule_name("7F3G\u{b7}19C2"), None);
+    assert_eq!(rule_name("7F3A19C2"), None);
+}

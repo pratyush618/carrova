@@ -14,5 +14,7 @@ export const errors = {
   rollback_failed: "The move couldn't be fully undone",
   session: "This move can't continue",
   recipes: "Carrova's app list couldn't be loaded",
+  known_device: "Check the computer's name or fingerprint",
+  device_key: "A saved computer key can't be used",
   internal: 'Something went wrong',
 } as const;

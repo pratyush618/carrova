@@ -303,3 +303,13 @@ fn policy_lists_every_rule_in_match_order() {
         assert!(names.contains(&name), "{name} missing");
     }
 }
+
+#[test]
+fn device_key_error_hides_the_fingerprint() {
+    assert_eq!(
+        Redactor::default().redact(
+            "known devices: the key of 7F3A\u{b7}19C2 has mode 644, not 600; refusing to use it"
+        ),
+        "known devices: the key of <device> has mode 644, not 600; refusing to use it"
+    );
+}

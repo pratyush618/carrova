@@ -2,13 +2,13 @@
 
 use std::fs::File;
 use std::io;
-use std::net::UdpSocket;
+use std::net::{IpAddr, UdpSocket};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 
 use crate::{
-    Allocation, DirEntry, DiskInfo, FileLock, FileManagerStatus, FileMeta, FsId, LanInterface,
-    OsKind, PermissionModel, PlatformError, ProcessInfo, ScreenLock, SemanticRoot,
+    Allocation, DirEntry, DirWatch, DiskInfo, FileLock, FileManagerStatus, FileMeta, FsId,
+    LanInterface, OsKind, PermissionModel, PlatformError, ProcessInfo, ScreenLock, SemanticRoot,
     SnapshotCapability, SocketBuffers,
 };
 
@@ -239,6 +239,25 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         None
     }
 
+    /// Call `changed` (on a thread the watch owns) whenever an entry of one
+    /// of `dirs` is created, replaced, written or removed, until the
+    /// returned guard drops. Entries are not followed into: watch the
+    /// directory of a file replaced by rename. A dir missing now is watched
+    /// from when it appears in another watched dir; a dir that is not one
+    /// is refused. If watching fails later (a dir refused, or none of
+    /// `dirs` left), the watch ends by itself and drops `changed`: a caller
+    /// that must know keeps a guard in it.
+    // shortcut: unsupported on macOS/Windows (callers poll instead); add
+    // FSEvents/ReadDirectoryChangesW when those ship background presence.
+    fn watch_dirs(
+        &self,
+        dirs: &[PathBuf],
+        changed: Box<dyn Fn() + Send>,
+    ) -> Result<DirWatch, PlatformError> {
+        let _ = (dirs, changed);
+        Err(PlatformError::Unsupported("watch_dirs"))
+    }
+
     /// This computer's name as the user knows it (Linux: the kernel host
     /// name), sanitised for display: printable characters only, trimmed,
     /// at most 64 characters. `None` when the OS has no usable name.
@@ -274,6 +293,23 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     fn bind_udp(&self, port: u16, buffer: usize) -> io::Result<(UdpSocket, SocketBuffers)> {
         let _ = (port, buffer);
         Err(io::Error::new(io::ErrorKind::Unsupported, "bind_udp"))
+    }
+
+    /// Hardware address the OS has cached for the LAN host `addr` (Linux:
+    /// the kernel neighbour table), if it has talked to it lately. Used to
+    /// remember a device's address so it can be woken later.
+    // shortcut: macOS and Windows keep this `None` (they need `arp -an` or
+    // sysctl PF_ROUTE, and iphlpapi FFI); upgrade when Wake is wanted there.
+    fn neighbour_mac(&self, addr: IpAddr) -> Option<[u8; 6]> {
+        let _ = addr;
+        None
+    }
+
+    /// Broadcast a Wake-on-LAN magic packet for `mac` (UDP, port 9). Best
+    /// effort: a delivered packet says nothing about the target waking.
+    fn send_magic_packet(&self, mac: [u8; 6]) -> Result<(), PlatformError> {
+        let _ = mac;
+        Err(PlatformError::Unsupported("send_magic_packet"))
     }
 
     /// User-facing advice for when [`Platform::bind_udp`] granted less than

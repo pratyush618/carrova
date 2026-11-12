@@ -9,7 +9,8 @@
 //! are injected with [`FakePlatform::with_hooks`]. File-manager entries
 //! are unsupported unless [`FakePlatform::file_manager_entries`] pretends
 //! them. A status tray is shown until [`FakePlatform::set_status_tray`]
-//! takes it away; autostart is kept in memory.
+//! takes it away; autostart is kept in memory. Directory watches report
+//! only the changes a test fires ([`FakePlatform::fire_dir_change`]).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -27,16 +28,18 @@ mod platform;
 #[cfg(test)]
 #[path = "../../tests/fake/unit.rs"]
 mod tests;
+mod watch;
 
 pub use file_manager::EntriesWrite;
 pub use fixture::symlink;
 #[cfg(unix)]
 pub use fixture::{pin_umask, write_tool_script};
-pub use hooks::{Hooks, MetadataHook, OpenHook, RenameHook, StatusHook};
+pub use hooks::{Hooks, MetadataHook, OpenHook, RenameHook, StatusHook, SyncDirHook};
 
 use background::FakeBackground;
 use file_manager::FakeEntries;
 use hooks::HookState;
+use watch::FakeWatches;
 
 /// Deterministic [`Platform`] for tests. Filesystem metadata and operations
 /// are real (point roots at a tempdir); roots, state dir, binaries, processes
@@ -62,6 +65,8 @@ pub struct FakePlatform {
     entries: Option<Arc<FakeEntries>>,
     /// Pretend status tray and autostart entry (shared by clones).
     background: Arc<FakeBackground>,
+    /// Pretend directory watches (shared by clones).
+    watches: Arc<FakeWatches>,
 }
 
 /// A pretend filesystem mounted at `mount` (see [`FakePlatform::filesystem`]).
@@ -102,6 +107,7 @@ impl FakePlatform {
             hooks: Arc::default(),
             entries: None,
             background: Arc::default(),
+            watches: Arc::default(),
         }
     }
 
@@ -239,6 +245,13 @@ impl FakePlatform {
     #[must_use]
     pub fn wakes(&self) -> usize {
         self.hooks.wakes()
+    }
+
+    /// Magic packets [`Platform::send_magic_packet`] was asked to send since
+    /// [`Self::with_hooks`] (none leave the process).
+    #[must_use]
+    pub fn magic_packets(&self) -> Vec<[u8; 6]> {
+        self.hooks.magic_packets()
     }
 
     /// Make [`Platform::screen_lock`] report `lock` (changeable while the

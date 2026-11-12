@@ -571,3 +571,21 @@ Final gate, all PASS: `just ci` (975 Rust tests, 304 Vitest, lint/clippy/rustdoc
 Open (user): `git init -b main`; move design PDF out of junk/; replace placeholders until `just release-preflight` passes (OWNER/REPO ×4, DEV bundle root, DEV updater key, maintainer, CODEOWNERS handles, secrets); final project name; v0.1 exit gate on clean Ubuntu; Phase 3 hardware gate.
 Deferred: fake port doesn't re-check sensitivity for remapped items; `planOptions.ts` still edits PlanOptions lists (no core options-edit API).
 - [x] **W4-5 boundary-review fixes**: (1) HIGH `prune_expired` may dismiss after an incomplete rollback / during a rollback → never prune when `record.error` set or rollback started (clear `expires_at`), prune under session lock, continue past one failure; (3) `run_tool` kill whole process group (Platform method); (4) reject `:` in any RelPath component (+ schema); (5) advertise `clean_device_name`d name; (6) `RecipesCheck::Refused{version}` mapped in view (CLI = desktop). Checked (2): plugin `log` reaches only CLI stderr at `-vv`; not in log.jsonl or reports. Done: `Session::load_locked` (flock `session.lock`), rollback clears `expires_at` before steps, prune skips `error`, continues on failure; `RelPathError::Colon`; `Platform::{isolate_tool,kill_tool}` (unix process group; Windows direct child only, shortcut); `RecipesCheck::{UpToDate{version},Refused{version}}` via `From<CheckAttempt>` in view. Main thread: windows clippy closure, `check-targets` uses blake3 pure (cross C toolchain). User 2026-11-10: raw items allow `:` (`RelPath::new_raw`, test `raw_dir_with_colon_in_its_name_is_captured`); settings copy stays "List". Open: recipe v1/v2 schemas still allow mid-path `:`.
+
+## Background + Nearby — Phase 2: known devices (2026-11-12)
+- [x] ADR 0001 signed off (incl. amendment: discovery tag binds the advertiser's public key)
+- [x] 2.1 device identity + known-device store (`carrova-core::devices`, locked, atomic secret files)
+- [x] 2.2 `Identify` before `Established` + remember after a code-paired move
+- [x] 2.3 presence adverts (`kt` tags) + visibility (Known / Everyone for a while / No one)
+- [x] 2.5 Wake-on-LAN: platform magic packet + neighbour MAC, opt-in core wake hints (cleared on opt-out)
+- [x] 2.4 Rust wiring (devices/visibility commands, background presence, tray, CLI `carrova devices|visibility`) + UI (Nearby page, known-devices settings, Wake, remembered notice, tray → Nearby)
+- [ ] 2.6 gate: `just ci`, `just e2e-ui`, boundary review, final review, PR
+- [ ] Phase 3 (code-less requests): needs its own ADR sign-off (Task 3.0)
+
+Follow-ups (after PR #9):
+- [ ] Nearby map: at 1100×520 an outer-ring device sits under the visibility pill (adjust orbit, visual check vs mockup); no density handling: at 12 inner-ring devices neighbouring buttons overlap (60°/90°/120° spots), sooner on fields narrower than ~772 px where `--u` < 1 px shrinks offsets but not buttons — pick a layout (group extras, smaller buttons, radius/start angle) once the device-count limit is settled (PR #9 CodeRabbit review 5871734187)
+- [ ] macOS/Windows wake hints: `Platform::neighbour_mac` returns `None` there (needs `arp -an` / `GetIpNetTable2`), so no hint is saved and Wake never shows
+- [ ] macOS/Windows file watch: `Platform::watch_dirs` unsupported (FSEvents / ReadDirectoryChangesW); presence polls every 5 s and the tray doesn't follow CLI visibility changes there
+- [ ] macOS device name: host name, not System Settings "Computer Name"
+- [ ] Real-hardware check of known devices / Nearby / Wake on Windows and macOS (Phase 5 exit gate)
+- [x] Move the wake-hint save policy (clear hints, rollback, error order) out of `src-tauri/ops/settings.rs` into shared code (`Settings::save_over` in carrova-view) (boundary rule 2; PR #9 CodeRabbit review 5870606766)

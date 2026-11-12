@@ -1,5 +1,7 @@
 //! User settings.
 
+use std::sync::Arc;
+
 use carrova_view::ipc::{ErrorCode, Settings};
 use serde_json::Value;
 
@@ -19,14 +21,16 @@ pub async fn load(state: &AppState) -> Result<Settings, CommandError> {
 }
 
 /// Apply `patch` (the changed fields, see [`patched`]) to the saved
-/// settings. Background settings change only through
+/// settings under the settings lock; [`Settings::save_over`] keeps the
+/// saved wake hints in step. Background settings change only through
 /// [`set_background`](super::background::set_background), which keeps
 /// start at sign-in in step with them.
 ///
 /// # Errors
 ///
-/// The patch changes background settings or does not fit, or the settings
-/// file cannot be read or written.
+/// The patch changes background settings or does not fit, the settings
+/// file cannot be read or written, or the hints cannot be dropped while
+/// turning them off.
 pub async fn save(state: &AppState, patch: Value) -> Result<(), CommandError> {
     if patch.get("background").is_some() {
         return Err(CommandError::new(
@@ -35,9 +39,12 @@ pub async fn save(state: &AppState, patch: Value) -> Result<(), CommandError> {
         ));
     }
     let store = state.settings.clone();
+    let platform = Arc::clone(&state.platform);
     blocking(move || {
         let _writing = store.lock();
-        store.save(&patched(&store.load()?, patch)?)
+        let old = store.load()?;
+        let new = patched(&old, patch)?;
+        new.save_over(&old, platform.as_ref(), |s| store.save(s))
     })
     .await
 }

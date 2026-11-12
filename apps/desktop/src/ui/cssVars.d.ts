@@ -7,7 +7,7 @@ declare module 'react' {
     '--p'?: string;
     /** Tree indentation level. */
     '--depth'?: string;
-    /** Seal burst particle vector and spin. */
+    /** Seal burst particle vector and spin; a Nearby map spot's offset from the centre. */
     '--dx'?: string;
     '--dy'?: string;
     '--rot'?: string;

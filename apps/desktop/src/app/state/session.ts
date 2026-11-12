@@ -142,6 +142,7 @@ export function applyEvent(session: SessionProgress, event: EngineEvent): Sessio
       return { ...session, checking: true };
     case 'recaptured':
     case 'conflict_found':
+    case 'device_remembered':
     case 'action_applied':
       return session;
   }

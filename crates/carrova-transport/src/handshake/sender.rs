@@ -6,6 +6,7 @@ use carrova_crypto::pairing::{Pake, PakeMessage, PakeRole};
 use quinn::SendStream;
 use tokio::time::{Instant, timeout, timeout_at};
 
+use super::identify::{self, PeerIdentity};
 use super::io::{read_confirm, unexpected, write};
 use super::keys::Keys;
 use super::{Authenticated, Expected, binding};
@@ -72,6 +73,8 @@ struct Staked {
     send: SendStream,
     recv: StreamReader,
     peer_pake: Option<PakeMessage>,
+    /// The receiver's `Hello` asked for device identities.
+    identify: bool,
 }
 
 /// Sender, before anything secret is used: read `Hello`, check the
@@ -84,7 +87,12 @@ async fn stake(conn: &quinn::Connection, expected: &Expected) -> Result<Staked, 
         .await
         .map_err(|e| Retry(TransportError::connection(&e)))?;
     let mut recv = StreamReader::new(recv);
-    let Handshake::Hello { proto, intent } = recv.expect_frame().await.map_err(Retry)? else {
+    let Handshake::Hello {
+        proto,
+        intent,
+        identify,
+    } = recv.expect_frame().await.map_err(Retry)?
+    else {
         return Err(Retry(unexpected("hello")));
     };
     let reject = if proto != PROTOCOL_VERSION {
@@ -119,11 +127,12 @@ async fn stake(conn: &quinn::Connection, expected: &Expected) -> Result<Staked, 
         send,
         recv,
         peer_pake,
+        identify,
     })
 }
 
-/// Sender, with the secret at stake: run the PAKE (pairing) and both
-/// confirmations.
+/// Sender, with the secret at stake: run the PAKE (pairing), both
+/// confirmations and, if both sides remember devices, both identities.
 async fn prove(
     conn: &quinn::Connection,
     identity: &Identity,
@@ -134,6 +143,7 @@ async fn prove(
         mut send,
         mut recv,
         peer_pake,
+        identify,
     } = staked;
     let (binding, peer_cert) = binding(conn, identity, PakeRole::Sender)?;
     let keys = match (expected, peer_pake) {
@@ -164,6 +174,22 @@ async fn prove(
     };
     let theirs = read_confirm(&mut recv).await?;
     keys.verify(PakeRole::Receiver, &binding, &theirs)?;
+    let device = expected.device().filter(|_| identify);
+    let peer_identity = match (device, keys.known_secret()) {
+        (Some(device), Some(known)) => {
+            write(
+                &mut send,
+                &[identify::proof(device, PakeRole::Sender, &binding)],
+            )
+            .await?;
+            let frame = recv.expect_frame().await?;
+            Some(PeerIdentity {
+                public: identify::check(device, PakeRole::Receiver, &binding, &frame)?,
+                secret: known,
+            })
+        }
+        _ => None,
+    };
     write(&mut send, &[Handshake::Established]).await?;
     Ok(Authenticated {
         conn: conn.clone(),
@@ -171,5 +197,6 @@ async fn prove(
         recv,
         peer_cert,
         resume: keys.resume_secret(),
+        peer_identity,
     })
 }

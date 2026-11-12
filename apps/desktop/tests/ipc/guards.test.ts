@@ -12,8 +12,9 @@ describe('the IPC guards', () => {
     }
   });
 
-  it('accept a send request, which names no session, but no other sessionless event', () => {
+  it('accept a send request or a tray request, which name no session, but no other sessionless event', () => {
     expect(isBridgeEvent({ kind: 'send_requested' })).toBe(true);
+    expect(isBridgeEvent({ kind: 'show_nearby' })).toBe(true);
     expect(isBridgeEvent({ kind: 'task_ended', error: null })).toBe(false);
   });
 

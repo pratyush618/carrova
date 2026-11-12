@@ -15,9 +15,10 @@ socket2 = { workspace = true, features = ["all"] }
 thiserror = { workspace = true }
 ts-rs = { workspace = true, optional = true }
 
-# Safe syscalls for the Linux and macOS adapters (fsops, netops).
+# Safe syscalls for the Linux and macOS adapters (fsops, netops); `event`:
+# poll, for the Linux directory watch.
 [target.'cfg(unix)'.dependencies]
-rustix = { workspace = true }
+rustix = { workspace = true, features = ["event"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Session bus: tray-host detection (`org.kde.StatusNotifierWatcher`), screen

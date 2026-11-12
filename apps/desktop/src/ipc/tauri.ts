@@ -70,6 +70,16 @@ export function createTauriPort(): CarrovaPort {
     rollbackPreview: (session) => call('rollback_preview', { session }),
     dismiss: (session) => call('dismiss', { session }),
 
+    nearby: () => call('nearby'),
+    knownDevices: () => call('known_devices'),
+    renameDevice: (device, name) => call('rename_device', { device, name }),
+    forgetDevice: (which) => call('forget_device', { which }),
+    resetIdentity: () => call('reset_identity'),
+    visibility: () => call('visibility'),
+    setVisibility: (choice) => call('set_visibility', { choice }),
+    wakeDevice: (device) => call('wake_device', { device }),
+    takeShowNearby: () => call('take_show_nearby'),
+
     notices: () => call('notices'),
     markNoticesRead: (ids) => call('mark_notices_read', { ids: ids === 'all' ? null : ids }),
 

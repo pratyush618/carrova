@@ -6,13 +6,10 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use carrova_platform::{Platform, PlatformError};
-use carrova_view::ipc::Settings;
+use carrova_view::ipc::{NearbySettings, SETTINGS_FILE, Settings};
 use serde_json::Value;
 
 use crate::command_error::CommandError;
-
-/// Settings file name in the state directory.
-pub const SETTINGS_FILE: &str = "desktop-settings.json";
 
 /// Reads and writes [`Settings`].
 #[derive(Debug, Clone)]
@@ -47,12 +44,21 @@ impl SettingsStore {
     ///
     /// The file exists but cannot be read or parsed.
     pub fn load(&self) -> Result<Settings, CommandError> {
-        let path = self.path()?;
-        match std::fs::read(&path) {
-            Ok(bytes) => Ok(serde_json::from_slice(&bytes)?),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Settings::default()),
-            Err(e) => Err(e.into()),
-        }
+        Ok(Settings::load(self.platform.as_ref())?)
+    }
+
+    /// Whether new engines remember devices (`nearby.remember`).
+    pub fn remember_devices(&self) -> bool {
+        self.nearby().remember
+    }
+
+    /// Whether engines save wake hints now (`nearby.wol_hints`).
+    pub fn wol_hints(&self) -> bool {
+        self.nearby().wol_hints
+    }
+
+    fn nearby(&self) -> NearbySettings {
+        NearbySettings::saved(self.platform.as_ref())
     }
 
     /// Replace the saved settings with `settings`.

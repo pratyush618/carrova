@@ -23,6 +23,7 @@
 //!   launch (single-instance plugin), queued for the UI.
 //! - [`tray`]: the window in background mode (closed to the tray,
 //!   minimised or quit) and the tray menu.
+//! - [`presence`]: this computer's advert on the LAN while the app runs.
 //! - [`recipes`], [`settings`], [`error_report`], [`updater`]: services.
 //! - [`command_error`]: the one mapping of every failure to `BridgeError`.
 
@@ -32,6 +33,7 @@ pub mod error_report;
 pub mod events;
 pub mod ops;
 pub mod pairing;
+pub mod presence;
 pub mod recipes;
 pub mod registry;
 pub mod send_request;
@@ -49,15 +51,17 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use error_report::Reports;
+use presence::BackgroundPresence;
 use state::{AppState, BridgeConfig};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, RunEvent};
 use updater::PendingUpdate;
 
 /// Builds the Tauri application and runs it until the last window closes
 /// with no tray icon up, or Quit.
 ///
 /// Start-up installs the error-report panic hook (it records nothing
-/// unless the user has allowed reports) and the bridge state, queues this
+/// unless the user has allowed reports) and the bridge state, starts the
+/// presence advert (withdrawn on exit), queues this
 /// launch's `--send` paths, refreshes the file-manager and autostart
 /// entries in the background and opens the window (`--background`: the
 /// tray instead, see [`tray`]). A second launch only hands its `--send` paths to this one
@@ -86,8 +90,11 @@ pub fn run() -> tauri::Result<()> {
             let reports = Reports::from_platform(Arc::clone(&platform))?;
             reports.install_panic_hook();
             app.manage(reports);
-            let state = app_state(app.handle(), platform, pending_send)?;
+            let presence = Arc::new(BackgroundPresence::new(Arc::clone(&platform)));
+            let state = app_state(app.handle(), platform, pending_send, presence.clone())?;
             refresh_launchers(state.clone());
+            start_presence(&presence);
+            app.manage(presence);
             send_request::forward(&state, &launch_send_paths());
             app.manage(state.clone());
             tray::start(app.handle(), &state, launched_in_background());
@@ -139,6 +146,15 @@ pub fn run() -> tauri::Result<()> {
             commands::integration::file_manager_status,
             commands::integration::set_file_manager_entries,
             commands::background::set_background,
+            commands::devices::nearby,
+            commands::devices::known_devices,
+            commands::devices::rename_device,
+            commands::devices::forget_device,
+            commands::devices::reset_identity,
+            commands::devices::visibility,
+            commands::devices::set_visibility,
+            commands::devices::wake_device,
+            commands::devices::take_show_nearby,
             updater::check_update,
             updater::install_update,
             updater::restart_app,
@@ -151,7 +167,14 @@ pub fn run() -> tauri::Result<()> {
             commands::reports::error_report_issue,
         ])
         .build(tauri::generate_context!())?
-        .run(|app, event| tray::on_run_event(app, &event));
+        .run(|app, event| {
+            if let RunEvent::Exit = event
+                && let Some(presence) = app.try_state::<Arc<BackgroundPresence>>()
+            {
+                presence.stop();
+            }
+            tray::on_run_event(app, &event);
+        });
     Ok(())
 }
 
@@ -167,6 +190,12 @@ fn launch_send_paths() -> Vec<PathBuf> {
 /// Whether this launch is a start at sign-in.
 fn launched_in_background() -> bool {
     std::env::args_os().any(|arg| arg == tray::BACKGROUND_FLAG)
+}
+
+/// Start advertising this computer, off the start-up path.
+fn start_presence(presence: &Arc<BackgroundPresence>) {
+    let presence = Arc::clone(presence);
+    tauri::async_runtime::spawn_blocking(move || presence.start());
 }
 
 /// Point the file-manager and autostart entries at this app's launcher,
@@ -185,6 +214,7 @@ fn app_state(
     app: &AppHandle,
     platform: Arc<dyn carrova_platform::Platform>,
     pending_send: send_request::SendRequests,
+    presence: Arc<BackgroundPresence>,
 ) -> Result<AppState, command_error::CommandError> {
     let resources = app
         .path()
@@ -197,6 +227,7 @@ fn app_state(
             platform,
             recipes::app_locations(resources.as_deref()),
             Arc::new(app.clone()),
+            presence,
             BridgeConfig::default(),
         )?
     })

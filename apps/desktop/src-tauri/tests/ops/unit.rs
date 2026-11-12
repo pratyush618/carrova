@@ -5,6 +5,7 @@
 mod archive;
 mod background;
 mod contract;
+mod devices;
 mod inbox;
 mod record;
 mod selection;

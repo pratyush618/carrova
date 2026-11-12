@@ -5,6 +5,7 @@ use std::net::SocketAddrV4;
 use std::sync::Arc;
 use std::time::Duration;
 
+use carrova_crypto::identity::DeviceKey;
 use carrova_crypto::pairing::ResumeSecret;
 use carrova_platform::Platform;
 use tokio::time::Instant;
@@ -23,6 +24,11 @@ use crate::tls::Identity;
 pub struct ConnectOptions {
     /// OS access for sockets and interface listing (pass the engine's).
     pub platform: Arc<dyn Platform>,
+    /// This install's device key, if it remembers devices: on a code
+    /// pairing with a sender that also does, both prove their identity
+    /// ([`Connection::peer_identity`]). `None` = an older receiver's
+    /// behaviour.
+    pub device: Option<Arc<DeviceKey>>,
     /// Stops [`connect`] and every call on the resulting connection
     /// ([`crate::TransportError::Cancelled`]); `None` = not cancellable.
     pub cancel: Option<Arc<dyn CancelSignal>>,
@@ -33,6 +39,7 @@ impl Default for ConnectOptions {
     fn default() -> Self {
         Self {
             platform: Arc::from(carrova_platform::current()),
+            device: None,
             cancel: None,
         }
     }
@@ -50,10 +57,13 @@ pub enum Target<'a> {
 }
 
 impl Target<'_> {
-    /// The secret the handshake proves.
-    fn secret(self) -> Secret {
+    /// The secret the handshake proves (pairing: with `device`).
+    fn secret(self, device: Option<Arc<DeviceKey>>) -> Secret {
         match self {
-            Self::Pairing(ticket) => Secret::Pair(ticket.code.clone()),
+            Self::Pairing(ticket) => Secret::Pair {
+                code: ticket.code.clone(),
+                device,
+            },
             Self::Resume(secret) => Secret::Resume(secret.clone()),
         }
     }
@@ -89,7 +99,7 @@ pub fn connect(target: Target<'_>, timeout: Duration, opts: &ConnectOptions) -> 
         endpoint.clone(),
         config,
         identity,
-        target.secret(),
+        target.secret(opts.device.clone()),
         Instant::now() + timeout,
     );
     let cancel = Watch::new(opts.cancel.as_ref());

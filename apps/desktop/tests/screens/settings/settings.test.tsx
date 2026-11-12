@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '../../support/render';
 import { SettingsScreen } from '@/screens/settings/SettingsScreen';
-import { settingsModel } from '@/screens/settings/fixtures';
+import { knownDevices, settingsModel } from '@/screens/settings/fixtures';
+import { KnownDevicesSheet } from '@/screens/settings/KnownDevicesSheet';
 import type { SettingsIntents, SettingsModel } from '@/screens/settings/model';
 import type { SettingsSection } from '@/screens/settings/sections';
 
@@ -23,6 +24,10 @@ const settingsOn = (): SettingsIntents => ({
   onStartInManual: vi.fn(),
   onFileManager: vi.fn(),
   onBackground: vi.fn(),
+  onNearby: vi.fn(),
+  onVisibility: vi.fn(),
+  onKnownDevices: vi.fn(),
+  onResetIdentity: vi.fn(),
   onAlerts: vi.fn(),
   onPause: vi.fn(),
   onSection: vi.fn(),
@@ -46,7 +51,16 @@ describe('Settings', () => {
       within(sections)
         .getAllByRole('button')
         .map((b) => b.textContent),
-    ).toEqual(['General', 'Sending', 'Notifications', 'Moves', 'Privacy', 'Updates1', 'About']);
+    ).toEqual([
+      'General',
+      'Sending',
+      'Nearby & devices',
+      'Notifications',
+      'Moves',
+      'Privacy',
+      'Updates1',
+      'About',
+    ]);
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
     await user.click(within(sections).getByRole('button', { name: 'Moves' }));
     expect(on.onSection).toHaveBeenCalledWith('moves');
@@ -117,14 +131,17 @@ describe('Settings', () => {
     const on = settingsOn();
     renderScreen(<SettingsScreen section="general" model={settingsModel} on={on} />);
     await user.type(screen.getByRole('searchbox', { name: 'Search settings' }), 'wake');
-    expect(screen.getByText('1 result for “wake”')).toBeInTheDocument();
+    expect(screen.getByText('2 results for “wake”')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Wake the screen/ }).querySelector('mark'),
     ).toHaveTextContent('Wake');
+    expect(screen.getByRole('button', { name: /Wake-on-LAN/ })).toHaveTextContent(
+      'Nearby & devices',
+    );
     expect(screen.queryByText('Reduce motion')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Wake the screen/ }));
     expect(on.onSection).toHaveBeenCalledWith('notifications');
-    expect(screen.queryByText('1 result for “wake”')).not.toBeInTheDocument();
+    expect(screen.queryByText('2 results for “wake”')).not.toBeInTheDocument();
   });
 
   it('picks move defaults with the house segmented control, no native select', async () => {
@@ -203,5 +220,110 @@ describe('Settings', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       "Couldn't change the file manager menu. Try again, or restart Carrova.",
     );
+  });
+
+  it('sets who can see this computer and how devices are remembered', async () => {
+    const user = userEvent.setup();
+    const on = settingsOn();
+    renderScreen(
+      inSection('nearby', on, {
+        nearby: { remember: false, accept_known: true, wol_hints: false },
+      }),
+    );
+    expect(screen.getByRole('radio', { name: 'Known devices' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await user.click(screen.getByRole('radio', { name: 'Everyone · 10 min' }));
+    expect(on.onVisibility).toHaveBeenCalledWith('everyone');
+    await user.click(screen.getByRole('switch', { name: 'Remember devices I move with' }));
+    expect(on.onNearby).toHaveBeenCalledWith({ remember: true });
+    // Wake-on-LAN hints depend on remembering devices.
+    expect(screen.getByRole('switch', { name: /Wake-on-LAN/ })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: /Known devices/ }));
+    expect(on.onKnownDevices).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole('button', { name: 'Reset' }));
+    expect(on.onResetIdentity).toHaveBeenCalledOnce();
+  });
+
+  it('offers no requests from known devices until they work', () => {
+    renderScreen(inSection('nearby', settingsOn()));
+    expect(
+      screen.queryByRole('switch', { name: 'Accept requests from known devices' }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe('Nearby & devices failures', () => {
+  it('says when the engine refused a reset', () => {
+    renderScreen(inSection('nearby', settingsOn(), { devicesFailed: 'reset' }));
+    expect(screen.getByRole('status')).toHaveTextContent(
+      "Couldn't reset this computer's identity. Nothing changed.",
+    );
+  });
+
+  it('says in the sheet when a rename was refused', () => {
+    renderScreen(<div />, {
+      overlays: [
+        <KnownDevicesSheet
+          key="k"
+          devices={knownDevices}
+          failed="rename"
+          now={settingsModel.now}
+          on={{ onRename: vi.fn(), onForget: vi.fn(), onForgetAll: vi.fn(), onDone: vi.fn() }}
+        />,
+      ],
+    });
+    expect(screen.getByRole('status')).toHaveTextContent("Couldn't rename the device. Try again.");
+  });
+});
+
+describe('Known devices', () => {
+  const sheetOn = () => ({
+    onRename: vi.fn(),
+    onForget: vi.fn(),
+    onForgetAll: vi.fn(),
+    onDone: vi.fn(),
+  });
+
+  it('lists each device with its key, and renames or forgets it', async () => {
+    const user = userEvent.setup();
+    const on = sheetOn();
+    renderScreen(<div />, {
+      overlays: [
+        <KnownDevicesSheet key="k" devices={knownDevices} now={settingsModel.now} on={on} />,
+      ],
+    });
+    expect(screen.getByText(/key 7F3A·19C2/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: "Rename Ana's laptop" }));
+    const name = screen.getByRole('textbox', { name: "New name for Ana's laptop" });
+    await user.clear(name);
+    await user.type(name, 'Ana at work{Enter}');
+    expect(on.onRename).toHaveBeenCalledWith('a1', 'Ana at work');
+    await user.click(screen.getByRole('button', { name: 'Forget Desk PC' }));
+    expect(on.onForget).toHaveBeenCalledWith('d2');
+    await user.click(screen.getByRole('button', { name: 'Forget all' }));
+    expect(on.onForgetAll).toHaveBeenCalledOnce();
+  });
+
+  it('gives focus back to the pen after a rename, and Escape cancels only the rename', async () => {
+    const user = userEvent.setup();
+    const on = sheetOn();
+    renderScreen(<div />, {
+      overlays: [
+        <KnownDevicesSheet key="k" devices={knownDevices} now={settingsModel.now} on={on} />,
+      ],
+    });
+    const pen = () => screen.getByRole('button', { name: "Rename Ana's laptop" });
+    await user.click(pen());
+    await user.type(screen.getByRole('textbox', { name: "New name for Ana's laptop" }), '!{Enter}');
+    expect(pen()).toHaveFocus();
+
+    await user.click(pen());
+    await user.keyboard('{Escape}');
+    expect(on.onDone).not.toHaveBeenCalled();
+    expect(on.onRename).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(pen()).toHaveFocus();
   });
 });

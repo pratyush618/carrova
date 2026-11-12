@@ -1,5 +1,8 @@
-import type { ReactNode } from 'react';
+import { createContext, useState, type ReactNode } from 'react';
 import './Window.css';
+
+/** Where docked toasts stack, so two at once sit one above the other. */
+export const ToastDock = createContext<HTMLElement | null>(null);
 
 export interface WindowProps {
   /** The screen (a hub, flow or bare layout). */
@@ -14,10 +17,12 @@ export interface WindowProps {
  */
 export function Window({ children, overlays = [] }: WindowProps) {
   const top = overlays.length - 1;
+  const [dock, setDock] = useState<HTMLElement | null>(null);
   return (
     <div className="p-window">
       <div className="p-window__base" inert={overlays.length > 0}>
-        {children}
+        <ToastDock value={dock}>{children}</ToastDock>
+        <div ref={setDock} className="p-toast-dock" />
       </div>
       {overlays.map((overlay, i) => (
         <div key={i} inert={i < top}>

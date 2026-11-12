@@ -14,6 +14,9 @@ pub type MetadataHook = Arc<dyn Fn(&Path, &mut FileMeta) + Send + Sync>;
 /// Runs before [`Platform::rename_noreplace`](crate::Platform::rename_noreplace)
 /// `(from, to)`; an `Err` is returned instead of renaming.
 pub type RenameHook = Arc<dyn Fn(&Path, &Path) -> Result<(), PlatformError> + Send + Sync>;
+/// Runs before [`Platform::sync_dir`](crate::Platform::sync_dir); an `Err`
+/// is returned instead of syncing.
+pub type SyncDirHook = Arc<dyn Fn(&Path) -> Result<(), PlatformError> + Send + Sync>;
 /// Runs right after [`Platform::open_read_nofollow`](crate::Platform::open_read_nofollow)
 /// opened a path (e.g. to swap the file under the open fd).
 pub type OpenHook = Arc<dyn Fn(&Path) + Send + Sync>;
@@ -28,6 +31,8 @@ pub struct Hooks {
     pub on_metadata: Option<MetadataHook>,
     /// See [`RenameHook`].
     pub on_rename: Option<RenameHook>,
+    /// See [`SyncDirHook`].
+    pub on_sync_dir: Option<SyncDirHook>,
     /// See [`OpenHook`].
     pub on_open: Option<OpenHook>,
     /// See [`StatusHook`].
@@ -37,6 +42,12 @@ pub struct Hooks {
     /// Report no permission bits in path and fd metadata (an OS without
     /// modes).
     pub hide_mode: bool,
+    /// The hardware address [`Platform::neighbour_mac`](crate::Platform::neighbour_mac)
+    /// reports for every host (default: none).
+    pub neighbour_mac: Option<[u8; 6]>,
+    /// Refuse [`Platform::watch_dirs`](crate::Platform::watch_dirs) as
+    /// unsupported, as on macOS and Windows.
+    pub unwatched: bool,
 }
 
 impl fmt::Debug for Hooks {
@@ -44,6 +55,7 @@ impl fmt::Debug for Hooks {
         f.debug_struct("Hooks")
             .field("on_metadata", &self.on_metadata.is_some())
             .field("on_rename", &self.on_rename.is_some())
+            .field("on_sync_dir", &self.on_sync_dir.is_some())
             .field("on_open", &self.on_open.is_some())
             .field(
                 "on_file_manager_status",
@@ -51,6 +63,8 @@ impl fmt::Debug for Hooks {
             )
             .field("uid", &self.uid)
             .field("hide_mode", &self.hide_mode)
+            .field("neighbour_mac", &self.neighbour_mac.is_some())
+            .field("unwatched", &self.unwatched)
             .finish()
     }
 }
@@ -63,6 +77,7 @@ pub(super) struct HookState {
     free_space: Mutex<Option<u64>>,
     dir_syncs: AtomicUsize,
     wakes: AtomicUsize,
+    magic_packets: Mutex<Vec<[u8; 6]>>,
     screen_lock: Mutex<ScreenLock>,
 }
 
@@ -102,6 +117,20 @@ impl HookState {
 
     pub(super) fn wakes(&self) -> usize {
         self.wakes.load(Ordering::SeqCst)
+    }
+
+    pub(super) fn record_magic_packet(&self, mac: [u8; 6]) {
+        self.magic_packets
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(mac);
+    }
+
+    pub(super) fn magic_packets(&self) -> Vec<[u8; 6]> {
+        self.magic_packets
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     pub(super) fn screen_lock(&self) -> ScreenLock {

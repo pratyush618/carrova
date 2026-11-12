@@ -81,7 +81,9 @@ pub fn on_second_instance(app: &AppHandle, queue: &SendRequests, argv: Vec<Strin
     let argv: Vec<OsString> = argv.into_iter().map(OsString::from).collect();
     let paths = send_paths(&argv, Path::new(cwd)).unwrap_or_default();
     deliver(app.try_state::<AppState>().as_deref(), queue, &paths);
-    crate::tray::open_main(app);
+    crate::tray::on_main(app, |app| {
+        crate::tray::open_main(app);
+    });
 }
 
 #[cfg(test)]

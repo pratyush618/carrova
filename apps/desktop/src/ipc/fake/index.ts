@@ -14,6 +14,7 @@ import type { Settings } from '../../bindings/Settings';
 import type { CarrovaPort } from '../port';
 import { withPatch } from '../settingsPatch';
 import { bridgeError, raise } from '../reject';
+import { fakeDevices } from './devices';
 import * as fx from './fixtures';
 import { FakeReceiver } from './receive';
 import { later, realSleep, Runtime, type Sleep } from './runtime';
@@ -52,6 +53,7 @@ const DEFAULT_SETTINGS: Settings = {
     nearby: 'bell_only',
     updates: 'bell_only',
   },
+  nearby: { remember: true, accept_known: true, wol_hints: false },
 };
 
 /** This (fake) machine, for the About sheet. */
@@ -156,6 +158,8 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
     setTransferPaused: (session, paused) => receiver.setTransferPaused(session, paused),
     ignoreFreeSpace: (session) => receiver.ignoreFreeSpace(session),
     retryConnection: (session) => receiver.retryConnection(session),
+
+    ...fakeDevices(scenario),
 
     cancel: (session) =>
       later(() => {

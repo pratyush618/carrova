@@ -40,6 +40,7 @@ tracing = { workspace = true }
 zeroize = { workspace = true }
 
 [dev-dependencies]
+carrova-crypto = { workspace = true }
 carrova-platform = { workspace = true, features = ["fake"] }
 tempfile = { workspace = true }
 

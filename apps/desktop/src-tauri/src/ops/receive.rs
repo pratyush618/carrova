@@ -13,7 +13,7 @@ use carrova_core::{
     Cancel, Checklist, Importer, PlanEdit, PlanOptions, SessionId, Ticket, TransferControl,
 };
 use carrova_view::ipc::{ErrorCode, PlanReply, SessionOpened};
-use carrova_view::lan::{NearbyPeer, nearby_peer};
+use carrova_view::lan::{NearbyPeer, code_offers};
 use carrova_view::passphrase::{PassphraseUse, archive_passphrase};
 use carrova_view::review;
 use zeroize::Zeroizing;
@@ -236,13 +236,7 @@ pub fn retry_connection(state: &AppState, id: &SessionId) -> Result<(), CommandE
 /// Discovery could not start.
 pub async fn nearby(state: &AppState) -> Result<Vec<NearbyPeer>, CommandError> {
     let platform = state.platform.clone();
-    blocking(move || {
-        Ok(browse_nearby(platform.as_ref())?
-            .iter()
-            .map(nearby_peer)
-            .collect())
-    })
-    .await
+    blocking(move || Ok(code_offers(&browse_nearby(platform.as_ref())?))).await
 }
 
 /// Continue the LAN transfer of import `id` despite low free space (the

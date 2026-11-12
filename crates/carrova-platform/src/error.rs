@@ -18,8 +18,8 @@ pub enum PlatformError {
     #[error("cannot determine Carrova state directory: {0}")]
     StateDirUnavailable(String),
 
-    /// Network interfaces could not be listed.
-    #[error("cannot list network interfaces: {0}")]
+    /// A network query or send failed.
+    #[error("network error: {0}")]
     Network(String),
 
     /// I/O failure on a specific path.

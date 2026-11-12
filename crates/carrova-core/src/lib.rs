@@ -5,6 +5,8 @@
 //! [`engine::Importer`] drive [`select`] → [`capture`] → [`export`] and
 //! [`plan`] → stage → apply / rollback, persisted by [`store`],
 //! reporting through typed [`session::Event`]s. Front-ends only render.
+//! Known devices ([`devices`]): this install's identity key and the
+//! devices it remembers.
 //! Phase 3: LAN sessions — [`engine::Exporter::prepare_send`] /
 //! [`engine::Importer::connect`] over `carrova-transport`, with the wire
 //! messages in [`lan`].
@@ -21,6 +23,7 @@ pub mod cancel;
 pub mod capture;
 pub mod catalog;
 pub mod checklist;
+pub mod devices;
 pub mod engine;
 mod error;
 pub mod export;
@@ -33,6 +36,7 @@ pub mod key;
 pub mod lan;
 mod mode;
 pub mod plan;
+pub mod presence;
 mod rollback;
 pub mod scan;
 pub mod secrets;
@@ -80,9 +84,8 @@ pub use carrova_manifest::Manifest;
 pub use carrova_plugin::{Plugin, PluginPackage};
 /// Recipe model, re-exported so front-ends need not depend on `carrova-recipe`.
 pub use carrova_recipe::Recipe;
-/// LAN ticket (code + optional address) front-ends parse from user input,
-/// and a sender found nearby ([`lan::browse_nearby`]).
-pub use carrova_transport::{Nearby, Ticket};
+/// LAN ticket (code + optional address) front-ends parse from user input.
+pub use carrova_transport::Ticket;
 pub use catalog::{Catalog, CatalogError, ValidationReport, load_catalog, validate_targets};
 pub use checklist::{Checklist, Skipped};
 pub use engine::{
@@ -90,8 +93,8 @@ pub use engine::{
     SendReport, sessions,
 };
 pub use error::{
-    CoreError, Corruption, EncodeError, ErrorClass, ErrorKind, Hint, JournalProblem, Result,
-    ResumeKeyProblem, SessionProblem,
+    CoreError, Corruption, EncodeError, ErrorClass, ErrorKind, Hint, JournalProblem,
+    KeyFileProblem, Result, SessionProblem,
 };
 pub use inbox::{Inbox, Notice, NoticeId, NoticeKind, RETENTION_DAYS};
 pub use kdf::KdfStrength;

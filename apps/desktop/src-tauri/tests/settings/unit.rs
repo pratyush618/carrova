@@ -68,3 +68,36 @@ fn a_patch_that_breaks_the_settings_is_refused() {
     let wrong = serde_json::json!({ "alerts": { "requests": "loudly" } });
     assert!(patched(&Settings::default(), wrong).is_err());
 }
+
+#[test]
+fn remember_devices_follows_the_saved_setting() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = store(dir.path());
+    assert!(store.remember_devices());
+    let mut settings = Settings::default();
+    settings.nearby.remember = false;
+    store.save(&settings).unwrap();
+    assert!(!store.remember_devices());
+}
+
+#[test]
+fn unreadable_settings_remember_no_devices_instead_of_failing() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("state")).unwrap();
+    std::fs::write(dir.path().join("state").join(SETTINGS_FILE), "{").unwrap();
+    let store = store(dir.path());
+    assert!(!store.remember_devices() && !store.wol_hints());
+}
+
+#[test]
+fn wol_hints_follow_the_saved_setting_and_default_off() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = store(dir.path());
+    assert!(!store.wol_hints());
+    let mut settings = Settings::default();
+    settings.nearby.wol_hints = true;
+    store.save(&settings).unwrap();
+    assert!(store.wol_hints());
+    std::fs::write(dir.path().join("state").join(SETTINGS_FILE), "{").unwrap();
+    assert!(!store.wol_hints());
+}

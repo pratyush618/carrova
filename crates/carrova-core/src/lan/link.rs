@@ -52,8 +52,10 @@ impl TransportDialer {
     /// connections it makes.
     pub(crate) fn boxed(platform: Arc<dyn Platform>, cancel: &Cancel) -> Box<dyn Dialer> {
         Box::new(Self {
+            // Reconnects resume: no identity exchange.
             opts: ConnectOptions {
                 platform,
+                device: None,
                 cancel: Some(cancel.signal()),
             },
         })

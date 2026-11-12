@@ -5,14 +5,16 @@ import type { HubPage, NavEvent, View } from '../nav/navMachine';
 
 const HUB: readonly { page: HubPage; icon: IconName }[] = [
   { page: 'home', icon: 'home' },
+  { page: 'nearby', icon: 'radar' },
   { page: 'history', icon: 'history' },
   { page: 'apps', icon: 'apps' },
   { page: 'settings', icon: 'settings' },
 ];
 
 /**
- * The layouts' chrome for `view`: sidebar links (and the bundle state at its
- * foot, once known) and the bell, or the flow's name and labelled steps.
+ * The layouts' chrome for `view`: sidebar links (Nearby with a dot while
+ * others can find this computer; the bundle state at its foot, once known)
+ * and the bell, or the flow's name and labelled steps.
  */
 export function buildChrome(
   view: View,
@@ -20,6 +22,7 @@ export function buildChrome(
   dispatch: (event: NavEvent) => void,
   hubStatus: HubStatus | null = null,
   bell?: BellModel,
+  visible = false,
 ): Chrome {
   const current = view.kind === 'hub' ? view.page : null;
   const hubLinks: HubLink[] = HUB.map(({ page, icon }) => ({
@@ -27,6 +30,7 @@ export function buildChrome(
     label: t(`nav.${page}`),
     icon,
     current: page === current,
+    ...(page === 'nearby' && visible && { live: true }),
     onSelect: () => {
       dispatch({ type: 'openHub', page });
     },

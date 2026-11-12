@@ -98,6 +98,14 @@ pub enum Event {
     /// Sender: a receiver started the pairing handshake with the offered
     /// code; [`Event::PeerConnected`] or [`Event::PairingFailed`] follows.
     PairingInProgress,
+    /// After a successful code-paired move, the peer is remembered (again,
+    /// if it was known: the new pairing's secret replaces the old). Its
+    /// local name and display fingerprint (`7F3A·19C2`), never its full
+    /// key.
+    DeviceRemembered {
+        name: String,
+        fingerprint: String,
+    },
 }
 
 /// Why a LAN transfer paused.

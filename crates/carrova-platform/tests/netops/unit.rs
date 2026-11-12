@@ -61,3 +61,12 @@ fn buffer_hint_names_the_sysctl_and_size() {
     let hint = udp_buffer_hint(8_388_608);
     assert!(hint.contains("net.core.rmem_max=8388608"), "{hint}");
 }
+
+#[test]
+fn magic_packet_layout() {
+    let mac = [1, 2, 3, 4, 5, 6];
+    let p = magic_packet(mac);
+    assert_eq!(p.len(), 102);
+    assert_eq!(p[..6], [0xff; 6]);
+    assert!(p[6..].chunks(6).all(|c| c == mac));
+}

@@ -4,6 +4,9 @@ import { idle } from '@/flows/remote';
 import { useSettings } from '@/flows/settings/useSettings';
 import { createFakePort } from '@/ipc/fake';
 
+/** Visibility not loaded, nothing remembered. */
+const NO_DEVICES = { visibility: null, known: [], failed: null };
+
 const FAILED = { code: 'io', message: 'read-only folder', hint: null } as const;
 
 /** Settings over the fake port, once Home would offer the file-manager entry. */
@@ -11,7 +14,7 @@ async function offered(add: 'works' | 'fails') {
   const port = createFakePort({ stepMs: 0 });
   if (add === 'fails') vi.spyOn(port, 'setFileManagerEntries').mockRejectedValue(FAILED);
   const save = vi.spyOn(port, 'saveSettings');
-  const settings = renderHook(() => useSettings(port, idle));
+  const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
   await waitFor(() => {
     expect(settings.result.current.offerFileManager).toBe(true);
   });
@@ -48,7 +51,7 @@ describe('the one-time file-manager question', () => {
 describe('background settings', () => {
   const loaded = async () => {
     const port = createFakePort({ stepMs: 0 });
-    const settings = renderHook(() => useSettings(port, idle));
+    const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
     await waitFor(() => {
       expect(settings.result.current.settings).not.toBeNull();
     });
@@ -102,9 +105,25 @@ describe('background settings', () => {
 });
 
 describe('saving settings', () => {
+  it('goes back to the stored value when a save is refused', async () => {
+    const port = createFakePort({ stepMs: 0 });
+    const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
+    await waitFor(() => {
+      expect(settings.result.current.settings).not.toBeNull();
+    });
+    const stored = (await port.settings()).theme;
+    vi.spyOn(port, 'saveSettings').mockRejectedValue(FAILED);
+    act(() => {
+      settings.result.current.save({ theme: stored === 'dark' ? 'light' : 'dark' });
+    });
+    await waitFor(() => {
+      expect(settings.result.current.settings?.theme).toBe(stored);
+    });
+  });
+
   it('keeps a pause set in the tray while the window was open', async () => {
     const port = createFakePort({ stepMs: 0 });
-    const settings = renderHook(() => useSettings(port, idle));
+    const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
     await waitFor(() => {
       expect(settings.result.current.settings).not.toBeNull();
     });
@@ -121,6 +140,27 @@ describe('saving settings', () => {
     });
     expect((await port.settings()).alerts.paused_until).toBe(4_000_000_000);
   });
+
+  it('changes one nearby setting and keeps the others', async () => {
+    const port = createFakePort({ stepMs: 0 });
+    await port.saveSettings({ nearby: { remember: false } });
+    const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
+    await waitFor(() => {
+      expect(settings.result.current.settings).not.toBeNull();
+    });
+
+    act(() => {
+      settings.result.current.save({ nearby: { wol_hints: true } });
+    });
+
+    await waitFor(async () => {
+      expect((await port.settings()).nearby).toEqual({
+        remember: false,
+        accept_known: true,
+        wol_hints: true,
+      });
+    });
+  });
 });
 
 describe('a pause', () => {
@@ -130,7 +170,7 @@ describe('a pause', () => {
       const port = createFakePort({ stepMs: 0 });
       const mounted = Date.now();
       await port.saveSettings({ alerts: { paused_until: Math.floor(mounted / 1000) + 5 } });
-      const settings = renderHook(() => useSettings(port, idle));
+      const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
       // The pause ends before the stored settings arrive.
       vi.setSystemTime(mounted + 10_000);
       await waitFor(() => {
@@ -145,7 +185,7 @@ describe('a pause', () => {
   it('shows as over once its time passes, with Settings left open', async () => {
     const port = createFakePort({ stepMs: 0 });
     await port.saveSettings({ alerts: { paused_until: Math.ceil(Date.now() / 1000) + 1 } });
-    const settings = renderHook(() => useSettings(port, idle));
+    const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
     await waitFor(() => {
       expect(settings.result.current.model?.pausedUntil).not.toBeNull();
     });

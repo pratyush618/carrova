@@ -131,6 +131,9 @@ impl Platform for FakePlatform {
     #[cfg(any(unix, windows))]
     fn sync_dir(&self, path: &Path) -> Result<(), PlatformError> {
         self.hooks.count_dir_sync();
+        if let Some(hook) = &self.hooks.hooks.on_sync_dir {
+            hook(path)?;
+        }
         crate::sys::sync_dir(path)
     }
 
@@ -219,6 +222,17 @@ impl Platform for FakePlatform {
         crate::netops::lan_ipv4_interfaces()
     }
 
+    fn neighbour_mac(&self, _addr: std::net::IpAddr) -> Option<[u8; 6]> {
+        self.hooks.hooks.neighbour_mac
+    }
+
+    /// Records the packet without sending: tests must not broadcast onto a
+    /// real LAN.
+    fn send_magic_packet(&self, mac: [u8; 6]) -> Result<(), PlatformError> {
+        self.hooks.record_magic_packet(mac);
+        Ok(())
+    }
+
     #[cfg(any(unix, windows))]
     fn bind_broadcast_udp(&self, port: u16) -> std::io::Result<std::net::UdpSocket> {
         crate::netops::bind_broadcast_udp(port)
@@ -290,6 +304,14 @@ impl Platform for FakePlatform {
         let entries = self.entries.as_ref();
         let entries = entries.ok_or(PlatformError::Unsupported("remove_file_manager_entries"))?;
         Ok(entries.write(EntriesWrite::Remove))
+    }
+
+    fn watch_dirs(
+        &self,
+        dirs: &[PathBuf],
+        changed: Box<dyn Fn() + Send>,
+    ) -> Result<crate::DirWatch, PlatformError> {
+        self.watch(dirs, changed)
     }
 
     fn has_status_tray(&self) -> bool {

@@ -18,6 +18,7 @@ pub(super) use source::{ImportFrom, Loaded};
 use super::Engine;
 use super::archive::{ArchiveSource, fingerprint};
 use super::redact::Patterns;
+use super::remember::KnownPeer;
 use super::session::{Session, absolute};
 use crate::apply::Failpoint;
 use crate::cancel::Cancel;
@@ -44,6 +45,14 @@ pub struct Importer {
     /// The user's pause / free-space override of a LAN transfer; see
     /// [`crate::transfer_control`].
     pub(super) control: TransferControl,
+    /// The LAN sender's identity, if both sides proved theirs at pairing:
+    /// remembered once the plan applies.
+    // shortcut: memory only, so an import resumed after a restart
+    // remembers nobody; persist it in the session if that matters. The
+    // receiver remembers at its own `Done`, the sender only once the
+    // checklist arrives: a drop in between leaves only the receiver with
+    // the new secret, until the next code pairing replaces it.
+    pub(super) known_peer: Option<KnownPeer>,
     /// Test-only fault injection into apply (zero-sized, inert, outside
     /// feature `failpoints`).
     pub(super) failpoint: Failpoint,
@@ -110,6 +119,7 @@ impl Importer {
             plan: None,
             cancel,
             control: TransferControl::default(),
+            known_peer: None,
             failpoint: Failpoint::OFF,
         }
     }
@@ -129,6 +139,7 @@ impl Importer {
             plan,
             cancel,
             control: TransferControl::default(),
+            known_peer: None,
             failpoint: Failpoint::OFF,
         }
     }

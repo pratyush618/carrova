@@ -18,7 +18,7 @@ mod class;
 mod problems;
 
 pub use class::{ErrorClass, ErrorKind, Hint};
-pub use problems::{Corruption, EncodeError, JournalProblem, ResumeKeyProblem, SessionProblem};
+pub use problems::{Corruption, EncodeError, JournalProblem, KeyFileProblem, SessionProblem};
 
 /// Errors from the session engine. Messages never contain secrets or file
 /// contents.
@@ -123,8 +123,33 @@ pub enum CoreError {
     #[error("session store: cannot encode {what}: {source}")]
     Encode { what: String, source: EncodeError },
     /// The LAN resume key is unusable.
-    #[error("session store: {key} {0}", key = RESUME_KEY_FILE)]
-    ResumeKey(ResumeKeyProblem),
+    #[error(
+        "session store: {key} {0}; refusing to use it (dismiss the session and pair again)",
+        key = RESUME_KEY_FILE
+    )]
+    ResumeKey(KeyFileProblem),
+    /// This device's key or a known device's key is unusable. `key` names
+    /// it by fingerprint, never by full public key.
+    #[error(
+        "known devices: {key} {problem}; refusing to use it (forget the device, \
+         or reset this computer's identity)"
+    )]
+    DeviceKey {
+        key: String,
+        problem: KeyFileProblem,
+    },
+    /// No known device matches (forget, rename or a typed fingerprint).
+    #[error("known devices: no known device matches")]
+    UnknownDevice,
+    /// Wake asked for a device with no saved hardware address.
+    #[error("known devices: no wake hint saved for this device")]
+    NoWakeHint,
+    /// A new device name has nothing left to show once cleaned.
+    #[error("known devices: a device name needs at least one visible character")]
+    InvalidDeviceName,
+    /// A typed fingerprint matches several known devices.
+    #[error("known devices: {matches} devices match; use the full key")]
+    AmbiguousDevice { matches: usize },
     /// The operating system's random number generator failed.
     #[error("session store: random number generator failed")]
     Random,

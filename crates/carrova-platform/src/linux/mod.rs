@@ -20,11 +20,13 @@ use crate::{
 mod background;
 mod file_manager;
 mod mounts;
+mod neighbours;
 mod roots;
 mod screen;
 #[cfg(test)]
 #[path = "../../tests/linux/unit.rs"]
 mod tests;
+mod watch;
 
 /// Snapshot of the environment variables the adapter depends on.
 #[derive(Debug, Clone, Default)]
@@ -256,12 +258,34 @@ impl Platform for LinuxPlatform {
         Some(crate::netops::current_uid())
     }
 
+    fn watch_dirs(
+        &self,
+        dirs: &[PathBuf],
+        changed: Box<dyn Fn() + Send>,
+    ) -> Result<crate::DirWatch, PlatformError> {
+        watch::watch_dirs(dirs, changed)
+    }
+
     fn device_name(&self) -> Option<String> {
         crate::device::sanitize_device_name(&crate::netops::host_name())
     }
 
     fn lan_ipv4_interfaces(&self) -> Result<Vec<crate::LanInterface>, PlatformError> {
         crate::netops::lan_ipv4_interfaces()
+    }
+
+    // shortcut: IPv4 only (`/proc/net/arp`); IPv6 needs netlink, upgrade when
+    // IPv6-only LANs matter.
+    fn neighbour_mac(&self, addr: std::net::IpAddr) -> Option<[u8; 6]> {
+        let std::net::IpAddr::V4(ip) = addr else {
+            return None;
+        };
+        let table = std::fs::read_to_string("/proc/net/arp").ok()?;
+        neighbours::mac_from_arp(&table, ip)
+    }
+
+    fn send_magic_packet(&self, mac: [u8; 6]) -> Result<(), PlatformError> {
+        crate::netops::send_magic_packet(mac)
     }
 
     fn bind_broadcast_udp(&self, port: u16) -> io::Result<std::net::UdpSocket> {

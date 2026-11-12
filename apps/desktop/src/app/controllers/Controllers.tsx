@@ -5,6 +5,7 @@ import type { MoveDefaults } from '../../engine/types';
 import { useSaveFlow, type SaveController } from '../../flows/archive/useSaveFlow';
 import { useCatalog, type CatalogController } from '../../flows/catalog/useCatalog';
 import { useInbox, type InboxController } from '../../flows/inbox/useInbox';
+import { useDevices, type DevicesController } from '../../flows/nearby/useDevices';
 import { useHistory, type HistoryController } from '../../flows/history/useHistory';
 import { useReceiveFlow, type ReceiveController } from '../../flows/receive/useReceiveFlow';
 import { useSendFlow, type SendController } from '../../flows/send/useSendFlow';
@@ -21,6 +22,7 @@ export interface Controllers {
   readonly history: HistoryController;
   readonly inbox: InboxController;
   readonly catalog: CatalogController;
+  readonly devices: DevicesController;
   readonly settings: SettingsController;
   readonly update: AppUpdateController;
   readonly report: ErrorReportController;
@@ -41,7 +43,8 @@ export function ControllersProvider({ children }: { readonly children: ReactNode
   const port = usePort();
   const host = useHost();
   const update = useAppUpdate(port);
-  const settings = useSettings(port, update.check);
+  const devices = useDevices(port);
+  const settings = useSettings(port, update.check, devices);
   const defaults = settings.settings?.move_defaults ?? DEFAULT_MOVE_DEFAULTS;
   const send = useSendFlow(port, defaults.include_caches, host);
   const save = useSaveFlow(port, send, host);
@@ -52,8 +55,20 @@ export function ControllersProvider({ children }: { readonly children: ReactNode
   const report = useErrorReport(port, host, settings.reloadReports);
   const undo = useUndo(port, history.reload);
   const value = useMemo(
-    () => ({ send, save, receive, history, inbox, catalog, settings, update, report, undo }),
-    [send, save, receive, history, inbox, catalog, settings, update, report, undo],
+    () => ({
+      send,
+      save,
+      receive,
+      history,
+      inbox,
+      catalog,
+      devices,
+      settings,
+      update,
+      report,
+      undo,
+    }),
+    [send, save, receive, history, inbox, catalog, devices, settings, update, report, undo],
   );
   return <ControllersContext value={value}>{children}</ControllersContext>;
 }

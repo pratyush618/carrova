@@ -11,6 +11,7 @@ import type {
   UpdateStatus,
 } from '../../engine/types';
 import { withPatch } from '../../ipc/settingsPatch';
+import type { DevicesController } from '../nearby/useDevices';
 import { current, type Remote } from '../remote';
 import { useCommand, useRemote } from '../useRemote';
 import { offerFileManager, settingsModel } from './settingsViews';
@@ -43,8 +44,15 @@ export interface SettingsController {
   readonly reloadReports: () => void;
 }
 
-/** Settings, recipes status and error-report consent; every change is saved through the port. */
-export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): SettingsController {
+/**
+ * Settings, recipes status and error-report consent; every change is saved
+ * through the port. `devices` supplies visibility and the remembered count.
+ */
+export function useSettings(
+  port: CarrovaPort,
+  update: Remote<UpdateStatus>,
+  { visibility, known, failed }: Pick<DevicesController, 'visibility' | 'known' | 'failed'>,
+): SettingsController {
   const loaded = useRemote(useCallback(() => port.settings(), [port]));
   const consent = useRemote(useCallback(() => port.errorReportConsent(), [port]));
   const reports = useRemote(useCallback(() => port.errorReports(), [port]));
@@ -66,16 +74,19 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       void reloadRecipes();
   }, [install.state, reloadRecipes]);
 
+  const reload = loaded.run;
   const save = useCallback(
     (patch: SettingsPatch) => {
       if (settings === null) return;
       setEdited(withPatch(settings, patch));
-      void port.saveSettings(patch);
+      void port.saveSettings(patch).catch(() => {
+        setEdited(null);
+        void reload();
+      });
     },
-    [port, settings],
+    [port, settings, reload],
   );
 
-  const reload = loaded.run;
   const setBackground = useCallback(
     (patch: Partial<BackgroundSettings>) => {
       if (settings === null) return;
@@ -150,6 +161,7 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
               install: install.state,
               update,
               about: current(about.state),
+              devices: { visibility, known, failed },
             },
             new Date(Math.max(new Date().getTime(), ended)),
           ),
@@ -165,6 +177,9 @@ export function useSettings(port: CarrovaPort, update: Remote<UpdateStatus>): Se
       update,
       about.state,
       ended,
+      visibility,
+      known,
+      failed,
     ],
   );
 

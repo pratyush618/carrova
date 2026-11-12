@@ -24,6 +24,8 @@ const ERROR_CODES: Readonly<Record<ErrorCode, true>> = {
   rollback_failed: true,
   session: true,
   recipes: true,
+  known_device: true,
+  device_key: true,
   internal: true,
 };
 
@@ -50,7 +52,7 @@ export function isBridgeEvent(value: unknown): value is BridgeEvent {
   if (!isRecord(value)) {
     return false;
   }
-  if (value['kind'] === 'send_requested') {
+  if (value['kind'] === 'send_requested' || value['kind'] === 'show_nearby') {
     return true;
   }
   if (value['kind'] === 'notice') {

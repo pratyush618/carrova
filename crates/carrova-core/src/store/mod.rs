@@ -13,6 +13,7 @@
 mod files;
 mod record;
 mod resume_key;
+pub(crate) mod secret_file;
 
 use std::path::{Path, PathBuf};
 

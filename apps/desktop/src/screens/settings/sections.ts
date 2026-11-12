@@ -13,6 +13,12 @@ export const ROW_TITLE = {
   manual: 'settings.sending.manual',
   fileManager: 'settings.sending.fileManager',
   caches: 'settings.moves.caches',
+  visibility: 'settings.nearby.visibility',
+  acceptKnown: 'settings.nearby.acceptKnown',
+  remember: 'settings.nearby.remember',
+  knownDevices: 'settings.nearby.knownDevices',
+  wolHints: 'settings.nearby.wolHints',
+  resetIdentity: 'settings.nearby.reset',
   system: 'settings.alerts.system',
   wakeScreen: 'settings.alerts.wakeScreen',
   lockNames: 'settings.alerts.lockNames',
@@ -36,36 +42,34 @@ export type SettingRowId = keyof typeof ROW_TITLE;
 interface SectionDef {
   readonly id: SettingsSection;
   readonly icon: IconName;
-  /** Not shown (nor searched) until the section has content. */
-  readonly ready: boolean;
   readonly rows: readonly SettingRowId[];
 }
 
-const ALL: readonly SectionDef[] = [
+/** The sections the sidebar lists, in order. */
+export const SECTIONS: readonly SectionDef[] = [
   {
     id: 'general',
     icon: 'settings',
-    ready: true,
     rows: ['theme', 'motion', 'keepRunning', 'startAtLogin', 'lean'],
   },
-  { id: 'sending', icon: 'send', ready: true, rows: ['manual', 'fileManager', 'caches'] },
-  { id: 'nearby', icon: 'radar', ready: false, rows: [] },
+  { id: 'sending', icon: 'send', rows: ['manual', 'fileManager', 'caches'] },
+  {
+    id: 'nearby',
+    icon: 'radar',
+    // shortcut: acceptKnown hidden until Phase 3 code-less requests.
+    rows: ['visibility', 'remember', 'knownDevices', 'wolHints', 'resetIdentity'],
+  },
   {
     id: 'notifications',
     icon: 'bell',
-    ready: true,
     rows: ['system', 'wakeScreen', 'lockNames', 'pause', 'requests', 'moves', 'nearby', 'updates'],
   },
-  { id: 'moves', icon: 'undo', ready: true, rows: ['conflictRule', 'retention'] },
-  { id: 'privacy', icon: 'shield', ready: true, rows: ['errorReports'] },
+  { id: 'moves', icon: 'undo', rows: ['conflictRule', 'retention'] },
+  { id: 'privacy', icon: 'shield', rows: ['errorReports'] },
   {
     id: 'updates',
     icon: 'refresh',
-    ready: true,
     rows: ['recipes', 'autoRecipes', 'autoApp', 'appUpdate'],
   },
-  { id: 'about', icon: 'info', ready: true, rows: ['about'] },
+  { id: 'about', icon: 'info', rows: ['about'] },
 ];
-
-/** The sections the sidebar lists, in order. */
-export const SECTIONS: readonly Omit<SectionDef, 'ready'>[] = ALL.filter((s) => s.ready);

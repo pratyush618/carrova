@@ -1,7 +1,8 @@
 //! Carrova cryptography: passphrase key derivation and streaming
 //! authenticated encryption for archives; LAN pairing (SPAKE2, key
 //! confirmation, resume secrets) in [`pairing`]; Ed25519 signatures with
-//! a root → signer certificate chain (recipe bundles) in [`sign`].
+//! a root → signer certificate chain (recipe bundles) in [`sign`]; the
+//! per-install device identity key in [`identity`].
 //!
 //! Scheme (signed off 2026-11-08): Argon2id → 32-byte key;
 //! XChaCha20-Poly1305 in the STREAM construction (BE32 counter, 19-byte
@@ -64,6 +65,7 @@ macro_rules! serde_via_str {
     };
 }
 
+pub mod identity;
 pub mod pairing;
 pub mod sign;
 

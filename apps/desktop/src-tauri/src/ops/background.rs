@@ -4,7 +4,10 @@
 
 use std::sync::Arc;
 
+use carrova_core::lan::browse_nearby;
+use carrova_core::presence::load_visibility;
 use carrova_core::time::now_unix;
+use carrova_view::devices::visibility_view;
 use carrova_view::ipc::{BackgroundSettings, Settings};
 use carrova_view::tray::{self, CloseAction, TrayModel};
 use serde_json::{Value, json};
@@ -102,11 +105,34 @@ pub fn toggle_pause(state: &AppState) -> Result<TrayModel, CommandError> {
     Ok(model_of(state, &settings, now))
 }
 
+/// How many devices are nearby now (blocking, a browse long); `None`,
+/// logged, if discovery could not start.
+pub fn nearby_count(state: &AppState) -> Option<u32> {
+    browse_nearby(state.platform.as_ref())
+        .inspect_err(|error| tracing::warn!(%error, "could not look for nearby devices"))
+        .ok()
+        .map(|found| u32::try_from(found.len()).unwrap_or(u32::MAX))
+}
+
+/// When "everyone" ends, if this computer is shown to everyone now.
+pub fn everyone_until(state: &AppState) -> Option<u64> {
+    load_visibility(state.platform.as_ref(), now_unix())
+        .ok()
+        .and_then(|visibility| visibility_view(visibility).until)
+}
+
+/// The tray at `now`; the nearby count is the tray's own (it looks when it
+/// shows).
 fn model_of(state: &AppState, settings: &Settings, now: u64) -> TrayModel {
+    let visibility = load_visibility(state.platform.as_ref(), now)
+        .inspect_err(|error| tracing::warn!(%error, "visibility unreadable"))
+        .unwrap_or_default();
     TrayModel {
         request: None,
         paused: tray::alerts_paused(&settings.alerts, now),
         moving: state.sessions.busy(),
+        visible_to: visibility_view(visibility).choice,
+        nearby_count: None,
     }
 }
 

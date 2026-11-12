@@ -35,15 +35,24 @@ use crate::render::preview;
 use crate::render::selection::selection;
 use crate::render::session::{self as report, ChecklistOf};
 use crate::render::text::human_size;
+use carrova_platform::Platform;
 use carrova_view::Detail;
+use carrova_view::ipc::NearbySettings;
 use carrova_view::passphrase::PassphraseUse;
 use carrova_view::selection::selection_view;
 
 /// Engine wired like `scan`: the resolved recipes and their plugins, the
-/// current platform.
+/// current platform and the desktop app's Nearby settings (CLI = app).
 pub fn engine(recipes: &RecipeLocations, sink: Arc<dyn EventSink>) -> Result<Engine> {
     let (recipes, plugins) = recipes.recipes_and_plugins()?;
-    Ok(Engine::new(Arc::from(seams::platform()?), recipes, sink).with_plugins(plugins))
+    let platform: Arc<dyn Platform> = Arc::from(seams::platform()?);
+    let nearby = NearbySettings::saved(platform.as_ref());
+    // Asked as each move is remembered: the app may turn hints off meanwhile.
+    let saved = Arc::clone(&platform);
+    Ok(Engine::new(platform, recipes, sink)
+        .with_plugins(plugins)
+        .with_remember_devices(nearby.remember)
+        .with_wol_hints(move || NearbySettings::saved(saved.as_ref()).wol_hints))
 }
 
 /// `carrova export`

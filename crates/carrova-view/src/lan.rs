@@ -6,9 +6,10 @@
 
 use std::time::Duration;
 
+use carrova_core::lan::NearbyDevice;
 use carrova_core::lan::{ActionCounts, ConflictTarget, Inventory, PlanSummary};
 use carrova_core::session::{PauseReason, SessionId};
-use carrova_core::{CodeOffer, ItemKey, Nearby, Ticket};
+use carrova_core::{CodeOffer, ItemKey, Ticket};
 
 use carrova_platform::OsKind;
 use serde::Serialize;
@@ -58,11 +59,17 @@ pub struct NearbyPeer {
     pub device_name: String,
 }
 
-/// View of a sender found nearby.
-pub fn nearby_peer(nearby: &Nearby) -> NearbyPeer {
-    NearbyPeer {
-        device_name: nearby.device_name.clone(),
-    }
+/// The senders among `found` offering a pairing code, as a "type the code
+/// shown there" picker lists them (presences are left out).
+#[must_use]
+pub fn code_offers(found: &[NearbyDevice]) -> Vec<NearbyPeer> {
+    found
+        .iter()
+        .filter(|d| d.offers_code)
+        .map(|d| NearbyPeer {
+            device_name: d.name.clone(),
+        })
+        .collect()
 }
 
 /// The receiver's inventory, as shown on the sender.

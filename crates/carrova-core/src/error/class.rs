@@ -44,6 +44,12 @@ pub enum ErrorKind {
     RollbackFailed,
     /// The session does not exist or does not allow the request.
     Session,
+    /// A known device could not be picked or renamed: no match, several
+    /// matches for a fingerprint, or an empty name.
+    KnownDevice,
+    /// This device's key or a known device's key file is refused (forget
+    /// the device, or reset this computer's identity).
+    DeviceKey,
     /// Anything else.
     Internal,
 }
@@ -146,6 +152,11 @@ impl CoreError {
             | Self::NothingToRollBack
             | Self::LanEnded
             | Self::NotApproved => C::new(K::Session),
+            Self::UnknownDevice
+            | Self::AmbiguousDevice { .. }
+            | Self::InvalidDeviceName
+            | Self::NoWakeHint => C::new(K::KnownDevice),
+            Self::DeviceKey { .. } => C::new(K::DeviceKey),
             other if out_of_space(other) => C::new(K::NoSpace),
             _ => C::new(K::Internal),
         }

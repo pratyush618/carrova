@@ -1,9 +1,9 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NearbyPeer } from '@/bindings/NearbyPeer';
-import { NEARBY_POLL_MS, useNearby } from '@/flows/receive/useNearby';
+import { NEARBY_POLL_MS, useNearby } from '@/flows/nearby/useNearby';
 
-describe('nearby senders', () => {
+describe('nearby looks', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -21,7 +21,7 @@ describe('nearby senders', () => {
     expect(result.current).toEqual([]);
     peers = [{ device_name: 'ana-desktop' }];
     await act(() => vi.advanceTimersByTimeAsync(NEARBY_POLL_MS));
-    expect(result.current).toEqual(['ana-desktop']);
+    expect(result.current).toEqual([{ device_name: 'ana-desktop' }]);
     rerender({ active: false });
     const looks = browse.mock.calls.length;
     await act(() => vi.advanceTimersByTimeAsync(NEARBY_POLL_MS * 3));
@@ -36,6 +36,6 @@ describe('nearby senders', () => {
     const { result } = renderHook(() => useNearby(browse, true));
     await act(() => vi.advanceTimersByTimeAsync(NEARBY_POLL_MS));
     expect(browse).toHaveBeenCalledTimes(2);
-    expect(result.current).toEqual(['ana-desktop']);
+    expect(result.current).toEqual([{ device_name: 'ana-desktop' }]);
   });
 });

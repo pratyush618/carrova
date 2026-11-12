@@ -221,6 +221,10 @@ impl Platform for MacPlatform {
         crate::netops::lan_ipv4_interfaces()
     }
 
+    fn send_magic_packet(&self, mac: [u8; 6]) -> Result<(), PlatformError> {
+        crate::netops::send_magic_packet(mac)
+    }
+
     fn bind_broadcast_udp(&self, port: u16) -> io::Result<std::net::UdpSocket> {
         crate::netops::bind_broadcast_udp(port)
     }

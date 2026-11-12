@@ -26,7 +26,8 @@ pub use recipes::{
 };
 pub use reply::{PickedReply, PlanReply, ScanReply};
 pub use settings::{
-    AlertChannel, AlertSettings, BackgroundSettings, MoveDefaults, Settings, Theme,
+    AlertChannel, AlertSettings, BackgroundSettings, MoveDefaults, NearbySettings, SETTINGS_FILE,
+    Settings, SettingsError, Theme,
 };
 
 /// Name of the one event channel the bridge emits on.
@@ -72,6 +73,8 @@ pub enum BridgeEvent {
     /// Paths to send arrived from outside (file manager, a second
     /// launch): fetch them with the `take_send_request` command.
     SendRequested,
+    /// The tray's "Nearby" was chosen: show the Nearby page.
+    ShowNearby,
     /// Something new reached the notification inbox (the bell).
     Notice {
         /// The new, unread notice.
@@ -128,6 +131,10 @@ pub enum ErrorCode {
     Session,
     /// Recipe bundle problem (verification, download).
     Recipes,
+    /// A known device could not be picked or renamed.
+    KnownDevice,
+    /// A stored device key is refused.
+    DeviceKey,
     /// Anything else.
     Internal,
 }
@@ -149,6 +156,8 @@ impl From<ErrorKind> for ErrorCode {
             ErrorKind::RolledBack => Self::RolledBack,
             ErrorKind::RollbackFailed => Self::RollbackFailed,
             ErrorKind::Session => Self::Session,
+            ErrorKind::KnownDevice => Self::KnownDevice,
+            ErrorKind::DeviceKey => Self::DeviceKey,
             ErrorKind::Internal => Self::Internal,
         }
     }

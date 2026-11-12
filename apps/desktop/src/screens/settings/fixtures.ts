@@ -1,5 +1,5 @@
-import { NOW } from '../shared/fixtures';
-import type { AboutModel, CrashModel, SettingsModel, UpdateModel } from './model';
+import { NOW, YESTERDAY } from '../shared/fixtures';
+import type { AboutModel, CrashModel, KnownDeviceLine, SettingsModel, UpdateModel } from './model';
 
 export const settingsModel: SettingsModel = {
   now: NOW,
@@ -33,6 +33,10 @@ export const settingsModel: SettingsModel = {
   moveDefaults: { conflict_rule: 'replace', retention: 'until_dismissed', include_caches: false },
   startInManual: false,
   fileManager: { on: true, skipped: [], failed: false },
+  nearby: { remember: true, accept_known: true, wol_hints: false },
+  visibility: 'known',
+  knownDevices: 4,
+  devicesFailed: null,
 };
 
 /** A desktop where one file manager was left alone, and the last change failed. */
@@ -70,3 +74,11 @@ export const about: AboutModel = {
   os: 'linux',
   licence: 'Apache-2.0',
 };
+
+/** The mockup's four remembered devices. */
+export const knownDevices: readonly KnownDeviceLine[] = [
+  { id: 'a1', name: "Ana's laptop", os: 'linux', fingerprint: '7F3A·19C2', lastMove: YESTERDAY },
+  { id: 'd2', name: 'Desk PC', os: 'windows', fingerprint: 'B04E·88D1', lastMove: NOW },
+  { id: 'o3', name: 'Old ThinkPad', os: 'linux', fingerprint: '2C9F·4A07', lastMove: null },
+  { id: 'w4', name: 'Work laptop', os: 'windows', fingerprint: 'E51B·03C6', lastMove: YESTERDAY },
+];

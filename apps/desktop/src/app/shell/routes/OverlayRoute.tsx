@@ -3,7 +3,9 @@ import type { Overlay } from '../../nav/navMachine';
 import { useNav } from '../nav';
 import {
   AboutOverlay,
+  ForgetDevicesOverlay,
   ForgetOverlay,
+  KnownDevicesOverlay,
   ReportOverlay,
   UndoConfirmOverlay,
   UpdateOverlay,
@@ -45,6 +47,10 @@ export function OverlayRoute({ overlay }: { readonly overlay: Overlay }) {
       return <UndoConfirmOverlay />;
     case 'forget':
       return <ForgetOverlay id={overlay.id} />;
+    case 'known-devices':
+      return <KnownDevicesOverlay />;
+    case 'forget-devices':
+      return <ForgetDevicesOverlay what={overlay.what} />;
     case 'update':
       return <UpdateOverlay />;
     case 'report':

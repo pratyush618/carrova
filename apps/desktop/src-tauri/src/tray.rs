@@ -10,11 +10,18 @@
 //! closed or hidden, and keeps the app from exiting.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Mutex, PoisonError};
+use std::time::Duration;
 
+use carrova_core::time::now_unix;
+use carrova_platform::DirWatch;
+use carrova_view::devices::VisibilityChoice;
 use carrova_view::ipc::EVENT_CHANNEL;
-use carrova_view::tray::{CloseAction, TrayModel, tray_menu, tray_tooltip};
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use carrova_view::tray::{
+    CloseAction, TrayItem, TrayModel, tray_menu, tray_tooltip, tray_visibility,
+};
+use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{
     AppHandle, Listener, Manager, RunEvent, WebviewWindow, WebviewWindowBuilder, Window,
@@ -22,7 +29,7 @@ use tauri::{
 };
 use tauri_plugin_dialog::DialogExt;
 
-use crate::ops::background;
+use crate::ops::{background, devices};
 use crate::send_request;
 use crate::state::AppState;
 
@@ -32,21 +39,31 @@ pub const BACKGROUND_FLAG: &str = "--background";
 /// The label of the app's one window (also the tray icon's id).
 const MAIN_WINDOW: &str = "main";
 
-/// Whether the tray icon shows, and whether its menu says a move runs. It
-/// is built once, then only hidden: Tauri keeps a handle to it, so dropping
-/// ours would not remove it.
+/// Whether the tray icon shows, whether its menu says a move runs, and how
+/// many devices it last found nearby. It is built once, then only hidden:
+/// Tauri keeps a handle to it, so dropping ours would not remove it.
 #[derive(Default)]
 struct TrayShown {
     shown: AtomicBool,
     moving: AtomicBool,
+    nearby: Mutex<Option<u32>>,
+    /// The "everyone" deadline a menu rebuild is waiting for (0: none).
+    rebuild_at: AtomicU64,
+    /// The "Visible to" choice the menu last ticked.
+    visible_to: Mutex<Option<VisibilityChoice>>,
+    /// Watches the saved visibility for changes made elsewhere (held only).
+    _watch: Mutex<Option<DirWatch>>,
 }
 
 /// Start-up: open the window, or with `--background` do what closing it
 /// would (to the tray or minimised; with "Keep running" off, open it).
 pub fn start(app: &AppHandle, state: &AppState, in_background: bool) {
-    app.manage(TrayShown::default());
+    app.manage(TrayShown {
+        _watch: Mutex::new(follow_visibility(app, state)),
+        ..TrayShown::default()
+    });
     let handle = app.clone();
-    app.listen_any(EVENT_CHANNEL, move |_| on_bridge_event(&handle));
+    app.listen_any(EVENT_CHANNEL, move |_| on_main(&handle, on_bridge_event));
     let action = if in_background {
         background::close_action(state)
     } else {
@@ -56,6 +73,7 @@ pub fn start(app: &AppHandle, state: &AppState, in_background: bool) {
     if matches!(action, CloseAction::CloseToTray | CloseAction::HideToTray)
         && show_tray(app, state).is_ok()
     {
+        count_nearby(app);
         return;
     }
     let window = open_main(app);
@@ -119,6 +137,9 @@ pub fn on_window_event(window: &Window, event: &WindowEvent) {
     let action = background::close_action(&state);
     let tray = matches!(action, CloseAction::CloseToTray | CloseAction::HideToTray)
         && show_tray(app, &state).is_ok();
+    if tray {
+        count_nearby(app);
+    }
     // Closed, the tray keeps the app running (`on_run_event`).
     if (tray && action == CloseAction::CloseToTray) || action == CloseAction::Exit {
         return;
@@ -196,6 +217,43 @@ fn show_tray(app: &AppHandle, state: &AppState) -> tauri::Result<()> {
     shown
 }
 
+/// Look for devices nearby off the main thread, then show the count in the
+/// tray menu (if it still shows).
+fn count_nearby(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(state) = app.try_state::<AppState>() else {
+            return;
+        };
+        let count = background::nearby_count(&state);
+        if let Some(flags) = tray_flags(&app) {
+            *flags.nearby.lock().unwrap_or_else(PoisonError::into_inner) = count;
+        }
+        on_main(&app, refresh_shown_tray);
+    });
+}
+
+/// Run `f` on the main thread, where the window and tray icon change
+/// ([`open_main`] too): a "tray shows" check there holds until `f` is done,
+/// so a tray hidden meanwhile is not shown again.
+pub fn on_main(app: &AppHandle, f: impl FnOnce(&AppHandle) + Send + 'static) {
+    let handle = app.clone();
+    if let Err(error) = app.run_on_main_thread(move || f(&handle)) {
+        tracing::warn!(%error, "could not reach the main thread");
+    }
+}
+
+/// Refresh the tray menu if the tray still shows (on the main thread, see
+/// [`on_main`]).
+fn refresh_shown_tray(app: &AppHandle) {
+    if let Some(state) = app.try_state::<AppState>()
+        && tray_shown(app)
+    {
+        // Logged inside; the menu stays as it was.
+        let _ = show_tray(app, &state);
+    }
+}
+
 fn tray_flags(app: &AppHandle) -> Option<tauri::State<'_, TrayShown>> {
     app.try_state::<TrayShown>()
 }
@@ -210,10 +268,75 @@ fn set_tray_shown(app: &AppHandle, shown: bool) {
     }
 }
 
+/// Rebuild the menu once "everyone" ends, so "Visible to" ticks the
+/// choice then in force (once per deadline).
+fn rebuild_when_everyone_ends(app: &AppHandle) {
+    let (Some(state), Some(flags)) = (app.try_state::<AppState>(), tray_flags(app)) else {
+        return;
+    };
+    let Some(until) = background::everyone_until(&state) else {
+        return;
+    };
+    if flags.rebuild_at.swap(until, Ordering::SeqCst) == until {
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        // A second past the deadline, so it reads as over.
+        let wait = until.saturating_sub(now_unix()).saturating_add(1);
+        std::thread::sleep(Duration::from_secs(wait));
+        on_main(&app, refresh_shown_tray);
+    });
+}
+
+/// Rebuild the menu when the saved visibility changes outside the app (the
+/// CLI), so "Visible to" ticks the choice in force. Not followed where the
+/// platform cannot watch the state dir (logged).
+// shortcut: unwatched on macOS/Windows, follows once `watch_dirs` does there.
+fn follow_visibility(app: &AppHandle, state: &AppState) -> Option<DirWatch> {
+    let handle = app.clone();
+    let changed = Box::new(move || {
+        on_main(&handle, |app| {
+            let (Some(state), Some(flags)) = (app.try_state::<AppState>(), tray_flags(app)) else {
+                return;
+            };
+            let ticked = *flags
+                .visible_to
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            if tray_shown(app) && ticked != Some(background::tray_model(&state).visible_to) {
+                // Logged inside; the menu stays as it was.
+                let _ = show_tray(app, &state);
+            }
+        });
+    });
+    state
+        .platform
+        .state_dir()
+        .and_then(|dir| state.platform.watch_dirs(&[dir], changed))
+        .inspect_err(|error| tracing::debug!(%error, "tray does not follow visibility changes"))
+        .ok()
+}
+
+/// Show `model` in the tray, with the tray's own nearby count.
 fn set_menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<()> {
+    let flags = tray_flags(app);
+    let model = &TrayModel {
+        nearby_count: flags
+            .as_ref()
+            .and_then(|f| *f.nearby.lock().unwrap_or_else(PoisonError::into_inner)),
+        ..model.clone()
+    };
     let menu = menu(app, model)?;
-    if let Some(flags) = tray_flags(app) {
+    if let Some(flags) = flags {
         flags.moving.store(model.moving, Ordering::SeqCst);
+        *flags
+            .visible_to
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = Some(model.visible_to);
+    }
+    if model.visible_to == VisibilityChoice::Everyone {
+        rebuild_when_everyone_ends(app);
     }
     if let Some(tray) = app.tray_by_id(MAIN_WINDOW) {
         tray.set_tooltip(Some(tray_tooltip(model)))?;
@@ -235,22 +358,60 @@ fn menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<Menu<tauri::Wry>> {
         if item.separated {
             menu.append(&PredefinedMenuItem::separator(app)?)?;
         }
-        // `&` marks a keyboard mnemonic in menu labels; `&&` is a literal one.
-        let label = item.label.replace('&', "&&");
-        menu.append(&MenuItem::with_id(
-            app,
-            item.id,
-            label,
-            item.enabled,
-            None::<&str>,
-        )?)?;
+        if item.children.is_empty() {
+            menu.append(&*entry(app, &item)?)?;
+            continue;
+        }
+        let submenu = Submenu::with_id(app, item.id, label(&item), item.enabled)?;
+        for child in &item.children {
+            submenu.append(&*entry(app, child)?)?;
+        }
+        menu.append(&submenu)?;
     }
     Ok(menu)
 }
 
+/// A plain or check menu item for `item`.
+fn entry(app: &AppHandle, item: &TrayItem) -> tauri::Result<Box<dyn IsMenuItem<tauri::Wry>>> {
+    Ok(match item.checked {
+        Some(checked) => Box::new(CheckMenuItem::with_id(
+            app,
+            item.id,
+            label(item),
+            item.enabled,
+            checked,
+            None::<&str>,
+        )?),
+        None => Box::new(MenuItem::with_id(
+            app,
+            item.id,
+            label(item),
+            item.enabled,
+            None::<&str>,
+        )?),
+    })
+}
+
+/// `item`'s label for a native menu: `&` marks a keyboard mnemonic there;
+/// `&&` is a literal one.
+fn label(item: &TrayItem) -> String {
+    item.label.replace('&', "&&")
+}
+
 fn on_menu(app: &AppHandle, id: &str) {
+    if let Some(choice) = tray_visibility(id) {
+        set_visibility(app, choice);
+        return;
+    }
     match id {
         "open" => {
+            open_main(app);
+        }
+        "nearby" => {
+            // Asked before the window opens: one built now takes it at start.
+            if let Some(state) = app.try_state::<AppState>() {
+                devices::ask_nearby(&state);
+            }
             open_main(app);
         }
         "send" => pick_and_send(app),
@@ -273,6 +434,19 @@ fn on_menu(app: &AppHandle, id: &str) {
     }
 }
 
+/// A "Visible to" choice: save it (the advert follows), then tick it.
+fn set_visibility(app: &AppHandle, choice: VisibilityChoice) {
+    let Some(state) = app.try_state::<AppState>() else {
+        return;
+    };
+    if let Err(error) = devices::apply_visibility(&state, choice) {
+        tracing::warn!(%error, "could not change who can see this computer");
+    }
+    if let Err(error) = set_menu(app, &background::tray_model(&state)) {
+        tracing::warn!(%error, "could not refresh the tray menu");
+    }
+}
+
 /// "Send files…": pick files, then open the window on a send of them
 /// (through the same queue as file-manager sends).
 fn pick_and_send(app: &AppHandle) {
@@ -289,6 +463,8 @@ fn pick_and_send(app: &AppHandle) {
         if let Some(state) = handle.try_state::<AppState>() {
             send_request::forward(&state, &paths);
         }
-        open_main(&handle);
+        on_main(&handle, |app| {
+            open_main(app);
+        });
     });
 }

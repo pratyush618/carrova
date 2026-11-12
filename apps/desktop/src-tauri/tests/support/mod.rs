@@ -5,6 +5,7 @@
 mod recorder;
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
@@ -15,6 +16,7 @@ use carrova_view::ipc::BridgeEvent;
 use tempfile::TempDir;
 
 use crate::events::Emit;
+use crate::presence::Advertise;
 use crate::state::{AppState, BridgeConfig};
 
 pub(crate) use recorder::Recorder;
@@ -82,11 +84,30 @@ impl Emit for Events {
     }
 }
 
+/// An [`Advertise`] that counts its refreshes.
+#[derive(Debug, Default)]
+pub(crate) struct Refreshes(AtomicUsize);
+
+impl Refreshes {
+    /// Refreshes so far.
+    pub(crate) fn count(&self) -> usize {
+        self.0.load(Ordering::SeqCst)
+    }
+}
+
+impl Advertise for Refreshes {
+    fn refresh(&self) {
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
 /// One machine with the bridge on it.
 pub(crate) struct Machine {
     tmp: TempDir,
     pub(crate) home: PathBuf,
     pub(crate) events: Arc<Events>,
+    /// What the state tells of device and visibility changes.
+    pub(crate) presence: Arc<Refreshes>,
     /// The fake the state runs on (for what only the fake can tell).
     pub(crate) platform: FakePlatform,
     pub(crate) state: AppState,
@@ -123,6 +144,7 @@ impl Machine {
             None => platform,
         };
         let events = Arc::new(Events::default());
+        let presence = Arc::new(Refreshes::default());
         let state = AppState::new(
             Arc::new(platform.clone()),
             RecipeLocations {
@@ -130,6 +152,7 @@ impl Machine {
                 ..RecipeLocations::default()
             },
             events.clone(),
+            presence.clone(),
             BridgeConfig {
                 kdf: |_| KdfParams::FLOOR,
                 answer_timeout: Duration::from_millis(50),
@@ -140,6 +163,7 @@ impl Machine {
             tmp,
             home,
             events,
+            presence,
             platform,
             state,
         }

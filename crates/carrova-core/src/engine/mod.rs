@@ -58,11 +58,13 @@
 use std::fmt;
 use std::sync::Arc;
 
+use carrova_crypto::identity::DeviceKey;
 use carrova_platform::Platform;
 use carrova_plugin::Plugin;
 use carrova_recipe::Recipe;
 
-use crate::session::EventSink;
+use crate::devices::KnownDevices;
+use crate::session::{Event, EventSink};
 
 mod archive;
 mod checklist;
@@ -70,6 +72,7 @@ mod export;
 mod import;
 mod receive;
 mod redact;
+mod remember;
 mod resume;
 mod send;
 mod session;
@@ -88,6 +91,11 @@ pub struct Engine {
     recipes: Arc<[Recipe]>,
     plugins: Arc<[Plugin]>,
     sink: Arc<dyn EventSink>,
+    /// Remember devices moved with using a code (default on).
+    remember_devices: bool,
+    /// Whether to store a remembered device's hardware address as a wake
+    /// hint, asked as each move is remembered (default off).
+    wol_hints: Arc<dyn Fn() -> bool + Send + Sync>,
 }
 
 impl Engine {
@@ -103,6 +111,57 @@ impl Engine {
             recipes: recipes.into(),
             plugins: Arc::new([]),
             sink,
+            remember_devices: true,
+            wol_hints: Arc::new(|| false),
+        }
+    }
+
+    /// This engine remembering devices after code-paired moves (`true`,
+    /// the default) or not: then no device identity is made or proven,
+    /// and nothing is stored.
+    #[must_use]
+    pub fn with_remember_devices(mut self, remember: bool) -> Self {
+        self.remember_devices = remember;
+        self
+    }
+
+    /// This engine saving a hardware-address hint (for Wake-on-LAN) with
+    /// each device it remembers while `on` says so (default: never). `on`
+    /// is asked under the devices lock as each move is remembered, so a
+    /// setting turned off mid-move holds once it is saved; off makes the
+    /// move drop the device's saved hint (see
+    /// [`KnownDevices::clear_wake_hints`] to drop them at once).
+    #[must_use]
+    pub fn with_wol_hints(mut self, on: impl Fn() -> bool + Send + Sync + 'static) -> Self {
+        self.wol_hints = Arc::new(on);
+        self
+    }
+
+    /// This install's device key when it remembers devices (made on first
+    /// need), for the transport to prove at code pairing, with the store's
+    /// epoch read before it (a forget or reset after it voids the move's
+    /// remember, see [`KnownDevices::epoch`]). An unusable key or store
+    /// never blocks a move: it pairs without identity (nothing is
+    /// remembered) and the user is warned.
+    fn device_key(&self) -> Option<(Arc<DeviceKey>, u64)> {
+        if !self.remember_devices {
+            return None;
+        }
+        let platform = &*self.platform;
+        let identity = KnownDevices::open(platform).and_then(|known| {
+            let epoch = known.epoch(platform)?;
+            Ok((known.device_key(platform)?, epoch))
+        });
+        match identity {
+            Ok((key, epoch)) => Some((Arc::new(key), epoch)),
+            Err(e) => {
+                let kind = e.class().kind;
+                tracing::warn!(?kind, "device key unusable; pairing without identity");
+                self.sink.emit(Event::Warning {
+                    message: format!("devices are not remembered: {e}"),
+                });
+                None
+            }
         }
     }
 
@@ -145,6 +204,7 @@ impl fmt::Debug for Engine {
             .field("platform", &self.platform)
             .field("recipes", &self.recipes.len())
             .field("plugins", &self.plugins.len())
+            .field("remember_devices", &self.remember_devices)
             .finish_non_exhaustive()
     }
 }

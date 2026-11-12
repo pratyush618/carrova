@@ -29,6 +29,14 @@ impl MacKey {
         HmacSha256::new_from_slice(&self.0[..]).map_err(|_| PairingError::KeySchedule)
     }
 
+    /// `HMAC(key, label ‖ nonce)`: the untruncated tag of one purpose.
+    pub(super) fn tag_mac(&self, label: &[u8], nonce: &TagNonce) -> Result<HmacSha256> {
+        let mut mac = self.mac()?;
+        mac.update(label);
+        mac.update(&nonce.0);
+        Ok(mac)
+    }
+
     /// `HMAC(key, role identity ‖ binding)`.
     pub(super) fn role_mac(&self, role: PakeRole, binding: &ChannelBinding) -> Result<HmacSha256> {
         let mut mac = self.mac()?;
@@ -88,10 +96,7 @@ impl ResumeSecret {
     }
 
     fn tag_mac(&self, purpose: TagPurpose, nonce: &TagNonce) -> Result<HmacSha256> {
-        let mut mac = self.key().mac()?;
-        mac.update(purpose.label());
-        mac.update(&nonce.0);
-        Ok(mac)
+        self.key().tag_mac(purpose.label(), nonce)
     }
 
     /// This side's proof of the secret over a fresh connection's binding.

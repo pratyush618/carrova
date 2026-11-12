@@ -24,6 +24,8 @@ export const SCENARIOS = [
   'picks',
   /** The app was opened from the file manager's "Send with Carrova" with two paths. */
   'forwarded',
+  /** Two known devices and a new one nearby, two known ones away (one can be woken). */
+  'nearby',
 ] as const;
 
 export type Scenario = (typeof SCENARIOS)[number];

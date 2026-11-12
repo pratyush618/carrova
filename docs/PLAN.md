@@ -3,7 +3,7 @@
 Source of truth for *what* Carrova is: `Porter — High-Level Design.pdf` (project root, Nov 8 2026; Porter was the working name).
 This document covers *how and in what order* it gets built.
 
-**Status:** Phase 1 complete (exit gate passed 2026-11-08) · Phase 2 complete (exit gate passed 2026-11-08) · Phase 3 complete (exit gate passed 2026-11-11) · Phase 4 implementation complete, v0.1 exit gate pending · Phase 5 implementation complete except notarization and Flathub, exit gate pending · Manual mode + "Send with Carrova" in progress (`feat/manual-mode`) · **Updated:** 2026-11-11
+**Status:** Phase 1 complete (exit gate passed 2026-11-08) · Phase 2 complete (exit gate passed 2026-11-08) · Phase 3 complete (exit gate passed 2026-11-11) · Phase 4 implementation complete, v0.1 exit gate pending · Phase 5 implementation complete except notarization and Flathub, exit gate pending · Manual mode + "Send with Carrova" merged (PR #7) · Background + Nearby (`docs/superpowers/plans/2026-11-12-background-nearby.md`): Phase 1 quiet instrument merged (PR #8), Phase 2 known devices + Nearby + Wake-on-LAN implemented (`feat/known-devices`, ADR 0001), Phase 3 code-less requests pending its own ADR · **Updated:** 2026-11-12
 
 ## Ground rules
 

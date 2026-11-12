@@ -17,6 +17,7 @@ export const common = {
   nav: {
     label: 'Main',
     home: 'Home',
+    nearby: 'Nearby',
     history: 'History',
     apps: 'Apps',
     settings: 'Settings',

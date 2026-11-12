@@ -1,8 +1,8 @@
 # ADR 0001: Known-device identity
 
-- Status: Proposed — awaiting user sign-off
+- Status: Accepted
 - Date: 2026-11-12
-- Signed off:
+- Signed off: 2026-11-12 by the user, with the answers below
 - Scope: Phase 2 of `docs/superpowers/plans/2026-11-12-background-nearby.md`
   (Tasks 2.1–2.3). Phase 3 (code-less requests, Task 3.0) builds on it and
   gets its own ADR.
@@ -144,10 +144,17 @@ S → R  Established
 
 ### 5. Discovery tag
 
-- `KnownTag` = `HMAC-SHA256(KnownSecret, "carrova/1/known-discovery" ‖ nonce)`,
-  truncated, with a fresh random 16-byte nonce per advert. Same construction
-  as the resume tag (`pairing/keys.rs:70-95`). The brief's purpose string
+- `KnownTag` = `HMAC-SHA256(KnownSecret, "carrova/1/known-discovery" ‖ nonce
+  ‖ advertiser's 32-byte DevicePublic)`, truncated to 8 bytes, with a fresh
+  random 16-byte nonce per advert. Otherwise the same construction as the
+  resume tag (`pairing/keys.rs:70-95`). The brief's purpose string
   `known-discovery` gets the `carrova/1/` prefix used by every other label.
+- Direction is bound (amended, signed off 2026-11-12): both peers hold the
+  same `KnownSecret`, so without the advertiser's key a device would
+  recognise its own advert as its peer's and list the peer as nearby while
+  it is off. The advertiser tags with its own public key; a browser checks
+  each tag against every known (secret, peer's stored public key) pair, so
+  its own adverts never match.
 - Purposes are an enum (`KnownPurpose`) like `TagPurpose`, so Phase 3 can
   add a request purpose with its own label. A discovery tag must never
   verify as a request proof.
@@ -251,6 +258,32 @@ All under the state dir, through `carrova-platform` (no OS calls elsewhere):
 - In memory: `DeviceKey` and `KnownSecret` zeroize on drop and print
   `<redacted>` in `Debug`, like `ResumeSecret` (`pairing/keys.rs:122-126`).
 
+### How the implementation handles the PR #8 review points
+
+Three CodeRabbit points on PR #8 were left to this phase:
+
+- **Interrupted secret replace.** `store::secret_file::replace` writes
+  `<name>.new` with `create_new_file` (mode `0600`, `fsync`), renames it
+  over the old file and syncs the dir. The old file is opened before the
+  rename and zeroed through that handle after it. A crash leaves either the
+  old secret or the new one in place, never a partial or zeroed file. The
+  device key (`device.key`) is written the same way.
+- **Stale `.key.new`.** A `.new` file left by a crash is wiped (zeros,
+  sync, unlink) before the next replace writes a fresh one, and a failed
+  rename wipes the `.new` it just wrote.
+- **Overlapping pairings.** Every change to the store (remember, record a
+  move, rename, forget, forget all, reset identity, first device key) runs
+  under an exclusive lock on `devices/known.lock`. Key reads (`device.key`,
+  each device's secret) take it too, because a replace zeroes the old file
+  in place. `known.json` is replaced atomically, so reading it takes no lock.
+  The lock file is opened read-only, so taking the lock never wakes a
+  watcher of `devices/`. Two pairings with the same
+  peer that finish together are applied one after the other on each host,
+  so no update is lost. The lock is local: if the two hosts finish the
+  pairings in opposite orders, they can keep different `KnownSecret`s and
+  stop recognising each other. This is rare, and the next code pairing
+  fixes it.
+
 ## Versioning and compatibility
 
 - `Hello` gains `identify: bool` with `#[serde(default)]`. Old senders
@@ -285,7 +318,16 @@ Allowed: the display fingerprint (`7F3A·19C2`) and the user-chosen device
 name in local logs at debug level. Error reports (`carrova-report`) redact
 both. A failed `Identify` logs the failure kind only.
 
-## Open questions for the user
+## Answers (signed off 2026-11-12)
+
+All eight as proposed: (1) yes; (2) remember silently, show
+"Remembered <name> (7F3A·19C2)" with Forget; (3) leave the other side
+stale, no "forget me" notice now; (4) add "Reset this computer's
+identity"; (5) cap 13 most recently used, 8-byte tags; (6) no padding;
+(7) no time window; (8) full public key as store and request key.
+Wake-on-LAN hints (Task 2.5) are in Phase 2.
+
+## Open questions for the user (as asked)
 
 1. **Identify before `Established`** instead of after, with a `Hello.identify`
    flag and no protocol version bump. Agree?

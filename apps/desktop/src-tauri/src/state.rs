@@ -2,6 +2,7 @@
 //! to clone (every part is shared), so a command can move a copy into a
 //! worker.
 
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -13,6 +14,7 @@ use carrova_platform::Platform;
 use crate::command_error::CommandError;
 use crate::events::{Emit, SessionSink};
 use crate::pairing::{ANSWER_TIMEOUT, PairingAnswers};
+use crate::presence::Advertise;
 use crate::recipes::RecipeService;
 use crate::registry::Registry;
 use crate::send_request::SendRequests;
@@ -55,11 +57,17 @@ pub struct AppState {
     pub inbox: Inbox,
     /// Paths sent from outside, until the UI takes them.
     pub pending_send: SendRequests,
+    /// The tray asked for the Nearby page, until the UI takes it (a window
+    /// built for it is not listening yet).
+    pub nearby_asked: Arc<AtomicBool>,
     /// Held across every check-and-write of the file-manager entries, so
     /// the start-up refresh never undoes the user's latest choice.
     pub entries_lock: Arc<Mutex<()>>,
     /// Where events go.
     pub out: Arc<dyn Emit>,
+    /// This computer's advert, told of every change to visibility or known
+    /// devices.
+    pub presence: Arc<dyn Advertise>,
     /// Run options.
     pub config: BridgeConfig,
 }
@@ -75,7 +83,7 @@ impl std::fmt::Debug for AppState {
 
 impl AppState {
     /// The bridge on `platform`, with recipes from `locations`, emitting on
-    /// `out`.
+    /// `out`, telling `presence` of device and visibility changes.
     ///
     /// # Errors
     ///
@@ -84,6 +92,7 @@ impl AppState {
         platform: Arc<dyn Platform>,
         locations: RecipeLocations,
         out: Arc<dyn Emit>,
+        presence: Arc<dyn Advertise>,
         config: BridgeConfig,
     ) -> Result<Self, CommandError> {
         let (inbox, set_aside) = Inbox::open(Arc::clone(&platform))?;
@@ -104,7 +113,9 @@ impl AppState {
             answers: Arc::new(PairingAnswers::default()),
             settings: SettingsStore::new(Arc::clone(&platform)),
             pending_send: SendRequests::default(),
+            nearby_asked: Arc::default(),
             entries_lock: Arc::default(),
+            presence,
             platform,
             out,
             config,
@@ -112,28 +123,41 @@ impl AppState {
     }
 
     /// An engine reporting to `sink`, with the current recipes and
-    /// plugins. Blocking (recipes resolve on first use).
+    /// plugins, remembering devices as the settings say. Blocking
+    /// (recipes resolve on first use).
     ///
     /// # Errors
     ///
     /// Recipes cannot be resolved.
     pub fn engine(&self, sink: Arc<SessionSink>) -> Result<Engine, CommandError> {
         let recipes = self.recipes.current()?;
+        let remember = self.settings.remember_devices();
+        // Asked as each move is remembered, so turning hints off holds mid-move.
+        let settings = self.settings.clone();
         Ok(Engine::new(
             Arc::clone(&self.platform),
             Arc::clone(&recipes.recipes),
             sink,
         )
-        .with_plugins(Arc::clone(&recipes.plugins)))
+        .with_plugins(Arc::clone(&recipes.plugins))
+        .with_remember_devices(remember)
+        .with_wol_hints(move || settings.wol_hints()))
     }
 
     /// A sink for a session that does not exist yet.
     pub fn unbound_sink(&self) -> Arc<SessionSink> {
-        Arc::new(SessionSink::unbound(Arc::clone(&self.out)))
+        Arc::new(SessionSink::unbound(
+            Arc::clone(&self.out),
+            Arc::clone(&self.presence),
+        ))
     }
 
     /// A sink for the existing session `id`.
     pub fn sink_for(&self, id: &SessionId) -> Arc<SessionSink> {
-        Arc::new(SessionSink::bound(Arc::clone(&self.out), id))
+        Arc::new(SessionSink::bound(
+            Arc::clone(&self.out),
+            Arc::clone(&self.presence),
+            id,
+        ))
     }
 }

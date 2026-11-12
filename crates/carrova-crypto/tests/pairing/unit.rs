@@ -435,6 +435,7 @@ fn hmac_outputs_match_known_answers() {
     let keys = SessionKeys {
         confirm: MacKey::new(&[0x11; 32]),
         resume: secret(0x22),
+        known: KnownSecret::from_bytes([0x33; KNOWN_SECRET_LEN]),
     };
     let b = binding();
     assert_eq!(
@@ -448,5 +449,21 @@ fn hmac_outputs_match_known_answers() {
     assert_eq!(
         hex(&secret(0x22).prove(PakeRole::Sender, &b).unwrap().0),
         "4dfa09e1b7555c7f7cc0cab01f94ad554c244a83397050f1fdfd36345c2f9348"
+    );
+}
+
+/// Known answers (HKDF-SHA256, salt `carrova/1/pake`, checked against
+/// Python's `hmac`): the known-device and resume secrets derived from a
+/// SPAKE2 key must never change, or remembered devices stop matching.
+#[test]
+fn derived_secrets_match_known_answers() {
+    let keys = pake::derive_keys(&[0x5a; 32]).unwrap();
+    assert_eq!(
+        hex(keys.known_secret().expose_bytes()),
+        "ac1c3b53525a38ca17e79c95c8a02e0ca8d8fd7fe3fa2b413122a5ea2a9c0b9f"
+    );
+    assert_eq!(
+        hex(keys.resume_secret().expose_bytes()),
+        "267a1675062c97f895b306045ff72f070de785d9a92141a0bee4fe9776e36e20"
     );
 }

@@ -1,7 +1,28 @@
-//! User settings the bridge persists.
+//! User settings the bridge persists, their read-only load for every
+//! front-end (the CLI follows the app's Nearby settings), and the save
+//! policy that keeps saved wake hints in step with them.
 
-use carrova_core::{ConflictRule, Retention};
+use carrova_core::devices::KnownDevices;
+use carrova_core::{ConflictRule, CoreError, Retention};
+use carrova_platform::{Platform, PlatformError};
 use serde::{Deserialize, Serialize};
+
+/// Settings file name in Carrova's state directory.
+pub const SETTINGS_FILE: &str = "desktop-settings.json";
+
+/// The saved settings cannot be read.
+#[derive(Debug, thiserror::Error)]
+pub enum SettingsError {
+    /// The state directory is unknown.
+    #[error(transparent)]
+    Platform(#[from] PlatformError),
+    /// The file exists but cannot be read.
+    #[error("cannot read the settings")]
+    Io(#[from] std::io::Error),
+    /// The file is not valid settings.
+    #[error("the saved settings are not valid")]
+    Parse(#[from] serde_json::Error),
+}
 
 /// User settings the bridge persists (front-end owns presentation only).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -31,6 +52,54 @@ pub struct Settings {
     /// What Carrova tells you about, and how loudly.
     #[serde(default)]
     pub alerts: AlertSettings,
+    /// Known devices and moves between them.
+    #[serde(default)]
+    pub nearby: NearbySettings,
+}
+
+/// Known-device behaviour. Missing fields read as the defaults.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(default)]
+pub struct NearbySettings {
+    /// Remember devices you move with using a code, so they are known
+    /// next time (feeds the engine's remember option).
+    pub remember: bool,
+    /// Let known devices ask to send you something without a code.
+    pub accept_known: bool,
+    /// Keep a Wake-on-LAN hint (the device's network address) for known
+    /// devices.
+    pub wol_hints: bool,
+}
+
+impl NearbySettings {
+    /// The saved nearby settings, for a new engine; the defaults if none
+    /// were saved yet. Unreadable settings never block a move, but may
+    /// hide an opt-out: they read as the defaults with remembering and
+    /// wake hints off.
+    pub fn saved(platform: &dyn Platform) -> Self {
+        Settings::load(platform).map_or_else(
+            |error| {
+                tracing::warn!(%error, "settings unreadable; not remembering devices");
+                Self {
+                    remember: false,
+                    wol_hints: false,
+                    ..Self::default()
+                }
+            },
+            |settings| settings.nearby,
+        )
+    }
+}
+
+impl Default for NearbySettings {
+    fn default() -> Self {
+        Self {
+            remember: true,
+            accept_known: true,
+            wol_hints: false,
+        }
+    }
 }
 
 /// Background behaviour. Missing fields read as the defaults.
@@ -131,6 +200,67 @@ pub enum Theme {
     Dark,
 }
 
+impl Settings {
+    /// The settings saved in `platform`'s state directory; the defaults if
+    /// none were saved yet.
+    ///
+    /// # Errors
+    ///
+    /// The file exists but cannot be read or parsed.
+    pub fn load(platform: &dyn Platform) -> Result<Self, SettingsError> {
+        let path = platform.state_dir()?.join(SETTINGS_FILE);
+        match std::fs::read(&path) {
+            Ok(bytes) => Ok(serde_json::from_slice(&bytes)?),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Replace the saved `old` settings with `self` through `write`, keeping
+    /// the saved wake hints in step. Run it under the writer's settings
+    /// lock. Every save with wake hints off saves the setting, then drops
+    /// every saved hint: a move remembered meanwhile asks the saved setting
+    /// under the devices lock, so none comes back. Hints are dropped even
+    /// if the save fails, unless the saved file still has them on, and one an
+    /// earlier save left behind goes with the next. No device store yet
+    /// means nothing to drop, and none is made. If the hints cannot be
+    /// dropped while turning them off, `old` is written back; while
+    /// already off, that is only logged.
+    ///
+    /// # Errors
+    ///
+    /// `write` fails (that error wins), or the hints cannot be dropped
+    /// while turning them off.
+    pub fn save_over<E: From<CoreError>>(
+        &self,
+        old: &Self,
+        platform: &dyn Platform,
+        mut write: impl FnMut(&Self) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let saved = write(self);
+        // A failed save may or may not have replaced the file: ask it.
+        let left_on =
+            saved.is_err() && Settings::load(platform).is_ok_and(|saved| saved.nearby.wol_hints);
+        if self.nearby.wol_hints || left_on {
+            return saved;
+        }
+        let cleared = KnownDevices::open_existing(platform)
+            .and_then(|k| k.map_or(Ok(()), |k| k.clear_wake_hints(platform)));
+        // Logged first: a failed save or rollback below replaces it.
+        if let Err(e) = &cleared {
+            tracing::warn!(error = %e, "could not drop the wake hints");
+        }
+        saved?;
+        if let Err(e) = cleared
+            && old.nearby.wol_hints
+        {
+            write(old)?;
+            return Err(e.into());
+        }
+        Ok(())
+    }
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -143,6 +273,7 @@ impl Default for Settings {
             file_manager_asked: false,
             background: BackgroundSettings::default(),
             alerts: AlertSettings::default(),
+            nearby: NearbySettings::default(),
         }
     }
 }

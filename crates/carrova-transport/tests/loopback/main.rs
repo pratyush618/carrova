@@ -9,12 +9,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use carrova_crypto::pairing::{PairingCode, ResumeSecret};
+use carrova_crypto::identity::DeviceKey;
+use carrova_crypto::pairing::{KnownSecret, PairingCode, ResumeSecret, TagNonce};
 use carrova_manifest::{ChunkHash, ChunkRef, MAX_CHUNK_LEN};
 use carrova_transport::{
     AllowedChunks, BROADCAST_PORT, BROADCAST_QUERY, BROADCAST_REPLY, ChunkFailure, ConnectOptions,
-    Connection, FetchAbort, ListenOptions, Listener, MAX_CHUNK_RETRIES, Target, Ticket,
-    TransportError, browse, connect,
+    Connection, FetchAbort, KnownTags, ListenOptions, Listener, MAX_CHUNK_RETRIES, Nearby,
+    PresenceAdvert, PresenceBeacon, Target, Ticket, TransportError, browse, connect,
 };
 
 #[path = "../support/mod.rs"]
@@ -219,11 +220,14 @@ fn named_listener(name: &str) -> Listener {
     .unwrap()
 }
 
+fn browsed() -> Vec<Nearby> {
+    browse(&*carrova_platform::current(), Duration::from_secs(2)).unwrap()
+}
+
 fn browsed_names() -> Vec<String> {
-    browse(&*carrova_platform::current(), Duration::from_secs(2))
-        .unwrap()
+    browsed()
         .into_iter()
-        .map(|n| n.device_name)
+        .filter_map(|n| n.advert.name)
         .collect()
 }
 
@@ -252,6 +256,61 @@ fn browsing_names_senders_only_while_they_offer_a_code() {
         !browsed_names().contains(&name),
         "resume adverts never carry the name"
     );
+}
+
+#[test]
+fn a_presence_is_browsed_by_its_tags_and_names_itself_only_when_told() {
+    if !loopback_broadcast_works() {
+        return;
+    }
+    let mut seed = [0u8; 32];
+    seed[..16].copy_from_slice(&TagNonce::random().unwrap().0);
+    let secret = KnownSecret::from_bytes(seed);
+    let me = DeviceKey::from_bytes(&[3; 32]).public();
+    let tags = || KnownTags::fresh([&secret], &me).unwrap();
+    let name = format!("presence-test-{}", unique_code().nameplate());
+    let ours = |found: &[Nearby]| -> Vec<PresenceAdvert> {
+        found
+            .iter()
+            .filter(|n| {
+                n.advert
+                    .known
+                    .as_ref()
+                    .is_some_and(|k| k.made_with(&secret, &me))
+            })
+            .map(|n| n.advert.clone())
+            .collect()
+    };
+    let platform = carrova_platform::current();
+    let beacon = PresenceBeacon::start(
+        &*platform,
+        PresenceAdvert {
+            known: tags(),
+            ..PresenceAdvert::default()
+        },
+    )
+    .unwrap();
+    let found = browsed();
+    let quiet = ours(&found);
+    assert_eq!(quiet.len(), 1, "{found:?}");
+    assert_eq!((quiet[0].name.as_ref(), quiet[0].os), (None, None));
+
+    drop(beacon);
+    let beacon = PresenceBeacon::start(
+        &*platform,
+        PresenceAdvert {
+            known: tags(),
+            name: Some(name.clone()),
+            os: Some(platform.os()),
+        },
+    )
+    .unwrap();
+    let open = ours(&browsed());
+    assert_eq!(open.len(), 1);
+    assert_eq!(open[0].name.as_ref(), Some(&name));
+    assert_eq!(open[0].os, Some(platform.os()));
+    drop(beacon);
+    assert!(!browsed_names().contains(&name), "gone once dropped");
 }
 
 #[test]

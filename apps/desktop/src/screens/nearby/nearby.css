@@ -1,0 +1,458 @@
+/* Nearby: the field fills the page; this computer sits at its centre. */
+.s-near {
+  position: relative;
+  block-size: 100%;
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.s-near__field {
+  --cy: 46%;
+  position: relative;
+  block-size: 100%;
+  min-block-size: 520px;
+  overflow: hidden;
+  /* Field unit: 1px, shrunk so the outer orbit (290u) plus half a device pill fits a narrow field. */
+  container-type: inline-size;
+  --u: min(1px, (50cqi - 96px) / 290);
+  background: radial-gradient(
+    ellipse at 50% var(--cy),
+    color-mix(in oklab, var(--accent) 7%, var(--surface-1)) 0,
+    var(--surface-1) 62%
+  );
+}
+
+/* Centred on this computer: orbs, the pulse, the disc and every device spot. */
+.s-near__orbs i,
+.s-near__pulse,
+.s-near__me,
+.s-near__spot {
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-start: var(--cy);
+  translate: -50% -50%;
+}
+
+[dir='rtl'] .s-near__orbs i,
+[dir='rtl'] .s-near__pulse,
+[dir='rtl'] .s-near__me {
+  translate: 50% -50%;
+}
+
+.s-near__orbs i {
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--border-strong) 70%, transparent);
+}
+
+.s-near__orbs i:nth-child(1) {
+  inline-size: calc(190 * var(--u));
+  block-size: calc(190 * var(--u));
+}
+
+.s-near__orbs i:nth-child(2) {
+  inline-size: calc(380 * var(--u));
+  block-size: calc(380 * var(--u));
+}
+
+.s-near__orbs i:nth-child(3) {
+  inline-size: calc(600 * var(--u));
+  block-size: calc(600 * var(--u));
+}
+
+.s-near__orbs i:nth-child(4) {
+  inline-size: calc(840 * var(--u));
+  block-size: calc(840 * var(--u));
+}
+
+/* One ring of light leaves this computer as the scan starts. */
+.s-near__pulse {
+  inline-size: 70px;
+  block-size: 70px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  opacity: 0;
+  animation: s-near-pulse 2.8s var(--ease-out) 0.3s 1 both;
+}
+
+@keyframes s-near-pulse {
+  0% {
+    opacity: 0.7;
+    inline-size: 70px;
+    block-size: 70px;
+  }
+
+  100% {
+    opacity: 0;
+    inline-size: calc(640 * var(--u));
+    block-size: calc(640 * var(--u));
+  }
+}
+
+.s-near__me {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  font-size: var(--t-sm);
+}
+
+.s-near__me-disc {
+  display: grid;
+  place-items: center;
+  inline-size: 64px;
+  block-size: 64px;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  color: var(--accent-on);
+  box-shadow:
+    0 0 0 8px var(--accent-soft),
+    var(--e-accent);
+}
+
+.s-near__me-disc .p-icon {
+  inline-size: 28px;
+  block-size: 28px;
+}
+
+.s-near__devs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Spots are placed from the centre by their offset on the orbit. */
+.s-near__spot {
+  translate: calc(-50% + var(--dx) * var(--u)) calc(-50% + var(--dy) * var(--u));
+}
+
+[dir='rtl'] .s-near__spot {
+  translate: calc(50% - var(--dx) * var(--u)) calc(-50% + var(--dy) * var(--u));
+}
+
+.s-near__dev {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-block: 7px;
+  padding-inline: 7px 14px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  box-shadow: var(--e-2);
+  color: var(--text-primary);
+  font-size: var(--t-sm);
+  text-align: start;
+  white-space: nowrap;
+  transition:
+    border-color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease);
+}
+
+.s-near__dev:hover {
+  border-color: var(--border-strong);
+}
+
+.s-near__dev b {
+  display: block;
+  font-weight: 650;
+  line-height: var(--lh-tight);
+}
+
+.s-near__dev small {
+  color: var(--text-secondary);
+  font-size: var(--t-xs);
+}
+
+.s-near__dev-icon {
+  display: grid;
+  place-items: center;
+  inline-size: 32px;
+  block-size: 32px;
+  border-radius: 50%;
+  background: var(--surface-0);
+  color: var(--text-secondary);
+}
+
+.s-near__dev--known .s-near__dev-icon {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.s-near__dev--selected {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px var(--accent-soft),
+    var(--e-2);
+}
+
+/* Away: dashed and quiet, its text still readable (AA). */
+.s-near__dev--away {
+  background: transparent;
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.s-near__dev--away .s-near__dev-icon {
+  opacity: 0.55;
+}
+
+/* The selected device's card, and the "looking" note, sit over the field. */
+.s-near__card,
+.s-near__looking {
+  position: absolute;
+  inset-inline-start: 20px;
+  inset-block-start: 20px;
+  inline-size: 288px;
+  padding: 16px;
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--e-3);
+}
+
+.s-near__card-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.s-near__card-head > div {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.s-near__card h2,
+.s-near__looking h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-md);
+  font-weight: 650;
+  margin: 0;
+}
+
+.s-near__card-head span {
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+.s-near__facts {
+  display: grid;
+  gap: 4px;
+  margin-block: 12px 14px;
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+.s-near__facts div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.s-near__facts dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.s-near__card-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.s-near__looking {
+  inset-inline-start: 50%;
+  inset-block-start: auto;
+  inset-block-end: 96px;
+  translate: -50% 0;
+  inline-size: min(360px, 90%);
+  text-align: center;
+}
+
+[dir='rtl'] .s-near__looking {
+  translate: 50% 0;
+}
+
+.s-near__looking h2 {
+  justify-content: center;
+}
+
+.s-near__looking p {
+  margin-block: 6px 12px;
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+/* List view: the same devices as inset groups. */
+.s-near__list {
+  block-size: 100%;
+  overflow: auto;
+  max-inline-size: 680px;
+  margin-inline: auto;
+  padding-block: 24px 96px;
+  padding-inline: 32px;
+}
+
+.s-near__list .s-near__looking {
+  position: static;
+  translate: none;
+  margin-block: 24px 0;
+  margin-inline: auto;
+}
+
+.s-near__group + .s-near__group {
+  margin-block-start: 24px;
+}
+
+.s-near__group h2 {
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-block: 0 8px;
+  padding-inline-start: 4px;
+}
+
+.s-near__group .p-badge {
+  margin-inline-start: 8px;
+}
+
+.s-near__group .p-row__trail {
+  display: flex;
+  gap: 6px;
+}
+
+/* A refused change or a wake that could not be sent: quiet banners at the top of the page. */
+.s-near__note {
+  position: absolute;
+  z-index: 2;
+  inset-block-start: 16px;
+  inset-inline: 50% auto;
+  translate: -50% 0;
+  inline-size: min(520px, 90%);
+  display: grid;
+  gap: 8px;
+}
+
+[dir='rtl'] .s-near__note {
+  translate: 50% 0;
+}
+
+/* The visibility pill, centred at the foot of the page (AirDrop's place);
+   its menu opens above any toast. */
+.s-near__vis {
+  position: absolute;
+  z-index: 3;
+  inset-block-end: 22px;
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 8px;
+}
+
+[dir='rtl'] .s-near__vis {
+  translate: 50% 0;
+}
+
+.s-near__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-block: 8px;
+  padding-inline: 14px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  box-shadow: var(--e-2);
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.s-near__pill b {
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.s-near__pill > .p-icon {
+  inline-size: 14px;
+  block-size: 14px;
+  rotate: 90deg;
+}
+
+.s-near__pill[aria-expanded='true'] > .p-icon {
+  rotate: -90deg;
+}
+
+.s-near__dot {
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.s-near__dot--off {
+  background: var(--text-muted);
+}
+
+.s-near__vismenu {
+  inline-size: 330px;
+  padding: 6px;
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--e-3);
+  animation: s-near-menu var(--dur-2) var(--ease-out) both;
+}
+
+@keyframes s-near-menu {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.s-near__vismenu button {
+  display: flex;
+  border: 0;
+  background: none;
+  gap: 10px;
+  align-items: flex-start;
+  inline-size: 100%;
+  padding-block: 9px;
+  padding-inline: 10px;
+  border-radius: 9px;
+  text-align: start;
+  color: var(--text-primary);
+}
+
+.s-near__vismenu button:hover {
+  background: var(--surface-1);
+}
+
+.s-near__vismenu b {
+  display: block;
+  font-weight: 600;
+  font-size: var(--t-sm);
+}
+
+.s-near__vismenu button span span {
+  display: block;
+  line-height: var(--lh-tight);
+  font-size: var(--t-xs);
+  color: var(--text-secondary);
+}
+
+.s-near__vtick {
+  flex: none;
+  inline-size: 18px;
+  color: var(--accent);
+}
+
+.s-near__vismenu hr {
+  border: 0;
+  border-block-start: 1px solid var(--border);
+  margin-block: 4px;
+  margin-inline: 6px;
+}

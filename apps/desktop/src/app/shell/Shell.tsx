@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
+import { usePort } from '../../engine/port';
 import { bundleStatus } from '../../flows/catalog/catalogViews';
 import { ChromeContext, Toast, Window } from '../../ui';
 import { useControllers } from '../controllers/Controllers';
 import type { FlowId } from '../nav/flows';
 import { navigate, type Nav, type NavEvent } from '../nav/navMachine';
-import { useSession } from '../state/EngineState';
+import { useNearbyRequests, useSession } from '../state/EngineState';
 import { buildChrome } from './chrome';
 import { useForwardedSends } from './forward';
 import { useBell } from './useBell';
 import { liveView, viewKey } from './liveView';
 import { NavContext, type NavApi } from './nav';
+import { RememberedToast, useRememberedNotice } from './RememberedToast';
 import { useAutoOverlays } from './routes/autoOverlays';
 import { OverlayRoute } from './routes/OverlayRoute';
 import { ViewRoute } from './routes/ViewRoute';
@@ -31,6 +33,28 @@ function useScreenFocus(key: string, root: RefObject<HTMLDivElement | null>): vo
       root.current?.querySelector<HTMLElement>('[data-autofocus-fallback]');
     target?.focus({ preventScroll: true });
   }, [key, root]);
+}
+
+/**
+ * The tray's "Nearby" opens the Nearby page, unless a flow is open (a move is
+ * never left mid-way). Asked at start too: a window built for it was not
+ * listening when the tray asked.
+ */
+function useTrayNearby(onHub: boolean, dispatch: (event: NavEvent) => void): void {
+  const port = usePort();
+  const asked = useNearbyRequests();
+  const hub = useRef(onHub);
+  useEffect(() => {
+    hub.current = onHub;
+  });
+  useEffect(() => {
+    void port.takeShowNearby().then(
+      (yes) => {
+        if (yes && hub.current) dispatch({ type: 'openHub', page: 'nearby' });
+      },
+      () => undefined,
+    );
+  }, [port, asked, dispatch]);
 }
 
 /** The app: navigation state, chrome, the current screen and its overlays. */
@@ -70,11 +94,15 @@ export function Shell({ initial }: { readonly initial: Nav }) {
     [go],
   );
   const forwarded = useForwardedSends(go, nav.view);
+  useTrayNearby(nav.view.kind === 'hub', dispatch);
+  const notice = useRememberedNotice();
   const recipes = controllers.settings.recipes;
   const bell = useBell(go);
+  const visibility = controllers.devices.visibility;
+  const visible = visibility !== null && visibility.choice !== 'no_one';
   const chrome = useMemo(
-    () => buildChrome(view, t, go, bundleStatus(recipes, t), bell),
-    [view, t, go, recipes, bell],
+    () => buildChrome(view, t, go, bundleStatus(recipes, t), bell, visible),
+    [view, t, go, recipes, bell, visible],
   );
   useScreenFocus(viewKey(view), root);
 
@@ -93,6 +121,14 @@ export function Shell({ initial }: { readonly initial: Nav }) {
             <ViewRoute view={view} />
             {forwarded.refused && (
               <Toast onDismiss={forwarded.dismiss}>{t('start.forwarded.busy')}</Toast>
+            )}
+            {notice.remembered && (
+              // Keyed: a device remembered next gets a notice (and Forget) of its own.
+              <RememberedToast
+                key={notice.remembered.fingerprint}
+                remembered={notice.remembered}
+                onClose={notice.close}
+              />
             )}
           </Window>
         </ChromeContext>

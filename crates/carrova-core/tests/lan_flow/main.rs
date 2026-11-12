@@ -375,7 +375,7 @@ fn receivers_see_a_sender_nearby_by_its_sanitised_name_only_while_it_offers_a_co
         browse_nearby(&*receiver.platform)
             .unwrap()
             .into_iter()
-            .map(|n| n.device_name)
+            .map(|n| n.name)
             .collect()
     };
     let mut exp = sender.selected_exporter();
@@ -386,7 +386,7 @@ fn receivers_see_a_sender_nearby_by_its_sanitised_name_only_while_it_offers_a_co
     let advertised: Vec<String> = carrova_transport::browse(&*receiver.platform, BROWSE_WINDOW)
         .unwrap()
         .into_iter()
-        .map(|n| n.device_name)
+        .filter_map(|n| n.advert.name)
         .collect();
     assert!(
         advertised.contains(&clean),

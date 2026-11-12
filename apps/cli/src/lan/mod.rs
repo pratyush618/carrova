@@ -29,7 +29,7 @@ use carrova_core::session::{Role, SessionId};
 use carrova_core::{
     Cancel, CoreError, Engine, Exporter, Importer, SendHandle, SendOutcome, SendReport, Ticket,
 };
-use carrova_view::lan::nearby_peer;
+use carrova_view::lan::code_offers;
 use clap::Args;
 use serde_json::json;
 
@@ -256,8 +256,7 @@ fn show_nearby(platform: &dyn carrova_platform::Platform) {
     eprintln!("Looking for machines nearby...");
     match browse_nearby(platform) {
         Ok(found) => {
-            let peers: Vec<_> = found.iter().map(nearby_peer).collect();
-            eprintln!("{}", nearby(&peers));
+            eprintln!("{}", nearby(&code_offers(&found)));
         }
         Err(e) => tracing::debug!(error = %e, "looking for senders nearby failed"),
     }
