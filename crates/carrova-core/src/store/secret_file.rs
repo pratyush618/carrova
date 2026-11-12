@@ -18,7 +18,7 @@ const SECRET_MODE: u32 = 0o600;
 /// Store `bytes` as the new file `dir/name`: created new
 /// (`O_EXCL|O_NOFOLLOW`, never through a link or over an existing file),
 /// mode `600`, synced, then the dir synced. The file is wiped on any
-/// failure (unless create-new failed because something already exists).
+/// failure after the create.
 pub(crate) fn write_new(
     platform: &dyn Platform,
     dir: &Path,
