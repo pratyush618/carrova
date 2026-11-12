@@ -9,8 +9,9 @@ use carrova_platform::{OsKind, Platform};
 use carrova_transport::{Nearby, browse};
 
 use super::{BROWSE_WINDOW, clean_device_name};
-use crate::devices::{DeviceRecord, KnownDevices};
+use crate::devices::{DEVICES_DIR, DeviceRecord, KnownDevices};
 use crate::error::Result;
+use crate::fsx;
 
 /// A device found nearby.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,12 +39,18 @@ pub struct NearbyDevice {
 /// (names that sanitise to nothing, and unknown devices that give none,
 /// are left out). The user still types the code to pair with a new one.
 ///
+/// An unreadable known-device store is logged and the browse goes on
+/// without recognising anyone.
+///
 /// # Errors
 ///
-/// Discovery could not start, or the known-device store is unreadable.
+/// Discovery could not start.
 pub fn browse_nearby(platform: &dyn Platform) -> Result<Vec<NearbyDevice>> {
     let found = browse(platform, BROWSE_WINDOW)?;
-    let known = known_by_recent_use(platform)?;
+    let known = known_by_recent_use(platform).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "known devices unreadable: none recognised nearby");
+        Vec::new()
+    });
     Ok(found
         .into_iter()
         .filter_map(|n| nearby_device(n, &known))
@@ -51,10 +58,14 @@ pub fn browse_nearby(platform: &dyn Platform) -> Result<Vec<NearbyDevice>> {
 }
 
 /// Known devices that have a secret, most recently moved with first (then
-/// most recently first seen).
+/// most recently first seen). Read-only: without a store there are none
+/// (it is never created here).
 pub(crate) fn known_by_recent_use(
     platform: &dyn Platform,
 ) -> Result<Vec<(DeviceRecord, KnownSecret)>> {
+    if fsx::lstat(platform, &platform.state_dir()?.join(DEVICES_DIR))?.is_none() {
+        return Ok(Vec::new());
+    }
     let store = KnownDevices::open(platform)?;
     let mut records = store.list(platform)?;
     records.sort_by_key(|r| Reverse((r.last_move, r.first_seen)));

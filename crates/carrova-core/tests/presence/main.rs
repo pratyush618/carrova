@@ -330,3 +330,21 @@ fn a_known_sender_offering_a_code_is_one_code_offer_and_one_known_device() {
     running.thread.join().unwrap().unwrap();
     presence.stop();
 }
+
+#[test]
+fn browsing_creates_no_known_device_store() {
+    let side = Side::new();
+    let devices = side.platform.state_dir().unwrap().join("devices");
+    browse_nearby(&*side.platform).unwrap();
+    assert!(!devices.exists(), "a plain browse writes nothing");
+}
+
+#[test]
+fn a_corrupt_known_device_store_does_not_stop_browsing() {
+    let side = Side::new();
+    let devices = side.platform.state_dir().unwrap().join("devices");
+    std::fs::create_dir_all(&devices).unwrap();
+    std::fs::write(devices.join("known.json"), b"{not json").unwrap();
+    let found = browse_nearby(&*side.platform).unwrap();
+    assert!(found.iter().all(|d| d.known.is_none()), "{found:?}");
+}
