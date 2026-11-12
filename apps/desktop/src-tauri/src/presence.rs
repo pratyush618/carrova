@@ -19,10 +19,18 @@ pub trait Advertise: Send + Sync {
 }
 
 /// The app's advert: nothing until [`Self::start`], then the engine's
-/// [`Presence`] until [`Self::stop`].
+/// [`Presence`] until [`Self::stop`] (for good: a start after it does
+/// nothing, so a start racing app exit never outlives it).
 pub struct BackgroundPresence {
     platform: Arc<dyn Platform>,
-    running: Mutex<Option<Presence>>,
+    running: Mutex<Running>,
+}
+
+/// Where the advert is in its life.
+enum Running {
+    NotYet,
+    Now(Presence),
+    Stopped,
 }
 
 impl std::fmt::Debug for BackgroundPresence {
@@ -36,25 +44,29 @@ impl BackgroundPresence {
     pub fn new(platform: Arc<dyn Platform>) -> Self {
         Self {
             platform,
-            running: Mutex::new(None),
+            running: Mutex::new(Running::NotYet),
         }
     }
 
-    /// Start advertising under the saved visibility (blocking: reads it).
+    /// Start advertising under the saved visibility (blocking: reads it),
+    /// unless already started or stopped.
     pub fn start(&self) {
+        let mut running = self.lock();
+        if !matches!(*running, Running::NotYet) {
+            return;
+        }
         let engine = Engine::new(
             Arc::clone(&self.platform),
             Vec::<Recipe>::new(),
             Arc::new(NullSink),
         );
-        let presence = Presence::start(&engine, self.saved());
-        *self.lock() = Some(presence);
+        *running = Running::Now(Presence::start(&engine, self.saved()));
     }
 
-    /// Withdraw the advert (blocking until it is gone).
+    /// Withdraw the advert for good (blocking until it is gone).
     pub fn stop(&self) {
-        let running = self.lock().take();
-        if let Some(presence) = running {
+        let running = std::mem::replace(&mut *self.lock(), Running::Stopped);
+        if let Running::Now(presence) = running {
             presence.stop();
         }
     }
@@ -67,7 +79,7 @@ impl BackgroundPresence {
             .unwrap_or_default()
     }
 
-    fn lock(&self) -> std::sync::MutexGuard<'_, Option<Presence>> {
+    fn lock(&self) -> std::sync::MutexGuard<'_, Running> {
         self.running.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
@@ -75,8 +87,12 @@ impl BackgroundPresence {
 impl Advertise for BackgroundPresence {
     fn refresh(&self) {
         let visibility = self.saved();
-        if let Some(presence) = &*self.lock() {
+        if let Running::Now(presence) = &*self.lock() {
             presence.set(visibility);
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/presence/unit.rs"]
+mod tests;
