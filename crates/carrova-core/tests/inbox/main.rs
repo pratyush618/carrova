@@ -136,3 +136,19 @@ fn a_corrupt_inbox_is_set_aside_not_fatal() {
         .unwrap();
     assert_eq!(open(&home, NOW).list().len(), 1);
 }
+
+#[test]
+fn a_read_mark_that_cannot_be_saved_is_not_kept() {
+    let home = TempDir::new().unwrap();
+    let inbox = open(&home, NOW);
+    inbox
+        .push(NoticeKind::MoveFinished, NOW, None, "a".into())
+        .unwrap();
+    // A file where the state directory was: nothing can be written.
+    let state = inbox_file(&home).parent().unwrap().to_owned();
+    std::fs::remove_dir_all(&state).unwrap();
+    std::fs::write(&state, b"").unwrap();
+
+    assert!(inbox.mark_all_read().is_err());
+    assert!(inbox.list().iter().all(|n| !n.read));
+}

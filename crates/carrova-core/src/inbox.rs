@@ -167,12 +167,16 @@ impl Inbox {
         self.mark(|_| true)
     }
 
+    /// Kept only once saved: a failed write leaves the list as on disk.
     fn mark(&self, select: impl Fn(&Notice) -> bool) -> Result<()> {
         let mut notices = self.lock();
-        for notice in notices.iter_mut().filter(|n| select(n)) {
+        let mut marked = notices.clone();
+        for notice in marked.iter_mut().filter(|n| select(n)) {
             notice.read = true;
         }
-        self.save(&notices)
+        self.save(&marked)?;
+        *notices = marked;
+        Ok(())
     }
 
     fn lock(&self) -> MutexGuard<'_, Vec<Notice>> {
