@@ -2,6 +2,7 @@
 //! never logged.
 
 use std::io::Write;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use carrova_core::devices::{DeviceRecord, KnownDevices};
@@ -44,7 +45,7 @@ fn hint_saved_only_when_setting_on() {
 
     let on = on_lan(Side::sender());
     let on = Side {
-        engine: on.engine.clone().with_wol_hints(true),
+        engine: on.engine.clone().with_wol_hints(|| true),
         ..on
     };
     moved(&on, &receiver);
@@ -56,14 +57,14 @@ fn turning_hints_off_clears_saved_hint_on_next_move() {
     let receiver = Side::new();
     let on = on_lan(Side::sender());
     let on = Side {
-        engine: on.engine.clone().with_wol_hints(true),
+        engine: on.engine.clone().with_wol_hints(|| true),
         ..on
     };
     moved(&on, &receiver);
     assert_eq!(hint_of(&on), Some(MAC));
 
     let off = Side {
-        engine: on.engine.clone().with_wol_hints(false),
+        engine: on.engine.clone().with_wol_hints(|| false),
         ..on
     };
     moved(&off, &receiver);
@@ -71,11 +72,30 @@ fn turning_hints_off_clears_saved_hint_on_next_move() {
 }
 
 #[test]
+fn hints_turned_off_during_a_move_are_not_saved() {
+    let receiver = Side::new();
+    let wanted = Arc::new(AtomicBool::new(true));
+    let on = on_lan(Side::sender());
+    let asked = Arc::clone(&wanted);
+    let running = Side {
+        engine: on
+            .engine
+            .clone()
+            .with_wol_hints(move || asked.load(Ordering::SeqCst)),
+        ..on
+    };
+    // The user turns hints off after the engine was made, before the move ends.
+    wanted.store(false, Ordering::SeqCst);
+    moved(&running, &receiver);
+    assert_eq!(hint_of(&running), None);
+}
+
+#[test]
 fn empty_lookup_keeps_hint_while_on() {
     let receiver = Side::new();
     let on = on_lan(Side::sender());
     let on = Side {
-        engine: on.engine.clone().with_wol_hints(true),
+        engine: on.engine.clone().with_wol_hints(|| true),
         ..on
     };
     moved(&on, &receiver);
@@ -91,7 +111,7 @@ fn empty_lookup_keeps_hint_while_on() {
             on.engine.recipes().to_vec(),
             on.sink.clone(),
         )
-        .with_wol_hints(true),
+        .with_wol_hints(|| true),
         platform,
         ..on
     };
@@ -214,7 +234,7 @@ fn mac_never_logged() {
     let log = log();
     let sender = on_lan(Side::sender());
     let sender = Side {
-        engine: sender.engine.clone().with_wol_hints(true),
+        engine: sender.engine.clone().with_wol_hints(|| true),
         ..sender
     };
     moved(&sender, &Side::new());

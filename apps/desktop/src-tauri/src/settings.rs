@@ -52,7 +52,7 @@ impl SettingsStore {
         self.nearby().remember
     }
 
-    /// Whether new engines save wake hints (`nearby.wol_hints`).
+    /// Whether engines save wake hints now (`nearby.wol_hints`).
     pub fn wol_hints(&self) -> bool {
         self.nearby().wol_hints
     }

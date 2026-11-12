@@ -269,7 +269,7 @@ fn remember_move_stores_the_device_and_counts_each_move() {
             &f.platform,
             record(1, "laptop"),
             &known(7),
-            HintUpdate::Keep,
+            || HintUpdate::Keep,
             500,
         )
         .unwrap();
@@ -281,7 +281,7 @@ fn remember_move_stores_the_device_and_counts_each_move() {
             &f.platform,
             record(1, "renamed by peer"),
             &known(8),
-            HintUpdate::Keep,
+            || HintUpdate::Keep,
             600,
         )
         .unwrap();

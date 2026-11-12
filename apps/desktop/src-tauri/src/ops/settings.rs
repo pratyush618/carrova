@@ -24,8 +24,10 @@ pub async fn load(state: &AppState) -> Result<Settings, CommandError> {
 /// Apply `patch` (the changed fields, see [`patched`]) to the saved
 /// settings. Background settings change only through
 /// [`set_background`](super::background::set_background), which keeps
-/// start at sign-in in step with them. Turning wake hints off first drops
-/// every saved hint (so a failure leaves the setting on, as it still is).
+/// start at sign-in in step with them. Turning wake hints off saves the
+/// setting, then drops every saved hint: a move remembered meanwhile asks
+/// the saved setting under the devices lock, so none comes back. If the
+/// hints cannot be dropped, the setting is put back on.
 ///
 /// # Errors
 ///
@@ -44,11 +46,16 @@ pub async fn save(state: &AppState, patch: Value) -> Result<(), CommandError> {
         let _writing = store.lock();
         let old = store.load()?;
         let new = patched(&old, patch)?;
+        store.save(&new)?;
         if old.nearby.wol_hints && !new.nearby.wol_hints {
             let platform = platform.as_ref();
-            KnownDevices::open(platform)?.clear_wake_hints(platform)?;
+            let cleared = KnownDevices::open(platform).and_then(|k| k.clear_wake_hints(platform));
+            if let Err(e) = cleared {
+                store.save(&old)?;
+                return Err(e.into());
+            }
         }
-        store.save(&new)
+        Ok(())
     })
     .await
 }

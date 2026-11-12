@@ -93,9 +93,9 @@ pub struct Engine {
     sink: Arc<dyn EventSink>,
     /// Remember devices moved with using a code (default on).
     remember_devices: bool,
-    /// Store a remembered device's hardware address as a wake hint
-    /// (default off).
-    wol_hints: bool,
+    /// Whether to store a remembered device's hardware address as a wake
+    /// hint, asked as each move is remembered (default off).
+    wol_hints: Arc<dyn Fn() -> bool + Send + Sync>,
 }
 
 impl Engine {
@@ -112,7 +112,7 @@ impl Engine {
             plugins: Arc::new([]),
             sink,
             remember_devices: true,
-            wol_hints: false,
+            wol_hints: Arc::new(|| false),
         }
     }
 
@@ -126,12 +126,14 @@ impl Engine {
     }
 
     /// This engine saving a hardware-address hint (for Wake-on-LAN) with
-    /// each device it remembers (`true`) or not (`false`, the default).
-    /// Turning it off makes the next remembered move drop a device's saved
-    /// hint (see [`KnownDevices::clear_wake_hints`] to drop them at once).
+    /// each device it remembers while `on` says so (default: never). `on`
+    /// is asked under the devices lock as each move is remembered, so a
+    /// setting turned off mid-move holds once it is saved; off makes the
+    /// move drop the device's saved hint (see
+    /// [`KnownDevices::clear_wake_hints`] to drop them at once).
     #[must_use]
-    pub fn with_wol_hints(mut self, on: bool) -> Self {
-        self.wol_hints = on;
+    pub fn with_wol_hints(mut self, on: impl Fn() -> bool + Send + Sync + 'static) -> Self {
+        self.wol_hints = Arc::new(on);
         self
     }
 

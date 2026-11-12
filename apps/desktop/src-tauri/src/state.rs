@@ -132,7 +132,8 @@ impl AppState {
     pub fn engine(&self, sink: Arc<SessionSink>) -> Result<Engine, CommandError> {
         let recipes = self.recipes.current()?;
         let remember = self.settings.remember_devices();
-        let wol_hints = self.settings.wol_hints();
+        // Asked as each move is remembered, so turning hints off holds mid-move.
+        let settings = self.settings.clone();
         Ok(Engine::new(
             Arc::clone(&self.platform),
             Arc::clone(&recipes.recipes),
@@ -140,7 +141,7 @@ impl AppState {
         )
         .with_plugins(Arc::clone(&recipes.plugins))
         .with_remember_devices(remember)
-        .with_wol_hints(wol_hints))
+        .with_wol_hints(move || settings.wol_hints()))
     }
 
     /// A sink for a session that does not exist yet.

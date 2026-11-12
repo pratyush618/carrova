@@ -47,10 +47,12 @@ pub fn engine(recipes: &RecipeLocations, sink: Arc<dyn EventSink>) -> Result<Eng
     let (recipes, plugins) = recipes.recipes_and_plugins()?;
     let platform: Arc<dyn Platform> = Arc::from(seams::platform()?);
     let nearby = NearbySettings::saved(platform.as_ref());
+    // Asked as each move is remembered: the app may turn hints off meanwhile.
+    let saved = Arc::clone(&platform);
     Ok(Engine::new(platform, recipes, sink)
         .with_plugins(plugins)
         .with_remember_devices(nearby.remember)
-        .with_wol_hints(nearby.wol_hints))
+        .with_wol_hints(move || NearbySettings::saved(saved.as_ref()).wol_hints))
 }
 
 /// `carrova export`

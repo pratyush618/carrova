@@ -73,12 +73,14 @@ impl Session {
             mac_hint: None,
         };
         // Off never collects and drops what was saved (ADR 0001).
-        let hint = if self.engine.wol_hints {
-            platform
-                .neighbour_mac(*addr)
-                .map_or(HintUpdate::Keep, HintUpdate::Set)
-        } else {
-            HintUpdate::Clear
+        let hint = || {
+            if (self.engine.wol_hints)() {
+                platform
+                    .neighbour_mac(*addr)
+                    .map_or(HintUpdate::Keep, HintUpdate::Set)
+            } else {
+                HintUpdate::Clear
+            }
         };
         let record = known.remember_move(platform, record, &identity.secret, hint, now)?;
         tracing::debug!(device = %fingerprint, "remembered the device moved with");

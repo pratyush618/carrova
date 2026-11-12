@@ -120,20 +120,20 @@ impl KnownDevices {
         secret: &KnownSecret,
     ) -> Result<()> {
         let hint = record.mac_hint.map_or(HintUpdate::Keep, HintUpdate::Set);
-        self.remember_locked(platform, record, secret, hint, None)
+        self.remember_locked(platform, record, secret, || hint, None)
             .map(drop)
     }
 
     /// [`Self::remember`] after a finished move at `at` (unix seconds),
     /// counted in the same locked step, with the device's wake hint
-    /// updated by `hint` (`record.mac_hint` is only the starting hint of a
-    /// new device); returns the updated record.
+    /// updated by what `hint` says under the lock (`record.mac_hint` is
+    /// only the starting hint of a new device); returns the updated record.
     pub fn remember_move(
         &self,
         platform: &dyn Platform,
         record: DeviceRecord,
         secret: &KnownSecret,
-        hint: HintUpdate,
+        hint: impl FnOnce() -> HintUpdate,
         at: u64,
     ) -> Result<DeviceRecord> {
         self.remember_locked(platform, record, secret, hint, Some(at))
@@ -156,7 +156,7 @@ impl KnownDevices {
         platform: &dyn Platform,
         record: DeviceRecord,
         secret: &KnownSecret,
-        hint: HintUpdate,
+        hint: impl FnOnce() -> HintUpdate,
         moved_at: Option<u64>,
     ) -> Result<DeviceRecord> {
         let _lock = self.lock(platform)?;
@@ -174,7 +174,7 @@ impl KnownDevices {
             }
         };
         let device = &mut file.devices[index];
-        device.mac_hint = hint.apply(device.mac_hint);
+        device.mac_hint = hint().apply(device.mac_hint);
         if let Some(at) = moved_at {
             device.moves = device.moves.saturating_add(1);
             device.last_move = Some(at);
