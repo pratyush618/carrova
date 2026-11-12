@@ -67,6 +67,7 @@ fn follow(fd: &OwnedFd, stopped: &UnixStream, dirs: &[PathBuf], changed: &dyn Fn
         match poll(&mut fds, None) {
             Ok(_) => {}
             Err(Errno::INTR) => continue,
+            // Ends the watch; the caller learns it as `changed` drops.
             Err(_) => return,
         }
         if !fds[1].revents().is_empty() {

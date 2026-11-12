@@ -244,7 +244,8 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     /// returned guard drops. Entries are not followed into: watch the
     /// directory of a file replaced by rename. A dir missing now is watched
     /// from when it appears in another watched dir; a dir that is not one
-    /// is refused.
+    /// is refused. If watching fails later, the watch ends by itself and
+    /// drops `changed`: a caller that must know keeps a guard in it.
     // shortcut: unsupported on macOS/Windows (callers poll instead); add
     // FSEvents/ReadDirectoryChangesW when those ship background presence.
     fn watch_dirs(

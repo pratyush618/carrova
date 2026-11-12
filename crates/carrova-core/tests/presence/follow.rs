@@ -90,3 +90,17 @@ fn without_a_watch_it_checks_every_poll() {
     );
     presence.stop();
 }
+
+#[test]
+fn a_watch_that_ends_by_itself_falls_back_to_checking_every_poll() {
+    let (side, reads) = counting(false);
+    let presence = Presence::start(&side.engine);
+    assert!(reads_reach(&reads, 1, POLL), "read on start");
+    side.platform
+        .end_dir_watches(&side.platform.state_dir().unwrap());
+    assert!(
+        reads_reach(&reads, 3, POLL + Duration::from_secs(1)),
+        "read when it ends, then after a poll"
+    );
+    presence.stop();
+}

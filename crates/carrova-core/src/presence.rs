@@ -192,9 +192,23 @@ pub struct Presence {
     thread: Option<JoinHandle<()>>,
 }
 
-/// Why a running presence wakes, besides its advert's own deadline: the
-/// saved state may have changed.
-struct Wake;
+/// Why a running presence wakes, besides its advert's own deadline.
+enum Wake {
+    /// The saved state may have changed.
+    Saved,
+    /// The watch of the state dir ended: check every [`POLL`] from now on.
+    Unwatched,
+}
+
+/// Held by a watch's callback: says [`Wake::Unwatched`] when the watch
+/// drops it (it ended).
+struct Watching(mpsc::Sender<Wake>);
+
+impl Drop for Watching {
+    fn drop(&mut self) {
+        let _ = self.0.send(Wake::Unwatched);
+    }
+}
 
 impl Presence {
     /// Start advertising for `engine`'s platform under the saved
@@ -223,7 +237,7 @@ impl Presence {
     pub fn refresh(&self) {
         if let Some(tx) = &self.wakes {
             // The thread only ends when this handle drops the sender.
-            let _ = tx.send(Wake);
+            let _ = tx.send(Wake::Saved);
         }
     }
 
@@ -255,8 +269,9 @@ fn watch_saved(platform: &dyn Platform, wakes: mpsc::Sender<Wake>) -> Option<Dir
         // Watched before anything is saved: the dir must exist to be.
         ensure_dir(platform, &dir, 0o700)?;
         let dirs = [dir.join(DEVICES_DIR), dir];
+        let watching = Watching(wakes);
         let changed = Box::new(move || {
-            let _ = wakes.send(Wake);
+            let _ = watching.0.send(Wake::Saved);
         });
         Ok(platform.watch_dirs(&dirs, changed)?)
     };
@@ -271,7 +286,7 @@ fn watch_saved(platform: &dyn Platform, wakes: mpsc::Sender<Wake>) -> Option<Dir
 /// at once when the saved visibility or known devices change (read on a
 /// [`Wake`], or every `poll`), until every sender of `wakes` is dropped.
 /// What is announced always comes from the last read that succeeded.
-fn run(platform: &dyn Platform, wakes: &mpsc::Receiver<Wake>, poll: Option<Duration>) {
+fn run(platform: &dyn Platform, wakes: &mpsc::Receiver<Wake>, mut poll: Option<Duration>) {
     let mut seen = Saved::read(platform);
     let mut visibility = seen
         .as_ref()
@@ -287,8 +302,13 @@ fn run(platform: &dyn Platform, wakes: &mpsc::Receiver<Wake>, poll: Option<Durat
                 Some(wait) => wakes.recv_timeout(wait),
                 None => wakes.recv().map_err(|_| RecvTimeoutError::Disconnected),
             };
-            if let Err(RecvTimeoutError::Disconnected) = wake {
-                return;
+            match wake {
+                Err(RecvTimeoutError::Disconnected) => return,
+                Ok(Wake::Unwatched) => {
+                    tracing::debug!("presence: watch ended, saved state checked every {POLL:?}");
+                    poll = Some(POLL);
+                }
+                Ok(Wake::Saved) | Err(RecvTimeoutError::Timeout) => {}
             }
             let saved = Saved::read(platform);
             if saved != seen {

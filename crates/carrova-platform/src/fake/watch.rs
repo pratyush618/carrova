@@ -52,6 +52,14 @@ impl FakePlatform {
         }))
     }
 
+    /// Pretend every live watch of `dir` failed: each ends by itself and
+    /// drops its callback, as a real one does when its watcher fails.
+    pub fn end_dir_watches(&self, dir: &Path) {
+        self.watches
+            .lock()
+            .retain(|(_, dirs, _)| !dirs.iter().any(|d| d == dir));
+    }
+
     /// Pretend an entry of `dir` changed: calls back every live watch of
     /// `dir`, on this thread.
     pub fn fire_dir_change(&self, dir: &Path) {
