@@ -17,6 +17,11 @@ use crate::error::Result;
 use crate::lan::{clean_device_name, known_by_recent_use};
 use crate::time::now_unix;
 
+/// How often a running [`Presence`] re-announces itself under a new mDNS
+/// instance with fresh tags, so its adverts cannot be linked over a long
+/// time by `kt` or instance name (each restart costs one mDNS announce).
+pub const REFRESH: Duration = Duration::from_secs(10 * 60);
+
 /// Who may find this device nearby.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Visibility {
@@ -88,9 +93,18 @@ pub fn advert(
 }
 
 /// The background presence advert, for the app's lifetime: follows the
-/// visibility it is [`set`](Self::set) to, and drops back to known
-/// devices by itself when "everyone" ends. Stops on [`Self::stop`] or
-/// drop.
+/// visibility it is [`set`](Self::set) to, re-announces every [`REFRESH`],
+/// and drops back to known devices by itself when "everyone" ends. Stops
+/// on [`Self::stop`] or drop.
+///
+/// It reads the known devices only when it announces: after remembering
+/// or forgetting a device, call [`set`](Self::set) (with the current
+/// visibility) so the tags follow at once.
+///
+/// The "everyone" deadline is wall-clock time, waited for with a
+/// monotonic timer and re-checked against the clock on every wake: if the
+/// clock jumps forward, the name stays visible until the timer fires (at
+/// most [`REFRESH`]).
 #[derive(Debug)]
 pub struct Presence {
     visibility: Option<mpsc::Sender<Visibility>>,
@@ -116,7 +130,8 @@ impl Presence {
         }
     }
 
-    /// Advertise under `visibility` from now on (with fresh tags).
+    /// Advertise under `visibility` from now on (fresh instance and tags,
+    /// the known devices read again).
     pub fn set(&self, visibility: Visibility) {
         if let Some(tx) = &self.visibility {
             // The thread only ends when this handle drops the sender.
@@ -142,18 +157,17 @@ impl Drop for Presence {
     }
 }
 
-/// Advertise under `visibility`, re-checking at an "everyone" deadline,
-/// until the sender of `changes` is dropped.
+/// Advertise under `visibility`, again at each [`next_wake`], until the
+/// sender of `changes` is dropped.
 fn run(platform: &dyn Platform, mut visibility: Visibility, changes: &mpsc::Receiver<Visibility>) {
-    let mut beacon = None;
     loop {
         let now = now_unix();
-        apply(platform, visibility, now, &mut beacon);
-        let change = match visibility.at(now) {
-            Visibility::Everyone { until } => {
-                changes.recv_timeout(Duration::from_secs(until.saturating_sub(now)))
-            }
-            _ => changes.recv().map_err(|_| RecvTimeoutError::Disconnected),
+        // A new beacon each round (the last one is gone): new instance
+        // name, fresh nonce. It announces until the end of the round.
+        let _beacon = start(platform, visibility, now);
+        let change = match next_wake(visibility, now) {
+            Some(wait) => changes.recv_timeout(wait),
+            None => changes.recv().map_err(|_| RecvTimeoutError::Disconnected),
         };
         match change {
             Ok(next) => visibility = next,
@@ -163,23 +177,27 @@ fn run(platform: &dyn Platform, mut visibility: Visibility, changes: &mpsc::Rece
     }
 }
 
-/// Make `beacon` announce what `visibility` allows at `now` (none if
-/// nothing, or on failure).
-fn apply(
-    platform: &dyn Platform,
-    visibility: Visibility,
-    now: u64,
-    beacon: &mut Option<PresenceBeacon>,
-) {
-    let advert = advert(platform, visibility, now)
-        .inspect_err(|e| tracing::warn!(error = %e, "presence advert unavailable"));
-    match (advert, beacon.as_mut()) {
-        (Ok(Some(advert)), Some(running)) => running.set(advert),
-        (Ok(Some(advert)), None) => {
-            *beacon = PresenceBeacon::start(platform, advert)
-                .inspect_err(|e| tracing::warn!(error = %e, "presence could not start"))
-                .ok();
-        }
-        (Ok(None) | Err(_), _) => *beacon = None,
+/// How long to wait before announcing again: [`REFRESH`], or less to meet
+/// an "everyone" deadline; `None` (until told) when nothing is announced.
+fn next_wake(visibility: Visibility, now: u64) -> Option<Duration> {
+    match visibility.at(now) {
+        Visibility::NoOne => None,
+        Visibility::Known => Some(REFRESH),
+        Visibility::Everyone { until } => Some(REFRESH.min(Duration::from_secs(until - now))),
     }
 }
+
+/// A beacon announcing what `visibility` allows at `now` (none if
+/// nothing, or on failure).
+fn start(platform: &dyn Platform, visibility: Visibility, now: u64) -> Option<PresenceBeacon> {
+    let advert = advert(platform, visibility, now)
+        .inspect_err(|e| tracing::warn!(error = %e, "presence advert unavailable"))
+        .ok()??;
+    PresenceBeacon::start(platform, advert)
+        .inspect_err(|e| tracing::warn!(error = %e, "presence could not start"))
+        .ok()
+}
+
+#[cfg(test)]
+#[path = "../tests/presence/unit.rs"]
+mod tests;
