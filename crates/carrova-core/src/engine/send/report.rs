@@ -77,6 +77,11 @@ impl SendHandle {
         self.s.record.checklist = Some(checklist.clone());
         self.s.record.bytes_moved = Some(served.bytes);
         self.s.transition(State::Done)?;
+        if outcome == SendOutcome::Applied
+            && let Some(peer) = self.known_peer.take()
+        {
+            self.s.remember_peer(&peer);
+        }
         self.s.emit(Event::Finished {
             checklist: checklist.clone(),
         });

@@ -112,19 +112,22 @@ impl AppState {
     }
 
     /// An engine reporting to `sink`, with the current recipes and
-    /// plugins. Blocking (recipes resolve on first use).
+    /// plugins, remembering devices as the settings say. Blocking
+    /// (recipes resolve on first use).
     ///
     /// # Errors
     ///
-    /// Recipes cannot be resolved.
+    /// Recipes cannot be resolved, or the settings cannot be read.
     pub fn engine(&self, sink: Arc<SessionSink>) -> Result<Engine, CommandError> {
         let recipes = self.recipes.current()?;
+        let remember = self.settings.load()?.nearby.remember;
         Ok(Engine::new(
             Arc::clone(&self.platform),
             Arc::clone(&recipes.recipes),
             sink,
         )
-        .with_plugins(Arc::clone(&recipes.plugins)))
+        .with_plugins(Arc::clone(&recipes.plugins))
+        .with_remember_devices(remember))
     }
 
     /// A sink for a session that does not exist yet.

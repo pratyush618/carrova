@@ -57,7 +57,7 @@ impl Importer {
             PAIR_TIMEOUT,
             &ConnectOptions {
                 platform: engine.platform().clone(),
-                device: None,
+                device: engine.device_key()?,
                 cancel: Some(cancel.signal()),
             },
         )?;
@@ -86,11 +86,13 @@ impl Importer {
         s.emit(Event::PeerConnected {
             peer: conn.peer_addr(),
         });
+        let known_peer = conn.peer_identity().cloned();
         let dialer = TransportDialer::boxed(s.engine.platform().clone(), &cancel);
         let control = TransferControl::default();
         let link = Link::paired(conn, dialer, cancel.clone(), control.clone());
         let mut imp = Self::started(s, ImportFrom::Lan(Some(Box::new(link))), manifest, cancel)?;
         imp.control = control;
+        imp.known_peer = known_peer;
         Ok(imp)
     }
 

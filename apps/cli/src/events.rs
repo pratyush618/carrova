@@ -90,6 +90,9 @@ impl CliSink {
             // the receiver's command fails with the pairing error.
             Event::PairingFailed => None,
             Event::PairingInProgress => Some(lan_report::PAIRING_IN_PROGRESS.to_owned()),
+            Event::DeviceRemembered { name, fingerprint } => {
+                Some(format!("Remembered {} ({fingerprint}).", safe(name)))
+            }
         }
     }
 

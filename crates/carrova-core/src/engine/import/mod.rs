@@ -7,6 +7,7 @@ use std::path::Path;
 use carrova_archive::ArchiveReader;
 use carrova_crypto::Passphrase;
 use carrova_manifest::Manifest;
+use carrova_transport::PeerIdentity;
 
 mod applying;
 mod review;
@@ -44,6 +45,11 @@ pub struct Importer {
     /// The user's pause / free-space override of a LAN transfer; see
     /// [`crate::transfer_control`].
     pub(super) control: TransferControl,
+    /// The LAN sender's identity, if both sides proved theirs at pairing:
+    /// remembered once the plan applies.
+    // shortcut: memory only, so an import resumed after a restart
+    // remembers nobody; persist it in the session if that matters.
+    pub(super) known_peer: Option<PeerIdentity>,
     /// Test-only fault injection into apply (zero-sized, inert, outside
     /// feature `failpoints`).
     pub(super) failpoint: Failpoint,
@@ -110,6 +116,7 @@ impl Importer {
             plan: None,
             cancel,
             control: TransferControl::default(),
+            known_peer: None,
             failpoint: Failpoint::OFF,
         }
     }
@@ -129,6 +136,7 @@ impl Importer {
             plan,
             cancel,
             control: TransferControl::default(),
+            known_peer: None,
             failpoint: Failpoint::OFF,
         }
     }

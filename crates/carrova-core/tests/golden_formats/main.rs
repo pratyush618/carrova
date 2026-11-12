@@ -329,6 +329,13 @@ fn events_serialize_to_golden_json() {
             Event::PairingInProgress,
             r#"{"event":"pairing_in_progress"}"#,
         ),
+        (
+            Event::DeviceRemembered {
+                name: "Travel laptop".into(),
+                fingerprint: "7F3A\u{b7}19C2".into(),
+            },
+            r#"{"event":"device_remembered","name":"Travel laptop","fingerprint":"7F3A·19C2"}"#,
+        ),
     ];
     for (event, golden) in cases {
         assert_eq!(serde_json::to_string(&event).unwrap(), golden);

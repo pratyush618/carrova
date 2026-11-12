@@ -252,6 +252,9 @@ impl Importer {
         };
         self.s.record.error = None;
         self.s.transition(State::Done)?;
+        if let Some(peer) = self.known_peer.take() {
+            self.s.remember_peer(&peer);
+        }
         self.s.emit(Event::Finished {
             checklist: checklist.clone(),
         });

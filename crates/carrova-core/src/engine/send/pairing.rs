@@ -100,6 +100,7 @@ impl SendHandle {
                             // Stop offering the nameplate right away.
                             self.listener.advertise_resume(&secret)?;
                             self.peer = Peer::Paired(secret);
+                            self.known_peer = conn.peer_identity().cloned();
                             tracing::info!(session = %self.s.record.id, "receiver paired");
                             self.connected(&conn)?;
                             return Ok((conn, SendStep::AwaitInventory));

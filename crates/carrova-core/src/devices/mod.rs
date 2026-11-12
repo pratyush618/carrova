@@ -162,6 +162,29 @@ impl KnownDevices {
         self.save(platform, &file)
     }
 
+    /// Count a finished move with a known device at `at` (unix seconds);
+    /// returns its updated record. [`CoreError::UnknownDevice`] if it is
+    /// not known.
+    pub fn record_move(
+        &self,
+        platform: &dyn Platform,
+        id: &DeviceId,
+        at: u64,
+    ) -> Result<DeviceRecord> {
+        let _lock = self.lock(platform)?;
+        let mut file = self.load(platform)?;
+        let device = file
+            .devices
+            .iter_mut()
+            .find(|d| d.public == *id)
+            .ok_or(CoreError::UnknownDevice)?;
+        device.moves = device.moves.saturating_add(1);
+        device.last_move = Some(at);
+        let updated = device.clone();
+        self.save(platform, &file)?;
+        Ok(updated)
+    }
+
     /// Forget one device: its key file is wiped first, then its record
     /// removed. `false` if it was not known.
     pub fn forget(&self, platform: &dyn Platform, id: &DeviceId) -> Result<bool> {

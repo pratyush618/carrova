@@ -9,7 +9,8 @@ use std::time::{Duration, Instant};
 
 use carrova_crypto::pairing::ResumeSecret;
 use carrova_transport::{
-    AllowedChunks, Connection, ListenOptions, Listener, ServeEnd, Ticket, TransportError,
+    AllowedChunks, Connection, ListenOptions, Listener, PeerIdentity, ServeEnd, Ticket,
+    TransportError,
 };
 
 mod ending;
@@ -42,6 +43,11 @@ pub struct SendHandle {
     allowed: AllowedChunks,
     listener: Listener,
     peer: Peer,
+    /// The receiver's identity, if both sides proved theirs at pairing:
+    /// remembered once it applies.
+    // shortcut: memory only, so a send resumed after a restart
+    // remembers nobody; persist it in the session if that matters.
+    known_peer: Option<PeerIdentity>,
     /// How long each pairing code stays valid ([`CODE_LIFETIME`]).
     code_lifetime: Duration,
     /// Failed pairing attempts so far (see [`MAX_PAIRING_FAILURES`](crate::lan::MAX_PAIRING_FAILURES)).
@@ -76,6 +82,7 @@ impl SendHandle {
             device_name: crate::about::device_name(s.platform())
                 .as_deref()
                 .and_then(crate::lan::clean_device_name),
+            device: s.engine.device_key()?,
             ..ListenOptions::default()
         })?;
         let peer = match secret {
@@ -92,6 +99,7 @@ impl SendHandle {
             manifest,
             listener,
             peer,
+            known_peer: None,
             code_lifetime: CODE_LIFETIME,
             pairing_failures: 0,
             sent: 0,

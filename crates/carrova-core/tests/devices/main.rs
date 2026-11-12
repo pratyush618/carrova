@@ -259,6 +259,29 @@ fn rename_of_unknown_device_fails() {
 }
 
 #[test]
+fn record_move_counts_the_move_and_keeps_the_rest() {
+    let f = Fixture::new();
+    f.remember(&record(1, "laptop"), 7);
+    f.devices.record_move(&f.platform, &public(1), 500).unwrap();
+    let moved = f.devices.record_move(&f.platform, &public(1), 600).unwrap();
+    assert_eq!((moved.moves, moved.last_move), (2, Some(600)));
+    assert_eq!(f.devices.list(&f.platform).unwrap(), std::slice::from_ref(&moved));
+    assert_eq!(moved.name, "laptop");
+    assert_eq!(moved.first_seen, 100);
+    assert_eq!(f.secret(&public(1)), Some([7; KNOWN_SECRET_LEN]));
+}
+
+#[test]
+fn record_move_of_unknown_device_fails() {
+    let f = Fixture::new();
+    let err = f
+        .devices
+        .record_move(&f.platform, &public(1), 500)
+        .unwrap_err();
+    assert!(matches!(err, CoreError::UnknownDevice), "{err:?}");
+}
+
+#[test]
 fn rename_cleans_the_name_and_refuses_an_empty_one() {
     let f = Fixture::new();
     f.remember(&record(1, "laptop"), 7);
@@ -423,3 +446,13 @@ fn record_debug_has_no_mac_or_full_key() {
         "{shown}"
     );
 }
+
+// ------------------------------------------------- remembered by a move
+
+#[expect(dead_code, reason = "shared test helpers; this test uses a subset")]
+#[path = "../support/mod.rs"]
+mod common;
+#[expect(dead_code, reason = "shared test helpers; this test uses a subset")]
+#[path = "../support/lan.rs"]
+mod lan_support;
+mod remember;

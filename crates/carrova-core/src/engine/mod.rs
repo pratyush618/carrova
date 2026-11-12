@@ -58,10 +58,13 @@
 use std::fmt;
 use std::sync::Arc;
 
+use carrova_crypto::identity::DeviceKey;
 use carrova_platform::Platform;
 use carrova_plugin::Plugin;
 use carrova_recipe::Recipe;
 
+use crate::devices::KnownDevices;
+use crate::error::Result;
 use crate::session::EventSink;
 
 mod archive;
@@ -70,6 +73,7 @@ mod export;
 mod import;
 mod receive;
 mod redact;
+mod remember;
 mod resume;
 mod send;
 mod session;
@@ -88,6 +92,8 @@ pub struct Engine {
     recipes: Arc<[Recipe]>,
     plugins: Arc<[Plugin]>,
     sink: Arc<dyn EventSink>,
+    /// Remember devices moved with using a code (default on).
+    remember_devices: bool,
 }
 
 impl Engine {
@@ -103,7 +109,28 @@ impl Engine {
             recipes: recipes.into(),
             plugins: Arc::new([]),
             sink,
+            remember_devices: true,
         }
+    }
+
+    /// This engine remembering devices after code-paired moves (`true`,
+    /// the default) or not: then no device identity is made or proven,
+    /// and nothing is stored.
+    #[must_use]
+    pub fn with_remember_devices(mut self, remember: bool) -> Self {
+        self.remember_devices = remember;
+        self
+    }
+
+    /// This install's device key when it remembers devices (made on first
+    /// need), for the transport to prove at code pairing.
+    fn device_key(&self) -> Result<Option<Arc<DeviceKey>>> {
+        if !self.remember_devices {
+            return Ok(None);
+        }
+        let platform = &*self.platform;
+        let key = KnownDevices::open(platform)?.device_key(platform)?;
+        Ok(Some(Arc::new(key)))
     }
 
     /// This engine with `plugins` (loaded from the same source as the
@@ -145,6 +172,7 @@ impl fmt::Debug for Engine {
             .field("platform", &self.platform)
             .field("recipes", &self.recipes.len())
             .field("plugins", &self.plugins.len())
+            .field("remember_devices", &self.remember_devices)
             .finish_non_exhaustive()
     }
 }
