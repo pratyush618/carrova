@@ -107,7 +107,7 @@ describe('background settings', () => {
 describe('saving settings', () => {
   it('keeps a pause set in the tray while the window was open', async () => {
     const port = createFakePort({ stepMs: 0 });
-    const settings = renderHook(() => useSettings(port, idle));
+    const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
     await waitFor(() => {
       expect(settings.result.current.settings).not.toBeNull();
     });
@@ -133,7 +133,7 @@ describe('a pause', () => {
       const port = createFakePort({ stepMs: 0 });
       const mounted = Date.now();
       await port.saveSettings({ alerts: { paused_until: Math.floor(mounted / 1000) + 5 } });
-      const settings = renderHook(() => useSettings(port, idle));
+      const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
       // The pause ends before the stored settings arrive.
       vi.setSystemTime(mounted + 10_000);
       await waitFor(() => {
@@ -148,7 +148,7 @@ describe('a pause', () => {
   it('shows as over once its time passes, with Settings left open', async () => {
     const port = createFakePort({ stepMs: 0 });
     await port.saveSettings({ alerts: { paused_until: Math.ceil(Date.now() / 1000) + 1 } });
-    const settings = renderHook(() => useSettings(port, idle));
+    const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
     await waitFor(() => {
       expect(settings.result.current.model?.pausedUntil).not.toBeNull();
     });
