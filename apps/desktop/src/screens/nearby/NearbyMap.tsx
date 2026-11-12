@@ -5,15 +5,18 @@ import { cx } from '../../ui/cx';
 import { Icon, useReducedMotion } from '../../ui';
 import type { DeviceEntry } from './model';
 
-/** Ring radius in field units (`--u`, 1px on a roomy field; inner = answering now), and where on it the first device sits. */
+/**
+ * Ring radius in field units (`--u`, 1px on a roomy field; inner = answering now), and where on it the first device sits.
+ * The inner radius clears this computer's label at the narrowest field (half the label and half a pill plus a margin, at `--u` 0.55).
+ */
 const RINGS: Readonly<Record<Ring, { readonly radius: number; readonly start: number }>> = {
-  inner: { radius: 170, start: 20 },
+  inner: { radius: 260, start: 30 },
   outer: { radius: 290, start: -30 },
 };
 
 const RING_ORDER: readonly Ring[] = ['inner', 'outer'];
 
-/** The field is wider than tall: rings are drawn round, devices sit on a flattened orbit. */
+/** The field is wider than tall: devices sit on a flattened orbit (its height is never shrunk by `--u`, only its width). */
 const FLATTEN = 0.6;
 
 /**

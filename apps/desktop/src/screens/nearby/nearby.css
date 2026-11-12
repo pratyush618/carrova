@@ -119,13 +119,13 @@
   padding: 0;
 }
 
-/* Spots are placed from the centre by their offset on the orbit. */
+/* Spots are placed from the centre by their offset on the orbit; only the width shrinks with the field. */
 .s-near__spot {
-  translate: calc(-50% + var(--dx) * var(--u)) calc(-50% + var(--dy) * var(--u));
+  translate: calc(-50% + var(--dx) * var(--u)) calc(-50% + var(--dy) * 1px);
 }
 
 [dir='rtl'] .s-near__spot {
-  translate: calc(50% - var(--dx) * var(--u)) calc(-50% + var(--dy) * var(--u));
+  translate: calc(50% - var(--dx) * var(--u)) calc(-50% + var(--dy) * 1px);
 }
 
 .s-near__dev {
