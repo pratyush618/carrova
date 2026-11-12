@@ -141,6 +141,9 @@ pub enum CoreError {
     /// No known device matches (forget, rename or a typed fingerprint).
     #[error("known devices: no known device matches")]
     UnknownDevice,
+    /// Wake asked for a device with no saved hardware address.
+    #[error("known devices: no wake hint saved for this device")]
+    NoWakeHint,
     /// A new device name has nothing left to show once cleaned.
     #[error("known devices: a device name needs at least one visible character")]
     InvalidDeviceName,

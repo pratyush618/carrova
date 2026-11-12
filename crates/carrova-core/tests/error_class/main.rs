@@ -154,6 +154,7 @@ fn known_device_errors_are_their_own_kinds() {
         CoreError::UnknownDevice,
         CoreError::AmbiguousDevice { matches: 2 },
         CoreError::InvalidDeviceName,
+        CoreError::NoWakeHint,
     ] {
         assert_eq!(e.class(), class(ErrorKind::KnownDevice, false, None), "{e}");
     }

@@ -16,7 +16,7 @@ fn options() -> PlanOptions {
 }
 
 /// A full code-paired move from `sender` to `receiver`.
-fn moved(sender: &Side, receiver: &Side) {
+pub(super) fn moved(sender: &Side, receiver: &Side) {
     let mut exp = sender.selected_exporter();
     let running = run(exp.prepare_send().unwrap());
     let mut imp =
@@ -36,7 +36,7 @@ fn store(side: &Side) -> KnownDevices {
     KnownDevices::open(&*side.platform).unwrap()
 }
 
-fn known(side: &Side) -> Vec<DeviceRecord> {
+pub(super) fn known(side: &Side) -> Vec<DeviceRecord> {
     store(side).list(&*side.platform).unwrap()
 }
 

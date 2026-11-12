@@ -219,9 +219,15 @@ impl Platform for FakePlatform {
         crate::netops::lan_ipv4_interfaces()
     }
 
-    /// Succeeds without sending: tests must not broadcast onto a real LAN.
+    fn neighbour_mac(&self, addr: std::net::IpAddr) -> Option<[u8; 6]> {
+        let _ = addr;
+        self.hooks.hooks.neighbour_mac
+    }
+
+    /// Records the packet without sending: tests must not broadcast onto a
+    /// real LAN.
     fn send_magic_packet(&self, mac: [u8; 6]) -> Result<(), PlatformError> {
-        let _ = mac;
+        self.hooks.record_magic_packet(mac);
         Ok(())
     }
 

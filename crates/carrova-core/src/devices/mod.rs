@@ -22,6 +22,7 @@
 //! need none (`known.json` is replaced atomically).
 
 mod record;
+mod wake;
 
 use std::path::PathBuf;
 
@@ -97,7 +98,7 @@ impl KnownDevices {
 
     /// Remember `record`'s device after a code pairing, with the `secret`
     /// both sides now share. Remembering a known device again replaces its
-    /// secret (latest pairing wins) and its OS and MAC hint, but keeps the
+    /// secret (latest pairing wins), its OS and a new MAC hint, but keeps the
     /// local name, first-seen time and move history. The record is saved
     /// before the secret, so a crash never leaves a secret without one.
     pub fn remember(
@@ -138,7 +139,8 @@ impl KnownDevices {
             Some(i) => {
                 let known = &mut file.devices[i];
                 known.os = record.os;
-                known.mac_hint = record.mac_hint;
+                // No new hint keeps the old one (only forgetting clears it).
+                known.mac_hint = record.mac_hint.or(known.mac_hint);
                 i
             }
             None => {

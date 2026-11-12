@@ -125,6 +125,8 @@ fn remembering_again_replaces_the_secret_and_keeps_name_and_history() {
         vec![DeviceRecord {
             name: "work laptop".into(),
             first_seen: 100,
+            // Remembering without a new hint keeps the saved one.
+            mac_hint: record(1, "").mac_hint,
             ..again
         }]
     );
@@ -456,3 +458,4 @@ mod common;
 #[path = "../support/lan.rs"]
 mod lan_support;
 mod remember;
+mod wake;

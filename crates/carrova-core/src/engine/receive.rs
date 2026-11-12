@@ -6,6 +6,7 @@ use carrova_manifest::{Blake3Hash, Manifest};
 use carrova_transport::{ConnectOptions, Connection, FailedChunk, Target, Ticket, connect};
 
 use super::import::{ImportFrom, Importer};
+use super::remember::KnownPeer;
 use super::resume::ResumePoint;
 use super::session::Session;
 use super::transfer::{Disk, Transfer, next_batch};
@@ -86,7 +87,7 @@ impl Importer {
         s.emit(Event::PeerConnected {
             peer: conn.peer_addr(),
         });
-        let known_peer = conn.peer_identity().cloned();
+        let known_peer = KnownPeer::of(&conn);
         let dialer = TransportDialer::boxed(s.engine.platform().clone(), &cancel);
         let control = TransferControl::default();
         let link = Link::paired(conn, dialer, cancel.clone(), control.clone());

@@ -93,6 +93,9 @@ pub struct Engine {
     sink: Arc<dyn EventSink>,
     /// Remember devices moved with using a code (default on).
     remember_devices: bool,
+    /// Store a remembered device's hardware address as a wake hint
+    /// (default off).
+    wol_hints: bool,
 }
 
 impl Engine {
@@ -109,6 +112,7 @@ impl Engine {
             plugins: Arc::new([]),
             sink,
             remember_devices: true,
+            wol_hints: false,
         }
     }
 
@@ -119,6 +123,21 @@ impl Engine {
     pub fn with_remember_devices(mut self, remember: bool) -> Self {
         self.remember_devices = remember;
         self
+    }
+
+    /// This engine saving a hardware-address hint (for Wake-on-LAN) with
+    /// each device it remembers (`true`) or not (`false`, the default).
+    /// Turning it off stops collecting; hints already saved stay until the
+    /// device is forgotten.
+    #[must_use]
+    pub fn with_wol_hints(mut self, on: bool) -> Self {
+        self.wol_hints = on;
+        self
+    }
+
+    /// Whether remembered devices get a wake hint.
+    fn wol_hints(&self) -> bool {
+        self.wol_hints
     }
 
     /// This install's device key when it remembers devices (made on first

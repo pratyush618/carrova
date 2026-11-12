@@ -9,8 +9,7 @@ use std::time::{Duration, Instant};
 
 use carrova_crypto::pairing::ResumeSecret;
 use carrova_transport::{
-    AllowedChunks, Connection, ListenOptions, Listener, PeerIdentity, ServeEnd, Ticket,
-    TransportError,
+    AllowedChunks, Connection, ListenOptions, Listener, ServeEnd, Ticket, TransportError,
 };
 
 mod ending;
@@ -24,6 +23,7 @@ pub use pairing::{CodeOffer, SendPrompt};
 use report::End;
 pub use report::{SendOutcome, SendReport};
 
+use super::remember::KnownPeer;
 use super::session::Session;
 use crate::cancel::Cancel;
 use crate::capture::Capture;
@@ -50,7 +50,7 @@ pub struct SendHandle {
     // receiver remembers at its own `Done`, the sender only once the
     // checklist arrives: a drop in between leaves only the receiver with
     // the new secret, until the next code pairing replaces it.
-    known_peer: Option<PeerIdentity>,
+    known_peer: Option<KnownPeer>,
     /// How long each pairing code stays valid ([`CODE_LIFETIME`]).
     code_lifetime: Duration,
     /// Failed pairing attempts so far (see [`MAX_PAIRING_FAILURES`](crate::lan::MAX_PAIRING_FAILURES)).

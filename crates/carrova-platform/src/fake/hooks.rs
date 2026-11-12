@@ -37,6 +37,9 @@ pub struct Hooks {
     /// Report no permission bits in path and fd metadata (an OS without
     /// modes).
     pub hide_mode: bool,
+    /// The hardware address [`Platform::neighbour_mac`](crate::Platform::neighbour_mac)
+    /// reports for every host (default: none).
+    pub neighbour_mac: Option<[u8; 6]>,
 }
 
 impl fmt::Debug for Hooks {
@@ -51,6 +54,7 @@ impl fmt::Debug for Hooks {
             )
             .field("uid", &self.uid)
             .field("hide_mode", &self.hide_mode)
+            .field("neighbour_mac", &self.neighbour_mac.is_some())
             .finish()
     }
 }
@@ -63,6 +67,7 @@ pub(super) struct HookState {
     free_space: Mutex<Option<u64>>,
     dir_syncs: AtomicUsize,
     wakes: AtomicUsize,
+    magic_packets: Mutex<Vec<[u8; 6]>>,
     screen_lock: Mutex<ScreenLock>,
 }
 
@@ -102,6 +107,20 @@ impl HookState {
 
     pub(super) fn wakes(&self) -> usize {
         self.wakes.load(Ordering::SeqCst)
+    }
+
+    pub(super) fn record_magic_packet(&self, mac: [u8; 6]) {
+        self.magic_packets
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(mac);
+    }
+
+    pub(super) fn magic_packets(&self) -> Vec<[u8; 6]> {
+        self.magic_packets
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     pub(super) fn screen_lock(&self) -> ScreenLock {

@@ -7,7 +7,6 @@ use std::path::Path;
 use carrova_archive::ArchiveReader;
 use carrova_crypto::Passphrase;
 use carrova_manifest::Manifest;
-use carrova_transport::PeerIdentity;
 
 mod applying;
 mod review;
@@ -19,6 +18,7 @@ pub(super) use source::{ImportFrom, Loaded};
 use super::Engine;
 use super::archive::{ArchiveSource, fingerprint};
 use super::redact::Patterns;
+use super::remember::KnownPeer;
 use super::session::{Session, absolute};
 use crate::apply::Failpoint;
 use crate::cancel::Cancel;
@@ -52,7 +52,7 @@ pub struct Importer {
     // receiver remembers at its own `Done`, the sender only once the
     // checklist arrives: a drop in between leaves only the receiver with
     // the new secret, until the next code pairing replaces it.
-    pub(super) known_peer: Option<PeerIdentity>,
+    pub(super) known_peer: Option<KnownPeer>,
     /// Test-only fault injection into apply (zero-sized, inert, outside
     /// feature `failpoints`).
     pub(super) failpoint: Failpoint,

@@ -241,6 +241,13 @@ impl FakePlatform {
         self.hooks.wakes()
     }
 
+    /// Magic packets [`Platform::send_magic_packet`] was asked to send since
+    /// [`Self::with_hooks`] (none leave the process).
+    #[must_use]
+    pub fn magic_packets(&self) -> Vec<[u8; 6]> {
+        self.hooks.magic_packets()
+    }
+
     /// Make [`Platform::screen_lock`] report `lock` (changeable while the
     /// platform is in use; the default is [`ScreenLock::Unknown`]).
     pub fn set_screen_lock(&self, lock: ScreenLock) {

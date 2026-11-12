@@ -12,6 +12,7 @@ use carrova_transport::{Connection, Listener, Ticket, TransportError};
 use serde::{Deserialize, Serialize};
 
 use super::{Peer, SendHandle};
+use crate::engine::remember::KnownPeer;
 use crate::error::{CoreError, Result};
 use crate::lan::{IDLE_POLL, Inventory, MAX_PAIRING_FAILURES, RECONNECT_WINDOW, SendStep};
 use crate::session::Event;
@@ -100,7 +101,7 @@ impl SendHandle {
                             // Stop offering the nameplate right away.
                             self.listener.advertise_resume(&secret)?;
                             self.peer = Peer::Paired(secret);
-                            self.known_peer = conn.peer_identity().cloned();
+                            self.known_peer = KnownPeer::of(&conn);
                             tracing::info!(session = %self.s.record.id, "receiver paired");
                             self.connected(&conn)?;
                             return Ok((conn, SendStep::AwaitInventory));
