@@ -3,6 +3,7 @@
 
 use std::cmp::Reverse;
 use std::collections::HashSet;
+use std::net::Ipv4Addr;
 
 use carrova_crypto::identity::DeviceId;
 use carrova_crypto::pairing::KnownSecret;
@@ -10,6 +11,7 @@ use carrova_platform::{OsKind, Platform};
 use carrova_transport::{Nearby, browse};
 
 use super::{BROWSE_WINDOW, clean_device_name};
+use crate::about;
 use crate::devices::{DEVICES_DIR, DeviceRecord, KnownDevices};
 use crate::error::Result;
 use crate::fsx;
@@ -42,6 +44,9 @@ pub struct NearbyDevice {
 /// A known device is listed once, at its first answer, even if it
 /// re-announced (a presence refresh) during the browse.
 ///
+/// This computer's own presence (its name, from one of its own addresses)
+/// is left out; code offers never are.
+///
 /// An unreadable known-device store is logged and the browse goes on
 /// without recognising anyone.
 ///
@@ -54,9 +59,46 @@ pub fn browse_nearby(platform: &dyn Platform) -> Result<Vec<NearbyDevice>> {
         tracing::warn!(error = %e, "known devices unreadable: none recognised nearby");
         Vec::new()
     });
+    let me = Me::of(platform);
     Ok(once_per_known_device(
-        found.into_iter().filter_map(|n| nearby_device(n, &known)),
+        found
+            .into_iter()
+            .filter(|n| !me.announced(n))
+            .filter_map(|n| nearby_device(n, &known)),
     ))
+}
+
+/// What identifies this computer's own presence advert in a browse.
+struct Me {
+    /// The name it announces when shown to everyone.
+    name: Option<String>,
+    /// Its LAN addresses (loopback is always its own).
+    addrs: Vec<Ipv4Addr>,
+}
+
+impl Me {
+    fn of(platform: &dyn Platform) -> Self {
+        let addrs = platform
+            .lan_ipv4_interfaces()
+            .inspect_err(|e| tracing::debug!(error = %e, "own addresses unknown"))
+            .unwrap_or_default();
+        Self {
+            name: about::device_name(platform)
+                .as_deref()
+                .and_then(clean_device_name),
+            addrs: addrs.into_iter().map(|i| i.ip).collect(),
+        }
+    }
+
+    /// Whether `found` is this computer's own presence: from one of its
+    /// addresses, under its name. (Same-host test devices have names of
+    /// their own, so they still find each other.)
+    fn announced(&self, found: &Nearby) -> bool {
+        !found.offers_code
+            && (found.addr.is_loopback() || self.addrs.contains(&found.addr))
+            && self.name.is_some()
+            && found.advert.name.as_deref().and_then(clean_device_name) == self.name
+    }
 }
 
 /// `found` in order, without a known device's later sightings.

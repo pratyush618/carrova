@@ -25,6 +25,8 @@ pub struct Nearby {
     pub offers_code: bool,
     /// How long after the browse started it first answered.
     pub answered: Duration,
+    /// The address it first answered from.
+    pub addr: Ipv4Addr,
 }
 
 /// Senders offering a code and presences on the LAN, collected for
@@ -61,6 +63,7 @@ pub fn browse(platform: &dyn Platform, timeout: Duration) -> Result<Vec<Nearby>>
                         advert: announced.advert,
                         offers_code: announced.offers_code,
                         answered: start.elapsed(),
+                        addr: *addr.ip(),
                     });
                 }
             }

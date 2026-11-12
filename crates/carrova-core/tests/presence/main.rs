@@ -374,3 +374,25 @@ fn an_advert_reads_only_the_secrets_it_tags() {
     std::fs::write(key, b"short").unwrap();
     assert!(advert(&*side.platform, Visibility::Known, NOW).is_ok());
 }
+
+#[test]
+fn this_computer_does_not_list_itself_when_shown_to_everyone() {
+    if !loopback_broadcast_works() {
+        return;
+    }
+    let name = unique("self");
+    let side = Side::named(Some(&name));
+    let presence = Presence::start(
+        &side.engine,
+        Visibility::Everyone {
+            until: now_unix() + 60,
+        },
+    );
+    let stranger = Side::new();
+    let seen = names(&browse_nearby(&*stranger.platform).unwrap());
+    assert!(seen.contains(&name), "others see it: {seen:?}");
+
+    let own = names(&browse_nearby(&*side.platform).unwrap());
+    assert!(!own.contains(&name), "{own:?}");
+    presence.stop();
+}
