@@ -149,14 +149,17 @@ impl Drop for Advertiser {
 
 /// Longest device name in one TXT entry (`dn=<name>`, at most 255 bytes),
 /// cut on a char boundary.
-pub(super) fn txt_fit(name: &str) -> &str {
-    let mut end = name
-        .len()
-        .min(usize::from(u8::MAX) - TXT_DEVICE_NAME.len() - 1);
-    while !name.is_char_boundary(end) {
+fn txt_fit(name: &str) -> &str {
+    cut(name, usize::from(u8::MAX) - TXT_DEVICE_NAME.len() - 1)
+}
+
+/// The longest prefix of `s` of at most `max` bytes, on a char boundary.
+pub(super) fn cut(s: &str, max: usize) -> &str {
+    let mut end = s.len().min(max);
+    while !s.is_char_boundary(end) {
         end -= 1;
     }
-    &name[..end]
+    &s[..end]
 }
 
 /// The reply to broadcast `query` while `advert` is current: the port for

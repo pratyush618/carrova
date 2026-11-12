@@ -11,9 +11,14 @@ use carrova_crypto::pairing::{
 };
 use carrova_platform::{OsKind, Platform};
 
-use super::advertise::{Advertiser, txt_fit};
+use super::advertise::{Advertiser, cut};
 use crate::error::Result;
 use crate::{BROADCAST_PORT, TXT_DEVICE_NAME, TXT_KNOWN_TAGS, TXT_OS};
+
+/// Longest device name in a presence advert, in bytes: with the most tags
+/// and the longest OS, a broadcast reply stays within one 512-byte
+/// discovery datagram (fixed parts take at most 274 bytes).
+const MAX_NAME_BYTES: usize = 200;
 
 /// Most tags in one advert: a nonce and 13 tags in hex fill one 255-byte
 /// TXT string (`kt=` + 32 + 13 × 16 = 243 bytes).
@@ -110,13 +115,13 @@ pub struct PresenceAdvert {
 
 impl PresenceAdvert {
     /// The TXT entries, in key order `kt`, `dn`, `os`, absent fields left
-    /// out (the name cut to fit one entry).
+    /// out (the name cut to [`MAX_NAME_BYTES`]).
     pub(crate) fn txt(&self) -> Vec<(&'static str, String)> {
         [
             self.known.as_ref().map(|k| (TXT_KNOWN_TAGS, k.encode())),
             self.name
                 .as_deref()
-                .map(|n| (TXT_DEVICE_NAME, txt_fit(n).to_owned())),
+                .map(|n| (TXT_DEVICE_NAME, cut(n, MAX_NAME_BYTES).to_owned())),
             self.os.map(|os| (TXT_OS, os.as_str().to_owned())),
         ]
         .into_iter()

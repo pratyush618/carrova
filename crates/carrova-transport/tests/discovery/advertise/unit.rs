@@ -76,3 +76,20 @@ fn presence_answers_browsers_with_its_txt_fields_after_the_port() {
     let np_query = [BROADCAST_QUERY, b"np=7"].concat();
     assert_eq!(reply(&open, &np_query, 47821, None), None);
 }
+
+#[test]
+fn the_largest_presence_reply_fits_one_datagram() {
+    let secrets: Vec<_> = (0..20).map(|n| KnownSecret::from_bytes([n; 32])).collect();
+    let me = DeviceKey::from_bytes(&[2; 32]).public();
+    let largest = Advert::Presence(PresenceAdvert {
+        known: KnownTags::fresh(&secrets, &me).unwrap(),
+        name: Some("\u{1d11e}".repeat(200)),
+        os: Some(OsKind::Windows),
+    });
+    let reply = reply(&largest, BROADCAST_BROWSE, u16::MAX, None).unwrap();
+    assert!(
+        reply.len() <= crate::tuning::BROADCAST_MAX_DATAGRAM,
+        "{} bytes",
+        reply.len()
+    );
+}
