@@ -100,7 +100,15 @@ export function Bell({ model }: { readonly model: BellModel }) {
           <header className="p-bell__head">
             <b>{t('bell.label')}</b>
             {model.unread > 0 && (
-              <LinkButton onClick={model.onMarkAllRead}>{t('bell.markAllRead')}</LinkButton>
+              <LinkButton
+                onClick={() => {
+                  // The link goes once all is read: keep focus on the bell, not the page.
+                  button.current?.focus();
+                  model.onMarkAllRead();
+                }}
+              >
+                {t('bell.markAllRead')}
+              </LinkButton>
             )}
           </header>
           {model.groups.length === 0 ? (

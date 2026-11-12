@@ -99,6 +99,17 @@ describe('Bell', () => {
     expect(screen.queryByRole('button', { name: 'Mark all read' })).not.toBeInTheDocument();
   });
 
+  it('keeps keyboard focus on the bell once everything is read', async () => {
+    const user = userEvent.setup();
+    const bell = model();
+    const { rerender } = render(<Page bell={bell} />);
+    await user.click(screen.getByRole('button', { name: /Notifications/ }));
+    screen.getByRole('button', { name: 'Mark all read' }).focus();
+    await user.keyboard('{Enter}');
+    rerender(<Page bell={{ ...bell, unread: 0 }} />);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Notifications' }));
+  });
+
   it('tells an empty bell what will show up', async () => {
     render(<Page bell={model({ unread: 0, groups: [] })} />);
     await userEvent.click(screen.getByRole('button', { name: 'Notifications' }));
