@@ -216,6 +216,16 @@ mod hooks {
     }
 
     #[test]
+    fn sync_dir_hook_error_replaces_the_sync() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let p = FakePlatform::with_home(tmp.path()).with_hooks(Hooks {
+            on_sync_dir: Some(Arc::new(|dir| Err(io_denied(dir)))),
+            ..Hooks::default()
+        });
+        assert!(p.sync_dir(tmp.path()).is_err());
+    }
+
+    #[test]
     fn open_hook_runs_after_a_successful_open_only() {
         let tmp = tempfile::TempDir::new().unwrap();
         let f = tmp.path().join("f");

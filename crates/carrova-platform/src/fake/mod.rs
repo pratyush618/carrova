@@ -34,7 +34,7 @@ pub use file_manager::EntriesWrite;
 pub use fixture::symlink;
 #[cfg(unix)]
 pub use fixture::{pin_umask, write_tool_script};
-pub use hooks::{Hooks, MetadataHook, OpenHook, RenameHook, StatusHook};
+pub use hooks::{Hooks, MetadataHook, OpenHook, RenameHook, StatusHook, SyncDirHook};
 
 use background::FakeBackground;
 use file_manager::FakeEntries;

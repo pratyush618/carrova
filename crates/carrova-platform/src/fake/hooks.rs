@@ -14,6 +14,9 @@ pub type MetadataHook = Arc<dyn Fn(&Path, &mut FileMeta) + Send + Sync>;
 /// Runs before [`Platform::rename_noreplace`](crate::Platform::rename_noreplace)
 /// `(from, to)`; an `Err` is returned instead of renaming.
 pub type RenameHook = Arc<dyn Fn(&Path, &Path) -> Result<(), PlatformError> + Send + Sync>;
+/// Runs before [`Platform::sync_dir`](crate::Platform::sync_dir); an `Err`
+/// is returned instead of syncing.
+pub type SyncDirHook = Arc<dyn Fn(&Path) -> Result<(), PlatformError> + Send + Sync>;
 /// Runs right after [`Platform::open_read_nofollow`](crate::Platform::open_read_nofollow)
 /// opened a path (e.g. to swap the file under the open fd).
 pub type OpenHook = Arc<dyn Fn(&Path) + Send + Sync>;
@@ -28,6 +31,8 @@ pub struct Hooks {
     pub on_metadata: Option<MetadataHook>,
     /// See [`RenameHook`].
     pub on_rename: Option<RenameHook>,
+    /// See [`SyncDirHook`].
+    pub on_sync_dir: Option<SyncDirHook>,
     /// See [`OpenHook`].
     pub on_open: Option<OpenHook>,
     /// See [`StatusHook`].
@@ -50,6 +55,7 @@ impl fmt::Debug for Hooks {
         f.debug_struct("Hooks")
             .field("on_metadata", &self.on_metadata.is_some())
             .field("on_rename", &self.on_rename.is_some())
+            .field("on_sync_dir", &self.on_sync_dir.is_some())
             .field("on_open", &self.on_open.is_some())
             .field(
                 "on_file_manager_status",

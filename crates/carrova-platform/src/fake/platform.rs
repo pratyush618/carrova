@@ -131,6 +131,9 @@ impl Platform for FakePlatform {
     #[cfg(any(unix, windows))]
     fn sync_dir(&self, path: &Path) -> Result<(), PlatformError> {
         self.hooks.count_dir_sync();
+        if let Some(hook) = &self.hooks.hooks.on_sync_dir {
+            hook(path)?;
+        }
         crate::sys::sync_dir(path)
     }
 
