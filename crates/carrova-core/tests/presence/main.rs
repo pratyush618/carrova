@@ -8,6 +8,7 @@ mod common;
 #[expect(dead_code, reason = "shared test helpers; this test uses a subset")]
 #[path = "../support/lan.rs"]
 mod lan_support;
+mod visibility;
 
 use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::lan::{NearbyDevice, browse_nearby};

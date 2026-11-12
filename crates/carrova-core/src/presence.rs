@@ -2,6 +2,10 @@
 //! user's [`Visibility`] allows (ADR 0001 §5): known devices recognise it
 //! by tags only they can check; everyone else sees its name and OS only
 //! while the user shows it to everyone.
+//!
+//! The user's choice is kept in `presence.json` in the state dir
+//! ([`load_visibility`], [`save_visibility`]), so the CLI and the desktop
+//! app share one value.
 
 use std::sync::Arc;
 use std::sync::mpsc::{self, RecvTimeoutError};
@@ -10,11 +14,13 @@ use std::time::Duration;
 
 use carrova_platform::Platform;
 use carrova_transport::{KnownTags, MAX_KNOWN_TAGS, PresenceAdvert, PresenceBeacon};
+use serde::{Deserialize, Serialize};
 
 use crate::devices::KnownDevices;
 use crate::engine::Engine;
-use crate::error::Result;
+use crate::error::{CoreError, EncodeError, Result};
 use crate::lan::{clean_device_name, known_by_recent_use};
+use crate::store::{ensure_dir, read_file, write_atomic};
 use crate::time::now_unix;
 
 /// How often a running [`Presence`] re-announces itself under a new mDNS
@@ -22,8 +28,16 @@ use crate::time::now_unix;
 /// time by `kt` or instance name (each restart costs one mDNS announce).
 pub const REFRESH: Duration = Duration::from_secs(10 * 60);
 
+/// How long "everyone" lasts when the user picks it
+/// ([`Visibility::everyone_from`]).
+pub const EVERYONE_FOR: Duration = Duration::from_secs(10 * 60);
+
+/// The user's [`Visibility`], in the state dir.
+pub const VISIBILITY_FILE: &str = "presence.json";
+
 /// Who may find this device nearby.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Visibility {
     /// Nobody: no advert.
     NoOne,
@@ -48,6 +62,47 @@ impl Visibility {
             other => other,
         }
     }
+
+    /// Everyone, for [`EVERYONE_FOR`] from `now` (Unix seconds).
+    #[must_use]
+    pub const fn everyone_from(now: u64) -> Self {
+        Self::Everyone {
+            until: now.saturating_add(EVERYONE_FOR.as_secs()),
+        }
+    }
+}
+
+/// The visibility the user chose, as in force at `now`: [`Visibility::Known`]
+/// when none was saved, when the file is from another version or
+/// unreadable as one (logged; the default is never a reason to fail), or
+/// when "everyone" has run out.
+///
+/// # Errors
+///
+/// The state dir or the file cannot be read.
+pub fn load_visibility(platform: &dyn Platform, now: u64) -> Result<Visibility> {
+    let Some(bytes) = read_file(platform, &platform.state_dir()?.join(VISIBILITY_FILE))? else {
+        return Ok(Visibility::default());
+    };
+    let saved = serde_json::from_slice::<Visibility>(&bytes)
+        .inspect_err(|e| tracing::warn!(error = %e, "saved visibility unreadable: known devices"))
+        .unwrap_or_default();
+    Ok(saved.at(now))
+}
+
+/// Keep `visibility` as the user's choice (atomically, mode `600`).
+///
+/// # Errors
+///
+/// The state dir or the file cannot be written.
+pub fn save_visibility(platform: &dyn Platform, visibility: Visibility) -> Result<()> {
+    let dir = platform.state_dir()?;
+    ensure_dir(platform, &dir, 0o700)?;
+    let bytes = serde_json::to_vec(&visibility).map_err(|e| CoreError::Encode {
+        what: VISIBILITY_FILE.to_owned(),
+        source: EncodeError::from(e),
+    })?;
+    write_atomic(platform, &dir, VISIBILITY_FILE, &bytes)
 }
 
 /// What this device announces under `visibility` at `now`: tags (fresh
