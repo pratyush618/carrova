@@ -411,6 +411,14 @@
   font-size: var(--t-sm);
   color: var(--text-secondary);
   white-space: nowrap;
+  /* Keeps a long name out of the map's slots. */
+  max-inline-size: 300px;
+}
+
+.s-near__pill-text {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .s-near__pill b {
