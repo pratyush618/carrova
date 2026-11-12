@@ -16,7 +16,7 @@ use std::time::Duration;
 
 use carrova_core::time::now_unix;
 use carrova_view::devices::VisibilityChoice;
-use carrova_view::ipc::EVENT_CHANNEL;
+use carrova_view::ipc::{BridgeEvent, EVENT_CHANNEL};
 use carrova_view::tray::{
     CloseAction, TrayItem, TrayModel, tray_menu, tray_tooltip, tray_visibility,
 };
@@ -350,8 +350,17 @@ fn on_menu(app: &AppHandle, id: &str) {
         return;
     }
     match id {
-        "open" | "nearby" => {
+        "open" => {
             open_main(app);
+        }
+        "nearby" => {
+            // shortcut: a window built fresh here (lean mode) is not listening
+            // yet and opens on Home; queue it like send requests if that matters.
+            if open_main(app).is_some()
+                && let Some(state) = app.try_state::<AppState>()
+            {
+                state.out.emit(&BridgeEvent::ShowNearby);
+            }
         }
         "send" => pick_and_send(app),
         "pause" => {

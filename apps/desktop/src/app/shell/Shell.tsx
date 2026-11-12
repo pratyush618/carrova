@@ -5,7 +5,7 @@ import { ChromeContext, Toast, Window } from '../../ui';
 import { useControllers } from '../controllers/Controllers';
 import type { FlowId } from '../nav/flows';
 import { navigate, type Nav, type NavEvent } from '../nav/navMachine';
-import { useSession } from '../state/EngineState';
+import { useNearbyRequests, useSession } from '../state/EngineState';
 import { buildChrome } from './chrome';
 import { useForwardedSends } from './forward';
 import { useBell } from './useBell';
@@ -31,6 +31,18 @@ function useScreenFocus(key: string, root: RefObject<HTMLDivElement | null>): vo
       root.current?.querySelector<HTMLElement>('[data-autofocus-fallback]');
     target?.focus({ preventScroll: true });
   }, [key, root]);
+}
+
+/** The tray's "Nearby" opens the Nearby page, unless a flow is open (a move is never left mid-way). */
+function useTrayNearby(onHub: boolean, dispatch: (event: NavEvent) => void): void {
+  const asked = useNearbyRequests();
+  const hub = useRef(onHub);
+  useEffect(() => {
+    hub.current = onHub;
+  });
+  useEffect(() => {
+    if (asked > 0 && hub.current) dispatch({ type: 'openHub', page: 'nearby' });
+  }, [asked, dispatch]);
 }
 
 /** The app: navigation state, chrome, the current screen and its overlays. */
@@ -70,6 +82,7 @@ export function Shell({ initial }: { readonly initial: Nav }) {
     [go],
   );
   const forwarded = useForwardedSends(go, nav.view);
+  useTrayNearby(nav.view.kind === 'hub', dispatch);
   const recipes = controllers.settings.recipes;
   const bell = useBell(go);
   const visibility = controllers.devices.visibility;

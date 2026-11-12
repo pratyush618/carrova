@@ -52,7 +52,7 @@ export function isBridgeEvent(value: unknown): value is BridgeEvent {
   if (!isRecord(value)) {
     return false;
   }
-  if (value['kind'] === 'send_requested') {
+  if (value['kind'] === 'send_requested' || value['kind'] === 'show_nearby') {
     return true;
   }
   if (value['kind'] === 'notice') {

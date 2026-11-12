@@ -72,6 +72,8 @@ pub enum BridgeEvent {
     /// Paths to send arrived from outside (file manager, a second
     /// launch): fetch them with the `take_send_request` command.
     SendRequested,
+    /// The tray's "Nearby" was chosen: show the Nearby page.
+    ShowNearby,
     /// Something new reached the notification inbox (the bell).
     Notice {
         /// The new, unread notice.

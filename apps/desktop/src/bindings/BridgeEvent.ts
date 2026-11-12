@@ -44,7 +44,7 @@ session: SessionId,
 /**
  * Failure, if the task did not succeed.
  */
-error: BridgeError | null, } | { "kind": "send_requested" } | { "kind": "notice", 
+error: BridgeError | null, } | { "kind": "send_requested" } | { "kind": "show_nearby" } | { "kind": "notice", 
 /**
  * The new, unread notice.
  */

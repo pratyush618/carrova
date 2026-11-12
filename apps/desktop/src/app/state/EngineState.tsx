@@ -26,6 +26,8 @@ interface EngineStateApi {
   readonly sendRequests: number;
   /** How many `notice` events arrived (each: the inbox has something new). */
   readonly noticeEvents: number;
+  /** How many `show_nearby` events arrived (each: the tray asked for the Nearby page). */
+  readonly nearbyRequests: number;
 }
 
 const EngineStateContext = createContext<EngineStateApi | null>(null);
@@ -36,6 +38,7 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [sendRequests, setSendRequests] = useState(0);
   const [noticeEvents, setNoticeEvents] = useState(0);
+  const [nearbyRequests, setNearbyRequests] = useState(0);
   useEffect(() => {
     let stop: (() => void) | null = null;
     let live = true;
@@ -44,6 +47,7 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
         // Forwarded sends and notices are not session state: the shell takes the paths, the bell reloads.
         if (event.kind === 'send_requested') setSendRequests((n) => n + 1);
         else if (event.kind === 'notice') setNoticeEvents((n) => n + 1);
+        else if (event.kind === 'show_nearby') setNearbyRequests((n) => n + 1);
         else dispatch(bridgeAction(event, Date.now()));
       })
       .then((unsubscribe) => {
@@ -56,8 +60,8 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
     };
   }, [port]);
   const api = useMemo(
-    () => ({ state, dispatch, sendRequests, noticeEvents }),
-    [state, sendRequests, noticeEvents],
+    () => ({ state, dispatch, sendRequests, noticeEvents, nearbyRequests }),
+    [state, sendRequests, noticeEvents, nearbyRequests],
   );
   return <EngineStateContext value={api}>{children}</EngineStateContext>;
 }
@@ -87,4 +91,9 @@ export function useEngineDispatch(): (action: AppAction) => void {
 /** Changes on each `notice` event (something new reached the inbox). */
 export function useNoticeEvents(): number {
   return useEngineState().noticeEvents;
+}
+
+/** Changes on each `show_nearby` event (the tray's "Nearby"). */
+export function useNearbyRequests(): number {
+  return useEngineState().nearbyRequests;
 }

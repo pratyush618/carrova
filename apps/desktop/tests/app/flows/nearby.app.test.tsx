@@ -65,4 +65,12 @@ describe('nearby', () => {
     expect(wake).toHaveBeenCalledWith('o3');
     expect(await screen.findByText(/Wake sent to Old ThinkPad/)).toBeInTheDocument();
   });
+
+  it("opens Nearby when the tray's Nearby is chosen", async () => {
+    const { port, push } = nearbyPort();
+    await renderApp({ port, returning: true });
+    await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
+    push({ kind: 'show_nearby' });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Nearby' })).toBeInTheDocument();
+  });
 });
