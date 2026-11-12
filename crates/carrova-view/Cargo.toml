@@ -21,6 +21,8 @@ tracing = { workspace = true }
 ts-rs = { workspace = true, optional = true }
 
 [dev-dependencies]
+carrova-platform = { workspace = true, features = ["fake"] }
+tempfile = { workspace = true }
 
 [features]
 # TypeScript bindings (ts-rs) of the view-models and every engine type a

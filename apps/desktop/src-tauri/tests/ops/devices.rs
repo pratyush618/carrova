@@ -7,7 +7,7 @@ use carrova_core::presence::{Visibility, load_visibility};
 use carrova_core::time::now_unix;
 use carrova_crypto::identity::{DeviceKey, DevicePublic, Fingerprint};
 use carrova_crypto::pairing::KnownSecret;
-use carrova_platform::{OsKind, Platform};
+use carrova_platform::OsKind;
 use carrova_view::devices::{ForgetDevices, VisibilityChoice};
 use carrova_view::ipc::ErrorCode;
 use tauri::async_runtime::block_on;
@@ -202,87 +202,6 @@ fn turning_wake_hints_off_clears_the_saved_hints() {
     save_wol_hints(&state, false);
     assert!(!has_wake_hint(&state));
     assert!(!block_on(settings::load(&state)).unwrap().nearby.wol_hints);
-}
-
-#[test]
-fn hints_that_cannot_be_dropped_leave_wake_hints_on() {
-    let machine = Machine::new();
-    let (state, _) = counting(&machine);
-    save_wol_hints(&state, true);
-    remember(&machine, 1, "Desk");
-    let known = machine
-        .platform
-        .state_dir()
-        .unwrap()
-        .join("devices/known.json");
-    std::fs::write(known, b"{not json").unwrap();
-
-    let patch = serde_json::json!({ "nearby": { "wol_hints": false } });
-    assert!(block_on(settings::save(&state, patch)).is_err());
-    assert!(
-        block_on(settings::load(&state)).unwrap().nearby.wol_hints,
-        "put back on"
-    );
-}
-
-#[test]
-fn hints_left_by_an_earlier_save_go_with_the_next_save_while_off() {
-    let machine = Machine::new();
-    let (state, _) = counting(&machine);
-    save_wol_hints(&state, true);
-    remember_with_hint(&machine, 1, "Desk", Some([2, 0, 0, 0, 0, 1]));
-    // As a save that replaced the file, then failed before dropping hints.
-    let mut off = block_on(settings::load(&state)).unwrap();
-    off.nearby.wol_hints = false;
-    state.settings.save(&off).unwrap();
-
-    save_wol_hints(&state, false);
-    assert!(!has_wake_hint(&state));
-}
-
-#[test]
-fn a_failed_save_turning_hints_off_still_drops_them() {
-    let machine = Machine::new();
-    let (state, _) = counting(&machine);
-    save_wol_hints(&state, true);
-    remember_with_hint(&machine, 1, "Desk", Some([2, 0, 0, 0, 0, 1]));
-    let temp = machine
-        .platform
-        .state_dir()
-        .unwrap()
-        .join("desktop-settings.json.tmp/blocked");
-    std::fs::create_dir_all(temp).unwrap();
-
-    let patch = serde_json::json!({ "nearby": { "wol_hints": false } });
-    assert!(block_on(settings::save(&state, patch)).is_err());
-    assert!(!has_wake_hint(&state), "the file may say off already");
-}
-
-#[test]
-fn unreadable_hints_do_not_block_a_save_while_hints_are_off() {
-    let machine = Machine::new();
-    let (state, _) = counting(&machine);
-    remember(&machine, 1, "Desk");
-    let known = machine
-        .platform
-        .state_dir()
-        .unwrap()
-        .join("devices/known.json");
-    std::fs::write(known, b"{not json").unwrap();
-
-    let patch = serde_json::json!({ "nearby": { "remember": false } });
-    block_on(settings::save(&state, patch)).unwrap();
-    assert!(!block_on(settings::load(&state)).unwrap().nearby.remember);
-}
-
-#[test]
-fn a_save_with_hints_off_creates_no_device_store() {
-    let machine = Machine::new();
-    let (state, _) = counting(&machine);
-    let patch = serde_json::json!({ "nearby": { "remember": false } });
-    block_on(settings::save(&state, patch)).unwrap();
-    let devices = machine.platform.state_dir().unwrap().join("devices");
-    assert!(!devices.exists(), "nothing to clear on a fresh install");
 }
 
 #[test]
