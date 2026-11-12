@@ -105,6 +105,22 @@ describe('background settings', () => {
 });
 
 describe('saving settings', () => {
+  it('goes back to the stored value when a save is refused', async () => {
+    const port = createFakePort({ stepMs: 0 });
+    const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));
+    await waitFor(() => {
+      expect(settings.result.current.settings).not.toBeNull();
+    });
+    const stored = (await port.settings()).theme;
+    vi.spyOn(port, 'saveSettings').mockRejectedValue(FAILED);
+    act(() => {
+      settings.result.current.save({ theme: stored === 'dark' ? 'light' : 'dark' });
+    });
+    await waitFor(() => {
+      expect(settings.result.current.settings?.theme).toBe(stored);
+    });
+  });
+
   it('keeps a pause set in the tray while the window was open', async () => {
     const port = createFakePort({ stepMs: 0 });
     const settings = renderHook(() => useSettings(port, idle, NO_DEVICES));

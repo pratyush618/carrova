@@ -74,16 +74,19 @@ export function useSettings(
       void reloadRecipes();
   }, [install.state, reloadRecipes]);
 
+  const reload = loaded.run;
   const save = useCallback(
     (patch: SettingsPatch) => {
       if (settings === null) return;
       setEdited(withPatch(settings, patch));
-      void port.saveSettings(patch);
+      void port.saveSettings(patch).catch(() => {
+        setEdited(null);
+        void reload();
+      });
     },
-    [port, settings],
+    [port, settings, reload],
   );
 
-  const reload = loaded.run;
   const setBackground = useCallback(
     (patch: Partial<BackgroundSettings>) => {
       if (settings === null) return;
