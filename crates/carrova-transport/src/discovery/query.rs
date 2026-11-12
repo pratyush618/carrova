@@ -201,9 +201,10 @@ pub(super) fn mdns_browse<T>(
         };
         for ip in service.get_addresses_v4() {
             let addr = SocketAddrV4::new(ip, service.get_port());
-            // mDNS queries go to multicast, never to loopback.
+            // mDNS queries go to multicast, never to loopback. Keyed by
+            // service too: two installs on one host share an address.
             if plausible_sender(addr, false)
-                && seen.insert(addr)
+                && seen.insert((service.get_fullname().to_owned(), addr))
                 && tx.blocking_send(make(addr, announced.clone())).is_err()
             {
                 break 'browse;
