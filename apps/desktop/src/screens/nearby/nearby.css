@@ -7,7 +7,7 @@
 }
 
 .s-near__field {
-  --cy: 46%;
+  --cy: 38%;
   position: relative;
   block-size: 100%;
   min-block-size: 520px;
@@ -125,9 +125,9 @@
   translate: calc(-50% + var(--dx) * var(--k)) calc(-50% + var(--dy) * 1px);
 }
 
-/* Inner devices shrink less: at the narrowest field they must still clear this computer's label (half a pill + half the label is 122px). */
+/* Inner devices shrink less: at the narrowest field they must still clear this computer's label (half the widest pill + half the label is 134px). */
 .s-near__spot--inner {
-  --k: max(var(--u), 0.85px);
+  --k: max(var(--u), 0.95px);
 }
 
 [dir='rtl'] .s-near__spot {

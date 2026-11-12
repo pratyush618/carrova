@@ -6,7 +6,7 @@ import { spot } from '@/screens/nearby/spots';
 const PILL = { width: 164, height: 52 };
 // Clear by this much, not just touching: spots are rounded to whole pixels and the real pill height varies a little with the font.
 const GAP = 6;
-// Field widths: the narrowest supported (508px: --u 0.545) and a roomy one; inner spots shrink by --k = max(--u, 0.85).
+// Field widths: the narrowest supported (508px: --u 0.545) and a roomy one; inner spots shrink by --k = max(--u, 0.95).
 const FIELDS = [0.545, 1];
 
 interface Pill {
@@ -20,7 +20,7 @@ function pills(inner: number, outer: number, u: number): Pill[] {
       const { dx, dy } = spot(ring, i, count);
       return { x: dx * k, y: dy };
     });
-  return [...on('inner', inner, Math.max(u, 0.85)), ...on('outer', outer, u)];
+  return [...on('inner', inner, Math.max(u, 0.95)), ...on('outer', outer, u)];
 }
 
 const overlapping = (a: Pill, b: Pill) =>
