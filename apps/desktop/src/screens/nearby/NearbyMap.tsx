@@ -170,7 +170,7 @@ export function NearbyMap({
             <button
               type="button"
               className="s-near__more"
-              aria-label={t('nearby.moreAll', { count: devices.length, more: more.length })}
+              aria-label={t('nearby.moreAll', { total: devices.length, more: more.length })}
               onClick={onMore}
             >
               {t('nearby.more', { count: more.length })}
