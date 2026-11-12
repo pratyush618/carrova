@@ -6,7 +6,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::PlatformError;
 
@@ -55,7 +55,8 @@ fn first_watch(backend: &mut impl Backend, dirs: &[PathBuf]) -> Result<Vec<Found
 }
 
 /// Report changes until told to stop (or watching cannot go on); the dirs
-/// are rechecked after `recheck` without a change.
+/// are rechecked `recheck` after the last recheck or change reported,
+/// however much noise arrives meanwhile.
 fn follow(
     backend: &mut impl Backend,
     wakes: &Receiver<Wake>,
@@ -64,13 +65,15 @@ fn follow(
     changed: &dyn Fn(),
     recheck: Duration,
 ) {
+    let mut next = Instant::now() + recheck;
     loop {
-        match wakes.recv_timeout(recheck) {
+        match wakes.recv_timeout(next.saturating_duration_since(Instant::now())) {
             Ok(Wake::Stop) | Err(RecvTimeoutError::Disconnected) => return,
             Ok(Wake::Noise) => continue,
             Err(RecvTimeoutError::Timeout)
                 if present_dirs(dirs).is_ok_and(|now| unchanged(&now, &watched)) =>
             {
+                next = Instant::now() + recheck;
                 continue;
             }
             Ok(Wake::Changed) | Err(RecvTimeoutError::Timeout) => {}
@@ -82,6 +85,7 @@ fn follow(
         }
         let rewatched = rewatch(backend, dirs, &watched);
         changed();
+        next = Instant::now() + recheck;
         // A dir refused, or none left to report one appearing: end, so the
         // caller learns it as `changed` drops.
         match rewatched {

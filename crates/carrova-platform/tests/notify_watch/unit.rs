@@ -203,3 +203,21 @@ fn a_dir_replaced_between_rechecks_is_watched_afresh() {
     assert!(watch.changed(), "the recheck missed a replaced dir");
     assert_eq!(watch.backend.last(), dirs);
 }
+
+#[test]
+fn noise_does_not_put_off_the_recheck() {
+    let tmp = TempDir::new().unwrap();
+    let dirs = dirs(&tmp, &["a", "b"]);
+    let watch = run(&dirs, Fake::default());
+    fs::remove_dir(&dirs[1]).unwrap();
+    let noise = watch.wake.clone();
+    let stream = thread::spawn(move || {
+        // Until the watch ends.
+        while noise.send(Wake::Noise).is_ok() {
+            thread::sleep(RECHECK / 5);
+        }
+    });
+    assert!(watch.changed(), "a stream of noise put off the recheck");
+    drop(watch);
+    stream.join().unwrap();
+}
