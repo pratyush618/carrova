@@ -12,7 +12,7 @@ import {
   nearbyNoHint,
   nearbySelected,
 } from '@/screens/nearby/fixtures';
-import type { NearbyIntents, NearbyModel, NearbyView } from '@/screens/nearby/model';
+import type { DeviceEntry, NearbyIntents, NearbyModel, NearbyView } from '@/screens/nearby/model';
 import { NearbyScreen } from '@/screens/nearby/NearbyScreen';
 import { ChromeContext, Window } from '@/ui';
 
@@ -105,6 +105,33 @@ describe('Nearby', () => {
     expect(within(card).getByText('Moves together')).toBeInTheDocument();
     expect(within(card).getByText('7F3A·19C2')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Ana's laptop/, pressed: true })).toBeInTheDocument();
+  });
+
+  it('sums up the devices the map has no room for in a chip that opens the list', async () => {
+    const user = userEvent.setup();
+    const on = nearbyOn();
+    const lab = Array.from({ length: 6 }, (_, i) => ({
+      ...nearbyMap.away[1],
+      key: `l${String(i)}`,
+      name: `Lab PC ${String(i)}`,
+    })) as DeviceEntry[];
+    renderScreen(page({ ...nearbyMap, away: [...nearbyMap.away, ...lab] }, on));
+    const map = screen.getByRole('list', { name: 'Nearby devices' });
+    const chip = within(map).getByRole('button', {
+      name: '+6 more: show all 11 devices in the list',
+    });
+    expect(chip).toHaveTextContent(/^\+6 more$/);
+    expect(within(map).getAllByRole('button').at(-1)).toBe(chip);
+    await user.click(chip);
+    expect(on.onView).toHaveBeenCalledWith('list');
+  });
+
+  it('names every device in full, also when its pill cuts the name short', () => {
+    renderScreen(page(nearbyMap));
+    expect(screen.getByRole('button', { name: /^Ana's laptop/ })).toHaveAttribute(
+      'title',
+      "Ana's laptop",
+    );
   });
 
   it('moves focus to the card when a device is chosen on the map', async () => {
