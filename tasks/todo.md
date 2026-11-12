@@ -581,3 +581,10 @@ Deferred: fake port doesn't re-check sensitivity for remapped items; `planOption
 - [x] 2.4 Rust wiring (devices/visibility commands, background presence, tray, CLI `carrova devices|visibility`) + UI (Nearby page, known-devices settings, Wake, remembered notice, tray → Nearby)
 - [ ] 2.6 gate: `just ci`, `just e2e-ui`, boundary review, final review, PR
 - [ ] Phase 3 (code-less requests): needs its own ADR sign-off (Task 3.0)
+
+Follow-ups (after PR #9):
+- [ ] Nearby map: at 1100×520 an outer-ring device sits under the visibility pill (adjust orbit, visual check vs mockup)
+- [ ] macOS/Windows wake hints: `Platform::neighbour_mac` returns `None` there (needs `arp -an` / `GetIpNetTable2`), so no hint is saved and Wake never shows
+- [ ] macOS/Windows file watch: `Platform::watch_dirs` unsupported (FSEvents / ReadDirectoryChangesW); presence polls every 5 s and the tray doesn't follow CLI visibility changes there
+- [ ] macOS device name: host name, not System Settings "Computer Name"
+- [ ] Real-hardware check of known devices / Nearby / Wake on Windows and macOS (Phase 5 exit gate)
