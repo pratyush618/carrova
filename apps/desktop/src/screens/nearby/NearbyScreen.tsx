@@ -70,6 +70,9 @@ export function NearbyScreen({
               setPulse(false);
             }}
             onSelect={on.onSelect}
+            onMore={() => {
+              on.onView('list');
+            }}
           >
             {selected === null ? looking : <DeviceCard device={selected} now={model.now} on={on} />}
           </NearbyMap>

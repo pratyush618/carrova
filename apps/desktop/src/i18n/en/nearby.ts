@@ -5,6 +5,11 @@ export const nearby = {
   views: { map: 'Map', list: 'List' },
   me: 'This computer',
   map: 'Nearby devices',
+  more_one: '+{{count}} more',
+  more_other: '+{{count}} more',
+  // Starts with the chip's visible text, so voice control finds it by what it shows.
+  moreAll_one: '+{{more}} more: show the device in the list',
+  moreAll_other: '+{{more}} more: show all {{count}} devices in the list',
   here: 'Here now',
   away: 'Known, not here',
   status: { known: 'Known', new: 'New, needs a code', away: 'Away' },
