@@ -36,6 +36,15 @@ describe('nearby views', () => {
     expect(here.map((d) => d.key)).toEqual(['new:new-mbp', 'new:new-mbp:2', 'new:new-mbp:3']);
   });
 
+  it('keys a new device apart even when another one is named like a suffixed key', () => {
+    const names = ['Laptop', 'Laptop', 'Laptop:2'];
+    const { here } = nearbyEntries(
+      names.map((name) => answer({ name })),
+      [],
+    );
+    expect(new Set(here.map((d) => d.key)).size).toBe(names.length);
+  });
+
   it('lists who answered in answer order, then remembered devices that did not', () => {
     const known = [record('aa', 'Ana'), record('bb', 'Old ThinkPad', true)];
     const found = [

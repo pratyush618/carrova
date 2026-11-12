@@ -53,12 +53,14 @@ export function nearbyEntries(
 ): { readonly here: DeviceEntry[]; readonly away: DeviceEntry[] } {
   const byId = new Map(known.map((record) => [record.id, record]));
   const answered = new Set(found.flatMap((device) => (device.id === null ? [] : [device.id])));
-  // New devices have no id: key them by name, the 2nd of a name `new:<name>:2`, and so on.
-  const named = new Map<string, number>();
+  // New devices have no id: key them by name, the 2nd of a name `new:<name>:2`, and so
+  // on, skipping any key already taken (a device may be named `<name>:2`).
+  const taken = new Set<string>();
   const newKey = (name: string): string => {
-    const nth = (named.get(name) ?? 0) + 1;
-    named.set(name, nth);
-    return nth === 1 ? `new:${name}` : `new:${name}:${String(nth)}`;
+    let key = `new:${name}`;
+    for (let nth = 2; taken.has(key); nth++) key = `new:${name}:${String(nth)}`;
+    taken.add(key);
+    return key;
   };
   return {
     here: found.map((device) =>
