@@ -148,26 +148,34 @@ fn everyone_reverts_after_deadline() {
 
 #[test]
 fn everyone_already_past_deadline_on_start_is_known() {
-    if !loopback_broadcast_works() {
-        return;
-    }
+    let past = Visibility::Everyone { until: NOW - 1 };
     assert_eq!(
-        advert_at(
-            &Side::named(Some("desk")),
-            Visibility::Everyone { until: NOW - 1 },
-            NOW
-        ),
+        advert_at(&Side::named(Some("desk")), past, NOW),
         None,
         "no known devices and past its deadline: nothing to announce"
     );
     let name = unique("past");
-    let side = Side::named(Some(&name));
-    remember(&side, public(1), "laptop", None);
+    let desk = Side::named(Some(&name));
+    let laptop = Side::new();
+    let secret = remember(&desk, own_key(&laptop), "laptop", None);
+    let advert = advert_at(&desk, past, NOW).unwrap();
+    assert!(tagged_with(&desk, &advert, &secret));
+    assert_eq!((advert.name, advert.os), (None, None));
+
+    if !loopback_broadcast_works() {
+        return;
+    }
+    remember_with(&laptop, own_key(&desk), "my desk", None, &secret);
     let presence = Presence::start(
-        &side.engine,
+        &desk.engine,
         Visibility::Everyone {
             until: now_unix() - 1,
         },
+    );
+    let found = browse_nearby(&*laptop.platform).unwrap();
+    assert!(
+        found.iter().any(|d| d.known == Some(own_key(&desk))),
+        "known devices still find it by tag: {found:?}"
     );
     let stranger = Side::new();
     let seen = names(&browse_nearby(&*stranger.platform).unwrap());
