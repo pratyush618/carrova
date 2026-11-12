@@ -5,12 +5,9 @@ import { cx } from '../../ui/cx';
 import { Icon, useReducedMotion } from '../../ui';
 import type { DeviceEntry } from './model';
 
-/**
- * Ring radius in field units (`--u`, 1px on a roomy field; inner = answering now), and where on it the first device sits.
- * The inner radius clears this computer's label at the narrowest field (half the label and half a pill plus a margin, at `--u` 0.55).
- */
+/** Ring radius in field units (`--u`, 1px on a roomy field; inner = answering now), and where on it the first device sits. */
 const RINGS: Readonly<Record<Ring, { readonly radius: number; readonly start: number }>> = {
-  inner: { radius: 260, start: 30 },
+  inner: { radius: 170, start: 30 },
   outer: { radius: 290, start: -30 },
 };
 
@@ -48,7 +45,10 @@ function DeviceDot({
 }) {
   const { t } = useTranslation();
   return (
-    <li className="s-near__spot" style={{ '--dx': String(at.dx), '--dy': String(at.dy) }}>
+    <li
+      className={`s-near__spot s-near__spot--${device.ring}`}
+      style={{ '--dx': String(at.dx), '--dy': String(at.dy) }}
+    >
       <button
         type="button"
         data-key={device.key}

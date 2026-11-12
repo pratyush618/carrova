@@ -121,11 +121,17 @@
 
 /* Spots are placed from the centre by their offset on the orbit; only the width shrinks with the field. */
 .s-near__spot {
-  translate: calc(-50% + var(--dx) * var(--u)) calc(-50% + var(--dy) * 1px);
+  --k: var(--u);
+  translate: calc(-50% + var(--dx) * var(--k)) calc(-50% + var(--dy) * 1px);
+}
+
+/* Inner devices shrink less: at the narrowest field they must still clear this computer's label (half a pill + half the label is 122px). */
+.s-near__spot--inner {
+  --k: max(var(--u), 0.85px);
 }
 
 [dir='rtl'] .s-near__spot {
-  translate: calc(50% - var(--dx) * var(--u)) calc(-50% + var(--dy) * 1px);
+  translate: calc(50% - var(--dx) * var(--k)) calc(-50% + var(--dy) * 1px);
 }
 
 .s-near__dev {
