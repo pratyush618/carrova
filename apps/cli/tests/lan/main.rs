@@ -10,7 +10,10 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
+use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_platform::OsKind;
+use carrova_platform::fake::FakePlatform;
+use carrova_view::ipc::{NearbySettings, SETTINGS_FILE, Settings};
 use tempfile::TempDir;
 
 const SSH_CONFIG: &str = "Host box\n  User me\n";
@@ -64,6 +67,34 @@ impl Machine {
             .stdin(Stdio::null());
         cmd
     }
+
+    /// The state dir as a fake platform, to inspect what the CLI saved.
+    fn platform(&self) -> FakePlatform {
+        FakePlatform::with_home(self.home()).with_state_dir(self.state().join("carrova"))
+    }
+
+    /// Save the desktop app's settings with `nearby`.
+    fn save_nearby(&self, nearby: NearbySettings) {
+        let settings = Settings {
+            nearby,
+            ..Settings::default()
+        };
+        let dir = self.state().join("carrova");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join(SETTINGS_FILE),
+            serde_json::to_vec(&settings).unwrap(),
+        )
+        .unwrap();
+    }
+
+    fn known(&self) -> Vec<DeviceRecord> {
+        let platform = self.platform();
+        KnownDevices::open(&platform)
+            .unwrap()
+            .list(&platform)
+            .unwrap()
+    }
 }
 
 /// Kills the child if the test fails before it exits.
@@ -90,16 +121,17 @@ fn logs(dir: &Path) -> String {
     all
 }
 
-#[test]
-fn send_receive_moves_file_and_never_logs_the_code() {
-    if carrova_platform::current().os() != OsKind::Linux {
-        return;
-    }
-    let src = Machine::new();
-    fs::create_dir_all(src.home().join(".ssh")).unwrap();
-    fs::write(src.home().join(".ssh/config"), SSH_CONFIG).unwrap();
-    let dst = Machine::new();
+/// What one `carrova send` → `carrova receive` move printed.
+struct Moved {
+    code: String,
+    sent: serde_json::Value,
+    sender_err: String,
+    received: serde_json::Value,
+    received_err: String,
+}
 
+/// Move `ssh/config` from `src` to `dst` over loopback; both must succeed.
+fn move_ssh_config(src: &Machine, dst: &Machine) -> Moved {
     let mut sender = Reaped(
         src.carrova(&["send", "--include", "ssh/config", "--yes", "--json"])
             .stdout(Stdio::piped())
@@ -136,13 +168,11 @@ fn send_receive_moves_file_and_never_logs_the_code() {
         .output()
         .unwrap();
     let received_out = String::from_utf8_lossy(&received.stdout);
-    let received_err = String::from_utf8_lossy(&received.stderr);
+    let received_err = String::from_utf8_lossy(&received.stderr).into_owned();
     assert!(
         received.status.success(),
         "receive failed\nstdout:\n{received_out}\nstderr:\n{received_err}"
     );
-    let result: serde_json::Value = serde_json::from_str(&received_out).unwrap();
-    assert_eq!(result["status"], "applied", "{result}");
 
     let status = sender.0.wait().unwrap();
     let mut rest = String::new();
@@ -152,7 +182,34 @@ fn send_receive_moves_file_and_never_logs_the_code() {
         status.success(),
         "send failed\nstdout:\n{rest}\nstderr:\n{sender_err}"
     );
-    let sent: serde_json::Value = serde_json::from_str(&rest).unwrap();
+    Moved {
+        code,
+        sent: serde_json::from_str(&rest).unwrap(),
+        sender_err,
+        received: serde_json::from_str(&received_out).unwrap(),
+        received_err,
+    }
+}
+
+#[test]
+fn send_receive_moves_file_and_never_logs_the_code() {
+    if carrova_platform::current().os() != OsKind::Linux {
+        return;
+    }
+    let src = Machine::new();
+    fs::create_dir_all(src.home().join(".ssh")).unwrap();
+    fs::write(src.home().join(".ssh/config"), SSH_CONFIG).unwrap();
+    let dst = Machine::new();
+
+    let Moved {
+        code,
+        sent,
+        sender_err,
+        received,
+        received_err,
+    } = move_ssh_config(&src, &dst);
+
+    assert_eq!(received["status"], "applied", "{received}");
     assert_eq!(sent["status"], "sent", "{sent}");
     assert!(
         sent["checklist"]["moved"]
@@ -172,9 +229,46 @@ fn send_receive_moves_file_and_never_logs_the_code() {
         ("sender log", logs(&src.state())),
         ("receiver log", logs(&dst.state())),
         ("sender events", sender_err),
-        ("receiver events", received_err.into_owned()),
+        ("receiver events", received_err),
     ] {
         assert!(!text.is_empty(), "{what} is empty");
         assert!(!text.contains(&code), "{what} contains the pairing code");
     }
+}
+
+#[test]
+fn cli_moves_follow_the_desktop_nearby_settings() {
+    if carrova_platform::current().os() != OsKind::Linux {
+        return;
+    }
+    let src = Machine::new();
+    fs::create_dir_all(src.home().join(".ssh")).unwrap();
+    fs::write(src.home().join(".ssh/config"), SSH_CONFIG).unwrap();
+    let dst = Machine::new();
+
+    dst.save_nearby(NearbySettings {
+        remember: false,
+        ..NearbySettings::default()
+    });
+    move_ssh_config(&src, &dst);
+    assert!(dst.known().is_empty(), "remember off: nobody remembered");
+
+    dst.save_nearby(NearbySettings {
+        wol_hints: true,
+        ..NearbySettings::default()
+    });
+    move_ssh_config(&src, &dst);
+    let platform = dst.platform();
+    let store = KnownDevices::open(&platform).unwrap();
+    let mut peer = store.list(&platform).unwrap().remove(0);
+    let secret = store.secret_for(&platform, &peer.public).unwrap().unwrap();
+    peer.mac_hint = Some([2, 0, 0, 0, 0, 1]);
+    store.remember(&platform, peer, &secret).unwrap();
+
+    move_ssh_config(&src, &dst);
+    assert_eq!(
+        dst.known()[0].mac_hint,
+        Some([2, 0, 0, 0, 0, 1]),
+        "wake hints on: a move with no new hint keeps the saved one"
+    );
 }
