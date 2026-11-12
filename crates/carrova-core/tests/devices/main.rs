@@ -437,6 +437,19 @@ fn reset_identity_changes_key_and_forgets_all() {
 }
 
 #[test]
+fn a_reset_that_cannot_replace_the_key_forgets_nothing() {
+    let f = Fixture::new();
+    let old = f.devices.device_key(&f.platform).unwrap().public();
+    f.remember(&record(1, "laptop"), 7);
+    // Something that is no key file blocks writing the new key.
+    std::fs::create_dir_all(f.state.join("device.key.new/blocker")).unwrap();
+    f.devices.reset_identity(&f.platform).unwrap_err();
+    assert_eq!(f.devices.device_key(&f.platform).unwrap().public(), old);
+    assert_eq!(f.devices.list(&f.platform).unwrap().len(), 1);
+    assert_eq!(f.secret(&public(1)), Some([7; KNOWN_SECRET_LEN]));
+}
+
+#[test]
 fn resolve_accepts_a_fingerprint_or_the_full_key() {
     let f = Fixture::new();
     f.remember(&record(1, "laptop"), 7);

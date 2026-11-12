@@ -295,13 +295,16 @@ impl KnownDevices {
         )
     }
 
-    /// Reset this computer's identity: forget every device, then replace
-    /// the device key with a new one (returned). Known peers no longer
-    /// recognise this device until they pair with it again.
+    /// Reset this computer's identity: replace the device key with a new
+    /// one (returned), then forget every device. A key that cannot be
+    /// replaced forgets nothing; a forget that fails after it is finished
+    /// by [`Self::forget_all`]. Known peers no longer recognise this device
+    /// until they pair with it again.
     pub fn reset_identity(&self, platform: &dyn Platform) -> Result<DeviceKey> {
         let _lock = self.lock(platform)?;
+        let key = self.new_device_key(platform)?;
         self.forget_all_locked(platform)?;
-        self.new_device_key(platform)
+        Ok(key)
     }
 
     /// Make and store a new device key (caller holds the lock).
