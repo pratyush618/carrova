@@ -4,6 +4,8 @@ import { spot } from '@/screens/nearby/spots';
 
 // Conservative pill: the widest fixture pill (163px, "new-mbp") by the real height measured in e2e (52px).
 const PILL = { width: 164, height: 52 };
+// Clear by this much, not just touching: spots are rounded to whole pixels and the real pill height varies a little with the font.
+const GAP = 6;
 // Field widths: the narrowest supported (508px: --u 0.545) and a roomy one; inner spots shrink by --k = max(--u, 0.85).
 const FIELDS = [0.545, 1];
 
@@ -22,7 +24,7 @@ function pills(inner: number, outer: number, u: number): Pill[] {
 }
 
 const overlapping = (a: Pill, b: Pill) =>
-  Math.abs(a.x - b.x) < PILL.width && Math.abs(a.y - b.y) < PILL.height;
+  Math.abs(a.x - b.x) < PILL.width + GAP && Math.abs(a.y - b.y) < PILL.height + GAP;
 
 describe('Nearby spots', () => {
   // Guaranteed: up to 5 devices with at most 4 outer, in any split (0–3 inner). A 5th outer, or 6+ devices, is the open density follow-up.
