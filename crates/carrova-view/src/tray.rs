@@ -2,6 +2,8 @@
 //! while it is closed. Front-ends build the native menu from
 //! [`tray_menu`] and dispatch on each item's stable id.
 
+use carrova_core::presence::EVERYONE_FOR;
+
 use crate::devices::VisibilityChoice;
 use crate::ipc::AlertSettings;
 
@@ -53,24 +55,32 @@ pub struct TrayItem {
     pub children: Vec<TrayItem>,
 }
 
-/// The "Visible to" submenu: each choice's item id and label.
-pub const VISIBILITY_ITEMS: [(VisibilityChoice, &str, &str); 3] = [
-    (VisibilityChoice::NoOne, "visible_no_one", "No one"),
-    (VisibilityChoice::Known, "visible_known", "Known devices"),
-    (
-        VisibilityChoice::Everyone,
-        "visible_everyone",
-        "Everyone for 10 minutes",
-    ),
+/// The "Visible to" submenu: each choice's item id.
+pub const VISIBILITY_ITEMS: [(VisibilityChoice, &str); 3] = [
+    (VisibilityChoice::NoOne, "visible_no_one"),
+    (VisibilityChoice::Known, "visible_known"),
+    (VisibilityChoice::Everyone, "visible_everyone"),
 ];
+
+/// What a "Visible to" item says ("everyone" with its length,
+/// [`EVERYONE_FOR`]).
+fn visibility_label(choice: VisibilityChoice) -> String {
+    match choice {
+        VisibilityChoice::NoOne => "No one".to_owned(),
+        VisibilityChoice::Known => "Known devices".to_owned(),
+        VisibilityChoice::Everyone => {
+            format!("Everyone for {} minutes", EVERYONE_FOR.as_secs() / 60)
+        }
+    }
+}
 
 /// The visibility a "Visible to" item id picks, if it is one.
 #[must_use]
 pub fn tray_visibility(id: &str) -> Option<VisibilityChoice> {
     VISIBILITY_ITEMS
         .iter()
-        .find(|(_, item, _)| *item == id)
-        .map(|(choice, _, _)| *choice)
+        .find(|(_, item)| *item == id)
+        .map(|(choice, _)| *choice)
 }
 
 /// The tray menu: a running move's status line, the waiting request, then
@@ -112,9 +122,9 @@ pub fn tray_menu(model: &TrayModel) -> Vec<TrayItem> {
     let visibility = TrayItem {
         children: VISIBILITY_ITEMS
             .iter()
-            .map(|&(choice, id, label)| TrayItem {
+            .map(|&(choice, id)| TrayItem {
                 checked: Some(choice == model.visible_to),
-                ..item(id, label, false)
+                ..item(id, &visibility_label(choice), false)
             })
             .collect(),
         ..item("visibility", "Visible to", false)
