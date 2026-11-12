@@ -221,7 +221,7 @@ impl Settings {
     /// lock. Every save with wake hints off saves the setting, then drops
     /// every saved hint: a move remembered meanwhile asks the saved setting
     /// under the devices lock, so none comes back. Hints are dropped even
-    /// if the save fails (it may have replaced the file), and one an
+    /// if the save fails, unless the saved file still has them on, and one an
     /// earlier save left behind goes with the next. No device store yet
     /// means nothing to drop, and none is made. If the hints cannot be
     /// dropped while turning them off, `old` is written back; while
@@ -238,7 +238,10 @@ impl Settings {
         mut write: impl FnMut(&Self) -> Result<(), E>,
     ) -> Result<(), E> {
         let saved = write(self);
-        if self.nearby.wol_hints {
+        // A failed save may or may not have replaced the file: ask it.
+        let left_on =
+            saved.is_err() && Settings::load(platform).is_ok_and(|saved| saved.nearby.wol_hints);
+        if self.nearby.wol_hints || left_on {
             return saved;
         }
         let cleared = KnownDevices::open_existing(platform)

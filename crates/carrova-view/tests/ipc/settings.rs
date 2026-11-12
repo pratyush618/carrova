@@ -240,6 +240,20 @@ fn a_failed_save_turning_hints_off_still_drops_them() {
 }
 
 #[test]
+fn a_failed_save_that_left_hints_on_keeps_them() {
+    let mut home = Home::new();
+    home.remember(HINT);
+    let state = home.platform.state_dir().unwrap();
+    std::fs::write(
+        state.join(SETTINGS_FILE),
+        serde_json::to_vec(&hints(true)).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(home.save(true, false, true), Err(Failed::Write));
+    assert!(home.has_wake_hint(), "the file still says on");
+}
+
+#[test]
 fn a_failed_save_wins_over_hints_that_cannot_be_dropped() {
     let mut home = Home::new();
     home.remember(None);
