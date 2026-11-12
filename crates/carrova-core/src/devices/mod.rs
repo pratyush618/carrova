@@ -47,6 +47,8 @@ const LOCK_FILE: &str = "known.lock";
 const KNOWN_VERSION: u16 = 1;
 /// Suffix of a known device's key file.
 const KEY_SUFFIX: &str = ".key";
+/// Suffix of a key file being replaced (see `secret_file::replace`).
+const NEW_KEY_SUFFIX: &str = ".key.new";
 
 /// `known.json`. Unknown fields are ignored (and dropped on the next
 /// write), never a reason to reset.
@@ -183,7 +185,8 @@ impl KnownDevices {
         for entry in platform.read_dir(&self.dir)? {
             let name = entry.name.to_string_lossy();
             // `<id>.key` and a stale `<id>.key.new` from a crash.
-            if entry.kind != FileKind::Dir && name.contains(KEY_SUFFIX) {
+            let key_file = name.ends_with(KEY_SUFFIX) || name.ends_with(NEW_KEY_SUFFIX);
+            if entry.kind != FileKind::Dir && key_file {
                 secret_file::wipe(platform, &self.dir, &name, KNOWN_SECRET_LEN)?;
             }
         }

@@ -188,8 +188,11 @@ fn forget_all_removes_every_record_and_key() {
     let f = Fixture::new();
     f.remember(&record(1, "laptop"), 7);
     f.remember(&record(2, "desk"), 8);
+    let other = f.state.join("devices/notes.keyring");
+    std::fs::write(&other, b"not ours").unwrap();
     f.devices.forget_all(&f.platform).unwrap();
     assert_eq!(f.devices.list(&f.platform).unwrap(), vec![]);
+    assert_eq!(std::fs::read(other).unwrap(), b"not ours");
     assert!(!f.key_file(&public(1)).exists() && !f.key_file(&public(2)).exists());
 }
 
