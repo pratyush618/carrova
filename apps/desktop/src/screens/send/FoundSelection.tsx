@@ -172,6 +172,7 @@ function AppGroup({ group, on }: { readonly group: FoundGroup; readonly on: Sele
             label={name}
             items={rows}
             rowHeight={APP_ROW}
+            itemKey={(app) => app.id}
             render={(app) => <AppRow app={app} on={on} />}
           />
         ) : (

@@ -11,7 +11,8 @@ const list = (overscan?: number) => (
     items={items}
     rowHeight={ROW}
     {...(overscan !== undefined && { overscan })}
-    render={(item) => <li key={item}>{item}</li>}
+    itemKey={(item) => item}
+    render={(item) => <li>{item}</li>}
   />
 );
 
@@ -44,5 +45,22 @@ describe('VirtualList', () => {
     expect(screen.getByText('Item 998')).toBeInTheDocument();
     expect(screen.queryByText('Item 0')).not.toBeInTheDocument();
     expect(screen.getAllByRole('listitem').length).toBeLessThanOrEqual(VIEWPORT / ROW + 2 * 2);
+  });
+
+  it("keeps each row's state with its item when an earlier item goes", () => {
+    const row = (item: string) => (
+      <li>
+        <input aria-label={item} />
+      </li>
+    );
+    const names = ['a', 'b', 'c'];
+    const { rerender } = render(
+      <VirtualList items={names} rowHeight={ROW} itemKey={(n) => n} render={row} />,
+    );
+    screen.getByRole('textbox', { name: 'b' }).focus();
+    rerender(
+      <VirtualList items={names.slice(1)} rowHeight={ROW} itemKey={(n) => n} render={row} />,
+    );
+    expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'b' }));
   });
 });

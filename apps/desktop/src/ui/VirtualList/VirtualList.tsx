@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type Key,
   type ReactNode,
 } from 'react';
 import './VirtualList.css';
@@ -14,6 +15,8 @@ export interface VirtualListProps<T> {
   readonly rowHeight: number;
   /** One row: a list item, no key needed. */
   readonly render: (item: T, index: number) => ReactNode;
+  /** The item's stable identity, so a row keeps its state (and focus) when items before it go. */
+  readonly itemKey: (item: T) => Key;
   /** Rows kept mounted beyond each edge of the view. */
   readonly overscan?: number;
   /** The list's accessible name. */
@@ -29,6 +32,7 @@ export function VirtualList<T>({
   items,
   rowHeight,
   render,
+  itemKey,
   overscan = 8,
   label,
 }: VirtualListProps<T>) {
@@ -63,7 +67,7 @@ export function VirtualList<T>({
           }
         >
           {items.slice(start, end).map((item, i) => (
-            <Fragment key={start + i}>{render(item, start + i)}</Fragment>
+            <Fragment key={itemKey(item)}>{render(item, start + i)}</Fragment>
           ))}
         </ul>
       </div>
