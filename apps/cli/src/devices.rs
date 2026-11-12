@@ -1,4 +1,4 @@
-//! `carrova devices list | rename | forget | reset` and `carrova
+//! `carrova devices list | rename | wake | forget | reset` and `carrova
 //! visibility`: the known-device store and who may find this computer,
 //! the same values the desktop app shows (state dir).
 
@@ -42,6 +42,12 @@ enum DevicesCommand {
         device: String,
         /// The new name.
         name: String,
+    },
+    /// Wake a sleeping known device with a Wake-on-LAN packet (needs its
+    /// saved wake hint). Best effort: it may not wake.
+    Wake {
+        /// Its fingerprint (`7F3A·19C2`, separator optional).
+        device: String,
     },
     /// Forget one known device, or all of them. It then needs a code
     /// again.
@@ -117,6 +123,13 @@ pub fn devices(out: &mut impl Write, a: DevicesArgs) -> Result<ExitCode> {
             store.rename(platform, &id, &name)?;
             let fingerprint = Fingerprint::of(&id).to_string();
             finish(out, format, &json!({ "renamed": fingerprint }), "Renamed.")
+        }
+        DevicesCommand::Wake { device } => {
+            let id = store.resolve_id(platform, &device)?;
+            store.wake(platform, &id)?;
+            let fingerprint = Fingerprint::of(&id).to_string();
+            let text = "Wake sent. It can take a minute to show up.";
+            finish(out, format, &json!({ "woke": fingerprint }), text)
         }
         DevicesCommand::Forget {
             device: Some(device),

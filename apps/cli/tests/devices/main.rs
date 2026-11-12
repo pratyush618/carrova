@@ -128,6 +128,18 @@ fn devices_rename_and_forget_by_fingerprint() {
 }
 
 #[test]
+fn waking_a_device_without_a_hint_says_so() {
+    let Some(user) = User::new() else { return };
+    let desk = user.remember(1, "Desk");
+
+    let woke = user.carrova(&["devices", "wake", &Fingerprint::of(&desk).to_string()]);
+
+    assert!(!woke.status.success());
+    let stderr = String::from_utf8_lossy(&woke.stderr);
+    assert!(stderr.contains("no wake hint saved"), "{stderr}");
+}
+
+#[test]
 fn forgetting_every_device_needs_confirmation() {
     let Some(user) = User::new() else { return };
     user.remember(1, "Desk");
