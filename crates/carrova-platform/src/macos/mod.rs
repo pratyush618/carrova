@@ -221,6 +221,15 @@ impl Platform for MacPlatform {
         crate::netops::lan_ipv4_interfaces()
     }
 
+    fn neighbour_mac(&self, addr: std::net::IpAddr) -> Option<[u8; 6]> {
+        let std::net::IpAddr::V4(ip) = addr else {
+            return None;
+        };
+        let mut cmd = self.tool_command(Path::new("/usr/sbin/arp")).ok()?;
+        let table = crate::tool::stdout_of(cmd.arg("-an"))?;
+        crate::neighbours::mac_from_bsd_arp(&table, ip)
+    }
+
     fn send_magic_packet(&self, mac: [u8; 6]) -> Result<(), PlatformError> {
         crate::netops::send_magic_packet(mac)
     }
