@@ -137,11 +137,17 @@ fn follow(
 }
 
 /// Whether the dirs found `now` are those `watched`: the same paths, with
-/// the same identities where both are known.
+/// the same identities. An identity unknown then but known now is a change
+/// (the entry would never be pinned down); unknown now matches by path.
 fn unchanged(now: &[Found], watched: &[Found]) -> bool {
     now.len() == watched.len()
         && now.iter().zip(watched).all(|((path, id), (was, was_id))| {
-            path == was && id.zip(*was_id).is_none_or(|(id, was_id)| id == was_id)
+            path == was
+                && match (id, was_id) {
+                    (Some(id), Some(was_id)) => id == was_id,
+                    (Some(_), None) => false,
+                    (None, _) => true,
+                }
         })
 }
 

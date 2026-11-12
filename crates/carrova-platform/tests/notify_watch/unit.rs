@@ -219,6 +219,25 @@ fn a_dir_replaced_between_rechecks_is_watched_afresh() {
 }
 
 #[test]
+fn an_unknown_watched_identity_does_not_match_a_known_one() {
+    let at = |id: Option<(u64, u64)>| vec![(PathBuf::from("a"), id.map(|(d, i)| DirId(d, i)))];
+    let cases = [
+        (None, Some((1, 1)), false),
+        (Some((1, 1)), Some((1, 1)), true),
+        (Some((1, 1)), Some((1, 2)), false),
+        (Some((1, 1)), None, true),
+        (None, None, true),
+    ];
+    for (watched, now, same) in cases {
+        assert_eq!(
+            unchanged(&at(now), &at(watched)),
+            same,
+            "{watched:?} -> {now:?}"
+        );
+    }
+}
+
+#[test]
 fn noise_does_not_put_off_the_recheck() {
     let tmp = TempDir::new().unwrap();
     let dirs = dirs(&tmp, &["a", "b"]);
