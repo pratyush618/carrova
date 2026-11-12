@@ -2,6 +2,7 @@
 //! and presences, known ones recognised by their tags.
 
 use std::cmp::Reverse;
+use std::collections::HashSet;
 
 use carrova_crypto::identity::DeviceId;
 use carrova_crypto::pairing::KnownSecret;
@@ -38,6 +39,8 @@ pub struct NearbyDevice {
 /// receiver's [`Inventory::device_name`](super::Inventory::device_name)
 /// (names that sanitise to nothing, and unknown devices that give none,
 /// are left out). The user still types the code to pair with a new one.
+/// A known device is listed once, at its first answer, even if it
+/// re-announced (a presence refresh) during the browse.
 ///
 /// An unreadable known-device store is logged and the browse goes on
 /// without recognising anyone.
@@ -51,10 +54,18 @@ pub fn browse_nearby(platform: &dyn Platform) -> Result<Vec<NearbyDevice>> {
         tracing::warn!(error = %e, "known devices unreadable: none recognised nearby");
         Vec::new()
     });
-    Ok(found
+    Ok(once_per_known_device(
+        found.into_iter().filter_map(|n| nearby_device(n, &known)),
+    ))
+}
+
+/// `found` in order, without a known device's later sightings.
+fn once_per_known_device(found: impl IntoIterator<Item = NearbyDevice>) -> Vec<NearbyDevice> {
+    let mut seen = HashSet::new();
+    found
         .into_iter()
-        .filter_map(|n| nearby_device(n, &known))
-        .collect())
+        .filter(|d| d.known.is_none_or(|id| seen.insert(id)))
+        .collect()
 }
 
 /// Up to `limit` known devices that have a secret, most recently moved
@@ -111,3 +122,7 @@ fn nearby_device(found: Nearby, known: &[(DeviceRecord, KnownSecret)]) -> Option
         },
     })
 }
+
+#[cfg(test)]
+#[path = "../../tests/lan/nearby/unit.rs"]
+mod tests;
