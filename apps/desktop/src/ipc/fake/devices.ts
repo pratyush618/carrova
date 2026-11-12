@@ -93,7 +93,7 @@ const stranger = (
   offers_code: true,
 });
 
-/** The crowded split: one new device answers fast, four more slowly (names as long as real ones). */
+/** The crowded split: one new device answers fast, four more slowly (names as long as real ones). Nobody here is known. */
 const CROWDED: readonly NearbyDeviceView[] = [
   stranger("Ana's laptop", 'linux', 'inner', 60),
   stranger('new-mbp', 'mac_os', 'outer', 700),

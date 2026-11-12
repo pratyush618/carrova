@@ -125,8 +125,9 @@
   translate: calc(-50% + var(--dx) * var(--k)) calc(-50% + var(--dy) * 1px);
 }
 
-/* Inner devices shrink less: at the narrowest field they must still clear this computer's label (half the widest pill + half the label is 134px). */
+/* Inner devices shrink less: at the narrowest field they must still clear this computer's label (half the widest pill, `PILL` in tests/screens/nearby/spots.test.ts, plus half the label). */
 .s-near__spot--inner {
+  /* Keep 0.95 in sync with INNER_FLOOR in tests/screens/nearby/spots.test.ts. */
   --k: max(var(--u), 0.95px);
 }
 
