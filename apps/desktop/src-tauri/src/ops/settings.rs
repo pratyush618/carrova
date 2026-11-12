@@ -1,5 +1,8 @@
 //! User settings.
 
+use std::sync::Arc;
+
+use carrova_core::devices::KnownDevices;
 use carrova_view::ipc::{ErrorCode, Settings};
 use serde_json::Value;
 
@@ -21,12 +24,13 @@ pub async fn load(state: &AppState) -> Result<Settings, CommandError> {
 /// Apply `patch` (the changed fields, see [`patched`]) to the saved
 /// settings. Background settings change only through
 /// [`set_background`](super::background::set_background), which keeps
-/// start at sign-in in step with them.
+/// start at sign-in in step with them. Turning wake hints off first drops
+/// every saved hint (so a failure leaves the setting on, as it still is).
 ///
 /// # Errors
 ///
-/// The patch changes background settings or does not fit, or the settings
-/// file cannot be read or written.
+/// The patch changes background settings or does not fit, the settings
+/// file cannot be read or written, or the hints cannot be dropped.
 pub async fn save(state: &AppState, patch: Value) -> Result<(), CommandError> {
     if patch.get("background").is_some() {
         return Err(CommandError::new(
@@ -35,9 +39,16 @@ pub async fn save(state: &AppState, patch: Value) -> Result<(), CommandError> {
         ));
     }
     let store = state.settings.clone();
+    let platform = Arc::clone(&state.platform);
     blocking(move || {
         let _writing = store.lock();
-        store.save(&patched(&store.load()?, patch)?)
+        let old = store.load()?;
+        let new = patched(&old, patch)?;
+        if old.nearby.wol_hints && !new.nearby.wol_hints {
+            let platform = platform.as_ref();
+            KnownDevices::open(platform)?.clear_wake_hints(platform)?;
+        }
+        store.save(&new)
     })
     .await
 }

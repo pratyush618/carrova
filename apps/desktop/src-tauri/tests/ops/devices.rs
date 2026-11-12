@@ -12,7 +12,7 @@ use carrova_view::devices::{ForgetDevices, VisibilityChoice};
 use carrova_view::ipc::ErrorCode;
 use tauri::async_runtime::block_on;
 
-use crate::ops::devices;
+use crate::ops::{devices, settings};
 use crate::state::AppState;
 use crate::testing::{Machine, Refreshes};
 
@@ -31,6 +31,10 @@ fn public(seed: u8) -> DevicePublic {
 }
 
 fn remember(machine: &Machine, seed: u8, name: &str) {
+    remember_with_hint(machine, seed, name, None);
+}
+
+fn remember_with_hint(machine: &Machine, seed: u8, name: &str, mac_hint: Option<[u8; 6]>) {
     let record = DeviceRecord {
         public: public(seed),
         name: name.into(),
@@ -38,7 +42,7 @@ fn remember(machine: &Machine, seed: u8, name: &str) {
         first_seen: 100,
         last_move: None,
         moves: 0,
-        mac_hint: None,
+        mac_hint,
     };
     KnownDevices::open(&machine.platform)
         .unwrap()
@@ -179,4 +183,28 @@ fn waking_a_device_without_a_wake_hint_says_so() {
 
     assert_eq!(error.bridge().code, ErrorCode::KnownDevice);
     assert!(error.bridge().message.contains("wake hint"), "{error}");
+}
+
+fn has_wake_hint(state: &AppState) -> bool {
+    block_on(devices::known_devices(state)).unwrap()[0].has_wake_hint
+}
+
+fn save_wol_hints(state: &AppState, wol_hints: bool) {
+    let patch = serde_json::json!({ "nearby": { "wol_hints": wol_hints } });
+    block_on(settings::save(state, patch)).unwrap();
+}
+
+#[test]
+fn turning_wake_hints_off_clears_the_saved_hints() {
+    let machine = Machine::new();
+    let (state, _) = counting(&machine);
+    save_wol_hints(&state, true);
+    remember_with_hint(&machine, 1, "Desk", Some([2, 0, 0, 0, 0, 1]));
+
+    save_wol_hints(&state, true);
+    assert!(has_wake_hint(&state), "kept while hints stay on");
+
+    save_wol_hints(&state, false);
+    assert!(!has_wake_hint(&state));
+    assert!(!block_on(settings::load(&state)).unwrap().nearby.wol_hints);
 }
