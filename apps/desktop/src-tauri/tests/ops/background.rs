@@ -20,6 +20,14 @@ fn whole(background: BackgroundSettings) -> serde_json::Value {
     serde_json::to_value(background).unwrap()
 }
 
+/// A folder where the settings' temp file goes: nothing can be saved.
+fn block_saves(machine: &Machine) {
+    let blocker = machine
+        .scratch("state")
+        .join(format!("{}.tmp", crate::settings::SETTINGS_FILE));
+    std::fs::create_dir_all(blocker.join("in-the-way")).unwrap();
+}
+
 /// `machine`'s state over a fake we keep a handle on.
 fn with_fake(machine: &Machine) -> (AppState, FakePlatform) {
     let platform = FakePlatform::with_home(&machine.home).with_state_dir(machine.scratch("state"));
@@ -222,11 +230,7 @@ fn refresh_waits_for_a_settings_change_in_progress() {
 fn a_failed_save_leaves_autostart_as_it_was() {
     let machine = Machine::new();
     let (state, platform) = with_fake(&machine);
-    // A folder where the temp file goes: the settings cannot be written.
-    let blocker = machine
-        .scratch("state")
-        .join(format!("{}.tmp", crate::settings::SETTINGS_FILE));
-    std::fs::create_dir_all(blocker.join("in-the-way")).unwrap();
+    block_saves(&machine);
     let mine = BackgroundSettings {
         start_at_login: true,
         ..BackgroundSettings::default()
@@ -277,4 +281,24 @@ fn a_background_change_keeps_the_fields_it_does_not_name() {
         None,
         "not while it does not keep running"
     );
+}
+
+#[test]
+fn a_failed_save_restores_autostart_as_it_was_not_as_saved() {
+    let machine = Machine::new();
+    let (state, platform) = with_fake(&machine);
+    let on = BackgroundSettings {
+        start_at_login: true,
+        ..BackgroundSettings::default()
+    };
+    block_on(background::set_background(&state, whole(on))).unwrap();
+    // Turned off outside Carrova (the desktop's startup apps).
+    platform
+        .set_autostart(&platform.launcher().unwrap(), false)
+        .unwrap();
+    block_saves(&machine);
+
+    assert!(block_on(background::set_background(&state, json!({ "lean": false }))).is_err());
+
+    assert_eq!(platform.autostart_launcher(), None);
 }

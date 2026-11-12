@@ -17,8 +17,8 @@ use crate::worker::blocking;
 /// Apply `patch` (the changed background fields, see [`patched`]) and
 /// start at sign-in only while
 /// both "Keep running" and "Start at login" are on. Autostart changes first
-/// and goes back if the settings cannot be saved, so a failure changes
-/// neither.
+/// and goes back to how it was if the settings cannot be saved, so a
+/// failure changes neither.
 ///
 /// # Errors
 ///
@@ -32,9 +32,11 @@ pub async fn set_background(state: &AppState, patch: Value) -> Result<(), Comman
         let saved = store.load()?;
         let next = patched(&saved, json!({ "background": patch }))?;
         let launcher = platform.launcher()?;
+        // What the system does now, which may differ from the saved choice.
+        let was_on = platform.autostart_status()?;
         platform.set_autostart(&launcher, starts_at_login(&next.background))?;
         store.save(&next).inspect_err(|_| {
-            let undo = platform.set_autostart(&launcher, starts_at_login(&saved.background));
+            let undo = platform.set_autostart(&launcher, was_on);
             if let Err(error) = undo {
                 tracing::error!(%error, "could not undo the autostart change");
             }
