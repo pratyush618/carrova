@@ -96,6 +96,27 @@ describe('nearby', () => {
     expect(screen.queryByText(/Remembered Ana's laptop/)).not.toBeInTheDocument();
   });
 
+  it('stacks the remembered notice with a Wake toast instead of covering one', async () => {
+    const user = userEvent.setup();
+    const { port, push } = nearbyPort();
+    await renderApp({ port, returning: true });
+    await openNearby(user);
+    await user.click(screen.getByRole('radio', { name: 'List' }));
+    await user.click(await screen.findByRole('button', { name: 'Wake: Old ThinkPad' }));
+    const wake = (await screen.findByText(/Wake sent to Old ThinkPad/)).closest('[role=status]');
+    push({
+      kind: 'engine',
+      session: 's1',
+      event: { event: 'device_remembered', name: "Ana's laptop", fingerprint: '7F3A·19C2' },
+    });
+    const remembered = (await screen.findByText(/Remembered Ana's laptop/)).closest(
+      '[role=status]',
+    );
+    // One dock holds both, one above the other.
+    expect(wake?.parentElement).toHaveClass('p-toast-dock');
+    expect(remembered?.parentElement).toBe(wake?.parentElement);
+  });
+
   it("opens Nearby when the tray's Nearby is chosen", async () => {
     const { port, push } = nearbyPort();
     await renderApp({ port, returning: true });
