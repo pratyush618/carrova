@@ -18,8 +18,9 @@
 //! Nothing here logs keys, secrets, full public keys or MAC addresses.
 //!
 //! Every change runs under an exclusive lock on `devices/known.lock`, so
-//! the background app and the CLI never lose each other's updates; reads
-//! need none (`known.json` is replaced atomically).
+//! the background app and the CLI never lose each other's updates. Key
+//! reads take it too (a replaced key file is zeroed in place); record
+//! reads need none (`known.json` is replaced atomically).
 
 mod record;
 mod wake;
@@ -91,19 +92,16 @@ impl KnownDevices {
         Self::open(platform).map(Some)
     }
 
-    /// This device's identity key, made on first need (under the lock,
-    /// written as `device.key.new` and renamed into place, so a crash never
-    /// leaves a partial key and racing processes agree on one key).
+    /// This device's identity key, made on first need (written as
+    /// `device.key.new` and renamed into place, so a crash never leaves a
+    /// partial key). Read and made under the lock, so racing processes
+    /// agree on one key and a reset never zeroes it mid-read.
     pub fn device_key(&self, platform: &dyn Platform) -> Result<DeviceKey> {
-        if let Some(key) = self.read_device_key(platform)? {
-            return Ok(key);
-        }
         let _lock = self.lock(platform)?;
-        // Another process may have made it while we waited.
-        if let Some(key) = self.read_device_key(platform)? {
-            return Ok(key);
+        match self.read_device_key(platform)? {
+            Some(key) => Ok(key),
+            None => self.new_device_key(platform),
         }
-        self.new_device_key(platform)
     }
 
     /// Every known device, in the order first remembered.
@@ -209,12 +207,14 @@ impl KnownDevices {
 
     /// The secret shared with a known device; `None` if the device is not
     /// known or its key file is gone (a record without a secret is
-    /// harmless: the device is simply not recognised).
+    /// harmless: the device is simply not recognised). Read under the
+    /// lock, so a replaced secret is never zeroed mid-read.
     pub fn secret_for(
         &self,
         platform: &dyn Platform,
         id: &DeviceId,
     ) -> Result<Option<KnownSecret>> {
+        let _lock = self.lock(platform)?;
         if !self.load(platform)?.devices.iter().any(|d| d.public == *id) {
             return Ok(None);
         }

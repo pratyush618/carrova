@@ -332,6 +332,41 @@ fn a_remember_from_before_a_forget_stores_nothing() {
 }
 
 #[test]
+fn key_reads_wait_for_a_change_in_progress() {
+    let f = Fixture::new();
+    let me = f.devices.device_key(&f.platform).unwrap().public();
+    f.remember(&record(1, "laptop"), 7);
+    let epoch = f.devices.epoch(&f.platform).unwrap();
+    std::thread::scope(|scope| {
+        let mut readers = None;
+        let hint = || {
+            let secret = scope.spawn(|| f.secret(&public(1)));
+            let key = scope.spawn(|| f.devices.device_key(&f.platform).unwrap().public());
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            assert!(
+                !secret.is_finished() && !key.is_finished(),
+                "a key file was read while the store was changing"
+            );
+            readers = Some((secret, key));
+            HintUpdate::Keep
+        };
+        f.devices
+            .remember_move(
+                &f.platform,
+                record(1, "laptop"),
+                &known(8),
+                hint,
+                500,
+                epoch,
+            )
+            .unwrap();
+        let (secret, key) = readers.unwrap();
+        assert_eq!(secret.join().unwrap(), Some([8; KNOWN_SECRET_LEN]));
+        assert_eq!(key.join().unwrap(), me);
+    });
+}
+
+#[test]
 fn rename_cleans_the_name_and_refuses_an_empty_one() {
     let f = Fixture::new();
     f.remember(&record(1, "laptop"), 7);
