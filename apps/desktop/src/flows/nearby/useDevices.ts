@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRemembered } from '../../app/state/EngineState';
 import type {
   CarrovaPort,
@@ -8,102 +8,135 @@ import type {
   VisibilityChoice,
   VisibilityView,
 } from '../../engine/types';
-import { current } from '../remote';
-import { useRemote } from '../useRemote';
+
+/** A change to visibility or the known devices that the engine can refuse. */
+export type DeviceChange = 'visibility' | 'rename' | 'forget' | 'reset';
 
 export interface DevicesController {
   /** Who can find this computer: the one value the Nearby pill and Settings share. `null` until loaded. */
   readonly visibility: VisibilityView | null;
   /** Remembered devices (empty until loaded). */
   readonly known: readonly KnownDeviceView[];
+  /** The last change the engine refused, until the next change. */
+  readonly failed: DeviceChange | null;
   /** Look for devices nearby (one browse). */
   readonly browse: () => Promise<NearbyDeviceView[]>;
   readonly setVisibility: (choice: VisibilityChoice) => void;
   readonly rename: (device: string, name: string) => void;
   readonly forget: (which: ForgetDevices) => void;
   readonly resetIdentity: () => void;
-  /** Ask the engine again (the tray or the CLI may have changed things). */
-  readonly refresh: () => void;
   /** Wake a sleeping known device; rejects with the bridge error. */
   readonly wake: (device: string) => Promise<void>;
 }
 
-/** Visibility and remembered devices: loaded on mount, reloaded after every change. */
+/**
+ * Visibility and remembered devices: loaded on mount, when the window comes
+ * back (the tray or the CLI may have changed them), when a move remembers a
+ * device, when "everyone" runs out, and after every change made here. An
+ * answer that started before a newer load or change is dropped, so a slow
+ * refresh never undoes the user's own change.
+ */
 export function useDevices(port: CarrovaPort): DevicesController {
-  const loaded = useRemote(useCallback(() => port.visibility(), [port]));
-  const knownState = useRemote(useCallback(() => port.knownDevices(), [port]));
-  const visibility = current(loaded.state);
-  const reloadKnown = knownState.run;
+  const [visibility, setShown] = useState<VisibilityView | null>(null);
+  const [known, setKnown] = useState<readonly KnownDeviceView[]>([]);
+  const [failed, setFailed] = useState<DeviceChange | null>(null);
+  /** Bumped by every load and change: only the latest load's answer lands. */
+  const latest = useRef(0);
+  /** Changes still on their way; each loads again once done. */
+  const changing = useRef(0);
   const remembered = useRemembered();
 
-  useEffect(() => {
-    if (remembered !== null) void reloadKnown();
-  }, [remembered, reloadKnown]);
+  const load = useCallback(() => {
+    const ticket = ++latest.current;
+    void Promise.allSettled([port.visibility(), port.knownDevices()]).then(([shown, list]) => {
+      if (ticket !== latest.current || changing.current > 0) return;
+      if (shown.status === 'fulfilled') setShown(shown.value);
+      if (list.status === 'fulfilled') setKnown(list.value);
+    });
+  }, [port]);
 
-  const { run: reloadVisibility } = loaded;
-  const refreshVisibility = useCallback(() => void reloadVisibility(), [reloadVisibility]);
-  const refresh = useCallback(() => {
-    refreshVisibility();
-    void reloadKnown();
-  }, [refreshVisibility, reloadKnown]);
+  useEffect(() => {
+    const onShow = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    load();
+    window.addEventListener('focus', load);
+    document.addEventListener('visibilitychange', onShow);
+    return () => {
+      window.removeEventListener('focus', load);
+      document.removeEventListener('visibilitychange', onShow);
+    };
+  }, [load]);
+
+  useEffect(() => {
+    if (remembered !== null) load();
+  }, [remembered, load]);
 
   // "Everyone" turns back into "Known devices" by itself: ask again when it does.
   const until = visibility?.until ?? null;
   useEffect(() => {
     if (until === null) return;
-    const timer = setTimeout(refreshVisibility, Math.max(0, until * 1000 - Date.now()));
+    const timer = setTimeout(load, Math.max(0, until * 1000 - Date.now()));
     return () => {
       clearTimeout(timer);
     };
-  }, [until, refreshVisibility]);
+  }, [until, load]);
 
+  const change = useCallback(
+    (what: DeviceChange, run: () => Promise<unknown>) => {
+      latest.current++;
+      changing.current++;
+      setFailed(null);
+      void run()
+        .then(
+          () => undefined,
+          () => {
+            setFailed(what);
+          },
+        )
+        .finally(() => {
+          changing.current--;
+          load();
+        });
+    },
+    [load],
+  );
   const setVisibility = useCallback(
     (choice: VisibilityChoice) => {
-      void port
-        .setVisibility(choice)
-        .catch(() => undefined)
-        .then(refreshVisibility);
+      change('visibility', () => port.setVisibility(choice));
     },
-    [port, refreshVisibility],
-  );
-  const after = useCallback(
-    (change: Promise<void>) => {
-      // A refused change leaves the list as the engine has it.
-      void change.catch(() => undefined).then(() => reloadKnown());
-    },
-    [reloadKnown],
+    [port, change],
   );
   const rename = useCallback(
     (device: string, name: string) => {
-      after(port.renameDevice(device, name));
+      change('rename', () => port.renameDevice(device, name));
     },
-    [port, after],
+    [port, change],
   );
   const forget = useCallback(
     (which: ForgetDevices) => {
-      after(port.forgetDevice(which));
+      change('forget', () => port.forgetDevice(which));
     },
-    [port, after],
+    [port, change],
   );
   const resetIdentity = useCallback(() => {
-    after(port.resetIdentity());
-  }, [port, after]);
+    change('reset', () => port.resetIdentity());
+  }, [port, change]);
   const browse = useCallback(() => port.nearby(), [port]);
   const wake = useCallback((device: string) => port.wakeDevice(device), [port]);
 
-  const known = current(knownState.state);
   return useMemo(
     () => ({
       visibility,
-      known: known ?? [],
+      known,
+      failed,
       browse,
       setVisibility,
       rename,
       forget,
       resetIdentity,
-      refresh,
       wake,
     }),
-    [visibility, known, browse, setVisibility, rename, forget, resetIdentity, refresh, wake],
+    [visibility, known, failed, browse, setVisibility, rename, forget, resetIdentity, wake],
   );
 }

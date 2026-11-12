@@ -106,8 +106,6 @@ export function NearbyRoute() {
   const [view, setView] = useState<NearbyView>('map');
   const [selected, setSelected] = useState<string | null>(null);
   const [wake, setWake] = useState<WakeNote | null>(null);
-  const { refresh } = devices;
-  useEffect(refresh, [refresh]);
   const found = useNearby(devices.browse, true);
   return (
     <NearbyScreen
