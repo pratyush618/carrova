@@ -1,13 +1,13 @@
 //! Remembering the peer of a successful code-paired move (ADR 0001 §4):
 //! both sides store each other, latest pairing wins.
 
-use carrova_crypto::identity::Fingerprint;
 use std::net::IpAddr;
 
+use carrova_crypto::identity::Fingerprint;
 use carrova_transport::{Connection, PeerIdentity};
 
 use super::session::Session;
-use crate::devices::{DeviceRecord, KnownDevices};
+use crate::devices::{DeviceRecord, HintUpdate, KnownDevices};
 use crate::error::Result;
 use crate::lan::clean_device_name;
 use crate::session::Event;
@@ -70,14 +70,17 @@ impl Session {
             first_seen: now,
             last_move: None,
             moves: 0,
-            // Only with the setting on; off never collects (ADR 0001).
-            mac_hint: self
-                .engine
-                .wol_hints()
-                .then(|| platform.neighbour_mac(*addr))
-                .flatten(),
+            mac_hint: None,
         };
-        let record = known.remember_move(platform, record, &identity.secret, now)?;
+        // Off never collects and drops what was saved (ADR 0001).
+        let hint = if self.engine.wol_hints {
+            platform
+                .neighbour_mac(*addr)
+                .map_or(HintUpdate::Keep, HintUpdate::Set)
+        } else {
+            HintUpdate::Clear
+        };
+        let record = known.remember_move(platform, record, &identity.secret, hint, now)?;
         tracing::debug!(device = %fingerprint, "remembered the device moved with");
         self.emit(Event::DeviceRemembered {
             name: record.name,

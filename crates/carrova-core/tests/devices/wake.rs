@@ -49,14 +49,54 @@ fn hint_saved_only_when_setting_on() {
     };
     moved(&on, &receiver);
     assert_eq!(hint_of(&on), Some(MAC));
+}
 
-    // Turning the setting off stops collecting but keeps what is saved.
+#[test]
+fn turning_hints_off_clears_saved_hint_on_next_move() {
+    let receiver = Side::new();
+    let on = on_lan(Side::sender());
     let on = Side {
-        engine: on.engine.clone().with_wol_hints(false),
+        engine: on.engine.clone().with_wol_hints(true),
         ..on
     };
     moved(&on, &receiver);
     assert_eq!(hint_of(&on), Some(MAC));
+
+    let off = Side {
+        engine: on.engine.clone().with_wol_hints(false),
+        ..on
+    };
+    moved(&off, &receiver);
+    assert_eq!(hint_of(&off), None);
+}
+
+#[test]
+fn empty_lookup_keeps_hint_while_on() {
+    let receiver = Side::new();
+    let on = on_lan(Side::sender());
+    let on = Side {
+        engine: on.engine.clone().with_wol_hints(true),
+        ..on
+    };
+    moved(&on, &receiver);
+    // The same machine, now with an empty neighbour table.
+    let platform = Arc::new(
+        FakePlatform::with_home(&on.home)
+            .with_state_dir(on.tmp.path().join("state/carrova"))
+            .binary("app", "/usr/bin/app"),
+    );
+    let blind = Side {
+        engine: Engine::new(
+            platform.clone(),
+            on.engine.recipes().to_vec(),
+            on.sink.clone(),
+        )
+        .with_wol_hints(true),
+        platform,
+        ..on
+    };
+    moved(&blind, &receiver);
+    assert_eq!(hint_of(&blind), Some(MAC));
 }
 
 struct Store {
@@ -113,6 +153,24 @@ fn wake_without_hint_is_no_wake_hint() {
 }
 
 #[test]
+fn clear_wake_hints_removes_all() {
+    let s = Store::new();
+    let (a, b) = (s.remember(Some(MAC)), s.remember(Some(MAC)));
+    s.devices.clear_wake_hints(&s.platform).unwrap();
+    for id in [a, b] {
+        let err = s.devices.wake(&s.platform, &id).unwrap_err();
+        assert!(matches!(err, CoreError::NoWakeHint), "{err}");
+    }
+    assert!(
+        s.devices
+            .list(&s.platform)
+            .unwrap()
+            .iter()
+            .all(|d| d.mac_hint.is_none())
+    );
+}
+
+#[test]
 fn wake_sends_magic_packet_for_hint() {
     let s = Store::new();
     let id = s.remember(Some(MAC));
@@ -120,7 +178,8 @@ fn wake_sends_magic_packet_for_hint() {
     assert_eq!(s.platform.magic_packets(), [MAC]);
 }
 
-/// Every event of the process, from any thread, at debug level.
+/// Every event of the process, from any thread, at debug level. The only
+/// global-subscriber user in the devices test binary.
 fn log() -> &'static Mutex<Vec<u8>> {
     static LOG: OnceLock<Arc<Mutex<Vec<u8>>>> = OnceLock::new();
     #[derive(Clone)]

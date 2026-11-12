@@ -31,7 +31,7 @@ use carrova_crypto::pairing::{KNOWN_SECRET_LEN, KnownSecret};
 use carrova_platform::{FileKind, FileLock, Platform};
 use serde::{Deserialize, Serialize};
 
-pub use record::DeviceRecord;
+pub use record::{DeviceRecord, HintUpdate};
 
 use crate::error::{CoreError, Corruption, EncodeError, Result};
 use crate::lan::clean_device_name;
@@ -98,7 +98,7 @@ impl KnownDevices {
 
     /// Remember `record`'s device after a code pairing, with the `secret`
     /// both sides now share. Remembering a known device again replaces its
-    /// secret (latest pairing wins), its OS and a new MAC hint, but keeps the
+    /// secret (latest pairing wins), its OS and any new MAC hint (an empty hint keeps the old one), but keeps the
     /// local name, first-seen time and move history. The record is saved
     /// before the secret, so a crash never leaves a secret without one.
     pub fn remember(
@@ -107,29 +107,44 @@ impl KnownDevices {
         record: DeviceRecord,
         secret: &KnownSecret,
     ) -> Result<()> {
-        self.remember_locked(platform, record, secret, None)
+        let hint = record.mac_hint.map_or(HintUpdate::Keep, HintUpdate::Set);
+        self.remember_locked(platform, record, secret, hint, None)
             .map(drop)
     }
 
     /// [`Self::remember`] after a finished move at `at` (unix seconds),
-    /// counted in the same locked step; returns the updated record.
+    /// counted in the same locked step, with the device's wake hint
+    /// updated by `hint` (`record.mac_hint` is ignored); returns the
+    /// updated record.
     pub fn remember_move(
         &self,
         platform: &dyn Platform,
         record: DeviceRecord,
         secret: &KnownSecret,
+        hint: HintUpdate,
         at: u64,
     ) -> Result<DeviceRecord> {
-        self.remember_locked(platform, record, secret, Some(at))
+        self.remember_locked(platform, record, secret, hint, Some(at))
     }
 
-    /// Remember `record` with `secret` under the lock, counting a move
-    /// finished at `moved_at` if any.
+    /// Drop every saved wake hint (the user turned hints off).
+    pub fn clear_wake_hints(&self, platform: &dyn Platform) -> Result<()> {
+        let _lock = self.lock(platform)?;
+        let mut file = self.load(platform)?;
+        for device in &mut file.devices {
+            device.mac_hint = None;
+        }
+        self.save(platform, &file)
+    }
+
+    /// Remember `record` with `secret` under the lock, applying `hint` and
+    /// counting a move finished at `moved_at` if any.
     fn remember_locked(
         &self,
         platform: &dyn Platform,
         record: DeviceRecord,
         secret: &KnownSecret,
+        hint: HintUpdate,
         moved_at: Option<u64>,
     ) -> Result<DeviceRecord> {
         let _lock = self.lock(platform)?;
@@ -139,8 +154,6 @@ impl KnownDevices {
             Some(i) => {
                 let known = &mut file.devices[i];
                 known.os = record.os;
-                // No new hint keeps the old one (only forgetting clears it).
-                known.mac_hint = record.mac_hint.or(known.mac_hint);
                 i
             }
             None => {
@@ -149,6 +162,7 @@ impl KnownDevices {
             }
         };
         let device = &mut file.devices[index];
+        device.mac_hint = hint.apply(device.mac_hint);
         if let Some(at) = moved_at {
             device.moves = device.moves.saturating_add(1);
             device.last_move = Some(at);

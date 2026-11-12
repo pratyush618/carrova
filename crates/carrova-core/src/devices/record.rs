@@ -47,3 +47,36 @@ impl fmt::Debug for DeviceRecord {
             .finish_non_exhaustive()
     }
 }
+
+/// How a remembered move changes a device's saved wake hint.
+#[derive(Clone, Copy)]
+pub enum HintUpdate {
+    /// Hints are on but none was found: keep what is saved.
+    Keep,
+    /// Save this hardware address.
+    Set([u8; 6]),
+    /// Hints are off: stop keeping the saved address.
+    Clear,
+}
+
+impl fmt::Debug for HintUpdate {
+    /// Never shows the address.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Keep => "Keep",
+            Self::Set(_) => "Set(..)",
+            Self::Clear => "Clear",
+        })
+    }
+}
+
+impl HintUpdate {
+    /// The hint to save given the one saved now.
+    pub(super) fn apply(self, saved: Option<[u8; 6]>) -> Option<[u8; 6]> {
+        match self {
+            Self::Keep => saved,
+            Self::Set(mac) => Some(mac),
+            Self::Clear => None,
+        }
+    }
+}

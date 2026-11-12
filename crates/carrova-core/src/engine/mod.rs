@@ -127,17 +127,12 @@ impl Engine {
 
     /// This engine saving a hardware-address hint (for Wake-on-LAN) with
     /// each device it remembers (`true`) or not (`false`, the default).
-    /// Turning it off stops collecting; hints already saved stay until the
-    /// device is forgotten.
+    /// Turning it off makes the next remembered move drop a device's saved
+    /// hint (see [`KnownDevices::clear_wake_hints`] to drop them at once).
     #[must_use]
     pub fn with_wol_hints(mut self, on: bool) -> Self {
         self.wol_hints = on;
         self
-    }
-
-    /// Whether remembered devices get a wake hint.
-    fn wol_hints(&self) -> bool {
-        self.wol_hints
     }
 
     /// This install's device key when it remembers devices (made on first

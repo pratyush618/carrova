@@ -219,8 +219,7 @@ impl Platform for FakePlatform {
         crate::netops::lan_ipv4_interfaces()
     }
 
-    fn neighbour_mac(&self, addr: std::net::IpAddr) -> Option<[u8; 6]> {
-        let _ = addr;
+    fn neighbour_mac(&self, _addr: std::net::IpAddr) -> Option<[u8; 6]> {
         self.hooks.hooks.neighbour_mac
     }
 

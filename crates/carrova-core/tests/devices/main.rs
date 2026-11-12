@@ -4,7 +4,7 @@
 
 use std::path::{Path, PathBuf};
 
-use carrova_core::devices::{DeviceRecord, KnownDevices};
+use carrova_core::devices::{DeviceRecord, HintUpdate, KnownDevices};
 use carrova_core::{CoreError, KeyFileProblem};
 use carrova_crypto::identity::{DeviceKey, DevicePublic, Fingerprint};
 use carrova_crypto::pairing::{KNOWN_SECRET_LEN, KnownSecret};
@@ -265,13 +265,25 @@ fn remember_move_stores_the_device_and_counts_each_move() {
     let f = Fixture::new();
     let first = f
         .devices
-        .remember_move(&f.platform, record(1, "laptop"), &known(7), 500)
+        .remember_move(
+            &f.platform,
+            record(1, "laptop"),
+            &known(7),
+            HintUpdate::Keep,
+            500,
+        )
         .unwrap();
     assert_eq!((first.moves, first.last_move), (1, Some(500)));
     f.devices.rename(&f.platform, &public(1), "studio").unwrap();
     let again = f
         .devices
-        .remember_move(&f.platform, record(1, "renamed by peer"), &known(8), 600)
+        .remember_move(
+            &f.platform,
+            record(1, "renamed by peer"),
+            &known(8),
+            HintUpdate::Keep,
+            600,
+        )
         .unwrap();
     assert_eq!((again.moves, again.last_move), (2, Some(600)));
     assert_eq!(again.name, "studio");
