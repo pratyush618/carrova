@@ -192,3 +192,29 @@ fn concurrent_setting_changes_all_survive() {
     assert_eq!(saved.alerts.paused_until, None, "an even number of toggles");
     assert!(saved.background.lean, "the last change");
 }
+
+#[test]
+fn refresh_waits_for_a_settings_change_in_progress() {
+    let machine = Machine::new();
+    let (state, platform) = with_fake(&machine);
+    platform
+        .set_autostart(Path::new("/old/carrova"), true)
+        .unwrap();
+    let writing = state.settings.lock();
+    let refresh = {
+        let state = state.clone();
+        std::thread::spawn(move || background::refresh_autostart(&state))
+    };
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    assert_eq!(
+        platform.autostart_launcher().as_deref(),
+        Some(Path::new("/old/carrova")),
+        "a change being saved decides first"
+    );
+    drop(writing);
+    refresh.join().unwrap();
+    assert_eq!(
+        platform.autostart_launcher(),
+        Some(platform.launcher().unwrap())
+    );
+}

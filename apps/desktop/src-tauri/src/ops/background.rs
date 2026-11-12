@@ -39,8 +39,10 @@ pub async fn set_background(
 
 /// Point an existing autostart entry at this app's current launcher (it
 /// moves on updates, e.g. a new AppImage). Blocking; failures are only
-/// logged.
+/// logged. Holds the settings lock, so a "Start at login" change in
+/// progress is never undone by a stale check.
 pub fn refresh_autostart(state: &AppState) {
+    let _writing = state.settings.lock();
     let platform = state.platform.as_ref();
     let refreshed = platform.autostart_status().and_then(|on| {
         on.then(|| platform.set_autostart(&platform.launcher()?, true))
