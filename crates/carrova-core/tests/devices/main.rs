@@ -259,26 +259,26 @@ fn rename_of_unknown_device_fails() {
 }
 
 #[test]
-fn record_move_counts_the_move_and_keeps_the_rest() {
+fn remember_move_stores_the_device_and_counts_each_move() {
     let f = Fixture::new();
-    f.remember(&record(1, "laptop"), 7);
-    f.devices.record_move(&f.platform, &public(1), 500).unwrap();
-    let moved = f.devices.record_move(&f.platform, &public(1), 600).unwrap();
-    assert_eq!((moved.moves, moved.last_move), (2, Some(600)));
-    assert_eq!(f.devices.list(&f.platform).unwrap(), std::slice::from_ref(&moved));
-    assert_eq!(moved.name, "laptop");
-    assert_eq!(moved.first_seen, 100);
-    assert_eq!(f.secret(&public(1)), Some([7; KNOWN_SECRET_LEN]));
-}
-
-#[test]
-fn record_move_of_unknown_device_fails() {
-    let f = Fixture::new();
-    let err = f
+    let first = f
         .devices
-        .record_move(&f.platform, &public(1), 500)
-        .unwrap_err();
-    assert!(matches!(err, CoreError::UnknownDevice), "{err:?}");
+        .remember_move(&f.platform, record(1, "laptop"), &known(7), 500)
+        .unwrap();
+    assert_eq!((first.moves, first.last_move), (1, Some(500)));
+    f.devices.rename(&f.platform, &public(1), "studio").unwrap();
+    let again = f
+        .devices
+        .remember_move(&f.platform, record(1, "renamed by peer"), &known(8), 600)
+        .unwrap();
+    assert_eq!((again.moves, again.last_move), (2, Some(600)));
+    assert_eq!(again.name, "studio");
+    assert_eq!(again.first_seen, 100);
+    assert_eq!(
+        f.devices.list(&f.platform).unwrap(),
+        std::slice::from_ref(&again)
+    );
+    assert_eq!(f.secret(&public(1)), Some([8; KNOWN_SECRET_LEN]));
 }
 
 #[test]

@@ -106,18 +106,55 @@ impl KnownDevices {
         record: DeviceRecord,
         secret: &KnownSecret,
     ) -> Result<()> {
+        self.remember_locked(platform, record, secret, None)
+            .map(drop)
+    }
+
+    /// [`Self::remember`] after a finished move at `at` (unix seconds),
+    /// counted in the same locked step; returns the updated record.
+    pub fn remember_move(
+        &self,
+        platform: &dyn Platform,
+        record: DeviceRecord,
+        secret: &KnownSecret,
+        at: u64,
+    ) -> Result<DeviceRecord> {
+        self.remember_locked(platform, record, secret, Some(at))
+    }
+
+    /// Remember `record` with `secret` under the lock, counting a move
+    /// finished at `moved_at` if any.
+    fn remember_locked(
+        &self,
+        platform: &dyn Platform,
+        record: DeviceRecord,
+        secret: &KnownSecret,
+        moved_at: Option<u64>,
+    ) -> Result<DeviceRecord> {
         let _lock = self.lock(platform)?;
         let mut file = self.load(platform)?;
         let name = key_file_name(&record.public);
-        match file.devices.iter_mut().find(|d| d.public == record.public) {
-            Some(known) => {
+        let index = match file.devices.iter().position(|d| d.public == record.public) {
+            Some(i) => {
+                let known = &mut file.devices[i];
                 known.os = record.os;
                 known.mac_hint = record.mac_hint;
+                i
             }
-            None => file.devices.push(record),
+            None => {
+                file.devices.push(record);
+                file.devices.len() - 1
+            }
+        };
+        let device = &mut file.devices[index];
+        if let Some(at) = moved_at {
+            device.moves = device.moves.saturating_add(1);
+            device.last_move = Some(at);
         }
+        let updated = device.clone();
         self.save(platform, &file)?;
-        secret_file::replace(platform, &self.dir, &name, secret.expose_bytes())
+        secret_file::replace(platform, &self.dir, &name, secret.expose_bytes())?;
+        Ok(updated)
     }
 
     /// The secret shared with a known device; `None` if the device is not
@@ -160,29 +197,6 @@ impl KnownDevices {
             .ok_or(CoreError::UnknownDevice)?;
         device.name = name;
         self.save(platform, &file)
-    }
-
-    /// Count a finished move with a known device at `at` (unix seconds);
-    /// returns its updated record. [`CoreError::UnknownDevice`] if it is
-    /// not known.
-    pub fn record_move(
-        &self,
-        platform: &dyn Platform,
-        id: &DeviceId,
-        at: u64,
-    ) -> Result<DeviceRecord> {
-        let _lock = self.lock(platform)?;
-        let mut file = self.load(platform)?;
-        let device = file
-            .devices
-            .iter_mut()
-            .find(|d| d.public == *id)
-            .ok_or(CoreError::UnknownDevice)?;
-        device.moves = device.moves.saturating_add(1);
-        device.last_move = Some(at);
-        let updated = device.clone();
-        self.save(platform, &file)?;
-        Ok(updated)
     }
 
     /// Forget one device: its key file is wiped first, then its record

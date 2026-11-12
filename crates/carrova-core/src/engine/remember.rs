@@ -52,8 +52,7 @@ impl Session {
             moves: 0,
             mac_hint: None,
         };
-        known.remember(platform, record, &peer.secret)?;
-        let record = known.record_move(platform, &peer.public, now)?;
+        let record = known.remember_move(platform, record, &peer.secret, now)?;
         tracing::debug!(device = %fingerprint, "remembered the device moved with");
         self.emit(Event::DeviceRemembered {
             name: record.name,
