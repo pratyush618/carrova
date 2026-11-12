@@ -9,6 +9,7 @@ use anyhow::Result;
 use carrova_core::devices::KnownDevices;
 use carrova_core::presence::{Visibility, load_visibility, save_visibility};
 use carrova_core::time::now_unix;
+use carrova_crypto::identity::Fingerprint;
 use carrova_platform::Platform;
 use carrova_view::devices::{
     VisibilityChoice, chosen_visibility, known_device_views, visibility_view,
@@ -112,18 +113,18 @@ pub fn devices(out: &mut impl Write, a: DevicesArgs) -> Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         DevicesCommand::Rename { device, name } => {
-            let record = store.resolve(platform, &device)?;
-            store.rename(platform, &record.public, &name)?;
-            let fingerprint = record.fingerprint().to_string();
+            let id = store.resolve_id(platform, &device)?;
+            store.rename(platform, &id, &name)?;
+            let fingerprint = Fingerprint::of(&id).to_string();
             finish(out, format, &json!({ "renamed": fingerprint }), "Renamed.")
         }
         DevicesCommand::Forget {
             device: Some(device),
             ..
         } => {
-            let record = store.resolve(platform, &device)?;
-            store.forget(platform, &record.public)?;
-            let fingerprint = record.fingerprint().to_string();
+            let id = store.resolve_id(platform, &device)?;
+            store.forget(platform, &id)?;
+            let fingerprint = Fingerprint::of(&id).to_string();
             let text = "Forgotten. It needs a code next time.";
             finish(out, format, &json!({ "forgot": fingerprint }), text)
         }

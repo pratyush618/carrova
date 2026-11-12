@@ -312,6 +312,12 @@ impl KnownDevices {
         }
     }
 
+    /// The id of the one known device `query` names ([`Self::resolve`]):
+    /// what commands taking a typed device act on.
+    pub fn resolve_id(&self, platform: &dyn Platform, query: &str) -> Result<DeviceId> {
+        Ok(self.resolve(platform, query)?.public)
+    }
+
     /// Exclusive lock for one change (released on drop).
     fn lock(&self, platform: &dyn Platform) -> Result<FileLock> {
         Ok(platform.lock_exclusive(&self.dir.join(LOCK_FILE))?)

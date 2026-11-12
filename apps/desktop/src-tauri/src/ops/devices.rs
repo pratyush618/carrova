@@ -57,8 +57,7 @@ pub async fn rename_device(
     blocking(move || {
         let platform = platform.as_ref();
         let store = KnownDevices::open(platform)?;
-        let record = store.resolve(platform, &device)?;
-        Ok(store.rename(platform, &record.public, &name)?)
+        Ok(store.rename(platform, &store.resolve_id(platform, &device)?, &name)?)
     })
     .await
 }
@@ -76,8 +75,7 @@ pub async fn forget_device(state: &AppState, which: ForgetDevices) -> Result<(),
         match which {
             ForgetDevices::All => store.forget_all(platform)?,
             ForgetDevices::Device(device) => {
-                let record = store.resolve(platform, &device)?;
-                store.forget(platform, &record.public)?;
+                store.forget(platform, &store.resolve_id(platform, &device)?)?;
             }
         }
         shared.presence.refresh();
@@ -114,8 +112,7 @@ pub async fn wake_device(state: &AppState, device: String) -> Result<(), Command
     blocking(move || {
         let platform = platform.as_ref();
         let store = KnownDevices::open(platform)?;
-        let record = store.resolve(platform, &device)?;
-        Ok(store.wake(platform, &record.public)?)
+        Ok(store.wake(platform, &store.resolve_id(platform, &device)?)?)
     })
     .await
 }

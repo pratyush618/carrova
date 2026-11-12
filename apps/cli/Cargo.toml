@@ -28,6 +28,7 @@ clap = { workspace = true, features = ["env"] }
 ctrlc = { workspace = true }
 carrova-bundle = { workspace = true }
 carrova-core = { workspace = true }
+carrova-crypto = { workspace = true }
 carrova-manifest = { workspace = true }
 carrova-platform = { workspace = true }
 carrova-recipe = { workspace = true }
@@ -41,7 +42,6 @@ tracing-subscriber = { workspace = true }
 zeroize = { workspace = true }
 
 [dev-dependencies]
-carrova-crypto = { workspace = true }
 carrova-platform = { workspace = true, features = ["fake"] }
 tempfile = { workspace = true }
 
