@@ -67,6 +67,10 @@ Schnittstelle: 10.0.0.2 --- 0x9
   10.0.0.5              01-02-03-04-05-06     dynamisch
   10.0.0.6              01:02:03:04:05:06     dynamisch
   10.0.0.7              not-a-mac             dynamisch
+
+Interfaz: 10.0.0.9 --- 0xb
+  Dirección de Internet Dirección física      Tipo
+  10.0.0.8              01-02-03-04-05-07     dinámico
 ";
 
 fn bsd(ip: &str) -> Option<[u8; 6]> {
@@ -104,6 +108,7 @@ fn windows_entry_yields_its_mac_whatever_the_header_language() {
         Some([0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff])
     );
     assert_eq!(windows("10.0.0.5"), Some([1, 2, 3, 4, 5, 6]));
+    assert_eq!(windows("10.0.0.8"), Some([1, 2, 3, 4, 5, 7]));
 }
 
 #[test]
