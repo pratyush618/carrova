@@ -32,6 +32,7 @@ export function RememberedToast({
 }) {
   const { t } = useTranslation();
   const { devices } = useControllers();
+  const [forgetting, setForgetting] = useState(false);
   return (
     <Toast
       onDismiss={onClose}
@@ -39,10 +40,13 @@ export function RememberedToast({
         <Button
           kind="quiet"
           size="sm"
+          disabled={forgetting}
           onClick={() => {
+            setForgetting(true);
             // A refused Forget leaves the notice up, to try again.
             void devices.forget({ device: remembered.fingerprint }).then((done) => {
               if (done) onClose();
+              else setForgetting(false);
             });
           }}
         >

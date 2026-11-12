@@ -124,6 +124,26 @@ describe('nearby', () => {
     expect(screen.getByText("Remembered Ana's laptop (7F3A·19C2)")).toBeInTheDocument();
   });
 
+  it('sends one Forget from the remembered notice however often it is clicked', async () => {
+    const user = userEvent.setup();
+    const { port, push } = nearbyPort();
+    const forget = vi.spyOn(port, 'forgetDevice').mockReturnValue(new Promise(() => undefined));
+    await renderApp({ port, returning: true });
+    await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
+    push({
+      kind: 'engine',
+      session: 's1',
+      event: { event: 'device_remembered', name: "Ana's laptop", fingerprint: '7F3A·19C2' },
+    });
+    const text = await screen.findByText("Remembered Ana's laptop (7F3A·19C2)");
+    const notice = text.closest<HTMLElement>('[role=status]');
+    if (notice === null) throw new Error('the notice is a status');
+    const button = within(notice).getByRole('button', { name: 'Forget' });
+    await user.dblClick(button);
+    expect(forget).toHaveBeenCalledTimes(1);
+    expect(button).toBeDisabled();
+  });
+
   it('stacks the remembered notice with a Wake toast instead of covering one', async () => {
     const user = userEvent.setup();
     const { port, push } = nearbyPort();
