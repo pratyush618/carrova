@@ -221,3 +221,31 @@ fn noise_does_not_put_off_the_recheck() {
     drop(watch);
     stream.join().unwrap();
 }
+
+#[test]
+fn a_rewatch_failing_short_of_the_limit_is_retried() {
+    let tmp = TempDir::new().unwrap();
+    let dirs = dirs(&tmp, &["a"]);
+    let backend = Fake::default();
+    let watch = run(&dirs, backend.clone());
+    backend
+        .failing
+        .store(MAX_REWATCH_FAILURES - 1, Ordering::SeqCst);
+    watch.wake.send(Wake::Changed).unwrap();
+    assert!(watch.still_follows(), "a passing failure ended the watch");
+    // The first watch, the failures, then one that took.
+    assert_eq!(backend.rewatches(), 1 + MAX_REWATCH_FAILURES);
+    assert!(watch.still_follows());
+    assert_eq!(backend.rewatches(), 1 + MAX_REWATCH_FAILURES, "settled");
+}
+
+#[test]
+fn a_rewatch_failing_up_to_the_limit_ends_the_watch() {
+    let tmp = TempDir::new().unwrap();
+    let backend = Fake::default();
+    let watch = run(&dirs(&tmp, &["a"]), backend.clone());
+    backend.failing.store(usize::MAX, Ordering::SeqCst);
+    watch.wake.send(Wake::Changed).unwrap();
+    assert!(watch.ends());
+    assert_eq!(backend.rewatches(), 1 + MAX_REWATCH_FAILURES);
+}

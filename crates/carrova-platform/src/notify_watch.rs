@@ -19,6 +19,10 @@ mod tests;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) use backend::watch_dirs;
 
+/// Rewatches in a row that may fail before the watch ends: a dir can be
+/// briefly unopenable (an antivirus scan, a sync client) without being gone.
+const MAX_REWATCH_FAILURES: usize = 3;
+
 /// A dir's identity, `(device or volume, inode or file index)`: a dir
 /// re-created at the same path gets another.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -49,9 +53,17 @@ trait Backend {
     ) -> Result<Vec<Result<(), PlatformError>>, PlatformError>;
 }
 
+/// What a rewatch left watched.
+struct Rewatched {
+    watched: Vec<Found>,
+    /// Why a dir present could not be watched; the next recheck retries it.
+    failed: Option<PlatformError>,
+}
+
 /// Watch those of `dirs` that exist now; returns those watched.
 fn first_watch(backend: &mut impl Backend, dirs: &[PathBuf]) -> Result<Vec<Found>, PlatformError> {
-    rewatch(backend, dirs, &[])
+    let Rewatched { watched, failed } = rewatch(backend, dirs, &[])?;
+    failed.map_or(Ok(watched), Err)
 }
 
 /// Report changes until told to stop (or watching cannot go on); the dirs
@@ -66,6 +78,7 @@ fn follow(
     recheck: Duration,
 ) {
     let mut next = Instant::now() + recheck;
+    let mut failures = 0;
     loop {
         match wakes.recv_timeout(next.saturating_duration_since(Instant::now())) {
             Ok(Wake::Stop) | Err(RecvTimeoutError::Disconnected) => return,
@@ -73,6 +86,8 @@ fn follow(
             Err(RecvTimeoutError::Timeout)
                 if present_dirs(dirs).is_ok_and(|now| unchanged(&now, &watched)) =>
             {
+                // Every dir present is watched: no failure is pending.
+                failures = 0;
                 next = Instant::now() + recheck;
                 continue;
             }
@@ -86,12 +101,21 @@ fn follow(
         let rewatched = rewatch(backend, dirs, &watched);
         changed();
         next = Instant::now() + recheck;
-        // A dir refused, or none left to report one appearing: end, so the
-        // caller learns it as `changed` drops.
-        match rewatched {
-            Ok(now) if !now.is_empty() => watched = now,
-            _ => return,
+        // A dir refused, one failing too often in a row, or none left to
+        // report one appearing: end, so the caller learns it as `changed`
+        // drops.
+        let Ok(Rewatched {
+            watched: now,
+            failed,
+        }) = rewatched
+        else {
+            return;
+        };
+        failures = if failed.is_some() { failures + 1 } else { 0 };
+        if failures == MAX_REWATCH_FAILURES || (failed.is_none() && now.is_empty()) {
+            return;
         }
+        watched = now;
     }
 }
 
@@ -105,24 +129,35 @@ fn unchanged(now: &[Found], watched: &[Found]) -> bool {
 }
 
 /// Drop the watches of `watched` and watch each of `dirs` that exists now
-/// afresh (one re-created since may hold a dead watch); returns those
-/// watched.
+/// afresh (one re-created since may hold a dead watch); `Err` when one is
+/// refused.
 fn rewatch(
     backend: &mut impl Backend,
     dirs: &[PathBuf],
     watched: &[Found],
-) -> Result<Vec<Found>, PlatformError> {
+) -> Result<Rewatched, PlatformError> {
     let present = present_dirs(dirs)?;
     let old: Vec<_> = watched.iter().map(|(dir, _)| dir.clone()).collect();
     let new: Vec<_> = present.iter().map(|(dir, _)| dir.clone()).collect();
-    let outcomes = backend.rewatch(&old, &new)?;
-    let mut now = Vec::new();
+    let outcomes = match backend.rewatch(&old, &new) {
+        Ok(outcomes) => outcomes,
+        Err(e) => {
+            return Ok(Rewatched {
+                watched: Vec::new(),
+                failed: Some(e),
+            });
+        }
+    };
+    let mut now = Rewatched {
+        watched: Vec::new(),
+        failed: None,
+    };
     for (found, outcome) in present.into_iter().zip(outcomes) {
         match outcome {
-            Ok(()) => now.push(found),
+            Ok(()) => now.watched.push(found),
             // Removed since it was found: watched once it appears again.
             Err(_) if !found.0.exists() => {}
-            Err(e) => return Err(e),
+            Err(e) => now.failed = Some(e),
         }
     }
     Ok(now)
