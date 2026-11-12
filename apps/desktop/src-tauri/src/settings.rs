@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use carrova_platform::{Platform, PlatformError};
-use carrova_view::ipc::Settings;
+use carrova_view::ipc::{NearbySettings, Settings};
 use serde_json::Value;
 
 use crate::command_error::CommandError;
@@ -53,6 +53,18 @@ impl SettingsStore {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Settings::default()),
             Err(e) => Err(e.into()),
         }
+    }
+
+    /// Whether new engines remember devices (`nearby.remember`). Unreadable
+    /// settings never block a move: they read as the default.
+    pub fn remember_devices(&self) -> bool {
+        self.load().map_or_else(
+            |error| {
+                tracing::warn!(%error, "settings unreadable; remembering devices by default");
+                NearbySettings::default().remember
+            },
+            |settings| settings.nearby.remember,
+        )
     }
 
     /// Replace the saved settings with `settings`.

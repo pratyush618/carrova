@@ -117,10 +117,10 @@ impl AppState {
     ///
     /// # Errors
     ///
-    /// Recipes cannot be resolved, or the settings cannot be read.
+    /// Recipes cannot be resolved.
     pub fn engine(&self, sink: Arc<SessionSink>) -> Result<Engine, CommandError> {
         let recipes = self.recipes.current()?;
-        let remember = self.settings.load()?.nearby.remember;
+        let remember = self.settings.remember_devices();
         Ok(Engine::new(
             Arc::clone(&self.platform),
             Arc::clone(&recipes.recipes),
