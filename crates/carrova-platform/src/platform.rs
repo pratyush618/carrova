@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 
 use crate::{
-    Allocation, DirEntry, DiskInfo, FileLock, FileManagerStatus, FileMeta, FsId, LanInterface,
-    OsKind, PermissionModel, PlatformError, ProcessInfo, ScreenLock, SemanticRoot,
+    Allocation, DirEntry, DirWatch, DiskInfo, FileLock, FileManagerStatus, FileMeta, FsId,
+    LanInterface, OsKind, PermissionModel, PlatformError, ProcessInfo, ScreenLock, SemanticRoot,
     SnapshotCapability, SocketBuffers,
 };
 
@@ -237,6 +237,23 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     /// user, compared against [`FileMeta::uid`].
     fn current_uid(&self) -> Option<u32> {
         None
+    }
+
+    /// Call `changed` (on a thread the watch owns) whenever an entry of one
+    /// of `dirs` is created, replaced, written or removed, until the
+    /// returned guard drops. Entries are not followed into: watch the
+    /// directory of a file replaced by rename. A dir missing now is watched
+    /// from when it appears in another watched dir; a dir that is not one
+    /// is refused.
+    // shortcut: unsupported on macOS/Windows (callers poll instead); add
+    // FSEvents/ReadDirectoryChangesW when those ship background presence.
+    fn watch_dirs(
+        &self,
+        dirs: &[PathBuf],
+        changed: Box<dyn Fn() + Send>,
+    ) -> Result<DirWatch, PlatformError> {
+        let _ = (dirs, changed);
+        Err(PlatformError::Unsupported("watch_dirs"))
     }
 
     /// This computer's name as the user knows it (Linux: the kernel host

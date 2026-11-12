@@ -303,6 +303,14 @@ impl Platform for FakePlatform {
         Ok(entries.write(EntriesWrite::Remove))
     }
 
+    fn watch_dirs(
+        &self,
+        dirs: &[PathBuf],
+        changed: Box<dyn Fn() + Send>,
+    ) -> Result<crate::DirWatch, PlatformError> {
+        self.watch(dirs, changed)
+    }
+
     fn has_status_tray(&self) -> bool {
         self.background.tray()
     }

@@ -26,6 +26,7 @@ mod screen;
 #[cfg(test)]
 #[path = "../../tests/linux/unit.rs"]
 mod tests;
+mod watch;
 
 /// Snapshot of the environment variables the adapter depends on.
 #[derive(Debug, Clone, Default)]
@@ -255,6 +256,14 @@ impl Platform for LinuxPlatform {
 
     fn current_uid(&self) -> Option<u32> {
         Some(crate::netops::current_uid())
+    }
+
+    fn watch_dirs(
+        &self,
+        dirs: &[PathBuf],
+        changed: Box<dyn Fn() + Send>,
+    ) -> Result<crate::DirWatch, PlatformError> {
+        watch::watch_dirs(dirs, changed)
     }
 
     fn device_name(&self) -> Option<String> {

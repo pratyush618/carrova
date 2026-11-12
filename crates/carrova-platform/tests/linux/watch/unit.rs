@@ -1,0 +1,69 @@
+use super::*;
+use std::fs;
+use std::path::Path;
+use std::sync::mpsc;
+use std::time::Duration;
+use tempfile::TempDir;
+
+const SOON: Duration = Duration::from_secs(5);
+
+/// Watch `dirs`, each change reported on the returned receiver.
+fn watching(dirs: &[PathBuf]) -> (DirWatch, mpsc::Receiver<()>) {
+    let (tx, rx) = mpsc::channel();
+    let watch = watch_dirs(
+        dirs,
+        Box::new(move || {
+            let _ = tx.send(());
+        }),
+    )
+    .unwrap();
+    (watch, rx)
+}
+
+/// Write `dir/name` the way Carrova saves a document: temp file + rename.
+fn replace_atomically(dir: &Path, name: &str) {
+    let temp = dir.join(format!(".{name}.tmp"));
+    fs::write(&temp, b"new").unwrap();
+    fs::rename(&temp, dir.join(name)).unwrap();
+}
+
+#[test]
+fn an_atomic_replace_in_a_watched_dir_is_reported() {
+    let tmp = TempDir::new().unwrap();
+    fs::write(tmp.path().join("presence.json"), b"old").unwrap();
+    let (_watch, changes) = watching(&[tmp.path().to_path_buf()]);
+    replace_atomically(tmp.path(), "presence.json");
+    changes.recv_timeout(SOON).unwrap();
+}
+
+#[test]
+fn a_watched_dir_that_appears_later_is_watched_from_then_on() {
+    let tmp = TempDir::new().unwrap();
+    let devices = tmp.path().join("devices");
+    let (_watch, changes) = watching(&[tmp.path().to_path_buf(), devices.clone()]);
+    fs::create_dir(&devices).unwrap();
+    changes.recv_timeout(SOON).unwrap();
+    while changes.try_recv().is_ok() {}
+    replace_atomically(&devices, "known.json");
+    changes.recv_timeout(SOON).unwrap();
+}
+
+#[test]
+fn dropping_the_watch_stops_it() {
+    let tmp = TempDir::new().unwrap();
+    let (watch, changes) = watching(&[tmp.path().to_path_buf()]);
+    drop(watch);
+    assert_eq!(
+        changes.recv_timeout(SOON),
+        Err(mpsc::RecvTimeoutError::Disconnected),
+        "the watcher ended and let go of its callback"
+    );
+}
+
+#[test]
+fn a_dir_that_is_a_file_is_refused() {
+    let tmp = TempDir::new().unwrap();
+    let file = tmp.path().join("file");
+    fs::write(&file, b"").unwrap();
+    assert!(watch_dirs(&[file], Box::new(|| {})).is_err());
+}

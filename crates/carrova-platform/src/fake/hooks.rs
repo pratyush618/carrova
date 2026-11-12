@@ -40,6 +40,9 @@ pub struct Hooks {
     /// The hardware address [`Platform::neighbour_mac`](crate::Platform::neighbour_mac)
     /// reports for every host (default: none).
     pub neighbour_mac: Option<[u8; 6]>,
+    /// Refuse [`Platform::watch_dirs`](crate::Platform::watch_dirs) as
+    /// unsupported, as on macOS and Windows.
+    pub unwatched: bool,
 }
 
 impl fmt::Debug for Hooks {
@@ -55,6 +58,7 @@ impl fmt::Debug for Hooks {
             .field("uid", &self.uid)
             .field("hide_mode", &self.hide_mode)
             .field("neighbour_mac", &self.neighbour_mac.is_some())
+            .field("unwatched", &self.unwatched)
             .finish()
     }
 }

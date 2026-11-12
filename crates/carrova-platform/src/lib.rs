@@ -13,6 +13,7 @@ pub mod path;
 mod platform;
 mod root;
 mod types;
+mod watch;
 
 #[cfg(feature = "fake")]
 pub mod fake;
@@ -42,6 +43,7 @@ pub use types::{
     Allocation, DirEntry, DiskInfo, FileKind, FileManagerStatus, FileMeta, FsId, LanInterface,
     ProcessInfo, ScreenLock, SnapshotCapability, SocketBuffers,
 };
+pub use watch::DirWatch;
 
 /// Platform adapter for the OS this binary was compiled for.
 #[must_use]
