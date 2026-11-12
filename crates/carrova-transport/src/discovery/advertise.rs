@@ -12,7 +12,7 @@ use super::presence::PresenceAdvert;
 use super::seek::Offer;
 use crate::error::Result;
 use crate::runtime::runtime;
-use crate::tuning::{BROADCAST_MAX_DATAGRAM, MDNS_WITHDRAW_WAIT};
+use crate::tuning::{BROADCAST_MAX_DATAGRAM, MDNS_QUEUE_RETRY, MDNS_WITHDRAW_WAIT};
 use crate::{
     BROADCAST_BROWSE, BROADCAST_PORT, BROADCAST_REPLY, PROTOCOL_VERSION, SERVICE_TYPE,
     TXT_DEVICE_NAME, TXT_VERSION,
@@ -155,9 +155,14 @@ impl Drop for Advertiser {
 /// Shut `daemon` down and wait until it sent its goodbyes and dropped the
 /// answers it had queued: no answer from it goes out afterwards.
 fn withdraw(daemon: &ServiceDaemon) {
-    let done = daemon
-        .shutdown()
-        .map(|done| done.recv_timeout(MDNS_WITHDRAW_WAIT).is_ok());
+    let shutdown = daemon.shutdown().or_else(|e| match e {
+        mdns_sd::Error::Again => {
+            std::thread::sleep(MDNS_QUEUE_RETRY);
+            daemon.shutdown()
+        }
+        e => Err(e),
+    });
+    let done = shutdown.map(|done| done.recv_timeout(MDNS_WITHDRAW_WAIT).is_ok());
     if !matches!(done, Ok(true)) {
         tracing::warn!("mDNS daemon did not withdraw its advertisement");
     }
