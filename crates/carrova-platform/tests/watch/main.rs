@@ -69,6 +69,9 @@ fn a_watched_dir_that_appears_later_is_watched_from_then_on() {
 
 #[test]
 fn a_watched_dir_re_created_at_once_is_watched_again() {
+    // Contract only: the parent's events rewatch it; a re-created dir with
+    // no watched parent is covered by notify_watch's
+    // `a_dir_replaced_between_rechecks_is_watched_afresh`.
     let tmp = TempDir::new().unwrap();
     let devices = tmp.path().join("devices");
     fs::create_dir(&devices).unwrap();
