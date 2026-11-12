@@ -9,7 +9,7 @@ use carrova_crypto::identity::DeviceKey;
 use carrova_crypto::pairing::KnownSecret;
 use carrova_platform::fake::FakePlatform;
 use carrova_platform::{OsKind, Platform};
-use carrova_view::ipc::{AlertChannel, NearbySettings, Settings};
+use carrova_view::ipc::{AlertChannel, NearbySettings, SETTINGS_FILE, Settings};
 use serde_json::json;
 
 #[test]
@@ -256,4 +256,23 @@ fn a_save_with_hints_off_creates_no_device_store() {
         !home.devices_dir().exists(),
         "nothing to clear on a fresh install"
     );
+}
+
+#[test]
+fn nearby_settings_read_as_the_defaults_when_none_were_saved() {
+    let home = Home::new();
+    assert_eq!(
+        NearbySettings::saved(&home.platform),
+        NearbySettings::default()
+    );
+}
+
+#[test]
+fn unreadable_nearby_settings_remember_nothing_and_keep_no_hints() {
+    let home = Home::new();
+    let state = home.platform.state_dir().unwrap();
+    std::fs::create_dir_all(&state).unwrap();
+    std::fs::write(state.join(SETTINGS_FILE), b"{not json").unwrap();
+    let nearby = NearbySettings::saved(&home.platform);
+    assert!(!nearby.remember && !nearby.wol_hints, "{nearby:?}");
 }

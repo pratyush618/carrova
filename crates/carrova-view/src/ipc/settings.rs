@@ -73,13 +73,19 @@ pub struct NearbySettings {
 }
 
 impl NearbySettings {
-    /// The saved nearby settings, for a new engine. Unreadable settings
-    /// never block a move: they read as the defaults.
+    /// The saved nearby settings, for a new engine; the defaults if none
+    /// were saved yet. Unreadable settings never block a move, but may
+    /// hide an opt-out: they read as the defaults with remembering and
+    /// wake hints off.
     pub fn saved(platform: &dyn Platform) -> Self {
         Settings::load(platform).map_or_else(
             |error| {
-                tracing::warn!(%error, "settings unreadable; using the nearby defaults");
-                Self::default()
+                tracing::warn!(%error, "settings unreadable; not remembering devices");
+                Self {
+                    remember: false,
+                    wol_hints: false,
+                    ..Self::default()
+                }
             },
             |settings| settings.nearby,
         )

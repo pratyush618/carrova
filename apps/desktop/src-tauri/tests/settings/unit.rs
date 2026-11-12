@@ -81,14 +81,12 @@ fn remember_devices_follows_the_saved_setting() {
 }
 
 #[test]
-fn unreadable_settings_remember_devices_by_default_instead_of_failing() {
+fn unreadable_settings_remember_no_devices_instead_of_failing() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(dir.path().join("state")).unwrap();
     std::fs::write(dir.path().join("state").join(SETTINGS_FILE), "{").unwrap();
-    assert_eq!(
-        store(dir.path()).remember_devices(),
-        carrova_view::ipc::NearbySettings::default().remember
-    );
+    let store = store(dir.path());
+    assert!(!store.remember_devices() && !store.wol_hints());
 }
 
 #[test]
