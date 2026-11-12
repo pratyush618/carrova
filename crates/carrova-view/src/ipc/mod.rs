@@ -26,7 +26,7 @@ pub use recipes::{
 };
 pub use reply::{PickedReply, PlanReply, ScanReply};
 pub use settings::{
-    AlertChannel, AlertSettings, BackgroundSettings, MoveDefaults, Settings, Theme,
+    AlertChannel, AlertSettings, BackgroundSettings, MoveDefaults, NearbySettings, Settings, Theme,
 };
 
 /// Name of the one event channel the bridge emits on.

@@ -31,6 +31,34 @@ pub struct Settings {
     /// What Carrova tells you about, and how loudly.
     #[serde(default)]
     pub alerts: AlertSettings,
+    /// Known devices and moves between them.
+    #[serde(default)]
+    pub nearby: NearbySettings,
+}
+
+/// Known-device behaviour. Missing fields read as the defaults.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(default)]
+pub struct NearbySettings {
+    /// Remember devices you move with using a code, so they are known
+    /// next time (feeds the engine's remember option).
+    pub remember: bool,
+    /// Let known devices ask to send you something without a code.
+    pub accept_known: bool,
+    /// Keep a Wake-on-LAN hint (the device's network address) for known
+    /// devices.
+    pub wol_hints: bool,
+}
+
+impl Default for NearbySettings {
+    fn default() -> Self {
+        Self {
+            remember: true,
+            accept_known: true,
+            wol_hints: false,
+        }
+    }
 }
 
 /// Background behaviour. Missing fields read as the defaults.
@@ -143,6 +171,7 @@ impl Default for Settings {
             file_manager_asked: false,
             background: BackgroundSettings::default(),
             alerts: AlertSettings::default(),
+            nearby: NearbySettings::default(),
         }
     }
 }

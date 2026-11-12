@@ -29,6 +29,7 @@ const SETTINGS: Settings = {
     nearby: 'bell_only',
     updates: 'bell_only',
   },
+  nearby: { remember: true, accept_known: true, wol_hints: false },
 };
 
 const error = { code: 'network', message: 'Offline', hint: null } as const;

@@ -2,6 +2,7 @@
 import type { AlertSettings } from "./AlertSettings";
 import type { BackgroundSettings } from "./BackgroundSettings";
 import type { MoveDefaults } from "./MoveDefaults";
+import type { NearbySettings } from "./NearbySettings";
 import type { Theme } from "./Theme";
 
 /**
@@ -44,4 +45,8 @@ background: BackgroundSettings,
 /**
  * What Carrova tells you about, and how loudly.
  */
-alerts: AlertSettings, };
+alerts: AlertSettings, 
+/**
+ * Known devices and moves between them.
+ */
+nearby: NearbySettings, };

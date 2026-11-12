@@ -52,6 +52,7 @@ const DEFAULT_SETTINGS: Settings = {
     nearby: 'bell_only',
     updates: 'bell_only',
   },
+  nearby: { remember: true, accept_known: true, wol_hints: false },
 };
 
 /** This (fake) machine, for the About sheet. */

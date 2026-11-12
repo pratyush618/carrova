@@ -1,6 +1,6 @@
 //! Settings JSON: files saved by older versions keep loading.
 
-use carrova_view::ipc::{AlertChannel, Settings};
+use carrova_view::ipc::{AlertChannel, NearbySettings, Settings};
 use serde_json::json;
 
 #[test]
@@ -24,6 +24,31 @@ fn old_settings_file_loads_with_new_defaults() {
     assert_eq!(alerts.moves, AlertChannel::PopupAndBell);
     assert_eq!(alerts.nearby, AlertChannel::BellOnly);
     assert_eq!(alerts.updates, AlertChannel::BellOnly);
+}
+
+#[test]
+fn old_settings_file_remembers_devices_and_sends_no_wake_hints() {
+    let old = json!({
+        "auto_check_recipes": true, "auto_check_app": true,
+        "theme": null, "reduce_motion": null,
+    });
+    let settings: Settings = serde_json::from_value(old).unwrap();
+    assert_eq!(
+        settings.nearby,
+        NearbySettings {
+            remember: true,
+            accept_known: true,
+            wol_hints: false,
+        }
+    );
+    let partial = json!({
+        "auto_check_recipes": true, "auto_check_app": true,
+        "theme": null, "reduce_motion": null,
+        "nearby": { "remember": false },
+    });
+    let settings: Settings = serde_json::from_value(partial).unwrap();
+    assert!(!settings.nearby.remember);
+    assert!(settings.nearby.accept_known);
 }
 
 #[test]
