@@ -62,11 +62,16 @@ fn read_within(child: &mut Child, limit: Duration, cap: usize) -> Run {
         return Run::Abandoned;
     };
     let (tx, rx) = mpsc::channel();
-    thread::spawn(move || {
-        let mut out = Vec::new();
-        let read = stdout.take(cap as u64 + 1).read_to_end(&mut out);
-        let _ = tx.send(read.map(|_| out));
-    });
+    let reader = thread::Builder::new()
+        .name("tool-stdout".into())
+        .spawn(move || {
+            let mut out = Vec::new();
+            let read = stdout.take(cap as u64 + 1).read_to_end(&mut out);
+            let _ = tx.send(read.map(|_| out));
+        });
+    if reader.is_err() {
+        return Run::Abandoned;
+    }
     let out = match rx.recv_timeout(limit) {
         Ok(Ok(out)) if out.len() <= cap => out,
         _ => return Run::Abandoned,
