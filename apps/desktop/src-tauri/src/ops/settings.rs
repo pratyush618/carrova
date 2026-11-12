@@ -51,6 +51,8 @@ pub async fn save(state: &AppState, patch: Value) -> Result<(), CommandError> {
             let platform = platform.as_ref();
             let cleared = KnownDevices::open(platform).and_then(|k| k.clear_wake_hints(platform));
             if let Err(e) = cleared {
+                // Logged first: a failed rollback below replaces it.
+                tracing::warn!(error = %e, "could not drop the wake hints: turning them back on");
                 store.save(&old)?;
                 return Err(e.into());
             }
