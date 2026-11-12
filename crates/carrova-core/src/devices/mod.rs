@@ -17,8 +17,9 @@
 //! [`KnownDevices::forget_all`] and [`KnownDevices::reset_identity`].
 //! Nothing here logs keys, secrets, full public keys or MAC addresses.
 //!
-//! No locking: the record list is read, changed and atomically replaced
-//! by one process at a time.
+//! Every change runs under an exclusive lock on `devices/known.lock`, so
+//! the background app and the CLI never lose each other's updates; reads
+//! need none (`known.json` is replaced atomically).
 
 mod record;
 
@@ -26,7 +27,7 @@ use std::path::PathBuf;
 
 use carrova_crypto::identity::{DEVICE_SEED_LEN, DeviceId, DeviceKey, Fingerprint};
 use carrova_crypto::pairing::{KNOWN_SECRET_LEN, KnownSecret};
-use carrova_platform::{FileKind, Platform};
+use carrova_platform::{FileKind, FileLock, Platform};
 use serde::{Deserialize, Serialize};
 
 pub use record::DeviceRecord;
@@ -41,6 +42,8 @@ pub const DEVICE_KEY_FILE: &str = "device.key";
 pub const DEVICES_DIR: &str = "devices";
 /// The record list, in [`DEVICES_DIR`].
 pub const KNOWN_FILE: &str = "known.json";
+/// Lock serialising changes, in [`DEVICES_DIR`].
+const LOCK_FILE: &str = "known.lock";
 /// Version written to [`KNOWN_FILE`]; newer files are refused.
 const KNOWN_VERSION: u16 = 1;
 /// Suffix of a known device's key file.
@@ -107,6 +110,7 @@ impl KnownDevices {
         record: DeviceRecord,
         secret: &KnownSecret,
     ) -> Result<()> {
+        let _lock = self.lock(platform)?;
         let mut file = self.load(platform)?;
         let name = key_file_name(&record.public);
         match file.devices.iter_mut().find(|d| d.public == record.public) {
@@ -147,6 +151,7 @@ impl KnownDevices {
 
     /// Give a known device a new local name.
     pub fn rename(&self, platform: &dyn Platform, id: &DeviceId, name: String) -> Result<()> {
+        let _lock = self.lock(platform)?;
         let mut file = self.load(platform)?;
         let device = file
             .devices
@@ -160,6 +165,7 @@ impl KnownDevices {
     /// Forget one device: its key file is wiped first, then its record
     /// removed. `false` if it was not known.
     pub fn forget(&self, platform: &dyn Platform, id: &DeviceId) -> Result<bool> {
+        let _lock = self.lock(platform)?;
         let mut file = self.load(platform)?;
         secret_file::wipe(platform, &self.dir, &key_file_name(id), KNOWN_SECRET_LEN)?;
         let before = file.devices.len();
@@ -175,6 +181,12 @@ impl KnownDevices {
     /// record list emptied (even if it was corrupt: this is the user's
     /// explicit way out).
     pub fn forget_all(&self, platform: &dyn Platform) -> Result<()> {
+        let _lock = self.lock(platform)?;
+        self.forget_all_locked(platform)
+    }
+
+    /// [`Self::forget_all`] under a held lock.
+    fn forget_all_locked(&self, platform: &dyn Platform) -> Result<()> {
         for entry in platform.read_dir(&self.dir)? {
             let name = entry.name.to_string_lossy();
             // `<id>.key` and a stale `<id>.key.new` from a crash.
@@ -195,7 +207,8 @@ impl KnownDevices {
     /// the device key with a new one (returned). Known peers no longer
     /// recognise this device until they pair with it again.
     pub fn reset_identity(&self, platform: &dyn Platform) -> Result<DeviceKey> {
-        self.forget_all(platform)?;
+        let _lock = self.lock(platform)?;
+        self.forget_all_locked(platform)?;
         let key = DeviceKey::generate().map_err(|_| CoreError::Random)?;
         secret_file::replace(
             platform,
@@ -227,6 +240,11 @@ impl KnownDevices {
             1 => Ok(matches.remove(0)),
             n => Err(CoreError::AmbiguousDevice { matches: n }),
         }
+    }
+
+    /// Exclusive lock for one change (released on drop).
+    fn lock(&self, platform: &dyn Platform) -> Result<FileLock> {
+        Ok(platform.lock_exclusive(&self.dir.join(LOCK_FILE))?)
     }
 
     fn read_device_key(&self, platform: &dyn Platform) -> Result<Option<DeviceKey>> {

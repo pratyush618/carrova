@@ -121,6 +121,26 @@ fn remembering_again_replaces_the_secret_and_keeps_name_and_history() {
 }
 
 #[test]
+fn two_stores_on_one_dir_lose_no_remember() {
+    let f = Fixture::new();
+    let other = FakePlatform::with_home(f.state.parent().unwrap()).with_state_dir(&f.state);
+    let (first, second) = (0..20u8).partition::<Vec<_>, _>(|seed| seed % 2 == 0);
+    std::thread::scope(|scope| {
+        for (platform, seeds) in [(&f.platform, first), (&other, second)] {
+            scope.spawn(move || {
+                let devices = KnownDevices::open(platform).unwrap();
+                for seed in seeds {
+                    devices
+                        .remember(platform, record(seed + 1, "peer"), &known(seed))
+                        .unwrap();
+                }
+            });
+        }
+    });
+    assert_eq!(f.devices.list(&f.platform).unwrap().len(), 20);
+}
+
+#[test]
 fn forget_removes_key_file() {
     let f = Fixture::new();
     f.remember(&record(1, "laptop"), 7);
