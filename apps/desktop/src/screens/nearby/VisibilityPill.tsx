@@ -8,7 +8,8 @@ import { VISIBILITY_CHOICES, VISIBILITY_KEY, type VisibilityModel } from './mode
 
 /**
  * The page's only word on visibility: who can find this computer, and as
- * what name. Opens the three choices and a way to Nearby settings.
+ * what name. Opens the three choices and a way to Nearby settings; closing
+ * hands the keyboard back to the pill (the Bell's pattern).
  */
 export function VisibilityPill({
   visibility,
@@ -25,69 +26,41 @@ export function VisibilityPill({
   const format = useFormat();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const pill = useRef<HTMLButtonElement>(null);
   const menuId = useId();
+
   useEffect(() => {
     if (!open) return;
-    const close = (event: Event) => {
-      if (
-        event instanceof KeyboardEvent
-          ? event.key === 'Escape'
-          : !root.current?.contains(event.target as Node)
-      )
-        setOpen(false);
+    const onPointerDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Node && root.current?.contains(event.target))) setOpen(false);
     };
-    document.addEventListener('keydown', close);
-    document.addEventListener('pointerdown', close);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      pill.current?.focus();
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
     return () => {
-      document.removeEventListener('keydown', close);
-      document.removeEventListener('pointerdown', close);
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
     };
   }, [open]);
-  const who = t(`nearby.visibility.who.${VISIBILITY_KEY[visibility.choice]}`);
-  const choose = (choice: VisibilityChoice) => {
+
+  /** An item of the menu: close it, give the pill the keyboard back, then run. */
+  const act = (run: () => void) => () => {
     setOpen(false);
-    onChoose(choice);
+    pill.current?.focus();
+    run();
   };
+  const who = t(`nearby.visibility.who.${VISIBILITY_KEY[visibility.choice]}`);
+  const named = me !== null;
+
+  // The menu follows the pill in the DOM, so Tab reaches it; CSS shows it above.
   return (
     <div className="s-near__vis" ref={root}>
-      {open && (
-        <div
-          id={menuId}
-          className="s-near__vismenu"
-          role="group"
-          aria-label={t('nearby.visibility.label')}
-        >
-          {VISIBILITY_CHOICES.map((choice) => (
-            <button
-              key={choice}
-              type="button"
-              aria-pressed={choice === visibility.choice}
-              onClick={() => {
-                choose(choice);
-              }}
-            >
-              <span className="s-near__vtick">
-                {choice === visibility.choice && <Icon name="check" />}
-              </span>
-              <span>
-                <b>{t(`nearby.visibility.choices.${VISIBILITY_KEY[choice]}.title`)}</b>
-                <span>{t(`nearby.visibility.choices.${VISIBILITY_KEY[choice]}.body`)}</span>
-              </span>
-            </button>
-          ))}
-          <hr />
-          <button type="button" onClick={onSettings}>
-            <span className="s-near__vtick">
-              <Icon name="settings" />
-            </span>
-            <span>
-              <b>{t('nearby.visibility.settings.title')}</b>
-              <span>{t('nearby.visibility.settings.body')}</span>
-            </span>
-          </button>
-        </div>
-      )}
       <button
+        ref={pill}
         type="button"
         className="s-near__pill"
         aria-expanded={open}
@@ -102,7 +75,7 @@ export function VisibilityPill({
         />
         <span>
           <Trans
-            i18nKey={me === null ? 'nearby.visibility.pillUnnamed' : 'nearby.visibility.pill'}
+            i18nKey={named ? 'nearby.visibility.pill' : 'nearby.visibility.pillUnnamed'}
             values={{ who, name: me }}
             components={{ b: <b /> }}
           />
@@ -111,6 +84,43 @@ export function VisibilityPill({
         </span>
         <Icon name="chev" />
       </button>
+      {open && (
+        <div
+          id={menuId}
+          className="s-near__vismenu"
+          role="group"
+          aria-label={t('nearby.visibility.label')}
+        >
+          {VISIBILITY_CHOICES.map((choice) => (
+            <button
+              key={choice}
+              type="button"
+              aria-pressed={choice === visibility.choice}
+              onClick={act(() => {
+                onChoose(choice);
+              })}
+            >
+              <span className="s-near__vtick">
+                {choice === visibility.choice && <Icon name="check" />}
+              </span>
+              <span>
+                <b>{t(`nearby.visibility.choices.${VISIBILITY_KEY[choice]}.title`)}</b>
+                <span>{t(`nearby.visibility.choices.${VISIBILITY_KEY[choice]}.body`)}</span>
+              </span>
+            </button>
+          ))}
+          <hr />
+          <button type="button" onClick={act(onSettings)}>
+            <span className="s-near__vtick">
+              <Icon name="settings" />
+            </span>
+            <span>
+              <b>{t('nearby.visibility.settings.title')}</b>
+              <span>{t('nearby.visibility.settings.body')}</span>
+            </span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

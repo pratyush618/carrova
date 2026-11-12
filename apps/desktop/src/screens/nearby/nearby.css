@@ -340,8 +340,9 @@
   inset-block-end: 22px;
   inset-inline-start: 50%;
   translate: -50% 0;
-  display: grid;
-  justify-items: center;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
   gap: 8px;
 }
 

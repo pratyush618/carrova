@@ -123,4 +123,18 @@ describe('Nearby', () => {
     renderScreen(page({ ...nearbyList, failed: 'forget' }));
     expect(screen.getByRole('status')).toHaveTextContent("Couldn't forget the device. Try again.");
   });
+
+  it('keeps the keyboard in the pill: Tab reaches the choices, closing returns to the pill', async () => {
+    const user = userEvent.setup();
+    renderScreen(page(nearbyMap));
+    const pill = screen.getByRole('button', { name: /Visible to/ });
+    await user.click(pill);
+    await user.tab();
+    expect(screen.getByRole('button', { name: /^No one/ })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(pill).toHaveFocus();
+    await user.click(pill);
+    await user.click(screen.getByRole('button', { name: /^Everyone for 10 minutes/ }));
+    expect(pill).toHaveFocus();
+  });
 });
