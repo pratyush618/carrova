@@ -1,5 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '../../support/render';
 import { SendFoundScreen } from '@/screens/send/SendFoundScreen';
@@ -41,6 +42,27 @@ describe("Here's what we found: filter and presets", () => {
   it('says so when the filter matches nothing', () => {
     render({ ...foundReady, groups: [], secrets: [], filter: 'zzz' });
     expect(screen.getByText('No apps match “zzz”')).toBeInTheDocument();
+  });
+
+  it('reopens a group you closed once a search narrows the list', async () => {
+    const user = userEvent.setup();
+    function Narrowing() {
+      const [filter, setFilter] = useState('');
+      const model = { ...foundReady, filter, narrowed: filter !== '' };
+      return (
+        <SendFoundScreen
+          model={model}
+          purpose="send"
+          here={HERE}
+          on={{ ...foundOn(), onFilter: setFilter }}
+        />
+      );
+    }
+    renderScreen(<Narrowing />);
+    await user.click(screen.getByRole('button', { name: /Editors/ }));
+    expect(screen.queryByRole('list', { name: 'Editors' })).not.toBeInTheDocument();
+    await user.type(screen.getByRole('searchbox', { name: 'Filter apps' }), 'v');
+    expect(screen.getByRole('list', { name: 'Editors' })).toBeInTheDocument();
   });
 });
 

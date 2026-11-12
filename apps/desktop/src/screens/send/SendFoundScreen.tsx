@@ -228,7 +228,12 @@ export function SendFoundScreen({ model, purpose, here = null, mode, on }: SendF
                 : t('send.found.noMatch', { filter: model.filter.trim() })}
             </Note>
           ) : (
-            <FoundSelection groups={model.groups} secrets={model.secrets} on={on} />
+            <FoundSelection
+              groups={model.groups}
+              secrets={model.secrets}
+              narrowed={model.narrowed}
+              on={on}
+            />
           )}
           {model.unrecognised > 0 && (
             <Note>

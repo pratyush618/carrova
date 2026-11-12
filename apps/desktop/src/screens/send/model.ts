@@ -135,6 +135,8 @@ export type FoundModel =
       readonly filter: string;
       /** Which apps the list shows, beside the text filter. */
       readonly foundFilter: FoundFilter;
+      /** A search or view narrows the list: every group opens, even one you closed. */
+      readonly narrowed: boolean;
       /** The preset the selection still matches; `null` once edited. */
       readonly preset: FoundPreset | null;
       /** Folders no recipe covers (any size): they can come too, as plain files. */

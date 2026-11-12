@@ -198,18 +198,24 @@ function AppGroup({ group, on }: { readonly group: FoundGroup; readonly on: Sele
 export function FoundSelection({
   groups,
   secrets,
+  narrowed,
   on,
 }: {
   readonly groups: readonly FoundGroup[];
   readonly secrets: readonly SecretItem[];
+  readonly narrowed: boolean;
   readonly on: SelectionIntents;
 }) {
   return (
     <>
       {secrets.length > 0 && <SecretsGroup secrets={secrets} on={on} />}
       {groups.map((group) => (
-        // Narrowing a search or view flips `collapsed`: remount so it re-opens the group.
-        <AppGroup key={`${group.category}:${String(group.collapsed)}`} group={group} on={on} />
+        // Narrowing starts or ends: remount, dropping a manual open or close.
+        <AppGroup
+          key={`${group.category}:${String(group.collapsed)}:${String(narrowed)}`}
+          group={group}
+          on={on}
+        />
       ))}
     </>
   );

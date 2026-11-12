@@ -121,6 +121,7 @@ export const foundReady = {
   secrets: SECRETS,
   filter: '',
   foundFilter: 'all',
+  narrowed: false,
   preset: 'suggested',
   unrecognised: 3,
   facts: FACTS,

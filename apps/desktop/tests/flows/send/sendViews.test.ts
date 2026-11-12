@@ -155,7 +155,7 @@ describe('send views', () => {
 
   it('filters found apps and secrets by app or item name, dropping emptied groups', () => {
     const all = { groups: foundGroups(scan), secrets: secretItems(scan) };
-    expect(filterFound(all.groups, all.secrets, '  ', 'all')).toEqual(all);
+    expect(filterFound(all.groups, all.secrets, '  ', 'all')).toEqual({ ...all, narrowed: false });
     const ssh = filterFound(all.groups, all.secrets, 'SSH', 'all');
     expect(ssh.groups.map((g) => g.category)).toEqual(['security']);
     expect(ssh.groups.flatMap((g) => g.apps.map((a) => a.id))).toEqual(['ssh']);
@@ -164,6 +164,7 @@ describe('send views', () => {
     expect(filterFound(all.groups, all.secrets, 'no such app', 'all')).toEqual({
       groups: [],
       secrets: [],
+      narrowed: true,
     });
   });
 
