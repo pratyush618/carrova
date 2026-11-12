@@ -13,6 +13,7 @@ use carrova_platform::Platform;
 use crate::command_error::CommandError;
 use crate::events::{Emit, SessionSink};
 use crate::pairing::{ANSWER_TIMEOUT, PairingAnswers};
+use crate::presence::{Advertise, BackgroundPresence};
 use crate::recipes::RecipeService;
 use crate::registry::Registry;
 use crate::send_request::SendRequests;
@@ -60,6 +61,9 @@ pub struct AppState {
     pub entries_lock: Arc<Mutex<()>>,
     /// Where events go.
     pub out: Arc<dyn Emit>,
+    /// This computer's advert, told of every change to visibility or known
+    /// devices.
+    pub presence: Arc<dyn Advertise>,
     /// Run options.
     pub config: BridgeConfig,
 }
@@ -75,7 +79,7 @@ impl std::fmt::Debug for AppState {
 
 impl AppState {
     /// The bridge on `platform`, with recipes from `locations`, emitting on
-    /// `out`.
+    /// `out`; not advertised until the app starts its presence.
     ///
     /// # Errors
     ///
@@ -105,6 +109,7 @@ impl AppState {
             settings: SettingsStore::new(Arc::clone(&platform)),
             pending_send: SendRequests::default(),
             entries_lock: Arc::default(),
+            presence: Arc::new(BackgroundPresence::new(Arc::clone(&platform))),
             platform,
             out,
             config,
@@ -134,11 +139,18 @@ impl AppState {
 
     /// A sink for a session that does not exist yet.
     pub fn unbound_sink(&self) -> Arc<SessionSink> {
-        Arc::new(SessionSink::unbound(Arc::clone(&self.out)))
+        Arc::new(SessionSink::unbound(
+            Arc::clone(&self.out),
+            Arc::clone(&self.presence),
+        ))
     }
 
     /// A sink for the existing session `id`.
     pub fn sink_for(&self, id: &SessionId) -> Arc<SessionSink> {
-        Arc::new(SessionSink::bound(Arc::clone(&self.out), id))
+        Arc::new(SessionSink::bound(
+            Arc::clone(&self.out),
+            Arc::clone(&self.presence),
+            id,
+        ))
     }
 }

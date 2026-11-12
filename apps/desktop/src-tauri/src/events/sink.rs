@@ -8,6 +8,7 @@ use carrova_view::ipc::BridgeEvent;
 
 use super::Emit;
 use super::throttle::Throttle;
+use crate::presence::Advertise;
 
 /// Events kept while the session id is not known yet (a session object
 /// can report before its constructor returns the id).
@@ -19,9 +20,11 @@ const MAX_PENDING: usize = 256;
 /// The sink exists before its session: it is created with the engine that
 /// opens the session. Until [`Self::bind`] (or the session's first
 /// `StateChanged`, which names it) events are held, then delivered in
-/// order.
+/// order. A device remembered refreshes the presence advert, so it is
+/// tagged at once.
 pub struct SessionSink {
     out: Arc<dyn Emit>,
+    presence: Arc<dyn Advertise>,
     inner: Mutex<Inner>,
 }
 
@@ -40,16 +43,17 @@ impl std::fmt::Debug for SessionSink {
 
 impl SessionSink {
     /// A sink for a session that is not known yet.
-    pub fn unbound(out: Arc<dyn Emit>) -> Self {
+    pub fn unbound(out: Arc<dyn Emit>, presence: Arc<dyn Advertise>) -> Self {
         Self {
             out,
+            presence,
             inner: Mutex::new(Inner::default()),
         }
     }
 
     /// A sink for the existing session `session`.
-    pub fn bound(out: Arc<dyn Emit>, session: &SessionId) -> Self {
-        let sink = Self::unbound(out);
+    pub fn bound(out: Arc<dyn Emit>, presence: Arc<dyn Advertise>, session: &SessionId) -> Self {
+        let sink = Self::unbound(out, presence);
         sink.bind(session);
         sink
     }
@@ -89,6 +93,9 @@ impl Inner {
 
 impl EventSink for SessionSink {
     fn emit(&self, event: Event) {
+        if matches!(event, Event::DeviceRemembered { .. }) {
+            self.presence.refresh();
+        }
         let mut inner = self.lock();
         if !inner.throttle.admit(&event, Instant::now()) {
             return;

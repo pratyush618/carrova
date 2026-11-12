@@ -5,6 +5,7 @@
 mod recorder;
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
@@ -15,6 +16,7 @@ use carrova_view::ipc::BridgeEvent;
 use tempfile::TempDir;
 
 use crate::events::Emit;
+use crate::presence::Advertise;
 use crate::state::{AppState, BridgeConfig};
 
 pub(crate) use recorder::Recorder;
@@ -79,6 +81,23 @@ impl Emit for Events {
         if let Some(hook) = &*self.hook.lock().unwrap_or_else(PoisonError::into_inner) {
             hook(&json);
         }
+    }
+}
+
+/// An [`Advertise`] that counts its refreshes.
+#[derive(Debug, Default)]
+pub(crate) struct Refreshes(AtomicUsize);
+
+impl Refreshes {
+    /// Refreshes so far.
+    pub(crate) fn count(&self) -> usize {
+        self.0.load(Ordering::SeqCst)
+    }
+}
+
+impl Advertise for Refreshes {
+    fn refresh(&self) {
+        self.0.fetch_add(1, Ordering::SeqCst);
     }
 }
 
