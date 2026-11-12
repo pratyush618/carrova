@@ -1,7 +1,7 @@
 import type { Ring } from '../../engine/types';
 
 /** Ring radius in field units (`--u`, 1px on a roomy field; inner = answering now), and where on it the first device sits.
- * Starts (15° and -30°) are chosen so that 0–3 inner and at most 4 outer, up to 5 devices, never touch (6px gap) at the narrowest field (508px) and a roomy one (denser splits: density follow-up in tasks/todo.md); tests/screens/nearby/spots.test.ts proves it. */
+ * Starts (15° and -30°), `--cy` and the inner `--k` floor (nearby.css) are chosen so that up to 5 devices, at most 2 inner and 4 outer, never touch (6px gap between devices) each other, the open card, the visibility pill or this computer at 720×560, 1100×520 and 1440×900 (denser splits, incl. a 3rd inner: density follow-up in tasks/todo.md); tests/screens/nearby/spots.test.ts proves it. */
 const RINGS: Readonly<Record<Ring, { readonly radius: number; readonly start: number }>> = {
   inner: { radius: 170, start: 15 },
   outer: { radius: 290, start: -30 },

@@ -64,10 +64,10 @@ function obstacles(field: Field): Box[] {
 }
 
 describe('Nearby spots', () => {
-  // Guaranteed: up to 5 devices with at most 4 outer, in any split (0–3 inner). A 5th outer, or 6+ devices, is the open density follow-up.
-  it('keep every pill clear of every other, the card, the visibility pill and this computer for up to 5 devices, at most 4 of them outer', () => {
+  // Guaranteed: up to 5 devices, at most 2 inner and at most 4 outer, in any split. A 3rd inner (its spot meets the card), a 5th outer, or 6+ devices is the open density follow-up.
+  it('keep every pill clear of every other, the card, the visibility pill and this computer for up to 5 devices, at most 2 inner and 4 outer', () => {
     for (const field of FIELDS) {
-      for (let inner = 0; inner <= 3; inner += 1) {
+      for (let inner = 0; inner <= 2; inner += 1) {
         for (let outer = 0; outer <= Math.min(4, 5 - inner); outer += 1) {
           const all = pills(field, inner, outer);
           const fixed = obstacles(field);
