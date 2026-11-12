@@ -583,9 +583,11 @@ Deferred: fake port doesn't re-check sensitivity for remapped items; `planOption
 - [ ] Phase 3 (code-less requests): needs its own ADR sign-off (Task 3.0)
 
 Follow-ups (after PR #9):
-- [ ] Nearby map: at 1100×520 an outer-ring device sits under the visibility pill (adjust orbit, visual check vs mockup); no density handling: at 12 inner-ring devices neighbouring buttons overlap (60°/90°/120° spots), sooner on fields narrower than ~772 px where `--u` < 1 px shrinks offsets but not buttons — pick a layout (group extras, smaller buttons, radius/start angle) once the device-count limit is settled (PR #9 CodeRabbit review 5871734187)
-- [ ] macOS/Windows wake hints: `Platform::neighbour_mac` returns `None` there (needs `arp -an` / `GetIpNetTable2`), so no hint is saved and Wake never shows
-- [ ] macOS/Windows file watch: `Platform::watch_dirs` unsupported (FSEvents / ReadDirectoryChangesW); presence polls every 5 s and the tray doesn't follow CLI visibility changes there
-- [ ] macOS device name: host name, not System Settings "Computer Name"
+- [x] Nearby map: devices clear the pill, card, centre and each other at 720×560 / 1100×520 / 1440×900, inner ring nearer than outer (e2e overlap + ring-order checks)
+- [ ] Nearby map density: at 12 inner-ring devices neighbouring buttons overlap (60°/90°/120° spots), sooner on fields narrower than ~772 px where `--u` < 1 px shrinks offsets but not buttons — pick a layout (group extras, smaller buttons, radius/start angle) once the device-count limit is settled (PR #9 CodeRabbit review 5871734187)
+- [x] macOS/Windows wake hints: `neighbour_mac` via `arp -an` / `ARP.EXE -a`, shared pure parsers (`neighbours.rs`), IPv4 only
+- [x] macOS/Windows file watch: `watch_dirs` via `notify`; presence polls only when a watch fails; tray follows CLI visibility on all OSes (limit: Windows watch dies if a dir is deleted + re-created within 2 s)
+- [x] macOS device name: `scutil --get ComputerName`, host-name fallback
 - [ ] Real-hardware check of known devices / Nearby / Wake on Windows and macOS (Phase 5 exit gate)
+- Results: follow-ups verified on Linux only; mac/Windows code covered by pure-parser + shared watch tests, not real hardware.
 - [x] Move the wake-hint save policy (clear hints, rollback, error order) out of `src-tauri/ops/settings.rs` into shared code (`Settings::save_over` in carrova-view) (boundary rule 2; PR #9 CodeRabbit review 5870606766)
