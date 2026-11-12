@@ -19,7 +19,7 @@ use crate::tuning::{BROADCAST_MAX_DATAGRAM, BROADCAST_RETRY, MDNS_POLL};
 use crate::{BROADCAST_PORT, BROADCAST_REPLY, PROTOCOL_VERSION, SERVICE_TYPE, TXT_VERSION};
 
 /// What a peer said about itself in a discovery answer.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub(super) struct Announced {
     /// Its advert (empty if it gave nothing).
     pub(super) advert: PresenceAdvert,

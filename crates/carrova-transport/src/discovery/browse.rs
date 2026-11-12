@@ -2,7 +2,7 @@
 //! presence ([`browse`]).
 
 use std::collections::HashSet;
-use std::net::SocketAddrV4;
+use std::net::{Ipv4Addr, SocketAddrV4};
 use std::time::Duration;
 
 use carrova_platform::Platform;
@@ -28,8 +28,9 @@ pub struct Nearby {
 }
 
 /// Senders offering a code and presences on the LAN, collected for
-/// `timeout` over mDNS and broadcast; each advert once (by port and
-/// content, as it may answer on several addresses). Adverts with neither a
+/// `timeout` over mDNS and broadcast; each device once although it may
+/// answer on several addresses (an offer by port, a tagged presence by its
+/// advert, an untagged one also by address). Adverts with neither a
 /// name nor known-device tags are left out. Never reveals codes (adverts
 /// carry the nameplate and device name only).
 ///
@@ -52,19 +53,13 @@ pub fn browse(platform: &dyn Platform, timeout: Duration) -> Result<Vec<Nearby>>
         let collect = async {
             let mut seen = HashSet::new();
             let mut nearby = Vec::new();
-            while let Some((
-                addr,
-                Announced {
-                    advert,
-                    offers_code,
-                },
-            )) = rx.recv().await
-            {
+            while let Some((addr, announced)) = rx.recv().await {
+                let advert = &announced.advert;
                 let telling = advert.name.is_some() || advert.known.is_some();
-                if telling && seen.insert((addr.port(), advert.clone(), offers_code)) {
+                if telling && seen.insert(same_device(addr, &announced)) {
                     nearby.push(Nearby {
-                        advert,
-                        offers_code,
+                        advert: announced.advert,
+                        offers_code: announced.offers_code,
                         answered: start.elapsed(),
                     });
                 }
@@ -73,6 +68,16 @@ pub fn browse(platform: &dyn Platform, timeout: Duration) -> Result<Vec<Nearby>>
         };
         tokio::join!(query, collect).1
     }))
+}
+
+/// Which answers come from one device: a sender's offer by port (it may
+/// answer on several addresses); a presence with tags by its advert (a
+/// fresh nonce per advert); a presence without tags also by address (two
+/// devices may give the same name and OS).
+fn same_device(addr: SocketAddrV4, announced: &Announced) -> (Option<Ipv4Addr>, u16, Announced) {
+    let untagged_presence = !announced.offers_code && announced.advert.known.is_none();
+    let ip = untagged_presence.then_some(*addr.ip());
+    (ip, addr.port(), announced.clone())
 }
 
 /// Does a resolved mDNS service (current protocol version) advertise a
@@ -84,3 +89,7 @@ fn browsable(service: &mdns_sd::ResolvedService) -> bool {
     get(TXT_VERSION) == Some(PROTOCOL_VERSION.to_string().as_str())
         && (offers_a_code(get) || presence.known.is_some() || presence.os.is_some())
 }
+
+#[cfg(test)]
+#[path = "../../tests/discovery/browse/unit.rs"]
+mod tests;
