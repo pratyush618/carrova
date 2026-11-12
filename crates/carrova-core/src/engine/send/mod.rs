@@ -5,6 +5,7 @@
 //! in `report`, the sender's way in (prepare / resume a send) in
 //! `prepare`.
 
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use carrova_crypto::pairing::ResumeSecret;
@@ -51,6 +52,9 @@ pub struct SendHandle {
     // checklist arrives: a drop in between leaves only the receiver with
     // the new secret, until the next code pairing replaces it.
     known_peer: Option<KnownPeer>,
+    /// The known-device epoch read with this side's identity, if it offers
+    /// one ([`KnownPeer::of`]).
+    epoch: Option<u64>,
     /// How long each pairing code stays valid ([`CODE_LIFETIME`]).
     code_lifetime: Duration,
     /// Failed pairing attempts so far (see [`MAX_PAIRING_FAILURES`](crate::lan::MAX_PAIRING_FAILURES)).
@@ -79,14 +83,15 @@ impl SendHandle {
         secret: Option<ResumeSecret>,
         cancel: Cancel,
     ) -> Result<Self> {
+        // Identity is only exchanged when pairing with a code.
+        let me = secret.is_none().then(|| s.engine.device_key()).flatten();
         let mut listener = Listener::bind(ListenOptions {
             platform: s.engine.platform.clone(),
             cancel: Some(cancel.signal()),
             device_name: crate::about::device_name(s.platform())
                 .as_deref()
                 .and_then(crate::lan::clean_device_name),
-            // Identity is only exchanged when pairing with a code.
-            device: secret.is_none().then(|| s.engine.device_key()).flatten(),
+            device: me.as_ref().map(|(key, _)| Arc::clone(key)),
             ..ListenOptions::default()
         })?;
         let peer = match secret {
@@ -104,6 +109,7 @@ impl SendHandle {
             listener,
             peer,
             known_peer: None,
+            epoch: me.map(|(_, epoch)| epoch),
             code_lifetime: CODE_LIFETIME,
             pairing_failures: 0,
             sent: 0,

@@ -1,6 +1,8 @@
 //! LAN receiver: pairing, resume and the chunk pull that stages an
 //! approved plan.
 
+use std::sync::Arc;
+
 use carrova_crypto::pairing::ResumeSecret;
 use carrova_manifest::{Blake3Hash, Manifest};
 use carrova_transport::{ConnectOptions, Connection, FailedChunk, Target, Ticket, connect};
@@ -53,12 +55,13 @@ impl Importer {
     /// so nothing is left behind; a sender already paired is told
     /// ([`lan::AbortReason::Cancelled`]).
     pub fn connect_with(engine: Engine, ticket: &Ticket, cancel: Cancel) -> Result<Self> {
+        let me = engine.device_key();
         let mut conn = connect(
             Target::Pairing(ticket),
             PAIR_TIMEOUT,
             &ConnectOptions {
                 platform: engine.platform().clone(),
-                device: engine.device_key(),
+                device: me.as_ref().map(|(key, _)| Arc::clone(key)),
                 cancel: Some(cancel.signal()),
             },
         )?;
@@ -87,7 +90,7 @@ impl Importer {
         s.emit(Event::PeerConnected {
             peer: conn.peer_addr(),
         });
-        let known_peer = KnownPeer::of(&conn);
+        let known_peer = me.and_then(|(_, epoch)| KnownPeer::of(&conn, epoch));
         let dialer = TransportDialer::boxed(s.engine.platform().clone(), &cancel);
         let control = TransferControl::default();
         let link = Link::paired(conn, dialer, cancel.clone(), control.clone());

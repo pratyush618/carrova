@@ -138,16 +138,22 @@ impl Engine {
     }
 
     /// This install's device key when it remembers devices (made on first
-    /// need), for the transport to prove at code pairing. An unusable key
+    /// need), for the transport to prove at code pairing, with the store's
+    /// epoch read before it (a forget or reset after it voids the move's
+    /// remember, see [`KnownDevices::epoch`]). An unusable key or store
     /// never blocks a move: it pairs without identity (nothing is
     /// remembered) and the user is warned.
-    fn device_key(&self) -> Option<Arc<DeviceKey>> {
+    fn device_key(&self) -> Option<(Arc<DeviceKey>, u64)> {
         if !self.remember_devices {
             return None;
         }
         let platform = &*self.platform;
-        match KnownDevices::open(platform).and_then(|known| known.device_key(platform)) {
-            Ok(key) => Some(Arc::new(key)),
+        let identity = KnownDevices::open(platform).and_then(|known| {
+            let epoch = known.epoch(platform)?;
+            Ok((known.device_key(platform)?, epoch))
+        });
+        match identity {
+            Ok((key, epoch)) => Some((Arc::new(key), epoch)),
             Err(e) => {
                 let kind = e.class().kind;
                 tracing::warn!(?kind, "device key unusable; pairing without identity");

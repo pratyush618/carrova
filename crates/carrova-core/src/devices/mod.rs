@@ -58,6 +58,10 @@ const NEW_KEY_SUFFIX: &str = ".key.new";
 #[derive(Serialize, Deserialize)]
 struct KnownFile {
     version: u16,
+    /// Bumped by every forget (see [`KnownDevices::epoch`]); older files
+    /// read as 0.
+    #[serde(default)]
+    epoch: u64,
     devices: Vec<DeviceRecord>,
 }
 
@@ -128,6 +132,8 @@ impl KnownDevices {
     /// counted in the same locked step, with the device's wake hint
     /// updated by what `hint` says under the lock (`record.mac_hint` is
     /// only the starting hint of a new device); returns the updated record.
+    /// `None`, storing nothing, if devices were forgotten since the move
+    /// read `epoch` ([`Self::epoch`]) at pairing.
     pub fn remember_move(
         &self,
         platform: &dyn Platform,
@@ -135,8 +141,16 @@ impl KnownDevices {
         secret: &KnownSecret,
         hint: impl FnOnce() -> HintUpdate,
         at: u64,
-    ) -> Result<DeviceRecord> {
-        self.remember_locked(platform, record, secret, hint, Some(at))
+        epoch: u64,
+    ) -> Result<Option<DeviceRecord>> {
+        self.remember_locked(platform, record, secret, hint, Some((at, epoch)))
+    }
+
+    /// Changes each time a device is forgotten ([`Self::forget`],
+    /// [`Self::forget_all`], [`Self::reset_identity`]): a move reads it
+    /// when it pairs, so its remember cannot undo a forget made meanwhile.
+    pub fn epoch(&self, platform: &dyn Platform) -> Result<u64> {
+        Ok(self.load(platform)?.epoch)
     }
 
     /// Drop every saved wake hint (the user turned hints off); writes
@@ -154,17 +168,21 @@ impl KnownDevices {
     }
 
     /// Remember `record` with `secret` under the lock, applying `hint` and
-    /// counting a move finished at `moved_at` if any.
+    /// counting a move finished at `moved` (unix seconds, the epoch read at
+    /// its pairing) if any; `None` if that epoch is stale.
     fn remember_locked(
         &self,
         platform: &dyn Platform,
         record: DeviceRecord,
         secret: &KnownSecret,
         hint: impl FnOnce() -> HintUpdate,
-        moved_at: Option<u64>,
-    ) -> Result<DeviceRecord> {
+        moved: Option<(u64, u64)>,
+    ) -> Result<Option<DeviceRecord>> {
         let _lock = self.lock(platform)?;
         let mut file = self.load(platform)?;
+        if moved.is_some_and(|(_, epoch)| epoch != file.epoch) {
+            return Ok(None);
+        }
         let name = key_file_name(&record.public);
         let index = match file.devices.iter().position(|d| d.public == record.public) {
             Some(i) => {
@@ -179,14 +197,14 @@ impl KnownDevices {
         };
         let device = &mut file.devices[index];
         device.mac_hint = hint().apply(device.mac_hint);
-        if let Some(at) = moved_at {
+        if let Some((at, _)) = moved {
             device.moves = device.moves.saturating_add(1);
             device.last_move = Some(at);
         }
         let updated = device.clone();
         self.save(platform, &file)?;
         secret_file::replace(platform, &self.dir, &name, secret.expose_bytes())?;
-        Ok(updated)
+        Ok(Some(updated))
     }
 
     /// The secret shared with a known device; `None` if the device is not
@@ -242,6 +260,7 @@ impl KnownDevices {
         if file.devices.len() == before {
             return Ok(false);
         }
+        file.epoch = file.epoch.wrapping_add(1);
         self.save(platform, &file)?;
         Ok(true)
     }
@@ -256,6 +275,8 @@ impl KnownDevices {
 
     /// [`Self::forget_all`] under a held lock.
     fn forget_all_locked(&self, platform: &dyn Platform) -> Result<()> {
+        // A corrupt list's epoch is unknown: count on from 0.
+        let epoch = self.load(platform).map_or(0, |f| f.epoch).wrapping_add(1);
         for entry in platform.read_dir(&self.dir)? {
             let name = entry.name.to_string_lossy();
             // `<id>.key` and a stale `<id>.key.new` from a crash.
@@ -268,6 +289,7 @@ impl KnownDevices {
             platform,
             &KnownFile {
                 version: KNOWN_VERSION,
+                epoch,
                 devices: Vec::new(),
             },
         )
@@ -345,6 +367,7 @@ impl KnownDevices {
         let Some(bytes) = read_file(platform, &self.dir.join(KNOWN_FILE))? else {
             return Ok(KnownFile {
                 version: KNOWN_VERSION,
+                epoch: 0,
                 devices: Vec::new(),
             });
         };

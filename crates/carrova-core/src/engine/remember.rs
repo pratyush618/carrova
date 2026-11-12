@@ -14,19 +14,23 @@ use crate::session::Event;
 use crate::store::Source;
 use crate::time;
 
-/// A code-paired peer of a move: its identity and where it was reached.
+/// A code-paired peer of a move: its identity, where it was reached and
+/// the store's epoch read when this side's identity was.
 #[derive(Debug)]
 pub(super) struct KnownPeer {
     identity: PeerIdentity,
     addr: IpAddr,
+    epoch: u64,
 }
 
 impl KnownPeer {
-    /// The peer of `conn`, if it proved a device identity.
-    pub(super) fn of(conn: &Connection) -> Option<Self> {
+    /// The peer of `conn`, if it proved a device identity, paired with the
+    /// store at `epoch`.
+    pub(super) fn of(conn: &Connection, epoch: u64) -> Option<Self> {
         Some(Self {
             identity: conn.peer_identity()?.clone(),
             addr: conn.peer_addr().ip(),
+            epoch,
         })
     }
 }
@@ -47,7 +51,11 @@ impl Session {
 
     fn try_remember_peer(&self, peer: &KnownPeer) -> Result<()> {
         let platform = self.platform();
-        let KnownPeer { identity, addr } = peer;
+        let KnownPeer {
+            identity,
+            addr,
+            epoch,
+        } = peer;
         let fingerprint = Fingerprint::of(&identity.public);
         // Both sides learn the peer's OS before any move can finish.
         let Some(os) = self.record.peer_os else {
@@ -82,7 +90,12 @@ impl Session {
                 HintUpdate::Clear
             }
         };
-        let record = known.remember_move(platform, record, &identity.secret, hint, now)?;
+        let Some(record) =
+            known.remember_move(platform, record, &identity.secret, hint, now, *epoch)?
+        else {
+            tracing::debug!("devices were forgotten during the move; not remembering it");
+            return Ok(());
+        };
         tracing::debug!(device = %fingerprint, "remembered the device moved with");
         self.emit(Event::DeviceRemembered {
             name: record.name,

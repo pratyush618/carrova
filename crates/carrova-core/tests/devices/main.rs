@@ -271,7 +271,9 @@ fn remember_move_stores_the_device_and_counts_each_move() {
             &known(7),
             || HintUpdate::Keep,
             500,
+            0,
         )
+        .unwrap()
         .unwrap();
     assert_eq!((first.moves, first.last_move), (1, Some(500)));
     f.devices.rename(&f.platform, &public(1), "studio").unwrap();
@@ -283,7 +285,9 @@ fn remember_move_stores_the_device_and_counts_each_move() {
             &known(8),
             || HintUpdate::Keep,
             600,
+            0,
         )
+        .unwrap()
         .unwrap();
     assert_eq!((again.moves, again.last_move), (2, Some(600)));
     assert_eq!(again.name, "studio");
@@ -293,6 +297,38 @@ fn remember_move_stores_the_device_and_counts_each_move() {
         std::slice::from_ref(&again)
     );
     assert_eq!(f.secret(&public(1)), Some([8; KNOWN_SECRET_LEN]));
+}
+
+#[test]
+fn a_remember_from_before_a_forget_stores_nothing() {
+    let f = Fixture::new();
+    f.remember(&record(1, "laptop"), 7);
+    let remember = |epoch| {
+        f.devices.remember_move(
+            &f.platform,
+            record(2, "desk"),
+            &known(8),
+            || HintUpdate::Keep,
+            500,
+            epoch,
+        )
+    };
+    let before = f.devices.epoch(&f.platform).unwrap();
+    assert!(!f.devices.forget(&f.platform, &public(9)).unwrap());
+    assert_eq!(
+        f.devices.epoch(&f.platform).unwrap(),
+        before,
+        "nothing forgotten"
+    );
+    f.devices.forget(&f.platform, &public(1)).unwrap();
+    assert_eq!(remember(before).unwrap(), None);
+    let after = f.devices.epoch(&f.platform).unwrap();
+    f.devices.forget_all(&f.platform).unwrap();
+    assert_eq!(remember(after).unwrap(), None);
+    assert!(f.devices.list(&f.platform).unwrap().is_empty());
+    assert_eq!(f.secret(&public(2)), None);
+    let now = f.devices.epoch(&f.platform).unwrap();
+    assert!(remember(now).unwrap().is_some());
 }
 
 #[test]

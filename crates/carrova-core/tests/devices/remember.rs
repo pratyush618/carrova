@@ -121,6 +121,28 @@ fn pairing_again_replaces_the_secret_and_counts_the_move() {
 }
 
 #[test]
+fn devices_forgotten_mid_move_are_not_remembered_by_it() {
+    let sender = Side::sender();
+    let receiver = Side::new();
+    let mut exp = sender.selected_exporter();
+    let running = run(exp.prepare_send().unwrap());
+    let mut imp =
+        Importer::connect(receiver.engine.clone(), running.first.as_ref().unwrap()).unwrap();
+    for side in [&sender, &receiver] {
+        store(side).forget_all(&*side.platform).unwrap();
+    }
+    imp.plan(&options()).unwrap();
+    imp.approve().unwrap();
+    imp.apply().unwrap();
+    running.thread.join().unwrap().unwrap();
+
+    for side in [&sender, &receiver] {
+        assert!(known(side).is_empty());
+        assert!(remembered(side).is_empty());
+    }
+}
+
+#[test]
 fn remember_off_stores_nothing() {
     for off_on_sender in [false, true] {
         let mut sender = Side::sender();
