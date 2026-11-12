@@ -66,6 +66,28 @@ describe('nearby', () => {
     expect(await screen.findByText(/Wake sent to Old ThinkPad/)).toBeInTheDocument();
   });
 
+  it('remembered notice offers forget', async () => {
+    const user = userEvent.setup();
+    const { port, push } = nearbyPort();
+    const forget = vi.spyOn(port, 'forgetDevice');
+    await renderApp({ port, returning: true });
+    await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
+    push({
+      kind: 'engine',
+      session: 's1',
+      event: { event: 'device_remembered', name: "Ana's laptop", fingerprint: '7F3A·19C2' },
+    });
+    const text = await screen.findByText("Remembered Ana's laptop (7F3A·19C2)");
+    const notice = text.closest<HTMLElement>('[role=status]');
+    if (notice === null) throw new Error('the notice is a status');
+    await user.click(within(notice).getByRole('button', { name: 'Forget' }));
+    expect(forget).toHaveBeenCalledWith({ device: '7F3A·19C2' });
+    expect(screen.queryByText(/Remembered Ana's laptop/)).not.toBeInTheDocument();
+    // Closed stays closed across navigation.
+    await user.click(screen.getByRole('button', { name: 'History' }));
+    expect(screen.queryByText(/Remembered Ana's laptop/)).not.toBeInTheDocument();
+  });
+
   it("opens Nearby when the tray's Nearby is chosen", async () => {
     const { port, push } = nearbyPort();
     await renderApp({ port, returning: true });

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
+import { useRemembered } from '../../app/state/EngineState';
 import type {
   CarrovaPort,
   ForgetDevices,
@@ -33,6 +34,12 @@ export function useDevices(port: CarrovaPort): DevicesController {
   const knownState = useRemote(useCallback(() => port.knownDevices(), [port]));
   const visibility = current(loaded.state);
   const reloadKnown = knownState.run;
+  const remembered = useRemembered();
+
+  useEffect(() => {
+    if (remembered !== null) void reloadKnown();
+  }, [remembered, reloadKnown]);
+
   const { run: reloadVisibility } = loaded;
   const refreshVisibility = useCallback(() => void reloadVisibility(), [reloadVisibility]);
   const refresh = useCallback(() => {

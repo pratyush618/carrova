@@ -11,6 +11,7 @@ import { useForwardedSends } from './forward';
 import { useBell } from './useBell';
 import { liveView, viewKey } from './liveView';
 import { NavContext, type NavApi } from './nav';
+import { RememberedToast, useRememberedNotice } from './RememberedToast';
 import { useAutoOverlays } from './routes/autoOverlays';
 import { OverlayRoute } from './routes/OverlayRoute';
 import { ViewRoute } from './routes/ViewRoute';
@@ -83,6 +84,7 @@ export function Shell({ initial }: { readonly initial: Nav }) {
   );
   const forwarded = useForwardedSends(go, nav.view);
   useTrayNearby(nav.view.kind === 'hub', dispatch);
+  const notice = useRememberedNotice();
   const recipes = controllers.settings.recipes;
   const bell = useBell(go);
   const visibility = controllers.devices.visibility;
@@ -108,6 +110,9 @@ export function Shell({ initial }: { readonly initial: Nav }) {
             <ViewRoute view={view} />
             {forwarded.refused && (
               <Toast onDismiss={forwarded.dismiss}>{t('start.forwarded.busy')}</Toast>
+            )}
+            {notice.remembered && (
+              <RememberedToast remembered={notice.remembered} onClose={notice.close} />
             )}
           </Window>
         </ChromeContext>
