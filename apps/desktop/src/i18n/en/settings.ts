@@ -25,7 +25,6 @@ export const settings = {
     found_other: '{{count}} results for “{{query}}”',
     none: 'Nothing matches “{{query}}”',
   },
-  empty: 'Nothing to set here yet.',
   background: {
     group: 'Background',
     keepRunning: 'Keep running when the window closes',

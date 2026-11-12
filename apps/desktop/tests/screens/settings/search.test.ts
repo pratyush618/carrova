@@ -6,8 +6,13 @@ import { searchSettings } from '@/screens/settings/search';
 const t = i18n.t.bind(i18n);
 
 describe('searchSettings', () => {
-  it('finds the notifications row for "wake"', () => {
+  it('finds every row about "wake", in section order', () => {
     expect(searchSettings('wake', t, settingsModel)).toEqual([
+      {
+        section: 'nearby',
+        row: 'wolHints',
+        title: "Save each device's network address for Wake-on-LAN",
+      },
       { section: 'notifications', row: 'wakeScreen', title: 'Wake the screen for send requests' },
     ]);
   });

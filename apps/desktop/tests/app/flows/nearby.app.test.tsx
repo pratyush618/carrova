@@ -1,4 +1,4 @@
-import { act, screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { BridgeEvent } from '@/engine/types';
@@ -29,6 +29,31 @@ async function openNearby(user: UserEvent): Promise<void> {
 }
 
 describe('nearby', () => {
+  it('pill and settings bind one value', async () => {
+    const user = userEvent.setup();
+    await renderApp({ scenario: 'nearby', returning: true });
+    await openNearby(user);
+    await user.click(await screen.findByRole('button', { name: /Visible to known devices/ }));
+    await user.click(screen.getByRole('button', { name: /^Everyone for 10 minutes/ }));
+    await screen.findByRole('button', { name: /Visible to everyone/ });
+
+    await user.click(screen.getByRole('button', { name: /Visible to everyone/ }));
+    await user.click(screen.getByRole('button', { name: /^Nearby settings/ }));
+    const visibility = await screen.findByRole('radiogroup', { name: 'Visibility' });
+    expect(within(visibility).getByRole('radio', { name: 'Everyone · 10 min' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await user.click(within(visibility).getByRole('radio', { name: 'No one' }));
+    await user.click(screen.getByRole('button', { name: 'Back from settings' }));
+    expect(await screen.findByRole('button', { name: /Visible to no one/ })).toBeInTheDocument();
+    // Hidden from everyone: the sidebar's dot goes out.
+    const link = within(screen.getByRole('navigation', { name: 'Main' })).getByRole('button', {
+      name: 'Nearby',
+    });
+    expect(link.querySelector('.p-side__live')).toBeNull();
+  });
+
   it('wakes an away device with a hint, and says when one has none', async () => {
     const user = userEvent.setup();
     const { port } = nearbyPort();

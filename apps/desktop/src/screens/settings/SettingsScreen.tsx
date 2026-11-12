@@ -6,6 +6,7 @@ import { BackgroundGroup } from './BackgroundGroup';
 import { Group } from './Group';
 import type { SettingsIntents, SettingsModel } from './model';
 import { MovesGroup } from './MovesGroup';
+import { NearbyGroup } from './NearbyGroup';
 import { searchSettings } from './search';
 import type { SettingsSection } from './sections';
 import { SettingsNav } from './SettingsNav';
@@ -25,18 +26,13 @@ const BODY: Record<SettingsSection, (props: Props) => ReactNode> = {
     </>
   ),
   sending: (p) => <SendingGroup {...p} />,
-  nearby: () => <EmptySection />,
+  nearby: (p) => <NearbyGroup {...p} />,
   notifications: (p) => <AlertsGroup {...p} />,
   moves: (p) => <MovesGroup {...p} />,
   privacy: (p) => <PrivacyGroup {...p} />,
   updates: (p) => <UpdatesGroup {...p} />,
   about: (p) => <MoreGroup {...p} />,
 };
-
-function EmptySection() {
-  const { t } = useTranslation();
-  return <p className="s-settings-sub">{t('settings.empty')}</p>;
-}
 
 /** Settings: the sidebar lists the sections, search covers them all, the page shows one. */
 export function SettingsScreen({
