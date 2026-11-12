@@ -122,19 +122,27 @@ fn pairing_again_replaces_the_secret_and_counts_the_move() {
 
 #[test]
 fn remember_off_stores_nothing() {
-    let sender = Side::sender();
-    let mut receiver = Side::new();
-    receiver.engine = receiver.engine.clone().with_remember_devices(false);
-    moved(&sender, &receiver);
+    for off_on_sender in [false, true] {
+        let mut sender = Side::sender();
+        let mut receiver = Side::new();
+        let off = if off_on_sender {
+            &mut sender
+        } else {
+            &mut receiver
+        };
+        off.engine = off.engine.clone().with_remember_devices(false);
+        moved(&sender, &receiver);
 
-    assert!(known(&sender).is_empty());
-    assert!(known(&receiver).is_empty());
-    assert!(remembered(&sender).is_empty());
-    let state = receiver.tmp.path().join("state/carrova");
-    assert!(
-        !state.join(DEVICE_KEY_FILE).exists(),
-        "no identity is made while remembering is off"
-    );
+        for side in [&sender, &receiver] {
+            assert!(known(side).is_empty());
+            assert!(remembered(side).is_empty());
+        }
+        let off = if off_on_sender { &sender } else { &receiver };
+        assert!(
+            !state_dir(off).join(DEVICE_KEY_FILE).exists(),
+            "no identity is made while remembering is off"
+        );
+    }
 }
 
 #[test]
