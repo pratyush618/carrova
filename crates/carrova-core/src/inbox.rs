@@ -124,9 +124,11 @@ impl Inbox {
         summary: String,
     ) -> Result<Notice> {
         let mut notices = self.lock();
+        // Numbered before expiring: a list still showing an expired notice
+        // must not mark this one read by its id.
+        let id = NoticeId(notices.iter().map(|n| n.id.0).max().map_or(0, |m| m + 1));
         // Background mode runs for weeks: expire old notices here, not only on load.
         prune(&mut notices, at);
-        let id = NoticeId(notices.iter().map(|n| n.id.0).max().map_or(0, |m| m + 1));
         let notice = Notice {
             id,
             kind,

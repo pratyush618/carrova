@@ -152,3 +152,20 @@ fn a_read_mark_that_cannot_be_saved_is_not_kept() {
     assert!(inbox.mark_all_read().is_err());
     assert!(inbox.list().iter().all(|n| !n.read));
 }
+
+#[test]
+fn a_notice_never_takes_the_id_of_an_expired_one() {
+    let home = TempDir::new().unwrap();
+    let old = NOW - RETENTION_DAYS * SECS_PER_DAY - 1;
+    let inbox = open(&home, old);
+    let expired = inbox
+        .push(NoticeKind::UpdateReady, old, None, "old".into())
+        .unwrap();
+
+    let fresh = inbox
+        .push(NoticeKind::MoveFinished, NOW, None, "new".into())
+        .unwrap();
+
+    assert_eq!(inbox.list().len(), 1, "the old one expired");
+    assert_ne!(fresh.id, expired.id);
+}
