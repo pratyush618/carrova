@@ -571,3 +571,13 @@ Final gate, all PASS: `just ci` (975 Rust tests, 304 Vitest, lint/clippy/rustdoc
 Open (user): `git init -b main`; move design PDF out of junk/; replace placeholders until `just release-preflight` passes (OWNER/REPO ×4, DEV bundle root, DEV updater key, maintainer, CODEOWNERS handles, secrets); final project name; v0.1 exit gate on clean Ubuntu; Phase 3 hardware gate.
 Deferred: fake port doesn't re-check sensitivity for remapped items; `planOptions.ts` still edits PlanOptions lists (no core options-edit API).
 - [x] **W4-5 boundary-review fixes**: (1) HIGH `prune_expired` may dismiss after an incomplete rollback / during a rollback → never prune when `record.error` set or rollback started (clear `expires_at`), prune under session lock, continue past one failure; (3) `run_tool` kill whole process group (Platform method); (4) reject `:` in any RelPath component (+ schema); (5) advertise `clean_device_name`d name; (6) `RecipesCheck::Refused{version}` mapped in view (CLI = desktop). Checked (2): plugin `log` reaches only CLI stderr at `-vv`; not in log.jsonl or reports. Done: `Session::load_locked` (flock `session.lock`), rollback clears `expires_at` before steps, prune skips `error`, continues on failure; `RelPathError::Colon`; `Platform::{isolate_tool,kill_tool}` (unix process group; Windows direct child only, shortcut); `RecipesCheck::{UpToDate{version},Refused{version}}` via `From<CheckAttempt>` in view. Main thread: windows clippy closure, `check-targets` uses blake3 pure (cross C toolchain). User 2026-11-10: raw items allow `:` (`RelPath::new_raw`, test `raw_dir_with_colon_in_its_name_is_captured`); settings copy stays "List". Open: recipe v1/v2 schemas still allow mid-path `:`.
+
+## Background + Nearby — Phase 2: known devices (2026-11-12)
+- [x] ADR 0001 signed off (incl. amendment: discovery tag binds the advertiser's public key)
+- [x] 2.1 device identity + known-device store (`carrova-core::devices`, locked, atomic secret files)
+- [x] 2.2 `Identify` before `Established` + remember after a code-paired move
+- [x] 2.3 presence adverts (`kt` tags) + visibility (Known / Everyone for a while / No one)
+- [x] 2.5 Wake-on-LAN: platform magic packet + neighbour MAC, opt-in core wake hints (cleared on opt-out)
+- [x] 2.4 Rust wiring (devices/visibility commands, background presence, tray, CLI `carrova devices|visibility`) + UI (Nearby page, known-devices settings, Wake, remembered notice, tray → Nearby)
+- [ ] 2.6 gate: `just ci`, `just e2e-ui`, boundary review, final review, PR
+- [ ] Phase 3 (code-less requests): needs its own ADR sign-off (Task 3.0)
