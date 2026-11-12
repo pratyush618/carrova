@@ -44,7 +44,8 @@ enum Wake {
 
 /// The OS watch [`follow`] drives.
 trait Backend {
-    /// Drop the watches of `old` (one gone with its dir may fail to drop),
+    /// Drop the watches of `old` (one not watched, or gone with its dir, may
+    /// fail to drop),
     /// then watch each of `dirs`: the outcome of each, in order, or `Err`
     /// when applying them failed as a whole.
     fn rewatch(
@@ -145,8 +146,15 @@ fn rewatch(
     watched: &[Found],
 ) -> Result<Rewatched, PlatformError> {
     let present = present_dirs(dirs)?;
-    let old: Vec<_> = watched.iter().map(|(dir, _)| dir.clone()).collect();
     let new: Vec<_> = present.iter().map(|(dir, _)| dir.clone()).collect();
+    // A failed rewatch may have left some of `new` watched (FSEvents keeps
+    // the paths of a stream that did not start, Windows replaces a watch
+    // without stopping it): drop those too before watching afresh.
+    let old: Vec<_> = watched
+        .iter()
+        .map(|(dir, _)| dir.clone())
+        .chain(new.iter().cloned())
+        .collect();
     let outcomes = match backend.rewatch(&old, &new) {
         Ok(outcomes) => outcomes,
         Err(e) => {

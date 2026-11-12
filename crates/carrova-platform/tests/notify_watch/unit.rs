@@ -284,3 +284,22 @@ fn rewatches_failing_on_changes_count_once_per_recheck() {
         "a burst of changes used up the failures allowed"
     );
 }
+
+#[test]
+fn a_rewatch_after_a_failed_batch_drops_the_watches_it_tried() {
+    let tmp = TempDir::new().unwrap();
+    let dirs = dirs(&tmp, &["a"]);
+    let backend = Fake::default();
+    let watch = run(&dirs, backend.clone());
+    backend.batch_failing.store(1, Ordering::SeqCst);
+    watch.wake.send(Wake::Changed).unwrap();
+    assert!(watch.changed());
+    // The recheck finds `a` unwatched and tries again.
+    assert!(watch.changed());
+    let (old, added) = backend.last();
+    assert_eq!(added, dirs);
+    assert!(
+        old.contains(&dirs[0]),
+        "a half-applied watch may stay: {old:?}"
+    );
+}

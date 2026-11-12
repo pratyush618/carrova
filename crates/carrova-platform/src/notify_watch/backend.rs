@@ -95,7 +95,7 @@ impl Backend for RecommendedWatcher {
     ) -> Result<Vec<Result<(), PlatformError>>, PlatformError> {
         let mut paths = self.paths_mut();
         for dir in old {
-            // Fails where the watch went with its dir.
+            // Fails where there is no watch (left) to drop.
             let _ = paths.remove(dir);
         }
         let added = dirs
