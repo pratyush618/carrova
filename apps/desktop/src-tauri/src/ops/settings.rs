@@ -58,14 +58,16 @@ pub async fn save(state: &AppState, patch: Value) -> Result<(), CommandError> {
         // No device store yet: nothing to clear, and none is made for it.
         let cleared = KnownDevices::open_existing(platform)
             .and_then(|k| k.map_or(Ok(()), |k| k.clear_wake_hints(platform)));
-        saved?;
-        if let Err(e) = cleared {
-            // Logged first: a failed rollback below replaces it.
+        // Logged first: a failed save or rollback below replaces it.
+        if let Err(e) = &cleared {
             tracing::warn!(error = %e, "could not drop the wake hints");
-            if old.nearby.wol_hints {
-                store.save(&old)?;
-                return Err(e.into());
-            }
+        }
+        saved?;
+        if let Err(e) = cleared
+            && old.nearby.wol_hints
+        {
+            store.save(&old)?;
+            return Err(e.into());
         }
         Ok(())
     })
