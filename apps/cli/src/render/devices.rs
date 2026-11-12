@@ -3,7 +3,6 @@
 
 use std::io::{self, Write};
 
-use carrova_core::presence::POLL;
 use carrova_view::devices::{KnownDeviceView, VisibilityChoice, VisibilityView};
 
 use super::text::safe;
@@ -44,8 +43,7 @@ pub fn visibility(out: &mut impl Write, view: VisibilityView) -> io::Result<()> 
     }?;
     writeln!(
         out,
-        "Takes effect within {} seconds while the Carrova app runs on this computer.",
-        POLL.as_secs()
+        "Takes effect at once while the Carrova app runs on this computer."
     )
 }
 
