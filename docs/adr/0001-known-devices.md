@@ -275,8 +275,11 @@ Three CodeRabbit points on PR #8 were left to this phase:
   move, rename, forget, forget all, reset identity, first device key) runs
   under an exclusive lock on `devices/known.lock`, and `known.json` is
   replaced atomically, so reads take no lock. Two pairings with the same
-  peer that finish together are applied one after the other, and the later
-  one's secret wins, as "Latest code pairing wins" (§4) requires.
+  peer that finish together are applied one after the other on each host,
+  so no update is lost. The lock is local: if the two hosts finish the
+  pairings in opposite orders, they can keep different `KnownSecret`s and
+  stop recognising each other. This is rare, and the next code pairing
+  fixes it.
 
 ## Versioning and compatibility
 
