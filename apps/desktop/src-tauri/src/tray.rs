@@ -63,7 +63,7 @@ pub fn start(app: &AppHandle, state: &AppState, in_background: bool) {
         ..TrayShown::default()
     });
     let handle = app.clone();
-    app.listen_any(EVENT_CHANNEL, move |_| on_bridge_event(&handle));
+    app.listen_any(EVENT_CHANNEL, move |_| on_main(&handle, on_bridge_event));
     let action = if in_background {
         background::close_action(state)
     } else {
@@ -229,11 +229,29 @@ fn count_nearby(app: &AppHandle) {
         if let Some(flags) = tray_flags(&app) {
             *flags.nearby.lock().unwrap_or_else(PoisonError::into_inner) = count;
         }
-        if tray_shown(&app) {
-            // Logged inside; the menu stays as it was.
-            let _ = show_tray(&app, &state);
-        }
+        on_main(&app, refresh_shown_tray);
     });
+}
+
+/// Run `f` on the main thread, where the window and tray icon change
+/// ([`open_main`] too): a "tray shows" check there holds until `f` is done,
+/// so a tray hidden meanwhile is not shown again.
+pub fn on_main(app: &AppHandle, f: impl FnOnce(&AppHandle) + Send + 'static) {
+    let handle = app.clone();
+    if let Err(error) = app.run_on_main_thread(move || f(&handle)) {
+        tracing::warn!(%error, "could not reach the main thread");
+    }
+}
+
+/// Refresh the tray menu if the tray still shows (on the main thread, see
+/// [`on_main`]).
+fn refresh_shown_tray(app: &AppHandle) {
+    if let Some(state) = app.try_state::<AppState>()
+        && tray_shown(app)
+    {
+        // Logged inside; the menu stays as it was.
+        let _ = show_tray(app, &state);
+    }
 }
 
 fn tray_flags(app: &AppHandle) -> Option<tauri::State<'_, TrayShown>> {
@@ -267,12 +285,7 @@ fn rebuild_when_everyone_ends(app: &AppHandle) {
         // A second past the deadline, so it reads as over.
         let wait = until.saturating_sub(now_unix()).saturating_add(1);
         std::thread::sleep(Duration::from_secs(wait));
-        if let Some(state) = app.try_state::<AppState>()
-            && tray_shown(&app)
-        {
-            // Logged inside; the menu stays as it was.
-            let _ = show_tray(&app, &state);
-        }
+        on_main(&app, refresh_shown_tray);
     });
 }
 
@@ -283,18 +296,19 @@ fn rebuild_when_everyone_ends(app: &AppHandle) {
 fn follow_visibility(app: &AppHandle, state: &AppState) -> Option<DirWatch> {
     let handle = app.clone();
     let changed = Box::new(move || {
-        let (Some(state), Some(flags)) = (handle.try_state::<AppState>(), tray_flags(&handle))
-        else {
-            return;
-        };
-        let ticked = *flags
-            .visible_to
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
-        if tray_shown(&handle) && ticked != Some(background::tray_model(&state).visible_to) {
-            // Logged inside; the menu stays as it was.
-            let _ = show_tray(&handle, &state);
-        }
+        on_main(&handle, |app| {
+            let (Some(state), Some(flags)) = (app.try_state::<AppState>(), tray_flags(app)) else {
+                return;
+            };
+            let ticked = *flags
+                .visible_to
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            if tray_shown(app) && ticked != Some(background::tray_model(&state).visible_to) {
+                // Logged inside; the menu stays as it was.
+                let _ = show_tray(app, &state);
+            }
+        });
     });
     state
         .platform
@@ -449,6 +463,8 @@ fn pick_and_send(app: &AppHandle) {
         if let Some(state) = handle.try_state::<AppState>() {
             send_request::forward(&state, &paths);
         }
-        open_main(&handle);
+        on_main(&handle, |app| {
+            open_main(app);
+        });
     });
 }
