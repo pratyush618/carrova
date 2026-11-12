@@ -20,7 +20,6 @@ use crate::{
 mod background;
 mod file_manager;
 mod mounts;
-mod neighbours;
 mod roots;
 mod screen;
 #[cfg(test)]
@@ -281,7 +280,7 @@ impl Platform for LinuxPlatform {
             return None;
         };
         let table = std::fs::read_to_string("/proc/net/arp").ok()?;
-        neighbours::mac_from_arp(&table, ip)
+        crate::neighbours::mac_from_proc_arp(&table, ip)
     }
 
     fn send_magic_packet(&self, mac: [u8; 6]) -> Result<(), PlatformError> {

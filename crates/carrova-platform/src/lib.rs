@@ -8,6 +8,7 @@ mod device;
 mod error;
 mod lock;
 mod meta;
+mod neighbours;
 mod os;
 pub mod path;
 mod platform;
