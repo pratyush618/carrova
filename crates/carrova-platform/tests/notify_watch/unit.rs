@@ -12,12 +12,23 @@ const RECHECK: Duration = Duration::from_millis(50);
 /// Far longer than any wait a test expects to be met.
 const SOON: Duration = Duration::from_secs(5);
 
-/// A backend recording the dirs of each rewatch; while `failing` is above
-/// zero, a rewatch fails every dir (and counts it down).
+/// A backend recording the `(old, dirs)` of each rewatch; while `failing`
+/// is above zero, a rewatch fails every dir, and while `batch_failing` is,
+/// the rewatch as a whole (each counts itself down).
 #[derive(Clone, Default)]
 struct Fake {
-    rewatched: Arc<Mutex<Vec<Vec<PathBuf>>>>,
+    rewatched: Arc<Mutex<Vec<Call>>>,
     failing: Arc<AtomicUsize>,
+    batch_failing: Arc<AtomicUsize>,
+}
+
+/// The `(old, dirs)` of one rewatch.
+type Call = (Vec<PathBuf>, Vec<PathBuf>);
+
+/// Count `n` down; whether it was above zero.
+fn take(n: &AtomicUsize) -> bool {
+    n.try_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
+        .is_ok()
 }
 
 impl Fake {
@@ -31,7 +42,7 @@ impl Fake {
         self.rewatched.lock().unwrap().len()
     }
 
-    fn last(&self) -> Vec<PathBuf> {
+    fn last(&self) -> Call {
         self.rewatched.lock().unwrap().last().cloned().unwrap()
     }
 }
@@ -39,14 +50,17 @@ impl Fake {
 impl Backend for Fake {
     fn rewatch(
         &mut self,
-        _old: &[PathBuf],
+        old: &[PathBuf],
         dirs: &[PathBuf],
     ) -> Result<Vec<Result<(), PlatformError>>, PlatformError> {
-        self.rewatched.lock().unwrap().push(dirs.to_vec());
-        let fail = self
-            .failing
-            .try_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
-            .is_ok();
+        self.rewatched
+            .lock()
+            .unwrap()
+            .push((old.to_vec(), dirs.to_vec()));
+        if take(&self.batch_failing) {
+            return Err(io_err("<watch>", "stream did not start"));
+        }
+        let fail = take(&self.failing);
         Ok(dirs
             .iter()
             .map(|dir| {
@@ -149,7 +163,7 @@ fn a_missing_dir_drops_out_and_the_rest_stay_watched() {
     let watch = run(&dirs, Fake::default());
     fs::remove_dir(&dirs[1]).unwrap();
     assert!(watch.changed(), "the recheck missed a removed dir");
-    assert_eq!(watch.backend.last(), [dirs[0].clone()]);
+    assert_eq!(watch.backend.last().1, [dirs[0].clone()]);
     assert!(watch.still_follows());
 }
 
@@ -201,7 +215,7 @@ fn a_dir_replaced_between_rechecks_is_watched_afresh() {
     fs::create_dir(&dirs[0]).unwrap();
     fs::remove_dir(&old).unwrap();
     assert!(watch.changed(), "the recheck missed a replaced dir");
-    assert_eq!(watch.backend.last(), dirs);
+    assert_eq!(watch.backend.last().1, dirs);
 }
 
 #[test]
@@ -234,9 +248,10 @@ fn a_rewatch_failing_short_of_the_limit_is_retried() {
     watch.wake.send(Wake::Changed).unwrap();
     assert!(watch.still_follows(), "a passing failure ended the watch");
     // The first watch, the failures, then one that took.
-    assert_eq!(backend.rewatches(), 1 + MAX_REWATCH_FAILURES);
+    let settled = 1 + (MAX_REWATCH_FAILURES - 1) + 1;
+    assert_eq!(backend.rewatches(), settled);
     assert!(watch.still_follows());
-    assert_eq!(backend.rewatches(), 1 + MAX_REWATCH_FAILURES, "settled");
+    assert_eq!(backend.rewatches(), settled, "settled");
 }
 
 #[test]
@@ -247,5 +262,25 @@ fn a_rewatch_failing_up_to_the_limit_ends_the_watch() {
     backend.failing.store(usize::MAX, Ordering::SeqCst);
     watch.wake.send(Wake::Changed).unwrap();
     assert!(watch.ends());
-    assert_eq!(backend.rewatches(), 1 + MAX_REWATCH_FAILURES);
+    // The first watch, the one the change asked for, then a failing recheck
+    // per allowed failure.
+    assert_eq!(backend.rewatches(), 2 + MAX_REWATCH_FAILURES);
+}
+
+#[test]
+fn rewatches_failing_on_changes_count_once_per_recheck() {
+    let tmp = TempDir::new().unwrap();
+    let backend = Fake::default();
+    let watch = run(&dirs(&tmp, &["a"]), backend.clone());
+    backend
+        .failing
+        .store(MAX_REWATCH_FAILURES, Ordering::SeqCst);
+    for _ in 0..MAX_REWATCH_FAILURES {
+        watch.wake.send(Wake::Changed).unwrap();
+        thread::sleep(Duration::from_millis(5));
+    }
+    assert!(
+        watch.still_follows(),
+        "a burst of changes used up the failures allowed"
+    );
 }

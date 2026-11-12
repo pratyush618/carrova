@@ -19,8 +19,9 @@ mod tests;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) use backend::watch_dirs;
 
-/// Rewatches in a row that may fail before the watch ends: a dir can be
-/// briefly unopenable (an antivirus scan, a sync client) without being gone.
+/// Rechecks in a row whose rewatch may fail before the watch ends: a dir
+/// can be briefly unopenable (an antivirus scan, a sync client) without
+/// being gone.
 const MAX_REWATCH_FAILURES: usize = 3;
 
 /// A dir's identity, `(device or volume, inode or file index)`: a dir
@@ -80,7 +81,7 @@ fn follow(
     let mut next = Instant::now() + recheck;
     let mut failures = 0;
     loop {
-        match wakes.recv_timeout(next.saturating_duration_since(Instant::now())) {
+        let rechecked = match wakes.recv_timeout(next.saturating_duration_since(Instant::now())) {
             Ok(Wake::Stop) | Err(RecvTimeoutError::Disconnected) => return,
             Ok(Wake::Noise) => continue,
             Err(RecvTimeoutError::Timeout)
@@ -91,8 +92,9 @@ fn follow(
                 next = Instant::now() + recheck;
                 continue;
             }
-            Ok(Wake::Changed) | Err(RecvTimeoutError::Timeout) => {}
-        }
+            Ok(Wake::Changed) => false,
+            Err(RecvTimeoutError::Timeout) => true,
+        };
         // Which entry changed does not matter: callers re-read what they
         // follow. Drain everything queued so a burst costs one call.
         if wakes.try_iter().any(|wake| matches!(wake, Wake::Stop)) {
@@ -111,7 +113,13 @@ fn follow(
         else {
             return;
         };
-        failures = if failed.is_some() { failures + 1 } else { 0 };
+        // Only a recheck counts a failure, so a burst of changes cannot use
+        // up the failures allowed within moments.
+        match failed {
+            Some(_) if rechecked => failures += 1,
+            Some(_) => {}
+            None => failures = 0,
+        }
         if failures == MAX_REWATCH_FAILURES || (failed.is_none() && now.is_empty()) {
             return;
         }
