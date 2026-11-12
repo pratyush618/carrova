@@ -128,6 +128,10 @@ pub enum ErrorCode {
     Session,
     /// Recipe bundle problem (verification, download).
     Recipes,
+    /// A known device could not be picked or renamed.
+    KnownDevice,
+    /// A stored device key is refused.
+    DeviceKey,
     /// Anything else.
     Internal,
 }
@@ -149,6 +153,8 @@ impl From<ErrorKind> for ErrorCode {
             ErrorKind::RolledBack => Self::RolledBack,
             ErrorKind::RollbackFailed => Self::RollbackFailed,
             ErrorKind::Session => Self::Session,
+            ErrorKind::KnownDevice => Self::KnownDevice,
+            ErrorKind::DeviceKey => Self::DeviceKey,
             ErrorKind::Internal => Self::Internal,
         }
     }

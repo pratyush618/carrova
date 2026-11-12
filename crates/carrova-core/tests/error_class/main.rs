@@ -147,3 +147,19 @@ fn apply_outcomes_blockers_and_sessions_are_classified() {
         ErrorKind::InvalidSelection
     );
 }
+
+#[test]
+fn known_device_errors_are_their_own_kinds() {
+    for e in [
+        CoreError::UnknownDevice,
+        CoreError::AmbiguousDevice { matches: 2 },
+        CoreError::InvalidDeviceName,
+    ] {
+        assert_eq!(e.class(), class(ErrorKind::KnownDevice, false, None), "{e}");
+    }
+    let e = CoreError::DeviceKey {
+        key: "device.key".into(),
+        problem: carrova_core::KeyFileProblem::WrongSize,
+    };
+    assert_eq!(e.class(), class(ErrorKind::DeviceKey, false, None));
+}

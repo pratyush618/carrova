@@ -24,6 +24,8 @@ const ERROR_CODES: Readonly<Record<ErrorCode, true>> = {
   rollback_failed: true,
   session: true,
   recipes: true,
+  known_device: true,
+  device_key: true,
   internal: true,
 };
 
