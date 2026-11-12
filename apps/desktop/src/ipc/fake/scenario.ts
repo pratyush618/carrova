@@ -26,7 +26,7 @@ export const SCENARIOS = [
   'forwarded',
   /** Two known devices and a new one nearby, two known ones away (one can be woken). */
   'nearby',
-  /** 21 new devices, one with a very long name: more than the map has room for. */
+  /** 21 new devices, one with a very long name, on a computer with a long name too: more than the map has room for. */
   'nearby-crowded',
 ] as const;
 

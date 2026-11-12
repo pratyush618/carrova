@@ -94,15 +94,17 @@ const apart = (a: Box, b: Box) =>
 
 const sizes = [
   { width: 720, height: 560 },
+  // The sidebar is 212px: a 748px field, where the fifth outer slot opens.
+  { width: 960, height: 640 },
   { width: 1100, height: 520 },
   { width: 1440, height: 900 },
 ];
 
 // `nearby` fits whole (2 inner + 3 outer); `nearby-crowded` (7 inner + 14 outer) fills every slot the field
-// opens (spots.ts: 4+3, 5+8, 6+12) and sums up the rest in the chip.
+// opens (spots.ts: 4+3, 5+5, 5+8, 6+12) and sums up the rest in the chip.
 const cases = [
   ...sizes.map((size) => ({ scenario: 'nearby', size, shown: 5 })),
-  ...sizes.map((size, i) => ({ scenario: 'nearby-crowded', size, shown: [7, 13, 18][i] ?? 0 })),
+  ...sizes.map((size, i) => ({ scenario: 'nearby-crowded', size, shown: [7, 10, 13, 18][i] ?? 0 })),
 ];
 
 for (const { scenario, size, shown } of cases)
@@ -188,6 +190,15 @@ test('the chip opens the list with every device, the long name whole', async ({ 
   const pill = page.getByRole('button', { name: new RegExp(`^${long}`) });
   await expect(pill).toHaveAttribute('title', long);
   expect((await pill.boundingBox())?.width).toBeLessThanOrEqual(164);
+  // The computer's long name hits the pill's cap; the title keeps it whole.
+  const visible = page.getByRole('button', { name: /^Visible to/ });
+  await expect(visible).toHaveAttribute(
+    'title',
+    /^Visible to .* as ana-render-workstation-.*desk-14$/,
+  );
+  const width = (await visible.boundingBox())?.width ?? 0;
+  expect(width).toBeLessThanOrEqual(300);
+  expect(width).toBeGreaterThan(280);
   await expectAccessible(page, 'crowded map');
   await page.getByRole('button', { name: '+14 more: show all 21 devices in the list' }).click();
   await expect(page.getByRole('radio', { name: 'List' })).toBeChecked();
