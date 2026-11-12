@@ -1,7 +1,9 @@
-//! User settings the bridge persists, and their read-only load for every
-//! front-end (the CLI follows the app's Nearby settings).
+//! User settings the bridge persists, their read-only load for every
+//! front-end (the CLI follows the app's Nearby settings), and the save
+//! policy that keeps saved wake hints in step with them.
 
-use carrova_core::{ConflictRule, Retention};
+use carrova_core::devices::KnownDevices;
+use carrova_core::{ConflictRule, CoreError, Retention};
 use carrova_platform::{Platform, PlatformError};
 use serde::{Deserialize, Serialize};
 
@@ -206,6 +208,47 @@ impl Settings {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(e) => Err(e.into()),
         }
+    }
+
+    /// Replace the saved `old` settings with `self` through `write`, keeping
+    /// the saved wake hints in step. Run it under the writer's settings
+    /// lock. Every save with wake hints off saves the setting, then drops
+    /// every saved hint: a move remembered meanwhile asks the saved setting
+    /// under the devices lock, so none comes back. Hints are dropped even
+    /// if the save fails (it may have replaced the file), and one an
+    /// earlier save left behind goes with the next. No device store yet
+    /// means nothing to drop, and none is made. If the hints cannot be
+    /// dropped while turning them off, `old` is written back; while
+    /// already off, that is only logged.
+    ///
+    /// # Errors
+    ///
+    /// `write` fails (that error wins), or the hints cannot be dropped
+    /// while turning them off.
+    pub fn save_over<E: From<CoreError>>(
+        &self,
+        old: &Self,
+        platform: &dyn Platform,
+        mut write: impl FnMut(&Self) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let saved = write(self);
+        if self.nearby.wol_hints {
+            return saved;
+        }
+        let cleared = KnownDevices::open_existing(platform)
+            .and_then(|k| k.map_or(Ok(()), |k| k.clear_wake_hints(platform)));
+        // Logged first: a failed save or rollback below replaces it.
+        if let Err(e) = &cleared {
+            tracing::warn!(error = %e, "could not drop the wake hints");
+        }
+        saved?;
+        if let Err(e) = cleared
+            && old.nearby.wol_hints
+        {
+            write(old)?;
+            return Err(e.into());
+        }
+        Ok(())
     }
 }
 
