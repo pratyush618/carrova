@@ -12,7 +12,7 @@ use super::presence::PresenceAdvert;
 use super::seek::Offer;
 use crate::error::Result;
 use crate::runtime::runtime;
-use crate::tuning::BROADCAST_MAX_DATAGRAM;
+use crate::tuning::{BROADCAST_MAX_DATAGRAM, MDNS_WITHDRAW_WAIT};
 use crate::{
     BROADCAST_BROWSE, BROADCAST_PORT, BROADCAST_REPLY, PROTOCOL_VERSION, SERVICE_TYPE,
     TXT_DEVICE_NAME, TXT_VERSION,
@@ -96,8 +96,14 @@ impl Advertiser {
         *self.current.lock().unwrap_or_else(PoisonError::into_inner) = Some(advert);
         let Some(daemon) = &self.mdns else { return };
         if let Some(old) = self.registered.take() {
-            // Fire and forget: the goodbye is sent by the daemon thread.
-            let _ = daemon.unregister(&old);
+            // Wait until the daemon thread withdrew it: until then it still
+            // answers queries with the old offer (and its name).
+            let withdrawn = daemon
+                .unregister(&old)
+                .map(|done| done.recv_timeout(MDNS_WITHDRAW_WAIT).is_ok());
+            if !matches!(withdrawn, Ok(true)) {
+                tracing::warn!("mDNS daemon did not withdraw the previous advertisement");
+            }
         }
         let version = PROTOCOL_VERSION.to_string();
         let txt: Vec<(&str, &str)> = std::iter::once((TXT_VERSION, version.as_str()))
