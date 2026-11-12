@@ -68,6 +68,21 @@ fn a_watched_dir_that_appears_later_is_watched_from_then_on() {
 }
 
 #[test]
+fn a_watched_dir_re_created_at_once_is_watched_again() {
+    let tmp = TempDir::new().unwrap();
+    let devices = tmp.path().join("devices");
+    fs::create_dir(&devices).unwrap();
+    let (_watch, changes) = watching(&[tmp.path().to_path_buf(), devices.clone()]);
+    settle(&changes);
+    fs::remove_dir(&devices).unwrap();
+    fs::create_dir(&devices).unwrap();
+    changes.recv_timeout(SOON).unwrap();
+    settle(&changes);
+    replace_atomically(&devices, "known.json");
+    changes.recv_timeout(SOON).unwrap();
+}
+
+#[test]
 fn dropping_the_watch_stops_it() {
     let tmp = TempDir::new().unwrap();
     let (watch, changes) = watching(&[tmp.path().to_path_buf()]);
