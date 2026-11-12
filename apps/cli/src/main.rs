@@ -2,6 +2,7 @@
 //! renders its results; no business logic lives here.
 
 mod args;
+mod devices;
 mod events;
 mod integrate;
 mod interrupt;
@@ -93,6 +94,11 @@ enum Command {
         #[command(subcommand)]
         command: integrate::IntegrateCommand,
     },
+    /// The devices this computer remembers: list, rename, forget, or
+    /// reset this computer's identity.
+    Devices(devices::DevicesArgs),
+    /// Show or choose who may find this computer nearby.
+    Visibility(devices::VisibilityArgs),
     /// Opt-in local error reports: choose, list, inspect, delete, or turn
     /// one into a GitHub issue you file yourself.
     Report(report::ReportArgs),
@@ -141,6 +147,8 @@ fn run(cli: Cli, reports: &Result<Reports, PlatformError>) -> Result<ExitCode> {
         Command::Rollback(a) => session::rollback(&mut out, &recipes, cli.verbose, &a),
         Command::Sessions(a) => session::sessions(&mut out, &recipes, cli.verbose, a),
         Command::Integrate { command } => integrate::integrate(&mut out, &command),
+        Command::Devices(a) => devices::devices(&mut out, a),
+        Command::Visibility(a) => devices::visibility(&mut out, &a),
         Command::Report(a) => {
             let reports = reports
                 .as_ref()

@@ -2,6 +2,7 @@
 //! Formatting only: every engine-, archive- or peer-derived string is
 //! escaped with [`text::safe`].
 
+pub mod devices;
 pub mod lan;
 pub mod plan;
 pub mod preview;
