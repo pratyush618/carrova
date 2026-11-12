@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -206,6 +206,28 @@ describe('Nearby', () => {
       await user.click(screen.getByRole('radio', { name: 'List' }));
       await user.click(screen.getByRole('radio', { name: 'Map' }));
       expect(spots().sort()).toEqual(before.sort());
+    });
+    it('ignores a zero width reported while the map is hidden', () => {
+      let report: ResizeObserverCallback = () => undefined;
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(callback: ResizeObserverCallback) {
+            report = callback;
+          }
+          observe = vi.fn();
+          disconnect = vi.fn();
+        },
+      );
+      renderScreen(page({ ...nearbyMap, here: [], away: lab(21) }));
+      act(() => {
+        report(
+          [{ contentRect: DOMRect.fromRect({ width: 0 }) } as ResizeObserverEntry],
+          {} as ResizeObserver,
+        );
+      });
+      const map = screen.getByRole('list', { name: 'Nearby devices' });
+      expect(map.querySelectorAll('button[data-key]')).toHaveLength(12);
     });
   });
 

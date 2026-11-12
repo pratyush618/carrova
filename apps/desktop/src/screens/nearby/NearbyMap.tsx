@@ -29,7 +29,8 @@ function useFieldWidth() {
     if (now > 0) setWidth(now);
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) setWidth(entry.contentRect.width);
+      // Hidden (0): keep the last width, or every device would fall into "more".
+      if (entry && entry.contentRect.width > 0) setWidth(entry.contentRect.width);
     });
     observer.observe(element);
     return () => {
