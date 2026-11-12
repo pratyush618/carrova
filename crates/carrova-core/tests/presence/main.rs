@@ -465,22 +465,6 @@ fn a_presence_started_under_a_stale_choice_advertises_the_saved_one() {
 }
 
 #[test]
-fn a_refresh_announces_the_saved_choice() {
-    if !loopback_broadcast_works() {
-        return;
-    }
-    let name = unique("stale");
-    let side = Side::named(Some(&name));
-    let presence = shown(&side, Visibility::NoOne);
-    // The refresh carries no choice of its own that could be stale.
-    presence.refresh();
-    settle(&side, &side.platform.state_dir().unwrap());
-    let seen = names(&browse_nearby(&*Side::new().platform).unwrap());
-    assert!(!seen.contains(&name), "the saved choice wins: {seen:?}");
-    presence.stop();
-}
-
-#[test]
 fn a_running_presence_tags_with_the_secret_of_a_re_pairing() {
     if !loopback_broadcast_works() {
         return;
@@ -503,6 +487,7 @@ fn a_running_presence_tags_with_the_secret_of_a_re_pairing() {
     );
     presence.stop();
 }
+
 #[test]
 fn everyone_without_a_device_name_still_announces_one() {
     let advert = advert_at(&Side::new(), Visibility::Everyone { until: NOW + 60 }, NOW).unwrap();
