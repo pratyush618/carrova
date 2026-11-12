@@ -80,6 +80,20 @@ fn a_watched_presence_with_nothing_due_does_not_wake() {
 }
 
 #[test]
+fn without_a_watch_it_reads_nothing_until_the_first_poll() {
+    let (side, reads) = counting(true);
+    let presence = Presence::start(&side.engine);
+    assert!(reads_reach(&reads, 1, POLL), "read on start");
+    std::thread::sleep(Duration::from_secs(1));
+    assert_eq!(
+        reads.load(Ordering::SeqCst),
+        1,
+        "no read for a watch never made"
+    );
+    presence.stop();
+}
+
+#[test]
 fn without_a_watch_it_checks_every_poll() {
     let (side, reads) = counting(true);
     let presence = Presence::start(&side.engine);

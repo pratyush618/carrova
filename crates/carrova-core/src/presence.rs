@@ -249,6 +249,8 @@ impl Presence {
 
 impl Drop for Presence {
     fn drop(&mut self) {
+        // Its end reaches the thread as `Unwatched`: at most one more read
+        // before the channel closes.
         self.watch.take();
         self.wakes.take();
         if let Some(thread) = self.thread.take()
@@ -303,6 +305,9 @@ fn run(platform: &dyn Platform, wakes: &mpsc::Receiver<Wake>, mut poll: Option<D
             };
             match wake {
                 Err(RecvTimeoutError::Disconnected) => return,
+                // Also sent by a watch that failed to start (already
+                // polling): nothing ended, nothing to read.
+                Ok(Wake::Unwatched) if poll.is_some() => continue,
                 Ok(Wake::Unwatched) => {
                     tracing::debug!("presence: watch ended, saved state checked every {POLL:?}");
                     poll = Some(POLL);
