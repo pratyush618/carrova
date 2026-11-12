@@ -479,3 +479,27 @@ fn a_refresh_announces_the_saved_choice() {
     assert!(!seen.contains(&name), "the saved choice wins: {seen:?}");
     presence.stop();
 }
+
+#[test]
+fn a_running_presence_tags_with_the_secret_of_a_re_pairing() {
+    if !loopback_broadcast_works() {
+        return;
+    }
+    let desk = Side::new();
+    let laptop = Side::new();
+    let old = remember(&desk, own_key(&laptop), "laptop", Some(1));
+    remember_with(&laptop, own_key(&desk), "my desk", None, &old);
+    let presence = Presence::start(&desk.engine);
+
+    let new = fresh_secret();
+    remember_with(&desk, own_key(&laptop), "laptop", Some(1), &new);
+    remember_with(&laptop, own_key(&desk), "my desk", None, &new);
+    let state = desk.platform.state_dir().unwrap();
+    settle(&desk, &state.join(carrova_core::devices::DEVICES_DIR));
+    let found = browse_nearby(&*laptop.platform).unwrap();
+    assert!(
+        found.iter().any(|d| d.known == Some(own_key(&desk))),
+        "found by the new secret's tags: {found:?}"
+    );
+    presence.stop();
+}

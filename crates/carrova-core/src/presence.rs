@@ -12,12 +12,12 @@ use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use carrova_crypto::identity::DeviceId;
+use carrova_crypto::pairing::KnownSecret;
 use carrova_platform::{DirWatch, Platform};
 use carrova_transport::{KnownTags, MAX_KNOWN_TAGS, PresenceAdvert, PresenceBeacon};
 use serde::{Deserialize, Serialize};
 
-use crate::devices::{DEVICES_DIR, KnownDevices};
+use crate::devices::{DEVICES_DIR, DeviceRecord, KnownDevices};
 use crate::engine::Engine;
 use crate::error::{CoreError, EncodeError, Result};
 use crate::lan::{clean_device_name, known_by_recent_use};
@@ -294,30 +294,34 @@ fn run(platform: &dyn Platform, wakes: &mpsc::Receiver<Wake>, poll: Option<Durat
     }
 }
 
-/// What a running presence watches in the state dir.
-#[derive(PartialEq, Eq)]
+/// What a running presence watches in the state dir: what its advert is
+/// made from, so any change to it (a re-pairing's new secret too) is seen.
 struct Saved {
     /// The saved visibility in force.
     visibility: Visibility,
-    /// The known devices, in stored order.
-    known: Vec<DeviceId>,
+    /// The known devices tagged, with their secrets.
+    known: Vec<(DeviceRecord, KnownSecret)>,
+}
+
+impl PartialEq for Saved {
+    fn eq(&self, other: &Self) -> bool {
+        // Not constant time: both sides are this device's own secrets.
+        let same = |(a, x): &(DeviceRecord, KnownSecret), (b, y): &(DeviceRecord, KnownSecret)| {
+            a == b && x.expose_bytes() == y.expose_bytes()
+        };
+        self.visibility == other.visibility
+            && self.known.len() == other.known.len()
+            && self.known.iter().zip(&other.known).all(|(a, b)| same(a, b))
+    }
 }
 
 impl Saved {
     /// Read now; `None` (logged) if either is unreadable.
     fn read(platform: &dyn Platform) -> Option<Self> {
         let read = || -> Result<Self> {
-            let known = match KnownDevices::open_existing(platform)? {
-                Some(store) => store
-                    .list(platform)?
-                    .into_iter()
-                    .map(|r| r.public)
-                    .collect(),
-                None => Vec::new(),
-            };
             Ok(Self {
                 visibility: load_visibility(platform, now_unix())?,
-                known,
+                known: known_by_recent_use(platform, MAX_KNOWN_TAGS)?,
             })
         };
         read()
