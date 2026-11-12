@@ -172,7 +172,7 @@ fn rewatch(
         match outcome {
             Ok(()) => now.watched.push(found),
             // Removed since it was found: watched once it appears again.
-            Err(_) if !found.0.exists() => {}
+            Err(_) if found.0.try_exists().is_ok_and(|exists| !exists) => {}
             Err(e) => now.failed = Some(e),
         }
     }
