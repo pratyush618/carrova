@@ -427,6 +427,7 @@
 }
 
 .s-near__pill > .p-icon {
+  flex: none;
   inline-size: 14px;
   block-size: 14px;
   rotate: 90deg;
@@ -437,6 +438,7 @@
 }
 
 .s-near__dot {
+  flex: none;
   inline-size: 7px;
   block-size: 7px;
   border-radius: 50%;
