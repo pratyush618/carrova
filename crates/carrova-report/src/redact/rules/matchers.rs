@@ -84,6 +84,16 @@ pub(super) fn is_pairing_code(token: &str) -> bool {
             .all(|word| !word.is_empty() && word.bytes().all(|b| b.is_ascii_alphabetic()))
 }
 
+/// A device fingerprint as Carrova shows it: `7F3A·19C2` (4 hex, U+00B7,
+/// 4 hex). Too short to catch as a hex run, but it names a device.
+pub(super) fn is_device_fingerprint(token: &str) -> bool {
+    token.split_once('\u{b7}').is_some_and(|(a, b)| {
+        [a, b]
+            .iter()
+            .all(|half| half.len() == 4 && half.bytes().all(|c| c.is_ascii_hexdigit()))
+    })
+}
+
 /// `local@domain.tld` with an alphabetic top-level domain.
 pub(super) fn is_email(token: &str) -> bool {
     let Some((local, domain)) = token.split_once('@') else {

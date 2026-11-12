@@ -1,8 +1,8 @@
 //! The token policy table: one row per kind of sensitive token.
 
 use super::matchers::{
-    is_absolute_path, is_email, is_hostname, is_ipv4, is_ipv6, is_jwt, is_long_base64, is_long_hex,
-    is_pairing_code,
+    is_absolute_path, is_device_fingerprint, is_email, is_hostname, is_ipv4, is_ipv6, is_jwt,
+    is_long_base64, is_long_hex, is_pairing_code,
 };
 use super::{Charset, Matcher, Rule};
 
@@ -23,6 +23,11 @@ pub(crate) const RULES: &[Rule] = &[
         name: "pairing code",
         matcher: Matcher::Shape(is_pairing_code),
         replacement: "<pairing-code>",
+    },
+    Rule {
+        name: "device fingerprint",
+        matcher: Matcher::Shape(is_device_fingerprint),
+        replacement: "<device>",
     },
     Rule {
         name: "email address",
