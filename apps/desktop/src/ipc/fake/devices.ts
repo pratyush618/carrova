@@ -93,13 +93,16 @@ const stranger = (
   offers_code: true,
 });
 
-/** The crowded split: one new device answers fast, four more slowly (names as long as real ones). Nobody here is known. */
+/** A busy office: more devices than the widest map has slots for (7 answer fast, 14 slowly), one with a very long name. Nobody here is known. */
 const CROWDED: readonly NearbyDeviceView[] = [
   stranger("Ana's laptop", 'linux', 'inner', 60),
-  stranger('new-mbp', 'mac_os', 'outer', 700),
-  stranger('Studio Mac mini', 'mac_os', 'outer', 800),
-  stranger('Living-room NUC', 'linux', 'outer', 900),
-  stranger('Work ThinkPad X1', 'windows', 'outer', 1000),
+  stranger('The shared render workstation in the back office', 'linux', 'inner', 70),
+  ...['Desk PC', 'Studio Mac mini', 'Reception iMac', 'Build box', 'QA laptop'].map((name, i) =>
+    stranger(name, i % 2 === 0 ? 'windows' : 'mac_os', 'inner', 80 + 10 * i),
+  ),
+  ...Array.from({ length: 14 }, (_, i) =>
+    stranger(`Lab PC ${String(i + 1)}`, 'linux', 'outer', 700 + 50 * i),
+  ),
 ];
 
 /** "Everyone" lasts this long (the engine's `EVERYONE_FOR`). */
