@@ -31,6 +31,15 @@ pub(crate) fn sanitize_device_name(raw: &str) -> Option<String> {
     (!name.is_empty()).then(|| name.to_owned())
 }
 
+/// The macOS Computer Name when the tool gave one, else `host` without
+/// Bonjour's `.local` suffix; sanitised either way.
+#[cfg(any(test, target_os = "macos"))]
+pub(crate) fn device_name_or_host(computer_name: Option<&str>, host: &str) -> Option<String> {
+    computer_name
+        .and_then(sanitize_device_name)
+        .or_else(|| sanitize_device_name(host.strip_suffix(".local").unwrap_or(host)))
+}
+
 #[cfg(test)]
 #[path = "../tests/device/unit.rs"]
 mod tests;
