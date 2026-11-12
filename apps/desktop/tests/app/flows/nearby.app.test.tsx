@@ -144,6 +144,26 @@ describe('nearby', () => {
     expect(button).toBeDisabled();
   });
 
+  it('offers Forget afresh for a device remembered while another one is forgetting', async () => {
+    const user = userEvent.setup();
+    const { port, push } = nearbyPort();
+    vi.spyOn(port, 'forgetDevice').mockReturnValue(new Promise(() => undefined));
+    await renderApp({ port, returning: true });
+    await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
+    const remembered = (name: string, fingerprint: string) => {
+      push({
+        kind: 'engine',
+        session: 's1',
+        event: { event: 'device_remembered', name, fingerprint },
+      });
+    };
+    remembered("Ana's laptop", '7F3A·19C2');
+    await user.click(await screen.findByRole('button', { name: 'Forget' }));
+    remembered("Bo's desk", '0B5E·77D1');
+    await screen.findByText("Remembered Bo's desk (0B5E·77D1)");
+    expect(screen.getByRole('button', { name: 'Forget' })).toBeEnabled();
+  });
+
   it('stacks the remembered notice with a Wake toast instead of covering one', async () => {
     const user = userEvent.setup();
     const { port, push } = nearbyPort();

@@ -123,7 +123,12 @@ export function Shell({ initial }: { readonly initial: Nav }) {
               <Toast onDismiss={forwarded.dismiss}>{t('start.forwarded.busy')}</Toast>
             )}
             {notice.remembered && (
-              <RememberedToast remembered={notice.remembered} onClose={notice.close} />
+              // Keyed: a device remembered next gets a notice (and Forget) of its own.
+              <RememberedToast
+                key={notice.remembered.fingerprint}
+                remembered={notice.remembered}
+                onClose={notice.close}
+              />
             )}
           </Window>
         </ChromeContext>
