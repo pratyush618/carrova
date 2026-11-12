@@ -42,6 +42,8 @@ export function useDevices(port: CarrovaPort): DevicesController {
   const latest = useRef(0);
   /** Changes still on their way; each loads again once done. */
   const changing = useRef(0);
+  /** Bumped by every change: only the latest change's failure shows. */
+  const lastChange = useRef(0);
   const remembered = useRemembered();
 
   const load = useCallback(() => {
@@ -81,15 +83,17 @@ export function useDevices(port: CarrovaPort): DevicesController {
   }, [until, load]);
 
   const change = useCallback(
-    (what: DeviceChange, run: () => Promise<unknown>) => {
+    (what: DeviceChange, run: () => Promise<unknown>): Promise<boolean> => {
       latest.current++;
       changing.current++;
+      const mine = ++lastChange.current;
       setFailed(null);
-      void run()
+      return run()
         .then(
-          () => undefined,
+          () => true,
           () => {
-            setFailed(what);
+            if (mine === lastChange.current) setFailed(what);
+            return false;
           },
         )
         .finally(() => {
@@ -101,24 +105,24 @@ export function useDevices(port: CarrovaPort): DevicesController {
   );
   const setVisibility = useCallback(
     (choice: VisibilityChoice) => {
-      change('visibility', () => port.setVisibility(choice));
+      void change('visibility', () => port.setVisibility(choice));
     },
     [port, change],
   );
   const rename = useCallback(
     (device: string, name: string) => {
-      change('rename', () => port.renameDevice(device, name));
+      void change('rename', () => port.renameDevice(device, name));
     },
     [port, change],
   );
   const forget = useCallback(
     (which: ForgetDevices) => {
-      change('forget', () => port.forgetDevice(which));
+      void change('forget', () => port.forgetDevice(which));
     },
     [port, change],
   );
   const resetIdentity = useCallback(() => {
-    change('reset', () => port.resetIdentity());
+    void change('reset', () => port.resetIdentity());
   }, [port, change]);
   const browse = useCallback(() => port.nearby(), [port]);
   const wake = useCallback((device: string) => port.wakeDevice(device), [port]);

@@ -81,4 +81,32 @@ describe('useDevices', () => {
       expect(hook.result.current.known).toHaveLength(3);
     });
   });
+
+  it('drops the failure of a change that a newer one replaced', async () => {
+    const { port, hook } = await devices();
+    let refuse: (error: unknown) => void = () => undefined;
+    vi.spyOn(port, 'setVisibility').mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          refuse = reject;
+        }),
+    );
+    act(() => {
+      hook.result.current.setVisibility('everyone');
+    });
+    act(() => {
+      hook.result.current.setVisibility('no_one');
+    });
+    await waitFor(async () => {
+      expect((await port.visibility()).choice).toBe('no_one');
+    });
+    // The older change fails last.
+    act(() => {
+      refuse({ code: 'internal', message: 'busy', hint: null });
+    });
+    await waitFor(() => {
+      expect(hook.result.current.visibility?.choice).toBe('no_one');
+    });
+    expect(hook.result.current.failed).toBeNull();
+  });
 });
