@@ -92,6 +92,8 @@ impl Advertiser {
     fn publish(&mut self, advert: Advert, txt: &[(&str, String)]) {
         *self.current.lock().unwrap_or_else(PoisonError::into_inner) = Some(advert);
         if let Some(old) = self.mdns.take() {
+            // shortcut: an old daemon past MDNS_WITHDRAW_WAIT may still run, so the new one
+            // renames the instance; use a fresh instance per daemon if that warning shows up.
             withdraw(&old);
         }
         let Ok(daemon) = ServiceDaemon::new()
