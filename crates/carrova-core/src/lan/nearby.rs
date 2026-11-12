@@ -12,9 +12,8 @@ use carrova_transport::{Nearby, browse};
 
 use super::{BROWSE_WINDOW, clean_device_name};
 use crate::about;
-use crate::devices::{DEVICES_DIR, DeviceRecord, KnownDevices};
+use crate::devices::{DeviceRecord, KnownDevices};
 use crate::error::Result;
-use crate::fsx;
 
 /// A device found nearby.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -118,10 +117,9 @@ pub(crate) fn known_by_recent_use(
     platform: &dyn Platform,
     limit: usize,
 ) -> Result<Vec<(DeviceRecord, KnownSecret)>> {
-    if fsx::lstat(platform, &platform.state_dir()?.join(DEVICES_DIR))?.is_none() {
+    let Some(store) = KnownDevices::open_existing(platform)? else {
         return Ok(Vec::new());
-    }
-    let store = KnownDevices::open(platform)?;
+    };
     let mut records = store.list(platform)?;
     records.sort_by_key(|r| Reverse((r.last_move, r.first_seen)));
     let mut known = Vec::new();

@@ -12,7 +12,7 @@ mod visibility;
 
 use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::lan::{NearbyDevice, browse_nearby};
-use carrova_core::presence::{Presence, Visibility, advert};
+use carrova_core::presence::{POLL, Presence, Visibility, advert, save_visibility};
 use carrova_core::time::now_unix;
 use carrova_core::{Importer, PlanOptions};
 use carrova_crypto::identity::{DeviceKey, DevicePublic};
@@ -394,5 +394,31 @@ fn this_computer_does_not_list_itself_when_shown_to_everyone() {
 
     let own = names(&browse_nearby(&*side.platform).unwrap());
     assert!(!own.contains(&name), "{own:?}");
+    presence.stop();
+}
+
+#[test]
+fn a_running_presence_follows_the_saved_visibility() {
+    if !loopback_broadcast_works() {
+        return;
+    }
+    let name = unique("follows");
+    let side = Side::named(Some(&name));
+    let presence = Presence::start(&side.engine, Visibility::NoOne);
+    let stranger = Side::new();
+    let settle = || std::thread::sleep(POLL + std::time::Duration::from_millis(500));
+
+    let everyone = Visibility::Everyone {
+        until: now_unix() + 60,
+    };
+    save_visibility(&*side.platform, everyone).unwrap();
+    settle();
+    let seen = names(&browse_nearby(&*stranger.platform).unwrap());
+    assert!(seen.contains(&name), "shown once saved: {seen:?}");
+
+    save_visibility(&*side.platform, Visibility::NoOne).unwrap();
+    settle();
+    let seen = names(&browse_nearby(&*stranger.platform).unwrap());
+    assert!(!seen.contains(&name), "hidden once saved: {seen:?}");
     presence.stop();
 }

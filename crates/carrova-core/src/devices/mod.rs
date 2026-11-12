@@ -34,6 +34,7 @@ use serde::{Deserialize, Serialize};
 pub use record::{DeviceRecord, HintUpdate};
 
 use crate::error::{CoreError, Corruption, EncodeError, Result};
+use crate::fsx;
 use crate::lan::clean_device_name;
 use crate::store::{ensure_dir, read_file, secret_file, write_atomic};
 
@@ -74,6 +75,16 @@ impl KnownDevices {
         let dir = state_dir.join(DEVICES_DIR);
         ensure_dir(platform, &dir, 0o700)?;
         Ok(Self { state_dir, dir })
+    }
+
+    /// The store if it exists; `None` without creating it (read-only
+    /// callers: browsing, the presence advert).
+    pub fn open_existing(platform: &dyn Platform) -> Result<Option<Self>> {
+        let dir = platform.state_dir()?.join(DEVICES_DIR);
+        if fsx::lstat(platform, &dir)?.is_none() {
+            return Ok(None);
+        }
+        Self::open(platform).map(Some)
     }
 
     /// This device's identity key, made on first need (under the lock,

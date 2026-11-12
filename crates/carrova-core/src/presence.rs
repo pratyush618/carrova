@@ -10,8 +10,9 @@
 use std::sync::Arc;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
+use carrova_crypto::identity::DeviceId;
 use carrova_platform::Platform;
 use carrova_transport::{KnownTags, MAX_KNOWN_TAGS, PresenceAdvert, PresenceBeacon};
 use serde::{Deserialize, Serialize};
@@ -27,6 +28,10 @@ use crate::time::now_unix;
 /// instance with fresh tags, so its adverts cannot be linked over a long
 /// time by `kt` or instance name (each restart costs one mDNS announce).
 pub const REFRESH: Duration = Duration::from_secs(10 * 60);
+
+/// How often a running [`Presence`] checks the saved visibility and known
+/// devices, so a change made elsewhere (the CLI) applies within this long.
+pub const POLL: Duration = Duration::from_secs(5);
 
 /// How long "everyone" lasts when the user picks it
 /// ([`Visibility::everyone_from`]).
@@ -152,9 +157,9 @@ pub fn advert(
 /// and drops back to known devices by itself when "everyone" ends. Stops
 /// on [`Self::stop`] or drop.
 ///
-/// It reads the known devices only when it announces: after remembering
-/// or forgetting a device, call [`set`](Self::set) (with the current
-/// visibility) so the tags follow at once.
+/// It follows the saved visibility ([`save_visibility`]) and the known
+/// devices within [`POLL`], wherever they were changed (the CLI too);
+/// [`set`](Self::set) applies a visibility at once.
 ///
 /// The "everyone" deadline is wall-clock time, waited for with a
 /// monotonic timer and re-checked against the clock on every wake: if the
@@ -212,28 +217,87 @@ impl Drop for Presence {
     }
 }
 
-/// Advertise under `visibility`, again at each [`next_wake`], until the
-/// sender of `changes` is dropped.
+/// Advertise under `visibility`, again at each [`next_wake`], and at once
+/// when told a new one or when the saved visibility or known devices
+/// change (checked every [`POLL`]), until the sender of `changes` is
+/// dropped.
 fn run(platform: &dyn Platform, mut visibility: Visibility, changes: &mpsc::Receiver<Visibility>) {
+    let mut seen = Saved::read(platform);
     loop {
         let now = now_unix();
         // A new beacon each round (the last one is gone): new instance
         // name, fresh nonce. It announces until the end of the round.
         let _beacon = start(platform, visibility, now);
-        let change = match next_wake(visibility, now) {
-            Some(wait) => changes.recv_timeout(wait),
-            None => changes.recv().map_err(|_| RecvTimeoutError::Disconnected),
-        };
-        match change {
-            Ok(next) => visibility = next,
-            Err(RecvTimeoutError::Timeout) => {}
-            Err(RecvTimeoutError::Disconnected) => return,
+        let refresh_at = next_wake(visibility, now).map(|wait| Instant::now() + wait);
+        loop {
+            let wait = refresh_at.map_or(POLL, |at| {
+                POLL.min(at.saturating_duration_since(Instant::now()))
+            });
+            match changes.recv_timeout(wait) {
+                Ok(next) => {
+                    visibility = next;
+                    seen = Saved::read(platform);
+                    break;
+                }
+                Err(RecvTimeoutError::Disconnected) => return,
+                Err(RecvTimeoutError::Timeout) => {}
+            }
+            let saved = Saved::read(platform);
+            if saved != seen {
+                // Only a changed choice overrides the one in force; a
+                // changed known set just re-announces.
+                if let Some(now_saved) = &saved
+                    && seen
+                        .as_ref()
+                        .is_none_or(|s| s.visibility != now_saved.visibility)
+                {
+                    visibility = now_saved.visibility;
+                }
+                seen = saved;
+                break;
+            }
+            if refresh_at.is_some_and(|at| Instant::now() >= at) {
+                break;
+            }
         }
     }
 }
 
+/// What a running presence watches in the state dir.
+#[derive(PartialEq, Eq)]
+struct Saved {
+    /// The saved visibility in force.
+    visibility: Visibility,
+    /// The known devices, in stored order.
+    known: Vec<DeviceId>,
+}
+
+impl Saved {
+    /// Read now; `None` (logged) if either is unreadable.
+    fn read(platform: &dyn Platform) -> Option<Self> {
+        let read = || -> Result<Self> {
+            let known = match KnownDevices::open_existing(platform)? {
+                Some(store) => store
+                    .list(platform)?
+                    .into_iter()
+                    .map(|r| r.public)
+                    .collect(),
+                None => Vec::new(),
+            };
+            Ok(Self {
+                visibility: load_visibility(platform, now_unix())?,
+                known,
+            })
+        };
+        read()
+            .inspect_err(|e| tracing::debug!(error = %e, "presence: saved state unreadable"))
+            .ok()
+    }
+}
+
 /// How long to wait before announcing again: [`REFRESH`], or less to meet
-/// an "everyone" deadline; `None` (until told) when nothing is announced.
+/// an "everyone" deadline; `None` (only on a change) when nothing is
+/// announced.
 fn next_wake(visibility: Visibility, now: u64) -> Option<Duration> {
     match visibility.at(now) {
         Visibility::NoOne => None,
