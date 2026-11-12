@@ -38,6 +38,7 @@ export function NearbyScreen({
   const { t } = useTranslation();
   // The scan pulse plays once per page open, not again on returning to the map.
   const [pulse, setPulse] = useState(true);
+  if (pulse && model.view !== 'map') setPulse(false);
   const views: SegmentOption<NearbyView>[] = VIEWS.map((value) => ({
     value,
     label: t(`nearby.views.${value}`),

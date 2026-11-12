@@ -1,11 +1,12 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '../../support/render';
 import { buildChrome } from '@/app/shell/chrome';
 import { i18n } from '@/i18n/i18n';
 import { nearbyEmpty, nearbyList, nearbyMap, nearbySelected } from '@/screens/nearby/fixtures';
-import type { NearbyIntents, NearbyModel } from '@/screens/nearby/model';
+import type { NearbyIntents, NearbyModel, NearbyView } from '@/screens/nearby/model';
 import { NearbyScreen } from '@/screens/nearby/NearbyScreen';
 import { ChromeContext, Window } from '@/ui';
 
@@ -117,6 +118,19 @@ describe('Nearby', () => {
     unmount();
     const still = renderScreen(page(nearbyMap), { reduceMotion: true });
     expect(still.container.querySelector('.s-near__pulse')).toBeNull();
+  });
+
+  it('does not replay the pulse after leaving the map before it ended', async () => {
+    const user = userEvent.setup();
+    function Switching() {
+      const [view, setView] = useState<NearbyView>('map');
+      return page({ ...nearbyMap, view }, { ...nearbyOn(), onView: setView });
+    }
+    const { container } = renderScreen(<Switching />);
+    expect(container.querySelector('.s-near__pulse')).not.toBeNull();
+    await user.click(screen.getByRole('radio', { name: 'List' }));
+    await user.click(screen.getByRole('radio', { name: 'Map' }));
+    expect(container.querySelector('.s-near__pulse')).toBeNull();
   });
 
   it('says when a change to the devices was refused', () => {
