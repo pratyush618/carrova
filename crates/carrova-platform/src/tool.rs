@@ -31,36 +31,52 @@ fn run_bounded(cmd: &mut Command, limit: Duration, cap: usize) -> Option<String>
         .stderr(Stdio::null())
         .spawn()
         .ok()?;
-    let out = read_within(&mut child, limit, cap);
-    if out.is_none() {
+    let run = read_within(&mut child, limit, cap);
+    if matches!(run, Run::Abandoned) {
         // Kill the whole tree before reaping, so no child holds the pipe
-        // open or lingers as a zombie.
+        // open and the group id cannot have been reused.
         let _ = crate::sys::kill_tool(&mut child);
     }
     let _ = child.wait();
-    out.map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+    match run {
+        Run::Done(bytes) => Some(String::from_utf8_lossy(&bytes).into_owned()),
+        Run::Exited | Run::Abandoned => None,
+    }
 }
 
-/// Stdout of `child` once it exited successfully, all within `limit` and
-/// `cap` bytes; `None` if it did not (the caller kills it).
-fn read_within(child: &mut Child, limit: Duration, cap: usize) -> Option<Vec<u8>> {
+/// How a bounded run ended.
+#[derive(Debug)]
+enum Run {
+    /// Exited successfully within the limits, with this stdout.
+    Done(Vec<u8>),
+    /// Exited unsuccessfully and is already reaped: its pid may be reused,
+    /// so it must not be signalled.
+    Exited,
+    /// Ran past a limit or could not be read or waited for; still to kill.
+    Abandoned,
+}
+
+fn read_within(child: &mut Child, limit: Duration, cap: usize) -> Run {
     let deadline = Instant::now() + limit;
-    let stdout = child.stdout.take()?;
+    let Some(stdout) = child.stdout.take() else {
+        return Run::Abandoned;
+    };
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
         let mut out = Vec::new();
         let read = stdout.take(cap as u64 + 1).read_to_end(&mut out);
         let _ = tx.send(read.map(|_| out));
     });
-    let out = rx.recv_timeout(limit).ok()?.ok()?;
-    if out.len() > cap {
-        return None;
-    }
+    let out = match rx.recv_timeout(limit) {
+        Ok(Ok(out)) if out.len() <= cap => out,
+        _ => return Run::Abandoned,
+    };
     loop {
-        match child.try_wait().ok()? {
-            Some(status) => return status.success().then_some(out),
-            None if Instant::now() < deadline => thread::sleep(POLL),
-            None => return None,
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => return Run::Done(out),
+            Ok(Some(_)) => return Run::Exited,
+            Ok(None) if Instant::now() < deadline => thread::sleep(POLL),
+            Ok(None) | Err(_) => return Run::Abandoned,
         }
     }
 }

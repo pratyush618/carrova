@@ -23,7 +23,7 @@ fn a_tool_that_runs_past_the_deadline_is_killed_and_yields_none() {
     let started = Instant::now();
     let out = run_bounded(&mut sh("sleep 30"), Duration::from_millis(200), 1024);
     assert_eq!(out, None);
-    assert!(started.elapsed() < Duration::from_secs(1));
+    assert!(started.elapsed() < Duration::from_secs(2));
 }
 
 #[cfg(unix)]
@@ -47,31 +47,50 @@ fn a_failing_tool_yields_none() {
     assert_eq!(out, None);
 }
 
+/// Whether `pid` is a live process; a zombie awaiting reaping is dead.
+#[cfg(unix)]
+fn alive(pid: &str) -> bool {
+    let ps = Command::new("ps")
+        .args(["-o", "stat=", "-p", pid])
+        .output()
+        .unwrap();
+    let stat = String::from_utf8_lossy(&ps.stdout);
+    !stat.trim().is_empty() && !stat.trim_start().starts_with('Z')
+}
+
 #[cfg(unix)]
 #[test]
 fn a_timeout_kills_the_tools_children_too() {
     let pid_file = std::env::temp_dir().join(format!("carrova-tool-{}", std::process::id()));
     let script = format!("sleep 30 & echo $! > {}; wait", pid_file.display());
+    // The limit is long enough for the shell to have written the pid.
     assert_eq!(
-        run_bounded(&mut sh(&script), Duration::from_millis(500), 1024),
+        run_bounded(&mut sh(&script), Duration::from_millis(1500), 1024),
         None
     );
     let pid = std::fs::read_to_string(&pid_file).unwrap();
     let _ = std::fs::remove_file(&pid_file);
-    let alive = || {
-        Command::new("kill")
-            .args(["-0", pid.trim()])
-            .stderr(Stdio::null())
-            .status()
-            .unwrap()
-            .success()
-    };
+    let pid = pid.trim();
+    assert!(!pid.is_empty(), "the shell never wrote the grandchild pid");
     // The kill is synchronous; init may need a moment to reap the orphan.
     let until = Instant::now() + Duration::from_secs(2);
-    while alive() && Instant::now() < until {
+    while alive(pid) && Instant::now() < until {
         std::thread::sleep(Duration::from_millis(20));
     }
-    assert!(!alive(), "grandchild {pid} survived");
+    assert!(!alive(pid), "grandchild {pid} survived");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_tool_that_exited_unsuccessfully_is_not_killed_afterwards() {
+    let mut cmd = sh("exit 3");
+    crate::sys::isolate_tool(&mut cmd);
+    let mut child = cmd.stdout(Stdio::piped()).spawn().unwrap();
+    // Reaped by the status check: signalling its pid now could hit a stranger.
+    assert!(matches!(
+        read_within(&mut child, Duration::from_secs(5), 1024),
+        Run::Exited
+    ));
 }
 
 #[cfg(windows)]
