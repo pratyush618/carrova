@@ -100,3 +100,20 @@ fn a_watch_left_with_no_dir_ends() {
     fs::remove_dir(&state).unwrap();
     assert!(ends(&changes), "nothing could wake it any more");
 }
+
+#[test]
+fn taking_a_lock_in_a_watched_dir_is_not_a_change() {
+    let tmp = TempDir::new().unwrap();
+    let lock = tmp.path().join("known.lock");
+    drop(crate::fsops::lock_exclusive(&lock).unwrap());
+    let (_watch, changes) = watching(&[tmp.path().to_path_buf()]);
+    drop(crate::fsops::lock_exclusive(&lock).unwrap());
+    assert_eq!(
+        changes.recv_timeout(Duration::from_millis(300)),
+        Err(mpsc::RecvTimeoutError::Timeout),
+        "a lock taken and released woke the watch"
+    );
+    // A secret written in place, like `write_new`, still is one.
+    fs::write(tmp.path().join("peer.key"), b"secret").unwrap();
+    changes.recv_timeout(SOON).unwrap();
+}

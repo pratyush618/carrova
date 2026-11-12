@@ -273,8 +273,11 @@ Three CodeRabbit points on PR #8 were left to this phase:
   rename wipes the `.new` it just wrote.
 - **Overlapping pairings.** Every change to the store (remember, record a
   move, rename, forget, forget all, reset identity, first device key) runs
-  under an exclusive lock on `devices/known.lock`, and `known.json` is
-  replaced atomically, so reads take no lock. Two pairings with the same
+  under an exclusive lock on `devices/known.lock`. Key reads (`device.key`,
+  each device's secret) take it too, because a replace zeroes the old file
+  in place. `known.json` is replaced atomically, so reading it takes no lock.
+  The lock file is opened read-only, so taking the lock never wakes a
+  watcher of `devices/`. Two pairings with the same
   peer that finish together are applied one after the other on each host,
   so no update is lost. The lock is local: if the two hosts finish the
   pairings in opposite orders, they can keep different `KnownSecret`s and
