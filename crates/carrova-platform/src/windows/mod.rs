@@ -7,6 +7,7 @@
 //! Processes and free space use `sysinfo`.
 //! Everything here is safe std or safe-wrapper crates: no FFI.
 
+use known_folders::{KnownFolder, get_known_folder_path};
 use std::ffi::{OsStr, OsString};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -285,8 +286,7 @@ impl Platform for WindowsPlatform {
         let std::net::IpAddr::V4(ip) = addr else {
             return None;
         };
-        let root = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
-        let arp = Path::new(&root).join(r"System32\ARP.EXE");
+        let arp = get_known_folder_path(KnownFolder::System)?.join("ARP.EXE");
         let mut cmd = self.tool_command(&arp).ok()?;
         let table = crate::tool::stdout_of(cmd.arg("-a"))?;
         crate::neighbours::mac_from_windows_arp(&table, ip)
