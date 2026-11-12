@@ -14,6 +14,7 @@ use std::io::{self, Seek, SeekFrom};
 use std::os::windows::fs::{FileExt, MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 
+use crate::notify_watch::DirId;
 use crate::path::normalize_abs;
 use crate::{Allocation, DirEntry, FileKind, FileLock, FsId, PlatformError};
 
@@ -285,9 +286,21 @@ pub(crate) fn remove_dir_all_confined(path: &Path, within: &Path) -> Result<(), 
 /// See [`crate::Platform::fs_id`]: the volume serial number of the
 /// volume holding `path` (following links).
 pub(crate) fn fs_id(path: &Path) -> Result<FsId, PlatformError> {
-    let handle = winapi_util::Handle::from_path_any(path).map_err(io_err(path))?;
-    let info = winapi_util::file::information(&handle).map_err(io_err(path))?;
+    let info = information(path).map_err(io_err(path))?;
     Ok(FsId::new(info.volume_serial_number()))
+}
+
+/// A dir's identity for the watch: its `(volume serial, file index)`
+/// (std's `Metadata` does not carry them).
+pub(crate) fn dir_id(path: &Path, _meta: &Metadata) -> io::Result<DirId> {
+    let info = information(path)?;
+    Ok(DirId(info.volume_serial_number(), info.file_index()))
+}
+
+/// What the OS holds of `path` (following links), through a handle that
+/// opens directories too.
+fn information(path: &Path) -> io::Result<winapi_util::file::Information> {
+    winapi_util::file::information(winapi_util::Handle::from_path_any(path)?)
 }
 
 /// See [`crate::Platform::write_all_at`]. Unlike `pwrite`, `seek_write`

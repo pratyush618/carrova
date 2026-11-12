@@ -19,6 +19,14 @@ mod tests;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) use backend::watch_dirs;
 
+/// A dir's identity, `(device or volume, inode or file index)`: a dir
+/// re-created at the same path gets another.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct DirId(pub(crate) u64, pub(crate) u64);
+
+/// A dir found present, with its identity where the OS gave one.
+type Found = (PathBuf, Option<DirId>);
+
 /// What wakes the watch thread.
 enum Wake {
     /// An entry changed, or a watch may have been lost.
@@ -42,10 +50,7 @@ trait Backend {
 }
 
 /// Watch those of `dirs` that exist now; returns those watched.
-fn first_watch(
-    backend: &mut impl Backend,
-    dirs: &[PathBuf],
-) -> Result<Vec<PathBuf>, PlatformError> {
+fn first_watch(backend: &mut impl Backend, dirs: &[PathBuf]) -> Result<Vec<Found>, PlatformError> {
     rewatch(backend, dirs, &[])
 }
 
@@ -55,7 +60,7 @@ fn follow(
     backend: &mut impl Backend,
     wakes: &Receiver<Wake>,
     dirs: &[PathBuf],
-    mut watched: Vec<PathBuf>,
+    mut watched: Vec<Found>,
     changed: &dyn Fn(),
     recheck: Duration,
 ) {
@@ -64,7 +69,7 @@ fn follow(
             Ok(Wake::Stop) | Err(RecvTimeoutError::Disconnected) => return,
             Ok(Wake::Noise) => continue,
             Err(RecvTimeoutError::Timeout)
-                if present_dirs(dirs).is_ok_and(|now| now == watched) =>
+                if present_dirs(dirs).is_ok_and(|now| unchanged(&now, &watched)) =>
             {
                 continue;
             }
@@ -86,35 +91,48 @@ fn follow(
     }
 }
 
+/// Whether the dirs found `now` are those `watched`: the same paths, with
+/// the same identities where both are known.
+fn unchanged(now: &[Found], watched: &[Found]) -> bool {
+    now.len() == watched.len()
+        && now.iter().zip(watched).all(|((path, id), (was, was_id))| {
+            path == was && id.zip(*was_id).is_none_or(|(id, was_id)| id == was_id)
+        })
+}
+
 /// Drop the watches of `watched` and watch each of `dirs` that exists now
 /// afresh (one re-created since may hold a dead watch); returns those
 /// watched.
 fn rewatch(
     backend: &mut impl Backend,
     dirs: &[PathBuf],
-    watched: &[PathBuf],
-) -> Result<Vec<PathBuf>, PlatformError> {
+    watched: &[Found],
+) -> Result<Vec<Found>, PlatformError> {
     let present = present_dirs(dirs)?;
-    let outcomes = backend.rewatch(watched, &present)?;
+    let old: Vec<_> = watched.iter().map(|(dir, _)| dir.clone()).collect();
+    let new: Vec<_> = present.iter().map(|(dir, _)| dir.clone()).collect();
+    let outcomes = backend.rewatch(&old, &new)?;
     let mut now = Vec::new();
-    for (dir, outcome) in present.into_iter().zip(outcomes) {
+    for (found, outcome) in present.into_iter().zip(outcomes) {
         match outcome {
-            Ok(()) => now.push(dir),
+            Ok(()) => now.push(found),
             // Removed since it was found: watched once it appears again.
-            Err(_) if !dir.exists() => {}
+            Err(_) if !found.0.exists() => {}
             Err(e) => return Err(e),
         }
     }
     Ok(now)
 }
 
-/// Those of `dirs` that exist now; one that is not a directory (a symlink
-/// to one included) is refused.
-fn present_dirs(dirs: &[PathBuf]) -> Result<Vec<PathBuf>, PlatformError> {
+/// Those of `dirs` that exist now, with their identities; one that is not
+/// a directory (a symlink to one included) is refused.
+fn present_dirs(dirs: &[PathBuf]) -> Result<Vec<Found>, PlatformError> {
     let mut present = Vec::new();
     for dir in dirs {
         match fs::symlink_metadata(dir) {
-            Ok(meta) if meta.is_dir() => present.push(dir.clone()),
+            Ok(meta) if meta.is_dir() => {
+                present.push((dir.clone(), crate::sys::dir_id(dir, &meta).ok()));
+            }
             Ok(_) => return Err(io_err(dir, "not a directory")),
             Err(e) if e.kind() == io::ErrorKind::NotFound => {}
             Err(e) => return Err(PlatformError::io(dir, e)),

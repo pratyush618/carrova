@@ -9,10 +9,10 @@ use std::time::Duration;
 use notify::event::ModifyKind;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 
-use super::{Backend, Wake, first_watch, follow, io_err};
+use super::{Backend, Found, Wake, first_watch, follow, io_err};
 use crate::{DirWatch, PlatformError};
 
-/// How often the watched dirs are checked for one removed, replaced or
+/// How often the watched dirs are checked for one removed, re-created or
 /// turned into a file: neither backend reports that of a watched dir
 /// itself (Windows drops the watch silently), nor one replaced while the
 /// watch restarted.
@@ -60,7 +60,7 @@ pub(crate) fn watch_dirs(
 fn start(
     events: Sender<Wake>,
     dirs: &[PathBuf],
-) -> Result<(RecommendedWatcher, Vec<PathBuf>), PlatformError> {
+) -> Result<(RecommendedWatcher, Vec<Found>), PlatformError> {
     let mut watcher = notify::recommended_watcher(move |event| {
         let _ = events.send(wake_for(event));
     })

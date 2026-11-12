@@ -189,3 +189,17 @@ fn a_change_is_reported_and_the_dirs_watched_afresh() {
     assert!(watch.changed());
     assert_eq!(watch.backend.rewatches(), 2, "first watch, then afresh");
 }
+
+#[test]
+fn a_dir_replaced_between_rechecks_is_watched_afresh() {
+    let tmp = TempDir::new().unwrap();
+    let dirs = dirs(&tmp, &["a"]);
+    let watch = run(&dirs, Fake::default());
+    // The old dir outlives the new one's creation, so its id is not reused.
+    let old = tmp.path().join("a.old");
+    fs::rename(&dirs[0], &old).unwrap();
+    fs::create_dir(&dirs[0]).unwrap();
+    fs::remove_dir(&old).unwrap();
+    assert!(watch.changed(), "the recheck missed a replaced dir");
+    assert_eq!(watch.backend.last(), dirs);
+}
