@@ -5,21 +5,27 @@ import { cx } from '../../ui/cx';
 import { Icon, useReducedMotion } from '../../ui';
 import type { DeviceEntry } from './model';
 
-/** Ring radius in field units (`--u`, 1px on a roomy field; inner = answering now), and where on it the first device sits (clear of the card's top corner). */
+/** Ring radius in field units (`--u`, 1px on a roomy field; inner = answering now), and where on it the first device sits. */
 const RINGS: Readonly<Record<Ring, { readonly radius: number; readonly start: number }>> = {
-  inner: { radius: 170, start: -30 },
-  outer: { radius: 290, start: -70 },
+  inner: { radius: 170, start: 20 },
+  outer: { radius: 290, start: -30 },
 };
 
 const RING_ORDER: readonly Ring[] = ['inner', 'outer'];
 
 /** The field is wider than tall: rings are drawn round, devices sit on a flattened orbit. */
-const FLATTEN = 0.68;
+const FLATTEN = 0.6;
+
+/**
+ * Devices share an arc of the ring, not the whole circle, so the part under
+ * the card (top left) and under the visibility pill (bottom) stays free.
+ */
+const SWEEP = 240;
 
 /** Where the `index`-th of `count` devices on `ring` sits, from the centre. */
 function spot(ring: Ring, index: number, count: number): { dx: number; dy: number } {
   const { radius, start } = RINGS[ring];
-  const angle = ((start + (index * 360) / count) * Math.PI) / 180;
+  const angle = ((start + (index * SWEEP) / count) * Math.PI) / 180;
   return {
     dx: Math.round(radius * Math.cos(angle)),
     dy: Math.round(radius * Math.sin(angle) * FLATTEN),
