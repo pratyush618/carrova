@@ -100,7 +100,7 @@ export function fakeDevices(scenario: Scenario): DevicesPort {
   const unknown = () => raise(bridgeError('known_device', 'no known device matches'));
   const find = (device: string) =>
     known.find((d) => d.id === device || d.fingerprint === device) ?? unknown();
-  const forgets = (which: ForgetDevices) => (d: KnownDeviceView) =>
+  const kept = (which: ForgetDevices) => (d: KnownDeviceView) =>
     which !== 'all' && d.id !== which.device && d.fingerprint !== which.device;
   return {
     // A forgotten device that is still here answers as a new one.
@@ -123,7 +123,7 @@ export function fakeDevices(scenario: Scenario): DevicesPort {
       }),
     forgetDevice: (which) =>
       later(() => {
-        known = known.filter(forgets(which));
+        known = known.filter(kept(which));
       }),
     resetIdentity: () =>
       later(() => {
