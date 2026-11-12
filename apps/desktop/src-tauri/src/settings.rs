@@ -3,7 +3,7 @@
 
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use carrova_platform::{Platform, PlatformError};
 use carrova_view::ipc::Settings;
@@ -17,12 +17,23 @@ pub const SETTINGS_FILE: &str = "desktop-settings.json";
 #[derive(Debug, Clone)]
 pub struct SettingsStore {
     platform: Arc<dyn Platform>,
+    /// Held across each read-change-save; clones share it.
+    writing: Arc<Mutex<()>>,
 }
 
 impl SettingsStore {
     /// The store of `platform`'s state directory.
     pub fn new(platform: Arc<dyn Platform>) -> Self {
-        Self { platform }
+        Self {
+            platform,
+            writing: Arc::default(),
+        }
+    }
+
+    /// Hold while reading, changing and saving the settings: writers then
+    /// never drop each other's changes, nor share the temp file.
+    pub fn lock(&self) -> MutexGuard<'_, ()> {
+        self.writing.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     fn path(&self) -> Result<PathBuf, PlatformError> {

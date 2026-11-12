@@ -161,3 +161,34 @@ fn closing_keeps_the_window_when_lean_is_off() {
     block_on(background::set_background(&state, kept)).unwrap();
     assert_eq!(background::close_action(&state), CloseAction::HideToTray);
 }
+
+#[test]
+fn concurrent_setting_changes_all_survive() {
+    let machine = Machine::new();
+    let (state, _) = with_fake(&machine);
+    let rounds = 100;
+    let pauses = {
+        let state = state.clone();
+        std::thread::spawn(move || {
+            for _ in 0..rounds {
+                background::toggle_pause(&state).unwrap();
+            }
+        })
+    };
+    for round in 0..rounds {
+        let lean = round % 2 == 1;
+        block_on(background::set_background(
+            &state,
+            BackgroundSettings {
+                lean,
+                ..BackgroundSettings::default()
+            },
+        ))
+        .unwrap();
+    }
+    pauses.join().unwrap();
+
+    let saved = block_on(settings::load(&state)).unwrap();
+    assert_eq!(saved.alerts.paused_until, None, "an even number of toggles");
+    assert!(saved.background.lean, "the last change");
+}

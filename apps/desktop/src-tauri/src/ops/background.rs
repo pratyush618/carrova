@@ -26,6 +26,7 @@ pub async fn set_background(
     let platform = Arc::clone(&state.platform);
     let store = state.settings.clone();
     blocking(move || {
+        let _writing = store.lock();
         let on = background.keep_running && background.start_at_login;
         platform.set_autostart(&platform.launcher()?, on)?;
         store.save(&Settings {
@@ -73,6 +74,7 @@ pub fn tray_model(state: &AppState) -> TrayModel {
 ///
 /// The settings cannot be read or written.
 pub fn toggle_pause(state: &AppState) -> Result<TrayModel, CommandError> {
+    let _writing = state.settings.lock();
     let mut settings = state.settings.load()?;
     let now = now_unix();
     settings.alerts.paused_until = tray::toggled_pause(&settings.alerts, now);

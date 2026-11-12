@@ -23,5 +23,9 @@ pub async fn load(state: &AppState) -> Result<Settings, CommandError> {
 /// The settings file cannot be written.
 pub async fn save(state: &AppState, settings: Settings) -> Result<(), CommandError> {
     let store = state.settings.clone();
-    blocking(move || store.save(&settings)).await
+    blocking(move || {
+        let _writing = store.lock();
+        store.save(&settings)
+    })
+    .await
 }
