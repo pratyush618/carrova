@@ -91,6 +91,8 @@ export function NearbyMap({
   onPulsed,
   onSelect,
   onMore,
+  seats,
+  onSeats,
   children,
 }: {
   readonly devices: readonly DeviceEntry[];
@@ -99,17 +101,21 @@ export function NearbyMap({
   readonly onPulsed: () => void;
   readonly onSelect: (key: string | null) => void;
   readonly onMore: () => void;
+  /** The slots devices last had, kept by the page so they survive a trip to the list. */
+  readonly seats: readonly Placement[];
+  readonly onSeats: (seats: readonly Placement[]) => void;
   /** Over the field: the selected device's card, or the "looking" note. */
   readonly children?: ReactNode;
 }) {
   const { t } = useTranslation();
   const reduced = useReducedMotion();
   const { field, width } = useFieldWidth();
-  // Last render's slots, so devices stay put (`place` gives the same seats back once settled).
-  const [seats, setSeats] = useState<readonly Placement[]>([]);
   const { placed, more } = place(devices, seats, width ?? MIN_FIELD, selected);
   // Seats chosen before the field is measured are not kept, or a wide field would stay laid out as a narrow one.
-  if (width !== null && !sameSeats(placed, seats)) setSeats(placed);
+  const settled = width === null || sameSeats(placed, seats);
+  useEffect(() => {
+    if (!settled) onSeats(placed);
+  });
   const shownInOrder = placed.toSorted(
     (a, b) => RING_ORDER.indexOf(a.ring) - RING_ORDER.indexOf(b.ring) || a.slot - b.slot,
   );

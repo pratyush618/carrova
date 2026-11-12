@@ -5,6 +5,7 @@ import { DeviceCard } from './DeviceCard';
 import type { NearbyIntents, NearbyModel, NearbyView } from './model';
 import { NearbyList } from './NearbyList';
 import { NearbyMap } from './NearbyMap';
+import type { Placement } from './place';
 import { VisibilityPill } from './VisibilityPill';
 import './nearby.css';
 
@@ -39,6 +40,8 @@ export function NearbyScreen({
   // The scan pulse plays once per page open, not again on returning to the map.
   const [pulse, setPulse] = useState(true);
   if (pulse && model.view !== 'map') setPulse(false);
+  // Map slots outlive the map, so devices are where they were on coming back from the list.
+  const [seats, setSeats] = useState<readonly Placement[]>([]);
   const views: SegmentOption<NearbyView>[] = VIEWS.map((value) => ({
     value,
     label: t(`nearby.views.${value}`),
@@ -73,6 +76,8 @@ export function NearbyScreen({
             onMore={() => {
               on.onView('list');
             }}
+            seats={seats}
+            onSeats={setSeats}
           >
             {selected === null ? looking : <DeviceCard device={selected} now={model.now} on={on} />}
           </NearbyMap>
