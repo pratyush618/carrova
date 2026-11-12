@@ -12,6 +12,9 @@
   block-size: 100%;
   min-block-size: 520px;
   overflow: hidden;
+  /* Field unit: 1px, shrunk so the outer orbit (290u) plus half a device pill fits a narrow field. */
+  container-type: inline-size;
+  --u: min(1px, (50cqi - 96px) / 290);
   background: radial-gradient(
     ellipse at 50% var(--cy),
     color-mix(in oklab, var(--accent) 7%, var(--surface-1)) 0,
@@ -42,23 +45,23 @@
 }
 
 .s-near__orbs i:nth-child(1) {
-  inline-size: 190px;
-  block-size: 190px;
+  inline-size: calc(190 * var(--u));
+  block-size: calc(190 * var(--u));
 }
 
 .s-near__orbs i:nth-child(2) {
-  inline-size: 380px;
-  block-size: 380px;
+  inline-size: calc(380 * var(--u));
+  block-size: calc(380 * var(--u));
 }
 
 .s-near__orbs i:nth-child(3) {
-  inline-size: 600px;
-  block-size: 600px;
+  inline-size: calc(600 * var(--u));
+  block-size: calc(600 * var(--u));
 }
 
 .s-near__orbs i:nth-child(4) {
-  inline-size: 840px;
-  block-size: 840px;
+  inline-size: calc(840 * var(--u));
+  block-size: calc(840 * var(--u));
 }
 
 /* One ring of light leaves this computer as the scan starts. */
@@ -80,8 +83,8 @@
 
   100% {
     opacity: 0;
-    inline-size: 640px;
-    block-size: 640px;
+    inline-size: calc(640 * var(--u));
+    block-size: calc(640 * var(--u));
   }
 }
 
@@ -118,11 +121,11 @@
 
 /* Spots are placed from the centre by their offset on the orbit. */
 .s-near__spot {
-  translate: calc(-50% + var(--dx)) calc(-50% + var(--dy));
+  translate: calc(-50% + var(--dx) * var(--u)) calc(-50% + var(--dy) * var(--u));
 }
 
 [dir='rtl'] .s-near__spot {
-  translate: calc(50% - var(--dx)) calc(-50% + var(--dy));
+  translate: calc(50% - var(--dx) * var(--u)) calc(-50% + var(--dy) * var(--u));
 }
 
 .s-near__dev {
