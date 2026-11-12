@@ -46,7 +46,10 @@ pub struct SendHandle {
     /// The receiver's identity, if both sides proved theirs at pairing:
     /// remembered once it applies.
     // shortcut: memory only, so a send resumed after a restart
-    // remembers nobody; persist it in the session if that matters.
+    // remembers nobody; persist it in the session if that matters. The
+    // receiver remembers at its own `Done`, the sender only once the
+    // checklist arrives: a drop in between leaves only the receiver with
+    // the new secret, until the next code pairing replaces it.
     known_peer: Option<PeerIdentity>,
     /// How long each pairing code stays valid ([`CODE_LIFETIME`]).
     code_lifetime: Duration,

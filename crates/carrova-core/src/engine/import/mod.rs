@@ -48,7 +48,10 @@ pub struct Importer {
     /// The LAN sender's identity, if both sides proved theirs at pairing:
     /// remembered once the plan applies.
     // shortcut: memory only, so an import resumed after a restart
-    // remembers nobody; persist it in the session if that matters.
+    // remembers nobody; persist it in the session if that matters. The
+    // receiver remembers at its own `Done`, the sender only once the
+    // checklist arrives: a drop in between leaves only the receiver with
+    // the new secret, until the next code pairing replaces it.
     pub(super) known_peer: Option<PeerIdentity>,
     /// Test-only fault injection into apply (zero-sized, inert, outside
     /// feature `failpoints`).
