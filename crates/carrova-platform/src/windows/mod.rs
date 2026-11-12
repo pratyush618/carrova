@@ -273,6 +273,17 @@ impl Platform for WindowsPlatform {
         Ok(cmd)
     }
 
+    fn neighbour_mac(&self, addr: std::net::IpAddr) -> Option<[u8; 6]> {
+        let std::net::IpAddr::V4(ip) = addr else {
+            return None;
+        };
+        let root = std::env::var_os("SystemRoot").unwrap_or_else(|| r"C:\Windows".into());
+        let arp = Path::new(&root).join(r"System32\ARP.EXE");
+        let mut cmd = self.tool_command(&arp).ok()?;
+        let table = crate::tool::stdout_of(cmd.arg("-a"))?;
+        crate::neighbours::mac_from_windows_arp(&table, ip)
+    }
+
     fn file_manager_status(&self) -> Result<FileManagerStatus, PlatformError> {
         file_manager::Entries::for_user()?.status()
     }
