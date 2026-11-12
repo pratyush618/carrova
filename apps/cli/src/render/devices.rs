@@ -3,6 +3,7 @@
 
 use std::io::{self, Write};
 
+use carrova_core::presence::POLL;
 use carrova_view::devices::{KnownDeviceView, VisibilityChoice, VisibilityView};
 
 use super::text::safe;
@@ -30,7 +31,8 @@ pub fn device_list(out: &mut impl Write, list: &[KnownDeviceView]) -> io::Result
     Ok(())
 }
 
-/// `carrova visibility`: who may find this computer now.
+/// `carrova visibility`: who may find this computer now, and that a
+/// running Carrova app follows it.
 pub fn visibility(out: &mut impl Write, view: VisibilityView) -> io::Result<()> {
     match (view.choice, view.until) {
         (VisibilityChoice::NoOne, _) => writeln!(out, "Visible to no one."),
@@ -40,7 +42,12 @@ pub fn visibility(out: &mut impl Write, view: VisibilityView) -> io::Result<()> 
             when(until)
         ),
         _ => writeln!(out, "Visible to known devices."),
-    }
+    }?;
+    writeln!(
+        out,
+        "The Carrova app on this computer follows within {} seconds.",
+        POLL.as_secs()
+    )
 }
 
 /// Unix seconds as `YYYYMMDD-HHMMSS UTC` (the session id format).
