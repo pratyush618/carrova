@@ -321,12 +321,13 @@ fn a_known_sender_offering_a_code_is_one_code_offer_and_one_known_device() {
     let running = run(exp.prepare_send().unwrap());
 
     let found = browse_nearby(&*receiver.platform).unwrap();
-    let offers: Vec<_> = found.iter().filter(|d| d.offers_code).collect();
+    // The browse is LAN-wide: count only this sender's offers.
+    let offers: Vec<_> = found
+        .iter()
+        .filter(|d| d.offers_code && d.name == name)
+        .collect();
     assert_eq!(offers.len(), 1, "{found:?}");
-    assert_eq!(
-        (offers[0].name.as_str(), offers[0].known),
-        (name.as_str(), None)
-    );
+    assert_eq!(offers[0].known, None);
     let present: Vec<_> = found.iter().filter(|d| d.known.is_some()).collect();
     assert_eq!(present.len(), 1, "{found:?}");
     assert!(!present[0].offers_code);
