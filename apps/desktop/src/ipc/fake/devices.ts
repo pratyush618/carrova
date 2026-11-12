@@ -129,7 +129,13 @@ export function fakeDevices(scenario: Scenario): DevicesPort {
       later(() => {
         known = [];
       }),
-    visibility: () => later(() => visibility),
+    // "Everyone" runs out by itself, as in the engine.
+    visibility: () =>
+      later(() => {
+        if (visibility.until !== null && visibility.until * 1000 <= Date.now())
+          visibility = { choice: 'known', until: null };
+        return visibility;
+      }),
     setVisibility: (choice: VisibilityChoice) =>
       later(() => {
         visibility = {

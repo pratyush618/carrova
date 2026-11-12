@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { BridgeEvent } from '@/bindings/BridgeEvent';
 import { ENGINE_DEFAULTS } from '@/bindings/constants';
@@ -275,6 +275,17 @@ describe('the fake port, Manual mode and the file manager', () => {
     const accepted = await port.editPlan(session, [{ kind: 'accept_safe_picks' }]);
     expect(accepted.offered.filter((o) => o.picked && o.key.startsWith('raw:'))).toHaveLength(2);
     expect(accepted.plan.blockers).toEqual([]);
+  });
+});
+
+describe('the fake port, nearby', () => {
+  it('turns "everyone" back into "known devices" once it runs out, like the engine', async () => {
+    const { port } = await fake('nearby');
+    const set = await port.setVisibility('everyone');
+    expect(set.choice).toBe('everyone');
+    vi.spyOn(Date, 'now').mockReturnValue(((set.until ?? 0) + 1) * 1000);
+    expect(await port.visibility()).toEqual({ choice: 'known', until: null });
+    vi.restoreAllMocks();
   });
 });
 
