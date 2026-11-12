@@ -16,8 +16,8 @@ const POLL: Duration = Duration::from_millis(10);
 /// Stdout of `cmd` when it ran, exited successfully and printed text;
 /// `None` otherwise. Undecodable bytes become U+FFFD: ARP.EXE writes in the
 /// OEM code page, and the IP and MAC tokens callers read are ASCII.
-/// A tool that runs past 3 s or prints over 64 KiB is killed with its
-/// children, so a wedged tool cannot stall its caller.
+/// A tool that runs past 3 s or prints over 64 KiB is killed (on Unix, with
+/// its children), so a wedged tool cannot stall its caller.
 pub(crate) fn stdout_of(cmd: &mut Command) -> Option<String> {
     run_bounded(cmd, DEADLINE, OUTPUT_CAP)
 }
