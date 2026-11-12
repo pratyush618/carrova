@@ -68,7 +68,7 @@ export function NearbyList({
   const { t } = useTranslation();
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (focusOnOpen) root.current?.querySelector('h2')?.focus();
+    if (focusOnOpen) root.current?.querySelector<HTMLElement>('.s-near__group > h2')?.focus();
   }, [focusOnOpen]);
   return (
     <div className="s-near__list" ref={root}>

@@ -260,6 +260,25 @@ describe('Nearby', () => {
       expect(screen.getByRole('heading', { level: 2, name: 'Here now' })).toHaveFocus();
     });
 
+    it('focuses the first group heading when nobody is here', async () => {
+      const user = userEvent.setup();
+      const lab = Array.from({ length: 21 }, (_, i) => ({
+        ...nearbyMap.away[1],
+        key: `l${String(i)}`,
+        name: `Lab PC ${String(i)}`,
+      })) as DeviceEntry[];
+      function Empty() {
+        const [view, setView] = useState<NearbyView>('map');
+        return page(
+          { ...nearbyMap, here: [], away: lab, view },
+          { ...nearbyOn(), onView: setView },
+        );
+      }
+      renderScreen(<Empty />);
+      await user.click(screen.getByRole('button', { name: /more: show all/ }));
+      expect(screen.getByRole('heading', { level: 2, name: 'Known, not here' })).toHaveFocus();
+    });
+
     it('leaves focus alone when the Segmented control opens it', async () => {
       const user = userEvent.setup();
       renderScreen(<Viewing />);
