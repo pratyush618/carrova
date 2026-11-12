@@ -11,6 +11,7 @@ use super::{
     HmacSha256, KNOWN_SECRET_LEN, KNOWN_TAG_DISCOVERY, KNOWN_TAG_LEN, PairingError, Result,
     TagNonce, hex_decode, hex_encode,
 };
+use crate::identity::DevicePublic;
 
 /// Secret two devices share after a code pairing in which both remembered
 /// each other. Derived from the SPAKE2 key like the resume secret, under
@@ -36,25 +37,48 @@ impl KnownSecret {
         &self.0
     }
 
-    /// Tag for one `purpose` and `nonce`:
-    /// `HMAC(secret, label(purpose) ‖ nonce)[..8]`. A fresh [`TagNonce`]
-    /// per advert keeps tags unlinkable for anyone without the secret.
-    pub fn tag_for(&self, purpose: KnownPurpose, nonce: &TagNonce) -> Result<KnownTag> {
-        let full = self.tag_mac(purpose, nonce)?.finalize().into_bytes();
+    /// Tag the device `advertiser` puts in its advert, for one `purpose`
+    /// and `nonce`: `HMAC(secret, label(purpose) ‖ nonce ‖ advertiser)[..8]`.
+    /// A fresh [`TagNonce`] per advert keeps tags unlinkable for anyone
+    /// without the secret; binding the advertiser's key means a device never
+    /// mistakes its own advert for its peer's (both hold the secret).
+    pub fn tag_for(
+        &self,
+        purpose: KnownPurpose,
+        nonce: &TagNonce,
+        advertiser: &DevicePublic,
+    ) -> Result<KnownTag> {
+        let full = self
+            .tag_mac(purpose, nonce, advertiser)?
+            .finalize()
+            .into_bytes();
         let mut tag = [0u8; KNOWN_TAG_LEN];
         tag.copy_from_slice(&full[..KNOWN_TAG_LEN]);
         Ok(KnownTag(tag))
     }
 
-    /// Whether `tag` is this secret's `purpose` tag for `nonce` (constant
-    /// time).
-    pub fn recognises(&self, purpose: KnownPurpose, nonce: &TagNonce, tag: &KnownTag) -> bool {
-        self.tag_mac(purpose, nonce)
+    /// Whether `tag` is this secret's `purpose` tag for `nonce`, made by
+    /// `advertiser` (constant time).
+    pub fn recognises(
+        &self,
+        purpose: KnownPurpose,
+        nonce: &TagNonce,
+        advertiser: &DevicePublic,
+        tag: &KnownTag,
+    ) -> bool {
+        self.tag_mac(purpose, nonce, advertiser)
             .is_ok_and(|mac| mac.verify_truncated_left(&tag.0).is_ok())
     }
 
-    fn tag_mac(&self, purpose: KnownPurpose, nonce: &TagNonce) -> Result<HmacSha256> {
-        MacKey::new(&self.0).tag_mac(purpose.label(), nonce)
+    fn tag_mac(
+        &self,
+        purpose: KnownPurpose,
+        nonce: &TagNonce,
+        advertiser: &DevicePublic,
+    ) -> Result<HmacSha256> {
+        let mut mac = MacKey::new(&self.0).tag_mac(purpose.label(), nonce)?;
+        mac.update(advertiser.as_bytes());
+        Ok(mac)
     }
 }
 

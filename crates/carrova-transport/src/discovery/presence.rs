@@ -5,6 +5,7 @@
 
 use std::fmt;
 
+use carrova_crypto::identity::DevicePublic;
 use carrova_crypto::pairing::{
     KNOWN_TAG_LEN, KnownPurpose, KnownSecret, KnownTag, TAG_NONCE_LEN, TagNonce,
 };
@@ -19,9 +20,10 @@ use crate::{BROADCAST_PORT, TXT_DEVICE_NAME, TXT_KNOWN_TAGS, TXT_OS};
 pub const MAX_KNOWN_TAGS: usize = 13;
 
 /// One advert's known-device tags: a fresh random nonce shared by all of
-/// them and one [`KnownPurpose::Discovery`] tag per known device. Without
-/// a matching secret, two adverts cannot be linked. A hint, never
-/// authentication. `Debug` hides nonce and tags.
+/// them and one [`KnownPurpose::Discovery`] tag per known device, bound to
+/// the advertising device's key. Without a matching secret, two adverts
+/// cannot be linked. A hint, never authentication. `Debug` hides nonce and
+/// tags.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct KnownTags {
     nonce: TagNonce,
@@ -29,30 +31,33 @@ pub struct KnownTags {
 }
 
 impl KnownTags {
-    /// Tags for the first [`MAX_KNOWN_TAGS`] of `secrets` (callers put the
-    /// most recently used first) under a fresh nonce; `None` if there are
-    /// none.
+    /// Tags `advertiser` (this device) makes for the first
+    /// [`MAX_KNOWN_TAGS`] of `secrets` (callers put the most recently used
+    /// first) under a fresh nonce; `None` if there are none.
     ///
     /// # Errors
     ///
     /// The OS random generator failed.
-    pub fn fresh<'a>(secrets: impl IntoIterator<Item = &'a KnownSecret>) -> Result<Option<Self>> {
+    pub fn fresh<'a>(
+        secrets: impl IntoIterator<Item = &'a KnownSecret>,
+        advertiser: &DevicePublic,
+    ) -> Result<Option<Self>> {
         let nonce = TagNonce::random()?;
         let tags = secrets
             .into_iter()
             .take(MAX_KNOWN_TAGS)
-            .map(|secret| secret.tag_for(KnownPurpose::Discovery, &nonce))
+            .map(|secret| secret.tag_for(KnownPurpose::Discovery, &nonce, advertiser))
             .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok((!tags.is_empty()).then_some(Self { nonce, tags }))
     }
 
-    /// Whether one of the tags was made with `secret` (constant time per
-    /// tag).
+    /// Whether `advertiser` made one of the tags with `secret` (constant
+    /// time per tag).
     #[must_use]
-    pub fn made_with(&self, secret: &KnownSecret) -> bool {
+    pub fn made_with(&self, secret: &KnownSecret, advertiser: &DevicePublic) -> bool {
         self.tags
             .iter()
-            .any(|tag| secret.recognises(KnownPurpose::Discovery, &self.nonce, tag))
+            .any(|tag| secret.recognises(KnownPurpose::Discovery, &self.nonce, advertiser, tag))
     }
 
     /// `<nonce hex><tag hex>…`.

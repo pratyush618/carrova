@@ -70,7 +70,7 @@ fn nearby_device(found: Nearby, known: &[(DeviceRecord, KnownSecret)]) -> Option
     let record = advert.known.as_ref().and_then(|tags| {
         known
             .iter()
-            .find(|(_, secret)| tags.made_with(secret))
+            .find(|(record, secret)| tags.made_with(secret, &record.public))
             .map(|(record, _)| record)
     });
     Some(match record {

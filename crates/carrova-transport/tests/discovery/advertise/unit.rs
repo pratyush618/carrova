@@ -1,3 +1,4 @@
+use carrova_crypto::identity::DeviceKey;
 use carrova_crypto::pairing::{KnownSecret, Nameplate, ResumeSecret};
 use carrova_platform::OsKind;
 
@@ -41,9 +42,12 @@ fn advertised_names_fit_one_txt_entry_on_a_char_boundary() {
 
 #[test]
 fn presence_answers_browsers_with_its_txt_fields_after_the_port() {
-    let known = KnownTags::fresh(&[KnownSecret::from_bytes([1; 32])])
-        .unwrap()
-        .unwrap();
+    let known = KnownTags::fresh(
+        &[KnownSecret::from_bytes([1; 32])],
+        &DeviceKey::from_bytes(&[2; 32]).public(),
+    )
+    .unwrap()
+    .unwrap();
     let kt = known.encode();
     let quiet = Advert::Presence(PresenceAdvert {
         known: Some(known.clone()),

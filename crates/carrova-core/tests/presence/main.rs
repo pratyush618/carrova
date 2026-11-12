@@ -59,8 +59,23 @@ fn advert_at(side: &Side, visibility: Visibility, now: u64) -> Option<PresenceAd
     advert(&*side.platform, visibility, now).unwrap()
 }
 
-fn tagged_with(advert: &PresenceAdvert, secret: &KnownSecret) -> bool {
-    advert.known.as_ref().is_some_and(|k| k.made_with(secret))
+/// Whether `side` made one of `advert`'s tags for the peer it shares
+/// `secret` with.
+fn tagged_with(side: &Side, advert: &PresenceAdvert, secret: &KnownSecret) -> bool {
+    let me = own_key(side);
+    advert
+        .known
+        .as_ref()
+        .is_some_and(|k| k.made_with(secret, &me))
+}
+
+/// `side`'s own identity key.
+fn own_key(side: &Side) -> DevicePublic {
+    KnownDevices::open(&*side.platform)
+        .unwrap()
+        .device_key(&*side.platform)
+        .unwrap()
+        .public()
 }
 
 #[test]
@@ -80,7 +95,7 @@ fn known_mode_hides_name_from_strangers() {
     );
     let secret = remember(&side, public(1), "laptop", None);
     let advert = advert_at(&side, Visibility::Known, NOW).unwrap();
-    assert!(tagged_with(&advert, &secret));
+    assert!(tagged_with(&side, &advert, &secret));
     assert_eq!((advert.name, advert.os), (None, None));
 }
 
@@ -90,7 +105,7 @@ fn everyone_shows_name_and_os_beside_the_tags() {
     let secret = remember(&side, public(1), "laptop", None);
     let until = NOW + 600;
     let advert = advert_at(&side, Visibility::Everyone { until }, NOW).unwrap();
-    assert!(tagged_with(&advert, &secret));
+    assert!(tagged_with(&side, &advert, &secret));
     assert_eq!(advert.name.as_deref(), Some("desk"), "sanitised");
     assert_eq!(advert.os, Some(side.platform.os()));
     let alone = Side::named(Some("alone"));
@@ -165,7 +180,7 @@ fn kt_caps_at_13_most_recent() {
         .collect();
     let advert = advert_at(&side, Visibility::Known, NOW).unwrap();
     let tagged: Vec<usize> = (0..secrets.len())
-        .filter(|&i| tagged_with(&advert, &secrets[i]))
+        .filter(|&i| tagged_with(&side, &advert, &secrets[i]))
         .collect();
     let newest: Vec<usize> = (secrets.len() - MAX_KNOWN_TAGS..secrets.len()).collect();
     assert_eq!(tagged, newest);
@@ -182,7 +197,7 @@ fn a_known_peer_finds_a_present_device_by_its_stored_name_and_strangers_do_not()
     }
     let desk = Side::named(Some("desk-advertised"));
     let laptop = Side::new();
-    let desk_id = public(7);
+    let desk_id = own_key(&desk);
     let stored = unique("my desk");
     let secret = remember(&desk, public(8), "laptop", Some(5));
     // The laptop remembers the desk with the same shared secret.
@@ -245,5 +260,22 @@ fn a_running_presence_stops_naming_itself_when_everyone_ends() {
     });
     let seen = names(&browse_nearby(&*stranger.platform).unwrap());
     assert!(seen.contains(&name), "shown again when set: {seen:?}");
+    presence.stop();
+}
+
+#[test]
+fn a_device_does_not_find_itself_by_its_own_tags() {
+    if !loopback_broadcast_works() {
+        return;
+    }
+    let desk = Side::new();
+    let laptop = public(9);
+    remember(&desk, laptop, "laptop", Some(5));
+    let presence = Presence::start(&desk.engine, Visibility::Known);
+    let found = browse_nearby(&*desk.platform).unwrap();
+    assert!(
+        found.iter().all(|d| d.known != Some(laptop)),
+        "the laptop is off: only the desk's own advert is out there: {found:?}"
+    );
     presence.stop();
 }

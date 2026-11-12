@@ -1,3 +1,4 @@
+use carrova_crypto::identity::DeviceKey;
 use carrova_crypto::pairing::KnownSecret;
 use carrova_platform::OsKind;
 
@@ -32,9 +33,12 @@ fn browse_reply_carries_the_device_name_after_the_port() {
 
 #[test]
 fn presence_reply_carries_its_txt_fields_one_per_line() {
-    let known = KnownTags::fresh(&[KnownSecret::from_bytes([1; 32])])
-        .unwrap()
-        .unwrap();
+    let known = KnownTags::fresh(
+        &[KnownSecret::from_bytes([1; 32])],
+        &DeviceKey::from_bytes(&[2; 32]).public(),
+    )
+    .unwrap()
+    .unwrap();
     let body = format!(
         "47821\nkt={}\ndn=ezio's laptop\nos=macos\nzz=later",
         known.encode()

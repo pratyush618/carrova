@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use carrova_crypto::identity::DeviceKey;
 use carrova_crypto::pairing::{KnownSecret, PairingCode, ResumeSecret, TagNonce};
 use carrova_manifest::{ChunkHash, ChunkRef, MAX_CHUNK_LEN};
 use carrova_transport::{
@@ -265,7 +266,8 @@ fn a_presence_is_browsed_by_its_tags_and_names_itself_only_when_told() {
     let mut seed = [0u8; 32];
     seed[..16].copy_from_slice(&TagNonce::random().unwrap().0);
     let secret = KnownSecret::from_bytes(seed);
-    let tags = || KnownTags::fresh([&secret]).unwrap();
+    let me = DeviceKey::from_bytes(&[3; 32]).public();
+    let tags = || KnownTags::fresh([&secret], &me).unwrap();
     let name = format!("presence-test-{}", unique_code().nameplate());
     let ours = |found: &[Nearby]| -> Vec<PresenceAdvert> {
         found
@@ -274,7 +276,7 @@ fn a_presence_is_browsed_by_its_tags_and_names_itself_only_when_told() {
                 n.advert
                     .known
                     .as_ref()
-                    .is_some_and(|k| k.made_with(&secret))
+                    .is_some_and(|k| k.made_with(&secret, &me))
             })
             .map(|n| n.advert.clone())
             .collect()

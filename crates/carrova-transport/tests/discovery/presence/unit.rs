@@ -1,3 +1,4 @@
+use carrova_crypto::identity::{DeviceKey, DevicePublic};
 use carrova_crypto::pairing::KnownSecret;
 use carrova_platform::OsKind;
 
@@ -8,20 +9,32 @@ fn secret(n: u8) -> KnownSecret {
     KnownSecret::from_bytes([n; 32])
 }
 
+/// The advertising device.
+fn me() -> DevicePublic {
+    DeviceKey::from_bytes(&[0xa1; 32]).public()
+}
+
 fn tags(secrets: &[KnownSecret]) -> KnownTags {
-    KnownTags::fresh(secrets).unwrap().unwrap()
+    KnownTags::fresh(secrets, &me()).unwrap().unwrap()
 }
 
 #[test]
 fn known_peer_recognises_its_tag() {
     let advertised = tags(&[secret(1), secret(2)]);
     let seen = KnownTags::parse(&advertised.encode()).unwrap();
-    assert!(seen.made_with(&secret(1)));
-    assert!(seen.made_with(&secret(2)));
+    assert!(seen.made_with(&secret(1), &me()));
+    assert!(seen.made_with(&secret(2), &me()));
     assert!(
-        !seen.made_with(&secret(3)),
+        !seen.made_with(&secret(3), &me()),
         "a stranger's secret matches nothing"
     );
+}
+
+#[test]
+fn a_peer_sharing_the_secret_is_not_taken_for_the_advertiser() {
+    let advertised = tags(&[secret(1)]);
+    let peer = DeviceKey::from_bytes(&[0xb2; 32]).public();
+    assert!(!advertised.made_with(&secret(1), &peer));
 }
 
 #[test]
@@ -40,12 +53,12 @@ fn kt_keeps_the_first_13_tags_and_fits_one_txt_string() {
     assert!(
         secrets[..MAX_KNOWN_TAGS]
             .iter()
-            .all(|s| advertised.made_with(s))
+            .all(|s| advertised.made_with(s, &me()))
     );
     assert!(
         !secrets[MAX_KNOWN_TAGS..]
             .iter()
-            .any(|s| advertised.made_with(s))
+            .any(|s| advertised.made_with(s, &me()))
     );
     let entry = format!("{TXT_KNOWN_TAGS}={}", advertised.encode());
     assert!(entry.len() <= usize::from(u8::MAX), "{} bytes", entry.len());
@@ -54,7 +67,7 @@ fn kt_keeps_the_first_13_tags_and_fits_one_txt_string() {
 
 #[test]
 fn no_known_secret_means_no_kt() {
-    assert!(KnownTags::fresh(&[]).unwrap().is_none());
+    assert!(KnownTags::fresh(&[], &me()).unwrap().is_none());
 }
 
 #[test]

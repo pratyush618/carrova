@@ -11,6 +11,7 @@ use std::time::Duration;
 use carrova_platform::Platform;
 use carrova_transport::{KnownTags, MAX_KNOWN_TAGS, PresenceAdvert, PresenceBeacon};
 
+use crate::devices::KnownDevices;
 use crate::engine::Engine;
 use crate::error::Result;
 use crate::lan::{clean_device_name, known_by_recent_use};
@@ -65,7 +66,12 @@ pub fn advert(
         Visibility::Everyone { .. } => true,
     };
     let known = known_by_recent_use(platform)?;
-    let known = KnownTags::fresh(known.iter().take(MAX_KNOWN_TAGS).map(|(_, s)| s))?;
+    let known = if known.is_empty() {
+        None
+    } else {
+        let me = KnownDevices::open(platform)?.device_key(platform)?.public();
+        KnownTags::fresh(known.iter().take(MAX_KNOWN_TAGS).map(|(_, s)| s), &me)?
+    };
     if !everyone {
         return Ok(known.map(|known| PresenceAdvert {
             known: Some(known),
