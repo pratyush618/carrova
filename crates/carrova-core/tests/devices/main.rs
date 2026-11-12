@@ -291,6 +291,15 @@ fn device_key_is_made_once_and_reloaded() {
 }
 
 #[test]
+fn partial_device_key_from_a_crash_is_discarded() {
+    let f = Fixture::new();
+    std::fs::write(f.state.join("device.key.new"), b"short").unwrap();
+    let key = f.devices.device_key(&f.platform).unwrap().public();
+    assert!(!f.state.join("device.key.new").exists());
+    assert_eq!(f.devices.device_key(&f.platform).unwrap().public(), key);
+}
+
+#[test]
 fn corrupt_device_key_is_reported_not_regenerated() {
     let f = Fixture::new();
     f.devices.device_key(&f.platform).unwrap();

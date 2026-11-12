@@ -33,7 +33,6 @@ use serde::{Deserialize, Serialize};
 pub use record::DeviceRecord;
 
 use crate::error::{CoreError, Corruption, EncodeError, Result};
-use crate::fsx;
 use crate::store::{ensure_dir, read_file, secret_file, write_atomic};
 
 /// This device's identity key, in the state dir.
@@ -73,25 +72,19 @@ impl KnownDevices {
         Ok(Self { state_dir, dir })
     }
 
-    /// This device's identity key, made on first need. Two processes
-    /// racing to make it agree on the first one written.
+    /// This device's identity key, made on first need (under the lock,
+    /// written as `device.key.new` and renamed into place, so a crash never
+    /// leaves a partial key and racing processes agree on one key).
     pub fn device_key(&self, platform: &dyn Platform) -> Result<DeviceKey> {
         if let Some(key) = self.read_device_key(platform)? {
             return Ok(key);
         }
-        let key = DeviceKey::generate().map_err(|_| CoreError::Random)?;
-        match secret_file::write_new(
-            platform,
-            &self.state_dir,
-            DEVICE_KEY_FILE,
-            key.expose_seed(),
-        ) {
-            Ok(()) => Ok(key),
-            Err(e) if fsx::kind_of(&e) == Some(std::io::ErrorKind::AlreadyExists) => {
-                self.read_device_key(platform)?.ok_or(e)
-            }
-            Err(e) => Err(e),
+        let _lock = self.lock(platform)?;
+        // Another process may have made it while we waited.
+        if let Some(key) = self.read_device_key(platform)? {
+            return Ok(key);
         }
+        self.new_device_key(platform)
     }
 
     /// Every known device, in the order first remembered.
@@ -209,6 +202,11 @@ impl KnownDevices {
     pub fn reset_identity(&self, platform: &dyn Platform) -> Result<DeviceKey> {
         let _lock = self.lock(platform)?;
         self.forget_all_locked(platform)?;
+        self.new_device_key(platform)
+    }
+
+    /// Make and store a new device key (caller holds the lock).
+    fn new_device_key(&self, platform: &dyn Platform) -> Result<DeviceKey> {
         let key = DeviceKey::generate().map_err(|_| CoreError::Random)?;
         secret_file::replace(
             platform,
