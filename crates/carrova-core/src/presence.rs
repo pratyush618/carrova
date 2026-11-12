@@ -150,12 +150,23 @@ pub fn advert(
     }
     Ok(Some(PresenceAdvert {
         known,
-        name: crate::about::device_name(platform)
-            .as_deref()
-            .and_then(clean_device_name),
+        name: Some(announced_name(platform)),
         os: Some(platform.os()),
     }))
 }
+
+/// The name this computer announces to everyone: its own, sanitised, or
+/// [`UNNAMED`] where the OS gives none (browsers drop an advert with
+/// neither a name nor tags).
+pub(crate) fn announced_name(platform: &dyn Platform) -> String {
+    crate::about::device_name(platform)
+        .as_deref()
+        .and_then(clean_device_name)
+        .unwrap_or_else(|| UNNAMED.to_owned())
+}
+
+/// What a computer without a device name is announced as.
+const UNNAMED: &str = "Carrova device";
 
 /// The background presence advert, for the app's lifetime: announces what
 /// the saved visibility ([`save_visibility`]) allows, re-announces every

@@ -11,9 +11,9 @@ use carrova_platform::{OsKind, Platform};
 use carrova_transport::{Nearby, browse};
 
 use super::{BROWSE_WINDOW, clean_device_name};
-use crate::about;
 use crate::devices::{DeviceRecord, KnownDevices};
 use crate::error::Result;
+use crate::presence::announced_name;
 
 /// A device found nearby.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,7 +70,7 @@ pub fn browse_nearby(platform: &dyn Platform) -> Result<Vec<NearbyDevice>> {
 /// What identifies this computer's own presence advert in a browse.
 struct Me {
     /// The name it announces when shown to everyone.
-    name: Option<String>,
+    name: String,
     /// Its LAN addresses (loopback is always its own).
     addrs: Vec<Ipv4Addr>,
 }
@@ -82,9 +82,7 @@ impl Me {
             .inspect_err(|e| tracing::debug!(error = %e, "own addresses unknown"))
             .unwrap_or_default();
         Self {
-            name: about::device_name(platform)
-                .as_deref()
-                .and_then(clean_device_name),
+            name: announced_name(platform),
             addrs: addrs.into_iter().map(|i| i.ip).collect(),
         }
     }
@@ -95,8 +93,13 @@ impl Me {
     fn announced(&self, found: &Nearby) -> bool {
         !found.offers_code
             && (found.addr.is_loopback() || self.addrs.contains(&found.addr))
-            && self.name.is_some()
-            && found.advert.name.as_deref().and_then(clean_device_name) == self.name
+            && found
+                .advert
+                .name
+                .as_deref()
+                .and_then(clean_device_name)
+                .as_ref()
+                == Some(&self.name)
     }
 }
 

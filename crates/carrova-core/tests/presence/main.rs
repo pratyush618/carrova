@@ -503,3 +503,27 @@ fn a_running_presence_tags_with_the_secret_of_a_re_pairing() {
     );
     presence.stop();
 }
+#[test]
+fn everyone_without_a_device_name_still_announces_one() {
+    let advert = advert_at(&Side::new(), Visibility::Everyone { until: NOW + 60 }, NOW).unwrap();
+    assert!(advert.name.is_some(), "browsable by strangers: {advert:?}");
+}
+
+#[test]
+fn an_unnamed_computer_shown_to_everyone_does_not_list_itself() {
+    if !loopback_broadcast_works() {
+        return;
+    }
+    let side = Side::new();
+    let presence = shown(&side, Visibility::everyone_from(now_unix()));
+    let name = advert_at(&side, Visibility::everyone_from(now_unix()), now_unix())
+        .unwrap()
+        .name;
+    let own: Vec<_> = browse_nearby(&*side.platform)
+        .unwrap()
+        .into_iter()
+        .filter(|d| Some(&d.name) == name.as_ref())
+        .collect();
+    assert!(own.is_empty(), "{own:?}");
+    presence.stop();
+}
