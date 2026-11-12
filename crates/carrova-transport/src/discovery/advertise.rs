@@ -12,7 +12,9 @@ use super::presence::PresenceAdvert;
 use super::seek::Offer;
 use crate::error::Result;
 use crate::runtime::runtime;
-use crate::tuning::{BROADCAST_MAX_DATAGRAM, MDNS_QUEUE_RETRY, MDNS_WITHDRAW_WAIT};
+use crate::tuning::{
+    BROADCAST_MAX_DATAGRAM, MDNS_QUEUE_RETRY, MDNS_RETIRE_TRIES, MDNS_WITHDRAW_WAIT,
+};
 use crate::{
     BROADCAST_BROWSE, BROADCAST_PORT, BROADCAST_REPLY, PROTOCOL_VERSION, SERVICE_TYPE,
     TXT_DEVICE_NAME, TXT_VERSION,
@@ -40,9 +42,6 @@ pub(crate) struct Advertiser {
     /// A fresh daemon per advert: shutting the old one down also drops the
     /// answers it still had queued (with the old offer and its name).
     mdns: Option<ServiceDaemon>,
-    /// Daemons whose shutdown the command queue refused: dropping one would
-    /// leave it advertising, so each is retried until it is queued.
-    refused: Vec<ServiceDaemon>,
     /// Whether "mDNS unavailable" was logged: once per advertiser, not per advert.
     mdns_failure_logged: bool,
     responder: Option<JoinHandle<()>>,
@@ -74,7 +73,6 @@ impl Advertiser {
             name,
             current,
             mdns: None,
-            refused: Vec::new(),
             mdns_failure_logged: false,
             responder,
         })
@@ -132,14 +130,22 @@ impl Advertiser {
         self.mdns = Some(daemon);
     }
 
-    /// Withdraw the current daemon, after retrying those refused before;
-    /// keep each whose shutdown is still refused.
+    /// Withdraw the current daemon. One whose shutdown the command queue
+    /// refused would keep advertising if dropped, so it is retried off-thread.
     fn retire_mdns(&mut self) {
-        self.refused.retain(|daemon| !withdraw(daemon));
         if let Some(daemon) = self.mdns.take()
             && !withdraw(&daemon)
         {
-            self.refused.push(daemon);
+            let retry = std::thread::Builder::new()
+                .name("mdns-retire".into())
+                .spawn(move || {
+                    if !(1..MDNS_RETIRE_TRIES).any(|_| withdraw(&daemon)) {
+                        tracing::warn!("mDNS daemon still advertising: shutdown refused");
+                    }
+                });
+            if let Err(e) = retry {
+                tracing::warn!(error = %e, "mDNS daemon still advertising: no retry thread");
+            }
         }
     }
 }
@@ -178,7 +184,8 @@ fn withdraw(daemon: &ServiceDaemon) -> bool {
     let done = shutdown
         .as_ref()
         .map(|done| done.recv_timeout(MDNS_WITHDRAW_WAIT).is_ok());
-    if !matches!(done, Ok(true)) {
+    // A refused shutdown is reported once, by whoever gives up retrying it.
+    if !matches!(done, Ok(true)) && !matches!(shutdown, Err(mdns_sd::Error::Again)) {
         tracing::warn!("mDNS daemon did not withdraw its advertisement");
     }
     !matches!(shutdown, Err(mdns_sd::Error::Again))

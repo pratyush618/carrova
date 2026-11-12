@@ -120,6 +120,10 @@ pub(crate) const MDNS_WITHDRAW_WAIT: Duration = Duration::from_secs(1);
 /// Pause before retrying a daemon command its full queue refused
 /// (`Error::Again`); the daemon drains it in milliseconds.
 pub(crate) const MDNS_QUEUE_RETRY: Duration = Duration::from_millis(50);
+/// Attempts, `MDNS_QUEUE_RETRY` apart, to queue the shutdown of an mDNS
+/// daemon whose command queue refused it, before giving up (the daemon
+/// would then keep advertising until exit).
+pub(crate) const MDNS_RETIRE_TRIES: u32 = 20;
 /// Largest broadcast datagram read or sent.
 pub(crate) const BROADCAST_MAX_DATAGRAM: usize = 512;
 /// Lowest sender port a discovery answer may name: privileged ports are
