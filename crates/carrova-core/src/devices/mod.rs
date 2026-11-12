@@ -109,9 +109,10 @@ impl KnownDevices {
 
     /// Remember `record`'s device after a code pairing, with the `secret`
     /// both sides now share. Remembering a known device again replaces its
-    /// secret (latest pairing wins), its OS and any new MAC hint (an empty hint keeps the old one), but keeps the
-    /// local name, first-seen time and move history. The record is saved
-    /// before the secret, so a crash never leaves a secret without one.
+    /// secret (latest pairing wins), its OS and any new MAC hint (an empty
+    /// hint keeps the old one), but keeps the local name, first-seen time
+    /// and move history. The record is saved before the secret, so a crash
+    /// never leaves a secret without one.
     pub fn remember(
         &self,
         platform: &dyn Platform,
@@ -125,8 +126,8 @@ impl KnownDevices {
 
     /// [`Self::remember`] after a finished move at `at` (unix seconds),
     /// counted in the same locked step, with the device's wake hint
-    /// updated by `hint` (`record.mac_hint` is ignored); returns the
-    /// updated record.
+    /// updated by `hint` (`record.mac_hint` is only the starting hint of a
+    /// new device); returns the updated record.
     pub fn remember_move(
         &self,
         platform: &dyn Platform,
