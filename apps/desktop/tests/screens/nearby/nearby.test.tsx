@@ -5,7 +5,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '../../support/render';
 import { buildChrome } from '@/app/shell/chrome';
 import { i18n } from '@/i18n/i18n';
-import { nearbyEmpty, nearbyList, nearbyMap, nearbySelected } from '@/screens/nearby/fixtures';
+import {
+  nearbyEmpty,
+  nearbyList,
+  nearbyMap,
+  nearbyNoHint,
+  nearbySelected,
+} from '@/screens/nearby/fixtures';
 import type { NearbyIntents, NearbyModel, NearbyView } from '@/screens/nearby/model';
 import { NearbyScreen } from '@/screens/nearby/NearbyScreen';
 import { ChromeContext, Window } from '@/ui';
@@ -165,6 +171,11 @@ describe('Nearby', () => {
   it('says when a change to the devices was refused', () => {
     renderScreen(page({ ...nearbyList, failed: 'forget' }));
     expect(screen.getByRole('status')).toHaveTextContent("Couldn't forget the device. Try again.");
+  });
+
+  it('still says how a wake went after an earlier change was refused', () => {
+    renderScreen(page({ ...nearbyNoHint, failed: 'rename' }));
+    expect(screen.getByText(/No network address is saved for Work laptop/)).toBeInTheDocument();
   });
 
   it('keeps the keyboard in the pill: Tab reaches the choices, closing returns to the pill', async () => {

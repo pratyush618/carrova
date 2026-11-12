@@ -46,6 +46,7 @@ export function NearbyScreen({
   const devices = [...model.here, ...model.away];
   const selected = devices.find((device) => device.key === model.selected) ?? null;
   const looking = model.here.length === 0 && <Looking onSendWithCode={on.onSendWithCode} />;
+  const wakeFailed = model.wake?.outcome === 'sent' ? null : model.wake;
   return (
     <HubLayout
       variant="flush"
@@ -90,22 +91,22 @@ export function NearbyScreen({
             {t('nearby.wake.sent', { name: model.wake.name })}
           </Toast>
         )}
-        {model.failed !== null && (
+        {(model.failed !== null || wakeFailed !== null) && (
           <div className="s-near__note">
-            <Banner tone="warning" title={t(`nearby.failed.${model.failed}`)} />
-          </div>
-        )}
-        {model.failed === null && model.wake !== null && model.wake.outcome !== 'sent' && (
-          <div className="s-near__note">
-            <Banner
-              tone="warning"
-              title={t(`nearby.wake.${model.wake.outcome}`, { name: model.wake.name })}
-              action={
-                <Button kind="quiet" size="sm" onClick={on.onDismissWake}>
-                  {t('ui.dismiss')}
-                </Button>
-              }
-            />
+            {model.failed !== null && (
+              <Banner tone="warning" title={t(`nearby.failed.${model.failed}`)} />
+            )}
+            {wakeFailed !== null && (
+              <Banner
+                tone="warning"
+                title={t(`nearby.wake.${wakeFailed.outcome}`, { name: wakeFailed.name })}
+                action={
+                  <Button kind="quiet" size="sm" onClick={on.onDismissWake}>
+                    {t('ui.dismiss')}
+                  </Button>
+                }
+              />
+            )}
           </div>
         )}
       </div>

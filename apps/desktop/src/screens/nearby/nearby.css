@@ -321,7 +321,7 @@
   gap: 6px;
 }
 
-/* Wake could not be sent: one quiet banner at the top of the page. */
+/* A refused change or a wake that could not be sent: quiet banners at the top of the page. */
 .s-near__note {
   position: absolute;
   z-index: 2;
@@ -329,6 +329,8 @@
   inset-inline: 50% auto;
   translate: -50% 0;
   inline-size: min(520px, 90%);
+  display: grid;
+  gap: 8px;
 }
 
 [dir='rtl'] .s-near__note {
