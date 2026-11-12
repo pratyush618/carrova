@@ -29,7 +29,7 @@ fn settings_round_trip() {
         reduce_motion: Some(true),
         ..Settings::default()
     };
-    let patch = serde_json::to_value(&mine).unwrap();
+    let patch = serde_json::json!({ "theme": "light", "reduce_motion": true });
     block_on(settings::save(&machine.state, patch)).unwrap();
     assert_eq!(block_on(settings::load(&machine.state)).unwrap(), mine);
 }

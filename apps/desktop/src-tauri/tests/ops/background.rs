@@ -324,3 +324,16 @@ fn a_change_that_keeps_autostart_leaves_its_entry_alone() {
         Some(Path::new("/old/carrova"))
     );
 }
+
+#[test]
+fn a_plain_settings_save_cannot_change_background() {
+    let machine = Machine::new();
+    let (state, platform) = with_fake(&machine);
+
+    let patch = json!({ "background": { "start_at_login": true } });
+    assert!(block_on(settings::save(&state, patch)).is_err());
+
+    let saved = block_on(settings::load(&state)).unwrap();
+    assert_eq!(saved.background, BackgroundSettings::default());
+    assert_eq!(platform.autostart_launcher(), None);
+}

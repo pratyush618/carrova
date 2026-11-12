@@ -3,7 +3,7 @@
 
 use carrova_core::{NoticeId, NoticeKind};
 use carrova_platform::ScreenLock;
-use carrova_view::ipc::{AlertChannel, AlertSettings, ErrorCode, Settings};
+use carrova_view::ipc::{AlertChannel, AlertSettings, ErrorCode};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -17,11 +17,7 @@ use crate::state::AppState;
 use crate::testing::Machine;
 
 fn alerts(machine: &Machine, alerts: AlertSettings) {
-    let settings = Settings {
-        alerts,
-        ..Settings::default()
-    };
-    let patch = serde_json::to_value(settings).unwrap();
+    let patch = serde_json::json!({ "alerts": alerts });
     block_on(settings::save(&machine.state, patch)).unwrap();
 }
 
