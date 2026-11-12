@@ -14,6 +14,11 @@
 //!   [`BROADCAST_BROWSE`](crate::BROADCAST_BROWSE) with `BROADCAST_REPLY ‖ <quic port> ‖ ' ' ‖
 //!   <device name>` ([`browse()`]).
 //!
+//! A presence ([`PresenceBeacon`]) advertises TXT [`TXT_VERSION`](crate::TXT_VERSION) plus
+//! [`TXT_KNOWN_TAGS`](crate::TXT_KNOWN_TAGS) and, shown to everyone,
+//! [`TXT_DEVICE_NAME`](crate::TXT_DEVICE_NAME) and [`TXT_OS`](crate::TXT_OS);
+//! over broadcast it answers browse queries with the same entries.
+//!
 //! Older peers ignore what they do not know: an unknown TXT key, a browse
 //! query (no `key=value`), a reply they never asked for.
 //!
@@ -30,6 +35,7 @@
 mod advertise;
 mod browse;
 mod interfaces;
+mod presence;
 mod query;
 mod seek;
 
@@ -38,6 +44,7 @@ use carrova_platform::Platform;
 pub(crate) use self::advertise::Advertiser;
 pub use self::browse::{Nearby, browse};
 pub(crate) use self::interfaces::primary_lan_ipv4;
+pub use self::presence::{KnownTags, MAX_KNOWN_TAGS, PresenceAdvert, PresenceBeacon};
 pub(crate) use self::query::discover;
 pub(crate) use self::seek::{Offer, Subject, TagProof};
 use crate::error::Result;

@@ -83,9 +83,8 @@ pub use carrova_manifest::Manifest;
 pub use carrova_plugin::{Plugin, PluginPackage};
 /// Recipe model, re-exported so front-ends need not depend on `carrova-recipe`.
 pub use carrova_recipe::Recipe;
-/// LAN ticket (code + optional address) front-ends parse from user input,
-/// and a sender found nearby ([`lan::browse_nearby`]).
-pub use carrova_transport::{Nearby, Ticket};
+/// LAN ticket (code + optional address) front-ends parse from user input.
+pub use carrova_transport::Ticket;
 pub use catalog::{Catalog, CatalogError, ValidationReport, load_catalog, validate_targets};
 pub use checklist::{Checklist, Skipped};
 pub use engine::{

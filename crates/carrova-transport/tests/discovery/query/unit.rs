@@ -1,10 +1,21 @@
+use carrova_crypto::pairing::KnownSecret;
+use carrova_platform::OsKind;
+
 use super::*;
+use crate::discovery::presence::KnownTags;
+
+fn named(name: &str) -> PresenceAdvert {
+    PresenceAdvert {
+        name: Some(name.to_owned()),
+        ..PresenceAdvert::default()
+    }
+}
 
 #[test]
 fn broadcast_reply_parses_port_only_with_prefix() {
     let mut r = BROADCAST_REPLY.to_vec();
     r.extend_from_slice(b"40123");
-    assert_eq!(parse_reply(&r), Some((40123, None)));
+    assert_eq!(parse_reply(&r), Some((40123, PresenceAdvert::default())));
     assert_eq!(parse_reply(b"40123"), None);
     let mut bad = BROADCAST_REPLY.to_vec();
     bad.extend_from_slice(b"70000");
@@ -13,11 +24,36 @@ fn broadcast_reply_parses_port_only_with_prefix() {
 
 #[test]
 fn browse_reply_carries_the_device_name_after_the_port() {
-    let named = [BROADCAST_REPLY, b"40123 ezio's laptop"].concat();
-    assert_eq!(
-        parse_reply(&named),
-        Some((40123, Some("ezio's laptop".to_owned())))
-    );
+    let reply = [BROADCAST_REPLY, b"40123 ezio's laptop"].concat();
+    assert_eq!(parse_reply(&reply), Some((40123, named("ezio's laptop"))));
     let not_utf8 = [BROADCAST_REPLY, b"40123 \xff"].concat();
     assert_eq!(parse_reply(&not_utf8), None);
+}
+
+#[test]
+fn presence_reply_carries_its_txt_fields_one_per_line() {
+    let known = KnownTags::fresh(&[KnownSecret::from_bytes([1; 32])])
+        .unwrap()
+        .unwrap();
+    let body = format!(
+        "47821\nkt={}\ndn=ezio's laptop\nos=macos\nzz=later",
+        known.encode()
+    );
+    let reply = [BROADCAST_REPLY, body.as_bytes()].concat();
+    assert_eq!(
+        parse_reply(&reply),
+        Some((
+            47821,
+            PresenceAdvert {
+                known: Some(known),
+                name: Some("ezio's laptop".into()),
+                os: Some(OsKind::MacOs),
+            }
+        ))
+    );
+    let quiet = [BROADCAST_REPLY, b"47821\nkt=nothex"].concat();
+    assert_eq!(
+        parse_reply(&quiet),
+        Some((47821, PresenceAdvert::default()))
+    );
 }

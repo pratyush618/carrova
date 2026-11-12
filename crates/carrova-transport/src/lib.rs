@@ -12,6 +12,9 @@
 //!   fails the user types a [`Ticket`] (`<code>@<ipv4>:<port>`). While a
 //!   code is offered it also names itself ([`TXT_DEVICE_NAME`], answers to
 //!   [`BROADCAST_BROWSE`]) so receivers can [`browse`] senders nearby.
+//!   Outside sessions a [`PresenceBeacon`] announces the device to the
+//!   devices it knows ([`TXT_KNOWN_TAGS`]) and, if the user allows it, to
+//!   everyone ([`TXT_DEVICE_NAME`], [`TXT_OS`]).
 //! - **Handshake:** throwaway self-signed certificates, mutual TLS 1.3 with
 //!   ALPN [`ALPN`]; the receiver opens the first bidirectional stream and
 //!   runs SPAKE2 + key confirmation from [`carrova_crypto::pairing`] (or the
@@ -59,7 +62,7 @@ pub use connection::{
     AllowedChunks, ChunkFailure, Connection, FailedChunk, FetchAbort, FetchReport, OnChunk,
     ServeEnd,
 };
-pub use discovery::{Nearby, browse};
+pub use discovery::{KnownTags, MAX_KNOWN_TAGS, Nearby, PresenceAdvert, PresenceBeacon, browse};
 pub use error::{ProtocolViolation, Result, SetupFailure, TransportError};
 pub use handshake::PeerIdentity;
 pub use listener::{ListenOptions, Listener};
@@ -83,6 +86,14 @@ pub const TXT_RESUME_TAG: &str = "rt";
 /// offered (never beside a resume tag). Peer-provided: sanitise before
 /// display.
 pub const TXT_DEVICE_NAME: &str = "dn";
+/// TXT key: a presence advert's known-device tags, as `<nonce hex>` then
+/// up to [`MAX_KNOWN_TAGS`] `<tag hex>` (one fresh nonce per advert; see
+/// [`KnownTags`]).
+pub const TXT_KNOWN_TAGS: &str = "kt";
+/// TXT key: a presence advert's OS family
+/// ([`OsKind::as_str`](carrova_platform::OsKind::as_str)), present only
+/// when the device shows itself to everyone.
+pub const TXT_OS: &str = "os";
 /// UDP port of the broadcast discovery fallback.
 pub const BROADCAST_PORT: u16 = 47821;
 /// Broadcast discovery query prefix, followed by `np=<nameplate>` or
@@ -90,7 +101,10 @@ pub const BROADCAST_PORT: u16 = 47821;
 /// sender replies with [`BROADCAST_REPLY`].
 pub const BROADCAST_QUERY: &[u8] = b"CARROVA/1?";
 /// Broadcast browse query: every sender offering a code and knowing its
-/// device name replies [`BROADCAST_REPLY`] ‖ port ‖ `' '` ‖ name.
+/// device name replies [`BROADCAST_REPLY`] ‖ port ‖ `' '` ‖ name; every
+/// [`PresenceBeacon`] replies [`BROADCAST_REPLY`] ‖ port, then `'\n'` ‖
+/// `key=value` per TXT entry (older receivers drop such replies: the port
+/// does not parse).
 pub const BROADCAST_BROWSE: &[u8] = b"CARROVA/1?browse";
 /// Broadcast discovery reply prefix, followed by the sender's QUIC port in
 /// decimal (and, answering [`BROADCAST_BROWSE`], a space and its device

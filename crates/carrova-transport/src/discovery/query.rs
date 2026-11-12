@@ -11,17 +11,16 @@ use tokio::time::Instant;
 
 use super::broadcast_socket;
 use super::interfaces::{broadcast_targets, plausible_sender};
+use super::presence::PresenceAdvert;
 use super::seek::{Seek, Subject};
 use crate::error::Result;
 use crate::runtime::runtime;
 use crate::tuning::{BROADCAST_MAX_DATAGRAM, BROADCAST_RETRY, MDNS_POLL};
-use crate::{
-    BROADCAST_PORT, BROADCAST_REPLY, PROTOCOL_VERSION, SERVICE_TYPE, TXT_DEVICE_NAME, TXT_VERSION,
-};
+use crate::{BROADCAST_PORT, BROADCAST_REPLY, PROTOCOL_VERSION, SERVICE_TYPE, TXT_VERSION};
 
 /// What a discovery answer yields, from a plausible sender `addr` that
-/// announced `name` (or none).
-type Make<T> = fn(SocketAddrV4, Option<String>) -> T;
+/// announced `advert` about itself (empty if nothing).
+type Make<T> = fn(SocketAddrV4, PresenceAdvert) -> T;
 
 /// Look for `wanted` until `deadline` or until the returned receiver is
 /// dropped. Plausible candidate addresses arrive as found (duplicates
@@ -80,7 +79,8 @@ pub(super) async fn broadcast_query<T>(
         while let Ok(Ok((n, from))) =
             tokio::time::timeout_at(round_end, socket.recv_from(&mut buf)).await
         {
-            let (SocketAddr::V4(from), Some((port, name))) = (from, parse_reply(&buf[..n])) else {
+            let (SocketAddr::V4(from), Some((port, advert))) = (from, parse_reply(&buf[..n]))
+            else {
                 continue;
             };
             let candidate = SocketAddrV4::new(*from.ip(), port);
@@ -88,21 +88,36 @@ pub(super) async fn broadcast_query<T>(
                 tracing::debug!(%candidate, "implausible broadcast answer ignored");
                 continue;
             }
-            if tx.send(make(candidate, name)).await.is_err() {
+            if tx.send(make(candidate, advert)).await.is_err() {
                 return;
             }
         }
     }
 }
 
-/// A broadcast reply's port and, answering a browse, device name.
-fn parse_reply(datagram: &[u8]) -> Option<(u16, Option<String>)> {
+/// A broadcast reply's port and what it announced: answering a browse, a
+/// sender offering a code gives its name after a space; a presence gives
+/// TXT entries, `'\n'` before each (the first of a repeated key counts).
+fn parse_reply(datagram: &[u8]) -> Option<(u16, PresenceAdvert)> {
     let body = std::str::from_utf8(datagram.strip_prefix(BROADCAST_REPLY)?).ok()?;
-    let (port, name) = match body.split_once(' ') {
-        Some((port, name)) => (port, Some(name.to_owned())),
-        None => (body, None),
+    let (port, advert) = if let Some((port, entries)) = body.split_once('\n') {
+        let entries: Vec<_> = entries
+            .split('\n')
+            .filter_map(|e| e.split_once('='))
+            .collect();
+        let get = |key: &str| entries.iter().find(|(k, _)| *k == key).map(|(_, v)| *v);
+        (port, PresenceAdvert::from_txt(get))
+    } else {
+        let (port, name) = body
+            .split_once(' ')
+            .map_or((body, None), |(port, name)| (port, Some(name.to_owned())));
+        let advert = PresenceAdvert {
+            name,
+            ..PresenceAdvert::default()
+        };
+        (port, advert)
     };
-    Some((port.parse().ok()?, name))
+    Some((port.parse().ok()?, advert))
 }
 
 /// Does a resolved mDNS service advertise `wanted` (current protocol
@@ -117,7 +132,7 @@ fn advertises(service: &mdns_sd::ResolvedService, wanted: &Subject) -> bool {
 }
 
 /// Browse mDNS until `deadline` (or `tx` closes), yielding each plausible
-/// address of every service `matches` accepts, with its device name.
+/// address of every service `matches` accepts, with what it announced.
 pub(super) fn mdns_browse<T>(
     matches: impl Fn(&mdns_sd::ResolvedService) -> bool,
     tx: &mpsc::Sender<T>,
@@ -147,15 +162,13 @@ pub(super) fn mdns_browse<T>(
         if !matches(&service) {
             continue;
         }
-        let name = service
-            .get_property_val_str(TXT_DEVICE_NAME)
-            .map(str::to_owned);
+        let advert = PresenceAdvert::from_txt(|key| service.get_property_val_str(key));
         for ip in service.get_addresses_v4() {
             let addr = SocketAddrV4::new(ip, service.get_port());
             // mDNS queries go to multicast, never to loopback.
             if plausible_sender(addr, false)
                 && seen.insert(addr)
-                && tx.blocking_send(make(addr, name.clone())).is_err()
+                && tx.blocking_send(make(addr, advert.clone())).is_err()
             {
                 break 'browse;
             }

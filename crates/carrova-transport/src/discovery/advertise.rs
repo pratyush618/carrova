@@ -1,5 +1,5 @@
-//! Sender side: the mDNS registration and broadcast responder for the
-//! current offer.
+//! The mDNS registration and broadcast responder for a sender's current
+//! offer, or for a device's presence.
 
 use std::sync::{Arc, Mutex, PoisonError};
 
@@ -8,6 +8,7 @@ use mdns_sd::{ServiceDaemon, ServiceInfo};
 use tokio::task::JoinHandle;
 
 use super::broadcast_socket;
+use super::presence::PresenceAdvert;
 use super::seek::Offer;
 use crate::error::Result;
 use crate::runtime::runtime;
@@ -17,8 +18,17 @@ use crate::{
     TXT_DEVICE_NAME, TXT_VERSION,
 };
 
-/// The sender's advertisement: mDNS registration plus broadcast responder.
-/// Failing parts are logged and skipped (a fallback ticket still works).
+/// What an [`Advertiser`] announces.
+#[derive(Debug, Clone)]
+pub(crate) enum Advert {
+    /// A sender's offer (pairing code or resumable session).
+    Offer(Offer),
+    /// A device's presence.
+    Presence(PresenceAdvert),
+}
+
+/// An advertisement: mDNS registration plus broadcast responder. Failing
+/// parts are logged and skipped (a fallback ticket still works).
 /// Everything stops on drop.
 pub(crate) struct Advertiser {
     port: u16,
@@ -26,7 +36,7 @@ pub(crate) struct Advertiser {
     instance: String,
     /// Device name announced while a code is offered ([`txt_fit`]).
     name: Option<String>,
-    current: Arc<Mutex<Option<Offer>>>,
+    current: Arc<Mutex<Option<Advert>>>,
     mdns: Option<ServiceDaemon>,
     registered: Option<String>,
     responder: Option<JoinHandle<()>>,
@@ -68,18 +78,31 @@ impl Advertiser {
 
     /// Replace the offer.
     pub(crate) fn set(&mut self, offer: Offer) {
-        let key = offer.advert().key().as_str();
-        let value = offer.advert().value();
-        let name = self.name.as_deref().filter(|_| offer.is_pairing());
-        *self.current.lock().unwrap_or_else(PoisonError::into_inner) = Some(offer);
+        let mut txt = vec![(offer.advert().key().as_str(), offer.advert().value())];
+        let name = self.name.clone().filter(|_| offer.is_pairing());
+        txt.extend(name.map(|n| (TXT_DEVICE_NAME, n)));
+        self.publish(Advert::Offer(offer), &txt);
+    }
+
+    /// Replace the advertisement with `presence`.
+    pub(crate) fn set_presence(&mut self, presence: PresenceAdvert) {
+        let txt = presence.txt();
+        self.publish(Advert::Presence(presence), &txt);
+    }
+
+    /// Make `advert` current and register it over mDNS with TXT
+    /// [`TXT_VERSION`] plus `txt`.
+    fn publish(&mut self, advert: Advert, txt: &[(&str, String)]) {
+        *self.current.lock().unwrap_or_else(PoisonError::into_inner) = Some(advert);
         let Some(daemon) = &self.mdns else { return };
         if let Some(old) = self.registered.take() {
             // Fire and forget: the goodbye is sent by the daemon thread.
             let _ = daemon.unregister(&old);
         }
         let version = PROTOCOL_VERSION.to_string();
-        let mut txt = vec![(TXT_VERSION, version.as_str()), (key, value.as_str())];
-        txt.extend(name.map(|n| (TXT_DEVICE_NAME, n)));
+        let txt: Vec<(&str, &str)> = std::iter::once((TXT_VERSION, version.as_str()))
+            .chain(txt.iter().map(|(k, v)| (*k, v.as_str())))
+            .collect();
         let info = ServiceInfo::new(
             SERVICE_TYPE,
             &self.instance,
@@ -126,7 +149,7 @@ impl Drop for Advertiser {
 
 /// Longest device name in one TXT entry (`dn=<name>`, at most 255 bytes),
 /// cut on a char boundary.
-fn txt_fit(name: &str) -> &str {
+pub(super) fn txt_fit(name: &str) -> &str {
     let mut end = name
         .len()
         .min(usize::from(u8::MAX) - TXT_DEVICE_NAME.len() - 1);
@@ -136,12 +159,23 @@ fn txt_fit(name: &str) -> &str {
     &name[..end]
 }
 
-/// The reply to broadcast `query` while `offer` is current: the port for
+/// The reply to broadcast `query` while `advert` is current: the port for
 /// a query naming the offer; port and `name` for a browse query while a
-/// code is offered; else none.
-fn reply(offer: &Offer, query: &[u8], port: u16, name: Option<&str>) -> Option<Vec<u8>> {
+/// code is offered; port and TXT entries (`'\n'` before each) for a browse
+/// query to a presence; else none.
+fn reply(advert: &Advert, query: &[u8], port: u16, name: Option<&str>) -> Option<Vec<u8>> {
     let mut reply = BROADCAST_REPLY.to_vec();
     reply.extend_from_slice(port.to_string().as_bytes());
+    let offer = match advert {
+        Advert::Offer(offer) => offer,
+        Advert::Presence(_) if query != BROADCAST_BROWSE => return None,
+        Advert::Presence(presence) => {
+            for (key, value) in presence.txt() {
+                reply.extend_from_slice(format!("\n{key}={value}").as_bytes());
+            }
+            return Some(reply);
+        }
+    };
     if offer.answers(query) {
         return Some(reply);
     }
@@ -152,10 +186,10 @@ fn reply(offer: &Offer, query: &[u8], port: u16, name: Option<&str>) -> Option<V
 }
 
 /// Answer broadcast queries that ask for the current offer, and browse
-/// queries while a code is offered.
+/// queries while a code is offered or to a presence.
 async fn respond(
     socket: tokio::net::UdpSocket,
-    current: Arc<Mutex<Option<Offer>>>,
+    current: Arc<Mutex<Option<Advert>>>,
     port: u16,
     name: Option<String>,
 ) {
@@ -172,7 +206,7 @@ async fn respond(
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .as_ref()
-            .and_then(|offer| reply(offer, &buf[..n], port, name.as_deref()));
+            .and_then(|advert| reply(advert, &buf[..n], port, name.as_deref()));
         if let Some(answer) = answer
             && let Err(e) = socket.send_to(&answer, from).await
         {

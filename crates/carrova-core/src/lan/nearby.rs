@@ -1,22 +1,90 @@
-//! Receiver: which senders nearby are offering a code ([`browse_nearby`]).
+//! Which devices are nearby ([`browse_nearby`]): senders offering a code,
+//! and presences, known ones recognised by their tags.
 
-use carrova_platform::Platform;
+use std::cmp::Reverse;
+
+use carrova_crypto::identity::DeviceId;
+use carrova_crypto::pairing::KnownSecret;
+use carrova_platform::{OsKind, Platform};
 use carrova_transport::{Nearby, browse};
 
 use super::{BROWSE_WINDOW, clean_device_name};
+use crate::devices::{DeviceRecord, KnownDevices};
 use crate::error::Result;
 
-/// Senders on the LAN offering a pairing code, collected for
-/// [`BROWSE_WINDOW`]. Device names only, sanitised like the receiver's
-/// [`Inventory::device_name`](super::Inventory::device_name) (names that
-/// sanitise to nothing are left out); the user still types the code.
+/// A device found nearby.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NearbyDevice {
+    /// Display name: a known device's local name from the store, else the
+    /// name it advertised, sanitised.
+    pub name: String,
+    /// Its OS family: from the store if known, else as advertised.
+    pub os: Option<OsKind>,
+    /// The known device it is (its advert carried a tag only that device
+    /// could make), never inferred from a name.
+    pub known: Option<DeviceId>,
+    /// Milliseconds after the browse started that it first answered.
+    pub answered_ms: u32,
+}
+
+/// Devices on the LAN, collected for [`BROWSE_WINDOW`]: known devices by
+/// their stored name, others by their advertised name sanitised like the
+/// receiver's [`Inventory::device_name`](super::Inventory::device_name)
+/// (names that sanitise to nothing, and unknown devices that give none,
+/// are left out). The user still types the code to pair with a new one.
 ///
 /// # Errors
 ///
-/// Discovery could not start.
-pub fn browse_nearby(platform: &dyn Platform) -> Result<Vec<Nearby>> {
-    Ok(browse(platform, BROWSE_WINDOW)?
+/// Discovery could not start, or the known-device store is unreadable.
+pub fn browse_nearby(platform: &dyn Platform) -> Result<Vec<NearbyDevice>> {
+    let found = browse(platform, BROWSE_WINDOW)?;
+    let known = known_by_recent_use(platform)?;
+    Ok(found
         .into_iter()
-        .filter_map(|n| clean_device_name(&n.device_name).map(|device_name| Nearby { device_name }))
+        .filter_map(|n| nearby_device(n, &known))
         .collect())
+}
+
+/// Known devices that have a secret, most recently moved with first (then
+/// most recently first seen).
+pub(crate) fn known_by_recent_use(
+    platform: &dyn Platform,
+) -> Result<Vec<(DeviceRecord, KnownSecret)>> {
+    let store = KnownDevices::open(platform)?;
+    let mut records = store.list(platform)?;
+    records.sort_by_key(|r| Reverse((r.last_move, r.first_seen)));
+    let mut known = Vec::with_capacity(records.len());
+    for record in records {
+        if let Some(secret) = store.secret_for(platform, &record.public)? {
+            known.push((record, secret));
+        }
+    }
+    Ok(known)
+}
+
+/// `found` as shown: the known device whose secret made one of its tags,
+/// else a stranger by its sanitised name.
+fn nearby_device(found: Nearby, known: &[(DeviceRecord, KnownSecret)]) -> Option<NearbyDevice> {
+    let answered_ms = u32::try_from(found.answered.as_millis()).unwrap_or(u32::MAX);
+    let advert = found.advert;
+    let record = advert.known.as_ref().and_then(|tags| {
+        known
+            .iter()
+            .find(|(_, secret)| tags.made_with(secret))
+            .map(|(record, _)| record)
+    });
+    Some(match record {
+        Some(record) => NearbyDevice {
+            name: record.name.clone(),
+            os: Some(record.os),
+            known: Some(record.public),
+            answered_ms,
+        },
+        None => NearbyDevice {
+            name: clean_device_name(advert.name.as_deref()?)?,
+            os: advert.os,
+            known: None,
+            answered_ms,
+        },
+    })
 }

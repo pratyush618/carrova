@@ -38,7 +38,7 @@ pub use limits::{
 pub(crate) use link::Link;
 pub use messages::{AbortReason, Inventory, InventoryApp, LanMsg, MAX_DEVICE_NAME, ReceiverStage};
 pub(crate) use messages::{ReceiverFailure, clean_device_name};
-pub use nearby::browse_nearby;
+pub use nearby::{NearbyDevice, browse_nearby};
 pub use order::transfer_order;
 pub use protocol::LanViolation;
 pub(crate) use protocol::{

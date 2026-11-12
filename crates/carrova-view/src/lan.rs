@@ -6,9 +6,10 @@
 
 use std::time::Duration;
 
+use carrova_core::lan::NearbyDevice;
 use carrova_core::lan::{ActionCounts, ConflictTarget, Inventory, PlanSummary};
 use carrova_core::session::{PauseReason, SessionId};
-use carrova_core::{CodeOffer, ItemKey, Nearby, Ticket};
+use carrova_core::{CodeOffer, ItemKey, Ticket};
 
 use carrova_platform::OsKind;
 use serde::Serialize;
@@ -59,9 +60,9 @@ pub struct NearbyPeer {
 }
 
 /// View of a sender found nearby.
-pub fn nearby_peer(nearby: &Nearby) -> NearbyPeer {
+pub fn nearby_peer(nearby: &NearbyDevice) -> NearbyPeer {
     NearbyPeer {
-        device_name: nearby.device_name.clone(),
+        device_name: nearby.name.clone(),
     }
 }
 
