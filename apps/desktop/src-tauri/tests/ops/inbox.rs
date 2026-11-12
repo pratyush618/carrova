@@ -81,9 +81,15 @@ fn a_bell_only_alert_is_kept_without_a_pop_up() {
             ..AlertSettings::default()
         },
     );
-    inbox::moved(&machine.state, Ok::<_, CommandError>(())).unwrap();
+    // Delivered on this thread: once it returns, any pop-up would be recorded.
+    inbox::notify(
+        &machine.state,
+        NoticeKind::MoveFinished,
+        None,
+        "Done".into(),
+    );
 
-    wait_until(|| !kinds(&machine.state).is_empty());
+    assert_eq!(kinds(&machine.state), [NoticeKind::MoveFinished]);
     assert_eq!(popups(&machine), 0);
 }
 
