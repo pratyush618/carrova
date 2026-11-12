@@ -113,8 +113,9 @@ pub(crate) const BROADCAST_RETRY: Duration = Duration::from_millis(500);
 /// Poll interval of the mDNS browse thread (how quickly it notices that
 /// discovery ended).
 pub(crate) const MDNS_POLL: Duration = Duration::from_millis(100);
-/// Longest wait for the mDNS daemon to withdraw a replaced advertisement
-/// (it acknowledges in milliseconds; the bound only guards a stuck daemon).
+/// Longest wait for an mDNS daemon to shut down, withdrawing its
+/// advertisement (it acknowledges in milliseconds; the bound only guards a
+/// stuck daemon).
 pub(crate) const MDNS_WITHDRAW_WAIT: Duration = Duration::from_secs(1);
 /// Largest broadcast datagram read or sent.
 pub(crate) const BROADCAST_MAX_DATAGRAM: usize = 512;

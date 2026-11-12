@@ -37,8 +37,9 @@ pub(crate) struct Advertiser {
     /// Device name announced while a code is offered ([`txt_fit`]).
     name: Option<String>,
     current: Arc<Mutex<Option<Advert>>>,
+    /// A fresh daemon per advert: shutting the old one down also drops the
+    /// answers it still had queued (with the old offer and its name).
     mdns: Option<ServiceDaemon>,
-    registered: Option<String>,
     responder: Option<JoinHandle<()>>,
 }
 
@@ -62,16 +63,12 @@ impl Advertiser {
                 None
             }
         };
-        let mdns = ServiceDaemon::new()
-            .inspect_err(|e| tracing::warn!(error = %e, "mDNS discovery unavailable"))
-            .ok();
         Ok(Self {
             port,
             instance,
             name,
             current,
-            mdns,
-            registered: None,
+            mdns: None,
             responder,
         })
     }
@@ -90,21 +87,18 @@ impl Advertiser {
         self.publish(Advert::Presence(presence), &txt);
     }
 
-    /// Make `advert` current and register it over mDNS with TXT
-    /// [`TXT_VERSION`] plus `txt`.
+    /// Make `advert` current and register it over mDNS, on a fresh daemon,
+    /// with TXT [`TXT_VERSION`] plus `txt`.
     fn publish(&mut self, advert: Advert, txt: &[(&str, String)]) {
         *self.current.lock().unwrap_or_else(PoisonError::into_inner) = Some(advert);
-        let Some(daemon) = &self.mdns else { return };
-        if let Some(old) = self.registered.take() {
-            // Wait until the daemon thread withdrew it: until then it still
-            // answers queries with the old offer (and its name).
-            let withdrawn = daemon
-                .unregister(&old)
-                .map(|done| done.recv_timeout(MDNS_WITHDRAW_WAIT).is_ok());
-            if !matches!(withdrawn, Ok(true)) {
-                tracing::warn!("mDNS daemon did not withdraw the previous advertisement");
-            }
+        if let Some(old) = self.mdns.take() {
+            withdraw(&old);
         }
+        let Ok(daemon) = ServiceDaemon::new()
+            .inspect_err(|e| tracing::warn!(error = %e, "mDNS discovery unavailable"))
+        else {
+            return;
+        };
         let version = PROTOCOL_VERSION.to_string();
         let txt: Vec<(&str, &str)> = std::iter::once((TXT_VERSION, version.as_str()))
             .chain(txt.iter().map(|(k, v)| (*k, v.as_str())))
@@ -118,13 +112,10 @@ impl Advertiser {
             &txt[..],
         )
         .map(ServiceInfo::enable_addr_auto);
-        match info.and_then(|info| {
-            let name = info.get_fullname().to_owned();
-            daemon.register(info).map(|()| name)
-        }) {
-            Ok(name) => self.registered = Some(name),
-            Err(e) => tracing::warn!(error = %e, "mDNS advertisement failed"),
+        if let Err(e) = info.and_then(|info| daemon.register(info)) {
+            tracing::warn!(error = %e, "mDNS advertisement failed");
         }
+        self.mdns = Some(daemon);
     }
 }
 
@@ -134,7 +125,6 @@ impl std::fmt::Debug for Advertiser {
             .field("port", &self.port)
             .field("instance", &self.instance)
             .field("mdns", &self.mdns.is_some())
-            .field("registered", &self.registered)
             .finish_non_exhaustive()
     }
 }
@@ -145,11 +135,19 @@ impl Drop for Advertiser {
             task.abort();
         }
         if let Some(daemon) = self.mdns.take() {
-            if let Some(name) = self.registered.take() {
-                let _ = daemon.unregister(&name);
-            }
-            let _ = daemon.shutdown();
+            withdraw(&daemon);
         }
+    }
+}
+
+/// Shut `daemon` down and wait until it sent its goodbyes and dropped the
+/// answers it had queued: no answer from it goes out afterwards.
+fn withdraw(daemon: &ServiceDaemon) {
+    let done = daemon
+        .shutdown()
+        .map(|done| done.recv_timeout(MDNS_WITHDRAW_WAIT).is_ok());
+    if !matches!(done, Ok(true)) {
+        tracing::warn!("mDNS daemon did not withdraw its advertisement");
     }
 }
 
