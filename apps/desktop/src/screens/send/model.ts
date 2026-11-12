@@ -17,8 +17,8 @@ export interface FoundApp extends AppRef {
   readonly files: number;
   readonly bytes: Bytes;
   readonly included: boolean;
-  /** The recipe ticks it by default: `included` differing from this is the user's change. */
-  readonly suggested: boolean;
+  /** One of its items differs from what the recipe suggests: the user changed it. */
+  readonly changed: boolean;
 }
 
 /** Apps of one recipe category (`dev-tools`), in the scan's order. */

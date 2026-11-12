@@ -25,7 +25,7 @@ const app = (ref: AppRef, what: string, files: number, bytes = 0): FoundApp => (
   files,
   bytes,
   included: true,
-  suggested: true,
+  changed: false,
 });
 
 const GROUPS: readonly FoundGroup[] = [
@@ -47,7 +47,7 @@ const GROUPS: readonly FoundGroup[] = [
       {
         ...app(APPS.gpg, 'Public keys and trust settings', 4, 96 * KB),
         included: false,
-        suggested: false,
+        changed: false,
       },
     ],
   },

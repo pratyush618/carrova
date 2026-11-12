@@ -125,6 +125,22 @@ describe('send views', () => {
     expect(ssh?.what.split(', ').length).toBe(ordinary);
   });
 
+  it('marks an app changed when one of its items differs from the suggestion', () => {
+    // Neovim suggests its config but not its plugins; ticking the plugins changes it.
+    const plugins = scan.selection.items['neovim/plugins'];
+    if (plugins === undefined) throw new Error('fixture lost neovim/plugins');
+    const edited = {
+      ...scan,
+      selection: {
+        ...scan.selection,
+        items: { ...scan.selection.items, 'neovim/plugins': { ...plugins, included: true } },
+      },
+    };
+    const neovim = (result: typeof scan) => foundApps(result).find((a) => a.id === 'neovim');
+    expect(neovim(scan)?.changed).toBe(false);
+    expect(neovim(edited)?.changed).toBe(true);
+  });
+
   it('shows paths under their real folder, home as ~', () => {
     const dirs = { home: '/home/ana', user_config: '/home/ana/.config' };
     expect(displayPath('user_config:git/config', dirs)).toBe('~/.config/git/config');
@@ -152,7 +168,7 @@ describe('send views', () => {
   });
 
   it('changed-by-you filter lists only rows differing from the suggestion', () => {
-    const app = (id: string, included: boolean, suggested: boolean, bytes = 1) => ({
+    const app = (id: string, included: boolean, changed: boolean, bytes = 1) => ({
       id,
       glyph: id,
       name: id,
@@ -160,13 +176,13 @@ describe('send views', () => {
       files: 1,
       bytes,
       included,
-      suggested,
+      changed,
     });
     const groups = [
       {
         category: 'a',
         collapsed: true,
-        apps: [app('kept', true, true), app('added', true, false)],
+        apps: [app('kept', true, false), app('added', true, true)],
       },
       {
         category: 'b',

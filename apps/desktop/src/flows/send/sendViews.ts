@@ -81,7 +81,7 @@ function foundApp(app: AppReport, result: ScanResult): FoundApp {
     files: ordinary.reduce((n, e) => n + e.item.file_count, 0),
     bytes: ordinary.reduce((n, e) => n + e.item.size, 0),
     included: ordinary.some((e) => e.choice.included),
-    suggested: ordinary.some((e) => e.choice.suggested),
+    changed: ordinary.some((e) => e.choice.included !== e.choice.suggested),
   };
 }
 
@@ -131,7 +131,7 @@ export function secretItems(result: ScanResult): SecretItem[] {
 const FOUND_VIEWS: Readonly<Record<FoundFilter, (app: FoundApp) => boolean>> = {
   all: () => true,
   ticked: (a) => a.included,
-  changed: (a) => a.included !== a.suggested,
+  changed: (a) => a.changed,
   largest: () => true,
 };
 

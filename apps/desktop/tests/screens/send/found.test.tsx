@@ -83,7 +83,7 @@ const bulkApp = (n: number, category: string): FoundApp => ({
   files: 1,
   bytes: 1_000 + n,
   included: n % 3 === 0,
-  suggested: n % 3 === 0,
+  changed: false,
 });
 
 /** 340 apps over 8 categories (one of 240): every one collapsed, as the engine's view marks them. */
