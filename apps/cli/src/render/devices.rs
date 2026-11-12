@@ -43,7 +43,7 @@ pub fn visibility(out: &mut impl Write, view: VisibilityView) -> io::Result<()> 
     }?;
     writeln!(
         out,
-        "Takes effect at once while the Carrova app runs on this computer."
+        "Takes effect within seconds while the Carrova app runs on this computer."
     )
 }
 

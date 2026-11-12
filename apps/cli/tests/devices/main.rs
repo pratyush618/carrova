@@ -171,7 +171,7 @@ fn visibility_everyone_sets_deadline() {
     let shown = user.ok(&["visibility"]);
     assert!(shown.contains("everyone until"), "{shown}");
     assert!(
-        shown.contains("at once while the Carrova app runs"),
+        shown.contains("within seconds while the Carrova app runs"),
         "{shown}"
     );
 
