@@ -2,6 +2,7 @@
 //! while it is closed. Front-ends build the native menu from
 //! [`tray_menu`] and dispatch on each item's stable id.
 
+use crate::devices::VisibilityChoice;
 use crate::ipc::AlertSettings;
 
 #[cfg(test)]
@@ -20,6 +21,10 @@ pub struct TrayModel {
     pub paused: bool,
     /// A move is running in the background.
     pub moving: bool,
+    /// Who may find this computer nearby.
+    pub visible_to: VisibilityChoice,
+    /// Devices found nearby by the last look; `None` if not looked yet.
+    pub nearby_count: Option<u32>,
 }
 
 /// A computer asking to send you files.
@@ -33,7 +38,8 @@ pub struct TrayRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrayItem {
     /// Stable id the front-end dispatches on: `moving` (a status line),
-    /// `review`, `decline`, `open`, `send`, `pause`, `quit`.
+    /// `review`, `decline`, `open`, `send`, `nearby`, `pause`,
+    /// `visibility` (a submenu of the [`VISIBILITY_ITEMS`] ids), `quit`.
     pub id: &'static str,
     /// What the item says.
     pub label: String,
@@ -41,6 +47,30 @@ pub struct TrayItem {
     pub separated: bool,
     /// Can be chosen; `false` for a status line.
     pub enabled: bool,
+    /// A check item, ticked or not; `None` for a plain item.
+    pub checked: Option<bool>,
+    /// A submenu's items; empty for an item.
+    pub children: Vec<TrayItem>,
+}
+
+/// The "Visible to" submenu: each choice's item id and label.
+pub const VISIBILITY_ITEMS: [(VisibilityChoice, &str, &str); 3] = [
+    (VisibilityChoice::NoOne, "visible_no_one", "No one"),
+    (VisibilityChoice::Known, "visible_known", "Known devices"),
+    (
+        VisibilityChoice::Everyone,
+        "visible_everyone",
+        "Everyone for 10 minutes",
+    ),
+];
+
+/// The visibility a "Visible to" item id picks, if it is one.
+#[must_use]
+pub fn tray_visibility(id: &str) -> Option<VisibilityChoice> {
+    VISIBILITY_ITEMS
+        .iter()
+        .find(|(_, item, _)| *item == id)
+        .map(|(choice, _, _)| *choice)
 }
 
 /// The tray menu: a running move's status line, the waiting request, then
@@ -52,6 +82,8 @@ pub fn tray_menu(model: &TrayModel) -> Vec<TrayItem> {
         label: label.to_owned(),
         separated,
         enabled: true,
+        checked: None,
+        children: Vec::new(),
     };
     let mut menu = Vec::new();
     if model.moving {
@@ -73,10 +105,26 @@ pub fn tray_menu(model: &TrayModel) -> Vec<TrayItem> {
     } else {
         "Pause alerts for 1 hour"
     };
+    let nearby = match model.nearby_count {
+        Some(count) => format!("Nearby · {count} here"),
+        None => "Nearby".to_owned(),
+    };
+    let visibility = TrayItem {
+        children: VISIBILITY_ITEMS
+            .iter()
+            .map(|&(choice, id, label)| TrayItem {
+                checked: Some(choice == model.visible_to),
+                ..item(id, label, false)
+            })
+            .collect(),
+        ..item("visibility", "Visible to", false)
+    };
     menu.extend([
         item("open", "Open Carrova", !menu.is_empty()),
         item("send", "Send files…", false),
+        item("nearby", &nearby, false),
         item("pause", pause, true),
+        visibility,
         item("quit", "Quit Carrova", true),
     ]);
     menu

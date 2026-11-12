@@ -11,10 +11,14 @@
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, PoisonError};
 
+use carrova_view::devices::VisibilityChoice;
 use carrova_view::ipc::EVENT_CHANNEL;
-use carrova_view::tray::{CloseAction, TrayModel, tray_menu, tray_tooltip};
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use carrova_view::tray::{
+    CloseAction, TrayItem, TrayModel, tray_menu, tray_tooltip, tray_visibility,
+};
+use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{
     AppHandle, Listener, Manager, RunEvent, WebviewWindow, WebviewWindowBuilder, Window,
@@ -22,7 +26,7 @@ use tauri::{
 };
 use tauri_plugin_dialog::DialogExt;
 
-use crate::ops::background;
+use crate::ops::{background, devices};
 use crate::send_request;
 use crate::state::AppState;
 
@@ -32,13 +36,14 @@ pub const BACKGROUND_FLAG: &str = "--background";
 /// The label of the app's one window (also the tray icon's id).
 const MAIN_WINDOW: &str = "main";
 
-/// Whether the tray icon shows, and whether its menu says a move runs. It
-/// is built once, then only hidden: Tauri keeps a handle to it, so dropping
-/// ours would not remove it.
+/// Whether the tray icon shows, whether its menu says a move runs, and how
+/// many devices it last found nearby. It is built once, then only hidden:
+/// Tauri keeps a handle to it, so dropping ours would not remove it.
 #[derive(Default)]
 struct TrayShown {
     shown: AtomicBool,
     moving: AtomicBool,
+    nearby: Mutex<Option<u32>>,
 }
 
 /// Start-up: open the window, or with `--background` do what closing it
@@ -56,6 +61,7 @@ pub fn start(app: &AppHandle, state: &AppState, in_background: bool) {
     if matches!(action, CloseAction::CloseToTray | CloseAction::HideToTray)
         && show_tray(app, state).is_ok()
     {
+        count_nearby(app);
         return;
     }
     let window = open_main(app);
@@ -119,6 +125,9 @@ pub fn on_window_event(window: &Window, event: &WindowEvent) {
     let action = background::close_action(&state);
     let tray = matches!(action, CloseAction::CloseToTray | CloseAction::HideToTray)
         && show_tray(app, &state).is_ok();
+    if tray {
+        count_nearby(app);
+    }
     // Closed, the tray keeps the app running (`on_run_event`).
     if (tray && action == CloseAction::CloseToTray) || action == CloseAction::Exit {
         return;
@@ -196,6 +205,25 @@ fn show_tray(app: &AppHandle, state: &AppState) -> tauri::Result<()> {
     shown
 }
 
+/// Look for devices nearby off the main thread, then show the count in the
+/// tray menu (if it still shows).
+fn count_nearby(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(state) = app.try_state::<AppState>() else {
+            return;
+        };
+        let count = background::nearby_count(&state);
+        if let Some(flags) = tray_flags(&app) {
+            *flags.nearby.lock().unwrap_or_else(PoisonError::into_inner) = count;
+        }
+        if tray_shown(&app) {
+            // Logged inside; the menu stays as it was.
+            let _ = show_tray(&app, &state);
+        }
+    });
+}
+
 fn tray_flags(app: &AppHandle) -> Option<tauri::State<'_, TrayShown>> {
     app.try_state::<TrayShown>()
 }
@@ -210,9 +238,17 @@ fn set_tray_shown(app: &AppHandle, shown: bool) {
     }
 }
 
+/// Show `model` in the tray, with the tray's own nearby count.
 fn set_menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<()> {
+    let flags = tray_flags(app);
+    let model = &TrayModel {
+        nearby_count: flags
+            .as_ref()
+            .and_then(|f| *f.nearby.lock().unwrap_or_else(PoisonError::into_inner)),
+        ..model.clone()
+    };
     let menu = menu(app, model)?;
-    if let Some(flags) = tray_flags(app) {
+    if let Some(flags) = flags {
         flags.moving.store(model.moving, Ordering::SeqCst);
     }
     if let Some(tray) = app.tray_by_id(MAIN_WINDOW) {
@@ -235,22 +271,53 @@ fn menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<Menu<tauri::Wry>> {
         if item.separated {
             menu.append(&PredefinedMenuItem::separator(app)?)?;
         }
-        // `&` marks a keyboard mnemonic in menu labels; `&&` is a literal one.
-        let label = item.label.replace('&', "&&");
-        menu.append(&MenuItem::with_id(
-            app,
-            item.id,
-            label,
-            item.enabled,
-            None::<&str>,
-        )?)?;
+        if item.children.is_empty() {
+            menu.append(&*entry(app, &item)?)?;
+            continue;
+        }
+        let submenu = Submenu::with_id(app, item.id, label(&item), item.enabled)?;
+        for child in &item.children {
+            submenu.append(&*entry(app, child)?)?;
+        }
+        menu.append(&submenu)?;
     }
     Ok(menu)
 }
 
+/// A plain or check menu item for `item`.
+fn entry(app: &AppHandle, item: &TrayItem) -> tauri::Result<Box<dyn IsMenuItem<tauri::Wry>>> {
+    Ok(match item.checked {
+        Some(checked) => Box::new(CheckMenuItem::with_id(
+            app,
+            item.id,
+            label(item),
+            item.enabled,
+            checked,
+            None::<&str>,
+        )?),
+        None => Box::new(MenuItem::with_id(
+            app,
+            item.id,
+            label(item),
+            item.enabled,
+            None::<&str>,
+        )?),
+    })
+}
+
+/// `item`'s label for a native menu: `&` marks a keyboard mnemonic there;
+/// `&&` is a literal one.
+fn label(item: &TrayItem) -> String {
+    item.label.replace('&', "&&")
+}
+
 fn on_menu(app: &AppHandle, id: &str) {
+    if let Some(choice) = tray_visibility(id) {
+        set_visibility(app, choice);
+        return;
+    }
     match id {
-        "open" => {
+        "open" | "nearby" => {
             open_main(app);
         }
         "send" => pick_and_send(app),
@@ -270,6 +337,19 @@ fn on_menu(app: &AppHandle, id: &str) {
         "quit" => app.exit(0),
         // `moving` is a status line; `review` and `decline` come with requests.
         _ => {}
+    }
+}
+
+/// A "Visible to" choice: save it (the advert follows), then tick it.
+fn set_visibility(app: &AppHandle, choice: VisibilityChoice) {
+    let Some(state) = app.try_state::<AppState>() else {
+        return;
+    };
+    if let Err(error) = devices::apply_visibility(&state, choice) {
+        tracing::warn!(%error, "could not change who can see this computer");
+    }
+    if let Err(error) = set_menu(app, &background::tray_model(&state)) {
+        tracing::warn!(%error, "could not refresh the tray menu");
     }
 }
 

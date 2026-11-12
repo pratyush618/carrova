@@ -6,12 +6,13 @@ use std::sync::Arc;
 
 use carrova_platform::Platform;
 use carrova_platform::fake::FakePlatform;
+use carrova_view::devices::VisibilityChoice;
 use carrova_view::ipc::BackgroundSettings;
 use carrova_view::tray::{CloseAction, PAUSE_SECS};
 use serde_json::json;
 use tauri::async_runtime::block_on;
 
-use crate::ops::{background, settings};
+use crate::ops::{background, devices, settings};
 use crate::state::AppState;
 use crate::testing::Machine;
 
@@ -336,4 +337,21 @@ fn a_plain_settings_save_cannot_change_background() {
     let saved = block_on(settings::load(&state)).unwrap();
     assert_eq!(saved.background, BackgroundSettings::default());
     assert_eq!(platform.autostart_launcher(), None);
+}
+
+#[test]
+fn the_tray_shows_the_saved_visibility() {
+    let machine = Machine::new();
+    let (state, _) = with_fake(&machine);
+    assert_eq!(
+        background::tray_model(&state).visible_to,
+        VisibilityChoice::Known
+    );
+
+    devices::apply_visibility(&state, VisibilityChoice::NoOne).unwrap();
+
+    assert_eq!(
+        background::tray_model(&state).visible_to,
+        VisibilityChoice::NoOne
+    );
 }

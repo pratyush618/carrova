@@ -1,5 +1,17 @@
 use super::*;
+use crate::devices::VisibilityChoice;
 use crate::ipc::AlertSettings;
+
+/// Nothing waiting or running, visible to known devices, none counted.
+fn idle() -> TrayModel {
+    TrayModel {
+        request: None,
+        paused: false,
+        moving: false,
+        visible_to: VisibilityChoice::Known,
+        nearby_count: None,
+    }
+}
 
 fn ids(model: &TrayModel) -> Vec<&'static str> {
     tray_menu(model).iter().map(|item| item.id).collect()
@@ -13,10 +25,20 @@ fn tray_menu_puts_request_first() {
         }),
         paused: false,
         moving: false,
+        ..idle()
     };
     assert_eq!(
         ids(&model),
-        ["review", "decline", "open", "send", "pause", "quit"]
+        [
+            "review",
+            "decline",
+            "open",
+            "send",
+            "nearby",
+            "pause",
+            "visibility",
+            "quit"
+        ]
     );
     let menu = tray_menu(&model);
     assert!(menu[0].label.contains("Ana's laptop"), "{:?}", menu[0]);
@@ -30,8 +52,12 @@ fn tray_menu_without_request_starts_with_open() {
         request: None,
         paused: false,
         moving: false,
+        ..idle()
     };
-    assert_eq!(ids(&model), ["open", "send", "pause", "quit"]);
+    assert_eq!(
+        ids(&model),
+        ["open", "send", "nearby", "pause", "visibility", "quit"]
+    );
     assert!(!tray_menu(&model)[0].separated);
 }
 
@@ -41,7 +67,7 @@ fn tray_menu_offers_to_resume_paused_alerts() {
         tray_menu(&TrayModel {
             request: None,
             paused,
-            moving: false,
+            ..idle()
         })
         .into_iter()
         .find(|item| item.id == "pause")
@@ -57,12 +83,69 @@ fn tray_menu_leads_with_a_running_move() {
         request: None,
         paused: false,
         moving: true,
+        ..idle()
     };
-    assert_eq!(ids(&model), ["moving", "open", "send", "pause", "quit"]);
+    assert_eq!(
+        ids(&model),
+        [
+            "moving",
+            "open",
+            "send",
+            "nearby",
+            "pause",
+            "visibility",
+            "quit"
+        ]
+    );
     let menu = tray_menu(&model);
     assert_eq!(menu[0].label, "Moving files…");
     assert!(!menu[0].enabled, "a status line, not an action");
     assert!(menu[1].enabled && menu[1].separated);
+}
+
+fn item(model: &TrayModel, id: &str) -> TrayItem {
+    tray_menu(model).into_iter().find(|i| i.id == id).unwrap()
+}
+
+#[test]
+fn tray_counts_the_devices_nearby_when_known() {
+    assert_eq!(item(&idle(), "nearby").label, "Nearby");
+    let counted = TrayModel {
+        nearby_count: Some(3),
+        ..idle()
+    };
+    assert_eq!(item(&counted, "nearby").label, "Nearby · 3 here");
+}
+
+#[test]
+fn tray_visibility_submenu_ticks_the_current_choice() {
+    let model = TrayModel {
+        visible_to: VisibilityChoice::Everyone,
+        ..idle()
+    };
+    let visibility = item(&model, "visibility");
+    assert_eq!(visibility.label, "Visible to");
+    let choices: Vec<_> = visibility
+        .children
+        .iter()
+        .map(|c| (c.id, c.label.as_str(), c.checked))
+        .collect();
+    assert_eq!(
+        choices,
+        [
+            ("visible_no_one", "No one", Some(false)),
+            ("visible_known", "Known devices", Some(false)),
+            ("visible_everyone", "Everyone for 10 minutes", Some(true)),
+        ]
+    );
+    for (id, choice) in [
+        ("visible_no_one", VisibilityChoice::NoOne),
+        ("visible_known", VisibilityChoice::Known),
+        ("visible_everyone", VisibilityChoice::Everyone),
+    ] {
+        assert_eq!(tray_visibility(id), Some(choice));
+    }
+    assert_eq!(tray_visibility("quit"), None);
 }
 
 #[test]
@@ -71,6 +154,7 @@ fn tray_tooltip_says_a_move_is_running() {
         request: None,
         paused: false,
         moving: false,
+        ..idle()
     };
     assert_eq!(tray_tooltip(&idle), "Carrova");
     let moving = TrayModel {
