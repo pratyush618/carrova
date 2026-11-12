@@ -26,6 +26,8 @@ export const SCENARIOS = [
   'forwarded',
   /** Two known devices and a new one nearby, two known ones away (one can be woken). */
   'nearby',
+  /** One device answers fast and four slowly, all new: the crowded split of the map. */
+  'nearby-crowded',
 ] as const;
 
 export type Scenario = (typeof SCENARIOS)[number];

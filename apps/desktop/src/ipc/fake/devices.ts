@@ -76,6 +76,32 @@ const HERE: readonly NearbyDeviceView[] = [
   },
 ];
 
+/** A device nobody has met before, offering a code. */
+const stranger = (
+  name: string,
+  os: NearbyDeviceView['os'],
+  ring: NearbyDeviceView['ring'],
+  answered_ms: number,
+): NearbyDeviceView => ({
+  name,
+  os,
+  known: false,
+  id: null,
+  fingerprint: null,
+  answered_ms,
+  ring,
+  offers_code: true,
+});
+
+/** The crowded split: one new device answers fast, four more slowly (names as long as real ones). */
+const CROWDED: readonly NearbyDeviceView[] = [
+  stranger("Ana's laptop", 'linux', 'inner', 60),
+  stranger('new-mbp', 'mac_os', 'outer', 700),
+  stranger('Studio Mac mini', 'mac_os', 'outer', 800),
+  stranger('Living-room NUC', 'linux', 'outer', 900),
+  stranger('Work ThinkPad X1', 'windows', 'outer', 1000),
+];
+
 /** "Everyone" lasts this long (the engine's `EVERYONE_FOR`). */
 const EVERYONE_FOR = 600;
 
@@ -94,8 +120,9 @@ type DevicesPort = Pick<
 
 /** The device commands of a fake port acting out `scenario`. */
 export function fakeDevices(scenario: Scenario): DevicesPort {
-  const seeded = scenario === 'nearby';
-  let known = seeded ? seedKnown(Math.floor(Date.now() / 1000)) : [];
+  const seeded = scenario === 'nearby' || scenario === 'nearby-crowded';
+  const here = scenario === 'nearby-crowded' ? CROWDED : HERE;
+  let known = scenario === 'nearby' ? seedKnown(Math.floor(Date.now() / 1000)) : [];
   let visibility: VisibilityView = { choice: 'known', until: null };
   const unknown = () => raise(bridgeError('known_device', 'no known device matches'));
   const find = (device: string) =>
@@ -107,7 +134,7 @@ export function fakeDevices(scenario: Scenario): DevicesPort {
     nearby: () =>
       later(() =>
         seeded
-          ? HERE.map((d) =>
+          ? here.map((d) =>
               d.id === null || known.some((k) => k.id === d.id)
                 ? d
                 : { ...d, known: false, id: null, fingerprint: null },

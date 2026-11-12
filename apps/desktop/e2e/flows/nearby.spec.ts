@@ -92,57 +92,62 @@ interface Box {
 const apart = (a: Box, b: Box) =>
   a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y;
 
-for (const size of [
-  { width: 1100, height: 520 },
-  { width: 720, height: 560 },
-  { width: 1440, height: 900 },
-]) {
-  test(`no device sits under another, the centre, the pill or the card at ${String(size.width)}x${String(size.height)}`, async ({
-    page,
-  }) => {
-    await page.setViewportSize(size);
-    await openApp(page, 'nearby');
-    await page
-      .getByRole('navigation', { name: 'Main' })
-      .getByRole('button', { name: 'Nearby' })
-      .click();
-    const devices = page.getByRole('list', { name: 'Nearby devices' }).getByRole('button');
-    await expect(devices).toHaveCount(5);
-    await devices.first().click();
-    const card = page.getByRole('region', { name: "Ana's laptop" });
-    await expect(card).toBeVisible();
-    const others = new Map<string, Box | null>([
-      ['pill', await page.getByRole('button', { name: /^Visible to/ }).boundingBox()],
-      ['card', await card.boundingBox()],
-      ['centre', await page.locator('.s-near__me').boundingBox()],
-    ]);
-    const boxes: [string, Box | null][] = [];
-    for (const device of await devices.all()) {
-      boxes.push([(await device.textContent()) ?? '', await device.boundingBox()]);
-    }
-    for (const [i, [name, box]] of boxes.entries()) {
-      expect(box).not.toBeNull();
-      if (box === null) continue;
-      const rivals = [...others, ...boxes.slice(i + 1)];
-      for (const [rival, over] of rivals) {
-        expect(over).not.toBeNull();
-        if (over !== null) expect.soft(apart(box, over), `${name} overlaps ${rival}`).toBe(true);
+// Two splits of five devices: 2 inner + 3 outer, and 1 inner + 4 outer (`nearby-crowded`).
+const splits = [
+  { scenario: 'nearby', inner: /^(Ana's laptop|Desk PC)/ },
+  { scenario: 'nearby-crowded', inner: /^Ana's laptop/ },
+];
+
+for (const { scenario, inner } of splits)
+  for (const size of [
+    { width: 1100, height: 520 },
+    { width: 720, height: 560 },
+    { width: 1440, height: 900 },
+  ]) {
+    test(`no device sits under another, the centre, the pill or the card at ${String(size.width)}x${String(size.height)} (${scenario})`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(size);
+      await openApp(page, scenario);
+      await page
+        .getByRole('navigation', { name: 'Main' })
+        .getByRole('button', { name: 'Nearby' })
+        .click();
+      const devices = page.getByRole('list', { name: 'Nearby devices' }).getByRole('button');
+      await expect(devices).toHaveCount(5);
+      await devices.first().click();
+      const card = page.getByRole('region', { name: "Ana's laptop" });
+      await expect(card).toBeVisible();
+      const others = new Map<string, Box | null>([
+        ['pill', await page.getByRole('button', { name: /^Visible to/ }).boundingBox()],
+        ['card', await card.boundingBox()],
+        ['centre', await page.locator('.s-near__me').boundingBox()],
+      ]);
+      const boxes: [string, Box | null][] = [];
+      for (const device of await devices.all()) {
+        boxes.push([(await device.textContent()) ?? '', await device.boundingBox()]);
       }
-    }
-    // Rings keep their meaning: devices answering now (Ana's laptop, Desk PC) sit nearer the centre than the rest.
-    const centre = others.get('centre');
-    expect(centre).toBeTruthy();
-    if (centre) {
-      const away = (box: Box) =>
-        Math.hypot(
-          box.x + box.width / 2 - (centre.x + centre.width / 2),
-          box.y + box.height / 2 - (centre.y + centre.height / 2),
-        );
-      const dist = (names: RegExp) =>
-        boxes.filter(([n]) => names.test(n)).flatMap(([, b]) => (b ? [away(b)] : []));
-      expect(Math.max(...dist(/^(Ana's laptop|Desk PC)/))).toBeLessThan(
-        Math.min(...dist(/^(new-mbp|Old ThinkPad|Work laptop)/)),
-      );
-    }
-  });
-}
+      for (const [i, [name, box]] of boxes.entries()) {
+        expect(box).not.toBeNull();
+        if (box === null) continue;
+        const rivals = [...others, ...boxes.slice(i + 1)];
+        for (const [rival, over] of rivals) {
+          expect(over).not.toBeNull();
+          if (over !== null) expect.soft(apart(box, over), `${name} overlaps ${rival}`).toBe(true);
+        }
+      }
+      // Rings keep their meaning: devices answering now sit nearer the centre than the rest.
+      const centre = others.get('centre');
+      expect(centre).toBeTruthy();
+      if (centre) {
+        const away = (box: Box) =>
+          Math.hypot(
+            box.x + box.width / 2 - (centre.x + centre.width / 2),
+            box.y + box.height / 2 - (centre.y + centre.height / 2),
+          );
+        const dist = (near: boolean) =>
+          boxes.filter(([n]) => inner.test(n) === near).flatMap(([, b]) => (b ? [away(b)] : []));
+        expect(Math.max(...dist(true))).toBeLessThan(Math.min(...dist(false)));
+      }
+    });
+  }
