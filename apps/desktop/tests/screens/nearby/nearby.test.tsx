@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '../../support/render';
 import { buildChrome } from '@/app/shell/chrome';
 import { i18n } from '@/i18n/i18n';
@@ -124,6 +124,89 @@ describe('Nearby', () => {
     expect(within(map).getAllByRole('button').at(-1)).toBe(chip);
     await user.click(chip);
     expect(on.onView).toHaveBeenCalledWith('list');
+  });
+
+  describe('on a measured field', () => {
+    // jsdom lays nothing out: give the field a width (and a ResizeObserver that never fires).
+    beforeEach(() => {
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
+        DOMRect.fromRect({ width: 1228, height: 848 }),
+      );
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          observe = vi.fn();
+          disconnect = vi.fn();
+        },
+      );
+    });
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    });
+
+    const lab = (count: number) =>
+      Array.from({ length: count }, (_, i) => ({
+        ...nearbyMap.away[1],
+        key: `l${String(i)}`,
+        name: `Lab PC ${String(i)}`,
+      })) as DeviceEntry[];
+
+    it('lays the first render out for the measured width', () => {
+      renderScreen(page({ ...nearbyMap, here: [], away: lab(21) }));
+      const map = screen.getByRole('list', { name: 'Nearby devices' });
+      // 1228px opens 12 outer slots (508px: 3).
+      expect(map.querySelectorAll('button[data-key]')).toHaveLength(12);
+      expect(within(map).getByRole('button', { name: /^\+9 more/ })).toBeInTheDocument();
+    });
+
+    it('keeps every device in its slot across a switch to the list and back', async () => {
+      const user = userEvent.setup();
+      // This time the observer reports the width, as a browser's does on observe.
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(private readonly report: ResizeObserverCallback) {}
+          observe() {
+            this.report(
+              [{ contentRect: DOMRect.fromRect({ width: 1228 }) } as ResizeObserverEntry],
+              this as unknown as ResizeObserver,
+            );
+          }
+          disconnect = vi.fn();
+        },
+      );
+      const [first, second] = lab(2) as [DeviceEntry, DeviceEntry];
+      const known: DeviceEntry = { ...second, kind: 'known' };
+      function Switching() {
+        const [view, setView] = useState<NearbyView>('map');
+        const [away, setAway] = useState([first]);
+        return (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setAway([known, first]);
+              }}
+            >
+              arrive
+            </button>
+            {page({ ...nearbyMap, here: [], away, view }, { ...nearbyOn(), onView: setView })}
+          </>
+        );
+      }
+      renderScreen(<Switching />);
+      // The known device arrives later; laid out afresh it would take the first slot.
+      await user.click(screen.getByRole('button', { name: 'arrive' }));
+      const spots = () =>
+        [...document.querySelectorAll<HTMLElement>('.s-near__spot')].map(
+          (spot) => `${spot.textContent}@${spot.style.cssText}`,
+        );
+      const before = spots();
+      await user.click(screen.getByRole('radio', { name: 'List' }));
+      await user.click(screen.getByRole('radio', { name: 'Map' }));
+      expect(spots().sort()).toEqual(before.sort());
+    });
   });
 
   it('names every device in full, also when its pill cuts the name short', () => {
