@@ -9,6 +9,7 @@ use carrova_crypto::identity::{DeviceKey, DevicePublic, Fingerprint};
 use carrova_crypto::pairing::KnownSecret;
 use carrova_platform::OsKind;
 use carrova_view::devices::{ForgetDevices, VisibilityChoice};
+use carrova_view::ipc::ErrorCode;
 use tauri::async_runtime::block_on;
 
 use crate::ops::devices;
@@ -166,4 +167,16 @@ fn reset_identity_forgets_devices_and_refreshes_presence() {
         .public();
     assert_ne!(before, after);
     assert_eq!(presence.count(), 1);
+}
+
+#[test]
+fn waking_a_device_without_a_wake_hint_says_so() {
+    let machine = Machine::new();
+    let (state, _) = counting(&machine);
+    remember(&machine, 1, "Desk");
+
+    let error = block_on(devices::wake_device(&state, public(1).to_hex())).unwrap_err();
+
+    assert_eq!(error.bridge().code, ErrorCode::KnownDevice);
+    assert!(error.bridge().message.contains("wake hint"), "{error}");
 }

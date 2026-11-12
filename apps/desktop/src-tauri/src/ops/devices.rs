@@ -102,6 +102,24 @@ pub async fn reset_identity(state: &AppState) -> Result<(), CommandError> {
     .await
 }
 
+/// Wake the known device `device` (id or fingerprint) with a Wake-on-LAN
+/// packet from its saved hint. Best effort: it may not wake.
+///
+/// # Errors
+///
+/// No such device, no wake hint saved for it, or the packet could not be
+/// sent.
+pub async fn wake_device(state: &AppState, device: String) -> Result<(), CommandError> {
+    let platform = state.platform.clone();
+    blocking(move || {
+        let platform = platform.as_ref();
+        let store = KnownDevices::open(platform)?;
+        let record = store.resolve(platform, &device)?;
+        Ok(store.wake(platform, &record.public)?)
+    })
+    .await
+}
+
 /// Who may find this computer now.
 ///
 /// # Errors

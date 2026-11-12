@@ -156,6 +156,7 @@ pub fn run() -> tauri::Result<()> {
             commands::devices::reset_identity,
             commands::devices::visibility,
             commands::devices::set_visibility,
+            commands::devices::wake_device,
             updater::check_update,
             updater::install_update,
             updater::restart_app,

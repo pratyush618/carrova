@@ -62,3 +62,9 @@ pub async fn set_visibility(
 ) -> Result<VisibilityView, CommandError> {
     ops::devices::set_visibility(&state, choice).await
 }
+
+/// `CarrovaPort.wakeDevice`.
+#[tauri::command]
+pub async fn wake_device(state: State<'_, AppState>, device: String) -> Result<(), CommandError> {
+    ops::devices::wake_device(&state, device).await
+}
