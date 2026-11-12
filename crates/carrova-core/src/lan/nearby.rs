@@ -43,8 +43,8 @@ pub struct NearbyDevice {
 /// A known device is listed once, at its first answer, even if it
 /// re-announced (a presence refresh) during the browse.
 ///
-/// This computer's own presence (its name, from one of its own addresses)
-/// is left out; code offers never are.
+/// This computer's own presence (its name, from one of its own addresses,
+/// not recognised as a known device) is left out; code offers never are.
 ///
 /// An unreadable known-device store is logged and the browse goes on
 /// without recognising anyone.
@@ -59,12 +59,12 @@ pub fn browse_nearby(platform: &dyn Platform) -> Result<Vec<NearbyDevice>> {
         Vec::new()
     });
     let me = Me::of(platform);
-    Ok(once_per_known_device(
-        found
-            .into_iter()
-            .filter(|n| !me.announced(n))
-            .filter_map(|n| nearby_device(n, &known)),
-    ))
+    Ok(once_per_known_device(found.into_iter().filter_map(|n| {
+        let own = me.announced(&n);
+        // A known device's tag is never this install's own (tags bind
+        // direction), so it stays even under this computer's name.
+        nearby_device(n, &known).filter(|d| d.known.is_some() || !own)
+    })))
 }
 
 /// What identifies this computer's own presence advert in a browse.

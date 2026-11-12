@@ -402,6 +402,30 @@ fn this_computer_does_not_list_itself_when_shown_to_everyone() {
 }
 
 #[test]
+fn a_known_install_on_this_computer_under_its_name_is_still_listed() {
+    if !loopback_broadcast_works() {
+        return;
+    }
+    let name = unique("twin");
+    let other = Side::named(Some(&name));
+    let here = Side::named(Some(&name));
+    let secret = remember(&other, own_key(&here), "here", Some(1));
+    remember_with(&here, own_key(&other), "my twin", None, &secret);
+    let presence = shown(
+        &other,
+        Visibility::Everyone {
+            until: now_unix() + 60,
+        },
+    );
+    let found = browse_nearby(&*here.platform).unwrap();
+    assert!(
+        found.iter().any(|d| d.known == Some(own_key(&other))),
+        "its tag says it is not this install: {found:?}"
+    );
+    presence.stop();
+}
+
+#[test]
 fn a_running_presence_follows_the_saved_visibility() {
     if !loopback_broadcast_works() {
         return;
