@@ -84,8 +84,9 @@ fn follow(
     loop {
         let rechecked = match wakes.recv_timeout(next.saturating_duration_since(Instant::now())) {
             Ok(Wake::Stop) | Err(RecvTimeoutError::Disconnected) => return,
-            Ok(Wake::Noise) => continue,
-            Err(RecvTimeoutError::Timeout)
+            // Noise past the deadline is a timeout: it must not starve the recheck.
+            Ok(Wake::Noise) if Instant::now() < next => continue,
+            Ok(Wake::Noise) | Err(RecvTimeoutError::Timeout)
                 if present_dirs(dirs).is_ok_and(|now| unchanged(&now, &watched)) =>
             {
                 // Every dir present is watched: no failure is pending.
@@ -94,12 +95,19 @@ fn follow(
                 continue;
             }
             Ok(Wake::Changed) => false,
-            Err(RecvTimeoutError::Timeout) => true,
+            Ok(Wake::Noise) | Err(RecvTimeoutError::Timeout) => true,
         };
         // Which entry changed does not matter: callers re-read what they
-        // follow. Drain everything queued so a burst costs one call.
-        if wakes.try_iter().any(|wake| matches!(wake, Wake::Stop)) {
-            return;
+        // follow. Drain the queue, for at most `recheck` (noise may keep
+        // arriving), so a burst costs one call.
+        let drain_end = Instant::now() + recheck;
+        while let Ok(wake) = wakes.try_recv() {
+            if matches!(wake, Wake::Stop) {
+                return;
+            }
+            if Instant::now() > drain_end {
+                break;
+            }
         }
         let rewatched = rewatch(backend, dirs, &watched);
         changed();

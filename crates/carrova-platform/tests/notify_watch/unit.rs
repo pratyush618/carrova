@@ -237,6 +237,28 @@ fn noise_does_not_put_off_the_recheck() {
 }
 
 #[test]
+fn noise_queued_without_a_pause_does_not_put_off_the_recheck() {
+    let tmp = TempDir::new().unwrap();
+    let dirs = dirs(&tmp, &["a", "b"]);
+    let watch = run(&dirs, Fake::default());
+    fs::remove_dir(&dirs[1]).unwrap();
+    let noise = watch.wake.clone();
+    let stream = thread::spawn(move || {
+        // Bursts keep the queue from ever running dry, for a bounded time.
+        let end = Instant::now() + RECHECK * 20;
+        while Instant::now() < end {
+            for _ in 0..256 {
+                let _ = noise.send(Wake::Noise);
+            }
+            thread::yield_now();
+        }
+    });
+    let seen = watch.changes.recv_timeout(RECHECK * 10).is_ok();
+    stream.join().unwrap();
+    assert!(seen, "queued noise put off the recheck");
+}
+
+#[test]
 fn a_rewatch_failing_short_of_the_limit_is_retried() {
     let tmp = TempDir::new().unwrap();
     let dirs = dirs(&tmp, &["a"]);
@@ -246,9 +268,13 @@ fn a_rewatch_failing_short_of_the_limit_is_retried() {
         .failing
         .store(MAX_REWATCH_FAILURES - 1, Ordering::SeqCst);
     watch.wake.send(Wake::Changed).unwrap();
-    assert!(watch.still_follows(), "a passing failure ended the watch");
     // The first watch, the failures, then one that took.
     let settled = 1 + (MAX_REWATCH_FAILURES - 1) + 1;
+    let deadline = Instant::now() + SOON;
+    while backend.rewatches() < settled && Instant::now() < deadline {
+        thread::sleep(RECHECK / 5);
+    }
+    assert!(watch.still_follows(), "a passing failure ended the watch");
     assert_eq!(backend.rewatches(), settled);
     assert!(watch.still_follows());
     assert_eq!(backend.rewatches(), settled, "settled");
