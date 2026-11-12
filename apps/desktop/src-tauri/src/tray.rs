@@ -93,11 +93,14 @@ pub fn open_main(app: &AppHandle) -> Option<WebviewWindow> {
         tracing::warn!(%error, "could not hide the tray icon");
     }
     set_tray_shown(app, false);
-    let shown = window
-        .unminimize()
-        .and_then(|()| window.show())
-        .and_then(|()| window.set_focus());
-    if let Err(error) = shown {
+    if let Err(error) = window.unminimize().and_then(|()| window.show()) {
+        tracing::warn!(%error, "could not show the window");
+        // Still hidden: bring the tray back, or nothing would reach the app.
+        if let Some(state) = app.try_state::<AppState>() {
+            // Logged inside; nothing more to fall back on.
+            let _ = show_tray(app, &state);
+        }
+    } else if let Err(error) = window.set_focus() {
         tracing::warn!(%error, "could not bring the window to the front");
     }
     Some(window)
