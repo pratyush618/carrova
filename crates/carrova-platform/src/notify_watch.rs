@@ -16,6 +16,9 @@ use crate::{DirWatch, PlatformError};
 /// How often the watched dirs are checked for one removed or turned into a
 /// file: neither backend reports that of a watched dir itself (Windows
 /// drops the watch silently), nor one replaced while the watch restarted.
+// shortcut: on Windows a watched dir deleted and re-created within one
+// RECHECK, with no watched parent, keeps a dead watch (no change reported,
+// no end); compare dir identity (file index) if a caller ever hits it.
 const RECHECK: Duration = Duration::from_secs(2);
 
 /// What wakes the watch thread.
