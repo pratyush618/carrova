@@ -335,15 +335,24 @@ fn a_dir_whose_metadata_fails_is_still_watched_and_retried() {
     let tmp = TempDir::new().unwrap();
     let file = tmp.path().join("file");
     fs::write(&file, b"").unwrap();
-    // Under a regular file: ENOTDIR on Linux, not NotFound, so not a
-    // missing dir. Where an OS says NotFound the dir just drops out and the
-    // test still passes, without exercising the bug.
-    let dirs = vec![file.join("child")];
+    // Under a regular file: ENOTDIR on Linux, not NotFound.
+    let dir = file.join("child");
+    // Windows and others may say NotFound (a missing dir, dropped): skip there.
+    if fs::symlink_metadata(&dir).is_err_and(|e| e.kind() == io::ErrorKind::NotFound) {
+        return;
+    }
     let backend = Fake::default();
-    let watch = run(&dirs, backend.clone());
+    let watch = run(&[dir], backend.clone());
     backend
         .failing
         .store(MAX_REWATCH_FAILURES - 1, Ordering::SeqCst);
     watch.wake.send(Wake::Changed).unwrap();
+    // The first watch, the failures, then one that took.
+    let settled = 1 + (MAX_REWATCH_FAILURES - 1) + 1;
+    let deadline = Instant::now() + SOON;
+    while backend.rewatches() < settled && Instant::now() < deadline {
+        thread::sleep(RECHECK / 5);
+    }
     assert!(watch.still_follows(), "a metadata error ended the watch");
+    assert_eq!(backend.rewatches(), settled, "the failures were retried");
 }
