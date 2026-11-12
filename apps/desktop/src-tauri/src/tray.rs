@@ -15,6 +15,7 @@ use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
 use carrova_core::time::now_unix;
+use carrova_platform::DirWatch;
 use carrova_view::devices::VisibilityChoice;
 use carrova_view::ipc::EVENT_CHANNEL;
 use carrova_view::tray::{
@@ -48,12 +49,19 @@ struct TrayShown {
     nearby: Mutex<Option<u32>>,
     /// The "everyone" deadline a menu rebuild is waiting for (0: none).
     rebuild_at: AtomicU64,
+    /// The "Visible to" choice the menu last ticked.
+    visible_to: Mutex<Option<VisibilityChoice>>,
+    /// Watches the saved visibility for changes made elsewhere (held only).
+    _watch: Mutex<Option<DirWatch>>,
 }
 
 /// Start-up: open the window, or with `--background` do what closing it
 /// would (to the tray or minimised; with "Keep running" off, open it).
 pub fn start(app: &AppHandle, state: &AppState, in_background: bool) {
-    app.manage(TrayShown::default());
+    app.manage(TrayShown {
+        _watch: Mutex::new(follow_visibility(app, state)),
+        ..TrayShown::default()
+    });
     let handle = app.clone();
     app.listen_any(EVENT_CHANNEL, move |_| on_bridge_event(&handle));
     let action = if in_background {
@@ -268,6 +276,34 @@ fn rebuild_when_everyone_ends(app: &AppHandle) {
     });
 }
 
+/// Rebuild the menu when the saved visibility changes outside the app (the
+/// CLI), so "Visible to" ticks the choice in force. Not followed where the
+/// platform cannot watch the state dir (logged).
+// shortcut: unwatched on macOS/Windows, follows once `watch_dirs` does there.
+fn follow_visibility(app: &AppHandle, state: &AppState) -> Option<DirWatch> {
+    let handle = app.clone();
+    let changed = Box::new(move || {
+        let (Some(state), Some(flags)) = (handle.try_state::<AppState>(), tray_flags(&handle))
+        else {
+            return;
+        };
+        let ticked = *flags
+            .visible_to
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if tray_shown(&handle) && ticked != Some(background::tray_model(&state).visible_to) {
+            // Logged inside; the menu stays as it was.
+            let _ = show_tray(&handle, &state);
+        }
+    });
+    state
+        .platform
+        .state_dir()
+        .and_then(|dir| state.platform.watch_dirs(&[dir], changed))
+        .inspect_err(|error| tracing::debug!(%error, "tray does not follow visibility changes"))
+        .ok()
+}
+
 /// Show `model` in the tray, with the tray's own nearby count.
 fn set_menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<()> {
     let flags = tray_flags(app);
@@ -280,6 +316,10 @@ fn set_menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<()> {
     let menu = menu(app, model)?;
     if let Some(flags) = flags {
         flags.moving.store(model.moving, Ordering::SeqCst);
+        *flags
+            .visible_to
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = Some(model.visible_to);
     }
     if model.visible_to == VisibilityChoice::Everyone {
         rebuild_when_everyone_ends(app);
