@@ -18,11 +18,17 @@ function DeviceRow({
   const { t } = useTranslation();
   const format = useFormat();
   const [draft, setDraft] = useState<string | null>(null);
+  // Set once a rename closes, so the pen that comes back takes the focus.
+  const [renamed, setRenamed] = useState(false);
+  const close = () => {
+    setDraft(null);
+    setRenamed(true);
+  };
   const save = (event: { preventDefault: () => void }) => {
     event.preventDefault();
     if (draft !== null && draft.trim() !== '' && draft.trim() !== device.name)
       on.onRename(device.id, draft.trim());
-    setDraft(null);
+    close();
   };
   const title =
     draft === null ? (
@@ -31,7 +37,16 @@ function DeviceRow({
         <OsBadge os={device.os} label={t(`settings.about.os.${device.os}`)} size="sm" />
       </>
     ) : (
-      <form className="s-devices__rename" onSubmit={save}>
+      <form
+        className="s-devices__rename"
+        onSubmit={save}
+        // Esc cancels the rename, before the sheet's own Esc closes the sheet.
+        onKeyDownCapture={(event) => {
+          if (event.key !== 'Escape') return;
+          event.stopPropagation();
+          close();
+        }}
+      >
         <Input
           aria-label={t('settings.devices.name', { name: device.name })}
           value={draft}
@@ -60,6 +75,7 @@ function DeviceRow({
             <IconButton
               icon="pen"
               label={t('settings.devices.rename', { name: device.name })}
+              autoFocus={renamed}
               onClick={() => {
                 setDraft(device.name);
               }}

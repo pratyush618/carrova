@@ -298,4 +298,25 @@ describe('Known devices', () => {
     await user.click(screen.getByRole('button', { name: 'Forget all' }));
     expect(on.onForgetAll).toHaveBeenCalledOnce();
   });
+
+  it('gives focus back to the pen after a rename, and Escape cancels only the rename', async () => {
+    const user = userEvent.setup();
+    const on = sheetOn();
+    renderScreen(<div />, {
+      overlays: [
+        <KnownDevicesSheet key="k" devices={knownDevices} now={settingsModel.now} on={on} />,
+      ],
+    });
+    const pen = () => screen.getByRole('button', { name: "Rename Ana's laptop" });
+    await user.click(pen());
+    await user.type(screen.getByRole('textbox', { name: "New name for Ana's laptop" }), '!{Enter}');
+    expect(pen()).toHaveFocus();
+
+    await user.click(pen());
+    await user.keyboard('{Escape}');
+    expect(on.onDone).not.toHaveBeenCalled();
+    expect(on.onRename).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(pen()).toHaveFocus();
+  });
 });
