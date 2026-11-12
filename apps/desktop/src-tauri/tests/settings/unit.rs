@@ -90,3 +90,16 @@ fn unreadable_settings_remember_devices_by_default_instead_of_failing() {
         carrova_view::ipc::NearbySettings::default().remember
     );
 }
+
+#[test]
+fn wol_hints_follow_the_saved_setting_and_default_off() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = store(dir.path());
+    assert!(!store.wol_hints());
+    let mut settings = Settings::default();
+    settings.nearby.wol_hints = true;
+    store.save(&settings).unwrap();
+    assert!(store.wol_hints());
+    std::fs::write(dir.path().join("state").join(SETTINGS_FILE), "{").unwrap();
+    assert!(!store.wol_hints());
+}

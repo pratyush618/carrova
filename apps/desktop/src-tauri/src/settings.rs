@@ -55,15 +55,25 @@ impl SettingsStore {
         }
     }
 
-    /// Whether new engines remember devices (`nearby.remember`). Unreadable
-    /// settings never block a move: they read as the default.
+    /// Whether new engines remember devices (`nearby.remember`).
     pub fn remember_devices(&self) -> bool {
+        self.nearby().remember
+    }
+
+    /// Whether new engines save wake hints (`nearby.wol_hints`).
+    pub fn wol_hints(&self) -> bool {
+        self.nearby().wol_hints
+    }
+
+    /// The nearby settings. Unreadable settings never block a move: they
+    /// read as the defaults.
+    fn nearby(&self) -> NearbySettings {
         self.load().map_or_else(
             |error| {
-                tracing::warn!(%error, "settings unreadable; remembering devices by default");
-                NearbySettings::default().remember
+                tracing::warn!(%error, "settings unreadable; using the nearby defaults");
+                NearbySettings::default()
             },
-            |settings| settings.nearby.remember,
+            |settings| settings.nearby,
         )
     }
 
