@@ -1,5 +1,5 @@
 //! Detail types of [`CoreError`](super::CoreError) variants: why a
-//! session, stored document, journal or resume key was refused.
+//! session, stored document, journal or key file was refused.
 
 use std::fmt;
 
@@ -109,10 +109,11 @@ pub enum JournalProblem {
     RecordCorrupt(ciborium::de::Error<std::io::Error>),
 }
 
-/// Why a LAN resume key is refused ([`CoreError::ResumeKey`](super::CoreError::ResumeKey)). A key
-/// others could read or plant is never used.
+/// Why a stored secret key file (a session's resume key, the device key
+/// or a known device's key) is refused. A key others could read or plant
+/// is never used.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ResumeKeyProblem {
+pub enum KeyFileProblem {
     /// Not exactly the secret's length.
     WrongSize,
     /// The platform reports no permission bits.
@@ -123,17 +124,13 @@ pub enum ResumeKeyProblem {
     Owner { owner: u32, me: u32 },
 }
 
-impl fmt::Display for ResumeKeyProblem {
+impl fmt::Display for KeyFileProblem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let why = match *self {
-            Self::WrongSize => return f.write_str("has the wrong size"),
-            Self::UnknownMode => "has unknown permissions".to_owned(),
-            Self::Mode { found, required } => format!("has mode {found:o}, not {required:o}"),
-            Self::Owner { owner, me } => format!("is owned by user {owner}, not by you ({me})"),
-        };
-        write!(
-            f,
-            "{why}; refusing to use it (dismiss the session and pair again)"
-        )
+        match *self {
+            Self::WrongSize => f.write_str("has the wrong size"),
+            Self::UnknownMode => f.write_str("has unknown permissions"),
+            Self::Mode { found, required } => write!(f, "has mode {found:o}, not {required:o}"),
+            Self::Owner { owner, me } => write!(f, "is owned by user {owner}, not by you ({me})"),
+        }
     }
 }

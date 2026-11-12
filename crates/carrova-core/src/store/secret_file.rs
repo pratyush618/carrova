@@ -1,0 +1,135 @@
+//! Secret key files (a session's resume key, the device key, known-device
+//! keys): created without following links, mode `600`, read only if
+//! nobody else could have read or planted them, zeroed before unlinking.
+
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::path::Path;
+
+use carrova_platform::{FileKind, PermissionModel, Platform};
+use zeroize::Zeroizing;
+
+use super::files::open_existing;
+use crate::error::{CoreError, KeyFileProblem, Result};
+use crate::fsx;
+
+/// Mode a secret file must have.
+const SECRET_MODE: u32 = 0o600;
+
+/// Store `bytes` as the new file `dir/name`: created new
+/// (`O_EXCL|O_NOFOLLOW`, never through a link or over an existing file),
+/// mode `600`, synced, then the dir synced. A partial file is wiped on
+/// failure (unless create-new failed because something already exists).
+pub(crate) fn write_new(
+    platform: &dyn Platform,
+    dir: &Path,
+    name: &str,
+    bytes: &[u8],
+) -> Result<()> {
+    let result = (|| -> Result<()> {
+        let mut f = platform.create_new_file(&dir.join(name), Some(SECRET_MODE))?;
+        f.write_all(bytes)?;
+        f.sync_all()?;
+        Ok(())
+    })();
+    match result {
+        Ok(()) => platform.sync_dir(dir).map_err(Into::into),
+        Err(e) => {
+            if fsx::kind_of(&e) != Some(std::io::ErrorKind::AlreadyExists) {
+                wipe_after_failure(platform, dir, name, bytes.len());
+            }
+            Err(e)
+        }
+    }
+}
+
+/// Replace `dir/name` with `bytes`: written as `name.new` like
+/// [`write_new`] (a stale one from a crash is wiped first), renamed over
+/// the old file, dir synced.
+pub(crate) fn replace(platform: &dyn Platform, dir: &Path, name: &str, bytes: &[u8]) -> Result<()> {
+    let new = format!("{name}.new");
+    wipe(platform, dir, &new, bytes.len())?;
+    write_new(platform, dir, &new, bytes)?;
+    let renamed = platform
+        .rename_replace(&dir.join(&new), &dir.join(name))
+        .map_err(CoreError::from)
+        .and_then(|()| platform.sync_dir(dir).map_err(Into::into));
+    if renamed.is_err() {
+        wipe_after_failure(platform, dir, &new, bytes.len());
+    }
+    renamed
+}
+
+/// The `N`-byte secret at `path`, or `None` if there is none. Refused
+/// (`refuse(problem)`) unless the opened file (fstat, so a path swapped
+/// after the open changes nothing) is a regular file of mode `600` owned
+/// by the current user (when the platform knows users) and exactly `N`
+/// bytes. A platform that reports no permission bits is refused too,
+/// except under [`PermissionModel::Acl`]: there the profile's ACLs keep
+/// the state directory private, and neither mode nor owner is checked.
+pub(crate) fn read<const N: usize>(
+    platform: &dyn Platform,
+    path: &Path,
+    refuse: impl Fn(KeyFileProblem) -> CoreError,
+) -> Result<Option<Zeroizing<[u8; N]>>> {
+    let Some(file) = open_existing(platform, path)? else {
+        return Ok(None);
+    };
+    if let Some(problem) = check_meta(platform, &file)? {
+        return Err(refuse(problem));
+    }
+    let mut buf = Zeroizing::new(Vec::with_capacity(N + 1));
+    file.take(N as u64 + 1).read_to_end(&mut buf)?;
+    if buf.len() != N {
+        return Err(refuse(KeyFileProblem::WrongSize));
+    }
+    let mut secret = Zeroizing::new([0u8; N]);
+    secret.copy_from_slice(&buf);
+    Ok(Some(secret))
+}
+
+/// [`read`]'s permission and owner check of the opened file (opened
+/// without following links).
+fn check_meta(platform: &dyn Platform, file: &std::fs::File) -> Result<Option<KeyFileProblem>> {
+    if platform.permission_model() == PermissionModel::Acl {
+        return Ok(None);
+    }
+    let meta = platform.file_metadata(file)?;
+    Ok(match meta.mode {
+        None => Some(KeyFileProblem::UnknownMode),
+        Some(mode) if mode & 0o7777 != SECRET_MODE => Some(KeyFileProblem::Mode {
+            found: mode,
+            required: SECRET_MODE,
+        }),
+        Some(_) => match (meta.uid, platform.current_uid()) {
+            (Some(owner), Some(me)) if owner != me => Some(KeyFileProblem::Owner { owner, me }),
+            _ => None,
+        },
+    })
+}
+
+/// Destroy the secret `dir/name` (at most `len` bytes long when valid):
+/// overwrite it with zeros, sync, unlink, sync the dir. Missing is fine;
+/// a planted link is unlinked, never followed.
+pub(crate) fn wipe(platform: &dyn Platform, dir: &Path, name: &str, len: usize) -> Result<()> {
+    let path = dir.join(name);
+    let Some(meta) = fsx::lstat(platform, &path)? else {
+        return Ok(());
+    };
+    if meta.kind == FileKind::File {
+        let mut f = platform.open_rw_nofollow(&path)?;
+        let len = usize::try_from(meta.size).map_or(len, |n| n.min(len));
+        f.seek(SeekFrom::Start(0))?;
+        f.write_all(&vec![0u8; len])?;
+        f.sync_all()?;
+    }
+    platform.remove_file(&path)?;
+    platform.sync_dir(dir)?;
+    Ok(())
+}
+
+/// Best-effort [`wipe`] of a partial file after a failed write.
+fn wipe_after_failure(platform: &dyn Platform, dir: &Path, name: &str, len: usize) {
+    if let Err(e) = wipe(platform, dir, name, len) {
+        tracing::warn!(error = %e, "could not remove a partial key file");
+    }
+}

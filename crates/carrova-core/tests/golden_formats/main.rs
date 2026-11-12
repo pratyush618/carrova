@@ -12,7 +12,7 @@ use carrova_core::lan::{
 };
 use carrova_core::session::SessionId;
 use carrova_core::{
-    Checklist, CoreError, Corruption, Event, JournalProblem, PauseReason, Phase, ResumeKeyProblem,
+    Checklist, CoreError, Corruption, Event, JournalProblem, KeyFileProblem, PauseReason, Phase,
     RollbackOutcome, SessionProblem, SessionRecord, Skipped, State,
 };
 use carrova_platform::{OsKind, SemanticRoot};
@@ -474,22 +474,22 @@ fn session_store_errors_read_as_before() {
             "session store: capture.cbor is corrupt: dangling chunk location".into(),
         ),
         (
-            CoreError::ResumeKey(ResumeKeyProblem::WrongSize),
-            "session store: resume.key has the wrong size".into(),
+            CoreError::ResumeKey(KeyFileProblem::WrongSize),
+            "session store: resume.key has the wrong size; refusing to use it (dismiss the session and pair again)".into(),
         ),
         (
-            CoreError::ResumeKey(ResumeKeyProblem::UnknownMode),
+            CoreError::ResumeKey(KeyFileProblem::UnknownMode),
             "session store: resume.key has unknown permissions; refusing to use it (dismiss the session and pair again)".into(),
         ),
         (
-            CoreError::ResumeKey(ResumeKeyProblem::Mode {
+            CoreError::ResumeKey(KeyFileProblem::Mode {
                 found: 0o100_644,
                 required: 0o600,
             }),
             "session store: resume.key has mode 100644, not 600; refusing to use it (dismiss the session and pair again)".into(),
         ),
         (
-            CoreError::ResumeKey(ResumeKeyProblem::Owner { owner: 0, me: 1000 }),
+            CoreError::ResumeKey(KeyFileProblem::Owner { owner: 0, me: 1000 }),
             "session store: resume.key is owned by user 0, not by you (1000); refusing to use it (dismiss the session and pair again)".into(),
         ),
         (
