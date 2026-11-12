@@ -143,7 +143,10 @@ impl PresenceAdvert {
 /// This device's presence on the LAN (mDNS and broadcast responder) until
 /// dropped.
 #[derive(Debug)]
-pub struct PresenceBeacon(Advertiser);
+pub struct PresenceBeacon {
+    /// Held only so dropping the beacon stops the advertisement.
+    _advertiser: Advertiser,
+}
 
 impl PresenceBeacon {
     /// Start announcing `advert`. Parts that fail to start are logged and
@@ -159,12 +162,9 @@ impl PresenceBeacon {
         // broadcast responder's port; the request listener (Phase 3) passes its own.
         let mut advertiser = Advertiser::start(platform, BROADCAST_PORT, instance, None)?;
         advertiser.set_presence(advert);
-        Ok(Self(advertiser))
-    }
-
-    /// Announce `advert` instead (callers pass fresh [`KnownTags`]).
-    pub fn set(&mut self, advert: PresenceAdvert) {
-        self.0.set_presence(advert);
+        Ok(Self {
+            _advertiser: advertiser,
+        })
     }
 }
 

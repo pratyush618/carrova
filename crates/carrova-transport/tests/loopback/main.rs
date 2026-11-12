@@ -282,7 +282,7 @@ fn a_presence_is_browsed_by_its_tags_and_names_itself_only_when_told() {
             .collect()
     };
     let platform = carrova_platform::current();
-    let mut beacon = PresenceBeacon::start(
+    let beacon = PresenceBeacon::start(
         &*platform,
         PresenceAdvert {
             known: tags(),
@@ -295,11 +295,16 @@ fn a_presence_is_browsed_by_its_tags_and_names_itself_only_when_told() {
     assert_eq!(quiet.len(), 1, "{found:?}");
     assert_eq!((quiet[0].name.as_ref(), quiet[0].os), (None, None));
 
-    beacon.set(PresenceAdvert {
-        known: tags(),
-        name: Some(name.clone()),
-        os: Some(platform.os()),
-    });
+    drop(beacon);
+    let beacon = PresenceBeacon::start(
+        &*platform,
+        PresenceAdvert {
+            known: tags(),
+            name: Some(name.clone()),
+            os: Some(platform.os()),
+        },
+    )
+    .unwrap();
     let open = ours(&browsed());
     assert_eq!(open.len(), 1);
     assert_eq!(open[0].name.as_ref(), Some(&name));
