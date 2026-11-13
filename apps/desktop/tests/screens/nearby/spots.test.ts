@@ -11,10 +11,10 @@ const CY = 0.38;
 const INNER_FLOOR = 0.95;
 
 // Obstacles, measured from e2e at 1100x520 / 720x560 / 1440x900 (nearby.spec.ts asserts the real layout):
-// the largest open card (a known device, three fact rows) sits at 20,20; the visibility pill is 298x38, centred,
+// the largest open card (a known device, three fact rows) sits at 20,20; the visibility pill is capped at 300x38 (nearby.css; a long computer name reaches it), centred,
 // 22px above the page foot (`pillTop`); this computer's disc + label is 87x90 around the centre.
 const CARD = { x: 20, y: 20, width: 288, height: 200 };
-const VISIBILITY = { width: 298, height: 38, below: 22 };
+const VISIBILITY = { width: 300, height: 38, below: 22 };
 const CENTRE = { width: 87, height: 90 };
 
 interface Field {

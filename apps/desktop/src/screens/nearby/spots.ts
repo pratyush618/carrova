@@ -42,7 +42,7 @@ export const SLOTS: Readonly<Record<Ring, readonly Slot[]>> = {
     { radius: OUTER, angle: 140, minField: MIN_FIELD },
     { radius: OUTER, angle: -65, minField: 608 },
     { radius: FAR, angle: 135, minField: MIN_FIELD },
-    { radius: FAR, angle: 55, minField: 748 },
+    { radius: FAR, angle: 55, minField: 752 },
     { radius: FAR, angle: 165, minField: 976 },
     { radius: FAR, angle: -40, minField: 808 },
     { radius: OUTER, angle: -140, minField: 1224 },
