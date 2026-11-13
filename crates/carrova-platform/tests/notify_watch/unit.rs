@@ -83,8 +83,13 @@ struct Running {
 }
 
 fn run(dirs: &[PathBuf], backend: Fake) -> Running {
+    let watched = first_watch(&mut backend.clone(), dirs).unwrap();
+    follow_from(dirs, backend, watched)
+}
+
+/// A watch of `dirs` following on its own thread from `watched`.
+fn follow_from(dirs: &[PathBuf], backend: Fake, watched: Vec<Found>) -> Running {
     let mut driven = backend.clone();
-    let watched = first_watch(&mut driven, dirs).unwrap();
     let (wake, wakes) = mpsc::channel();
     let (tx, changes) = mpsc::channel();
     let dirs = dirs.to_vec();
@@ -381,13 +386,15 @@ fn a_watched_dir_whose_metadata_keeps_failing_ends_the_watch() {
     let dirs = [parent.join("child")];
     fs::create_dir_all(&dirs[0]).unwrap();
     let backend = Fake::default();
-    let watch = run(&dirs, backend.clone());
-    // The parent turned into a file: the watched dir's metadata now fails.
+    let watched = first_watch(&mut backend.clone(), &dirs).unwrap();
+    // The parent turned into a file before following, so no recheck sees
+    // the dir missing: the watched dir's metadata now fails.
     fs::remove_dir_all(&parent).unwrap();
     fs::write(&parent, b"").unwrap();
     if metadata_failing(&dirs[0]).is_none() {
         return;
     }
+    let watch = follow_from(&dirs, backend.clone(), watched);
     assert!(
         watch.ends(),
         "a persistent metadata error was never counted"
