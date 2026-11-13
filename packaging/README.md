@@ -157,8 +157,11 @@ Bundle keys: see `keys/README.md` (`cargo xtask bundle keygen|certify`).
 
 Each block below is skipped when its secrets are absent: the release still
 builds, but the packages are unsigned (macOS Gatekeeper blocks a
-non-notarized download until the user right-clicks → Open; Windows
-SmartScreen warns). The updater signature (`TAURI_SIGNING_*`) is separate and
+non-notarized download until the user chooses Open Anyway in Privacy &
+Security; Windows SmartScreen warns). Without Apple secrets the macOS app
+is still ad-hoc signed (`signingIdentity: "-"` in `tauri.macos.conf.json`),
+which Apple silicon needs to launch it at all; `APPLE_SIGNING_IDENTITY`
+overrides it once a Developer ID exists. The updater signature (`TAURI_SIGNING_*`) is separate and
 always required.
 
 | Secret | Value |
