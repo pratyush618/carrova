@@ -36,7 +36,7 @@ Linux packages come for x86_64 and arm64.
 | Fedora / openSUSE | `.rpm` | `sudo dnf install ./Carrova-*.rpm` / `sudo zypper install ./Carrova-*.rpm` |
 | Any distro | `.AppImage` | `chmod +x Carrova_*.AppImage && ./Carrova_*.AppImage` |
 | macOS 11+ (Intel and Apple silicon) | `.dmg` | Open it and drag Carrova to Applications. Not notarized yet: the first time, open Carrova, close the warning, then open System Settings → Privacy & Security and choose Open Anyway (macOS 14 and older: right-click Carrova → Open) |
-| Windows 10/11 (x64) | `.msi` or `-setup.exe` | Run the installer. Not signed yet: on the SmartScreen prompt choose More info → Run anyway. Windows 11 with Smart App Control on blocks unsigned installers with no bypass; there, use another PC or wait for a signed build |
+| Windows 10/11 (x64) | `.msi` or `-setup.exe` | Run the installer. Not signed yet: on the SmartScreen prompt choose More info → Run anyway. Windows 11 with Smart App Control on (Windows Security → App & browser control) blocks unsigned installers with no bypass; there, use another PC or wait for a signed build |
 
 Needs glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+). If the AppImage won't
 start on Ubuntu 24.04+, install FUSE 2: `sudo apt install libfuse2t64`.
