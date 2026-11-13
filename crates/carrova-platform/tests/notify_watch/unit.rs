@@ -349,29 +349,52 @@ fn a_rewatch_after_a_failed_batch_drops_the_watches_it_tried() {
     );
 }
 
+/// A path under a regular file: its metadata fails with ENOTDIR on Linux
+/// and macOS, not NotFound; `None` where the OS says NotFound (Windows and
+/// others: a missing dir, dropped), so the test is skipped there.
+fn metadata_failing(path: &Path) -> Option<&Path> {
+    let notfound = fs::symlink_metadata(path).is_err_and(|e| e.kind() == io::ErrorKind::NotFound);
+    (!notfound).then_some(path)
+}
+
 #[test]
-fn a_dir_whose_metadata_fails_is_still_watched_and_retried() {
+fn a_dir_whose_metadata_fails_is_still_watched_but_counts_as_failed() {
     let tmp = TempDir::new().unwrap();
     let file = tmp.path().join("file");
     fs::write(&file, b"").unwrap();
-    // Under a regular file: ENOTDIR on Linux, not NotFound.
-    let dir = file.join("child");
-    // Windows and others may say NotFound (a missing dir, dropped): skip there.
-    if fs::symlink_metadata(&dir).is_err_and(|e| e.kind() == io::ErrorKind::NotFound) {
+    let child = file.join("child");
+    let Some(dir) = metadata_failing(&child) else {
+        return;
+    };
+    let mut backend = Fake::default();
+    let Rewatched { watched, failed } = rewatch(&mut backend, &[dir.to_path_buf()], &[]).unwrap();
+    assert_eq!(backend.last().1, [dir], "handed to the backend");
+    assert_eq!(watched, [(dir.to_path_buf(), None)]);
+    assert!(failed.is_some(), "the metadata error was not reported");
+    assert!(first_watch(&mut backend, &[dir.to_path_buf()]).is_err());
+}
+
+#[test]
+fn a_watched_dir_whose_metadata_keeps_failing_ends_the_watch() {
+    let tmp = TempDir::new().unwrap();
+    let parent = tmp.path().join("x");
+    let dirs = [parent.join("child")];
+    fs::create_dir_all(&dirs[0]).unwrap();
+    let backend = Fake::default();
+    let watch = run(&dirs, backend.clone());
+    // The parent turned into a file: the watched dir's metadata now fails.
+    fs::remove_dir_all(&parent).unwrap();
+    fs::write(&parent, b"").unwrap();
+    if metadata_failing(&dirs[0]).is_none() {
         return;
     }
-    let backend = Fake::default();
-    let watch = run(&[dir], backend.clone());
-    backend
-        .failing
-        .store(MAX_REWATCH_FAILURES - 1, Ordering::SeqCst);
-    watch.wake.send(Wake::Changed).unwrap();
-    // The first watch, the failures, then one that took.
-    let settled = 1 + (MAX_REWATCH_FAILURES - 1) + 1;
-    let deadline = Instant::now() + SOON;
-    while backend.rewatches() < settled && Instant::now() < deadline {
-        thread::sleep(RECHECK / 5);
-    }
-    assert!(watch.still_follows(), "a metadata error ended the watch");
-    assert_eq!(backend.rewatches(), settled, "the failures were retried");
+    assert!(
+        watch.ends(),
+        "a persistent metadata error was never counted"
+    );
+    assert_eq!(
+        backend.rewatches(),
+        1,
+        "nothing changed, so nothing rewatched"
+    );
 }

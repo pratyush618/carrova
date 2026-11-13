@@ -86,16 +86,24 @@ fn follow(
             Ok(Wake::Stop) | Err(RecvTimeoutError::Disconnected) => return,
             // Noise past the deadline is a timeout: it must not starve the recheck.
             Ok(Wake::Noise) if Instant::now() < next => continue,
-            Ok(Wake::Noise) | Err(RecvTimeoutError::Timeout)
-                if present_dirs(dirs).is_ok_and(|now| unchanged(&now, &watched)) =>
-            {
-                // Every dir present is watched: no failure is pending.
-                failures = 0;
-                next = Instant::now() + recheck;
-                continue;
-            }
             Ok(Wake::Changed) => false,
-            Ok(Wake::Noise) | Err(RecvTimeoutError::Timeout) => true,
+            Ok(Wake::Noise) | Err(RecvTimeoutError::Timeout) => match present_dirs(dirs) {
+                Ok((now, unreadable)) if unchanged(&now, &watched) => {
+                    // Every dir present is watched; one whose metadata fails
+                    // may have lost its watch unseen, so counts as a failure.
+                    failures = if unreadable.is_some() {
+                        failures + 1
+                    } else {
+                        0
+                    };
+                    if failures == MAX_REWATCH_FAILURES {
+                        return;
+                    }
+                    next = Instant::now() + recheck;
+                    continue;
+                }
+                _ => true,
+            },
         };
         // Which entry changed does not matter: callers re-read what they
         // follow. Drain the queue, for at most `recheck` (noise may keep
@@ -153,13 +161,13 @@ fn unchanged(now: &[Found], watched: &[Found]) -> bool {
 
 /// Drop the watches of `watched` and watch each of `dirs` that exists now
 /// afresh (one re-created since may hold a dead watch); `Err` when one is
-/// refused.
+/// refused. One whose metadata fails is still watched, but reported failed.
 fn rewatch(
     backend: &mut impl Backend,
     dirs: &[PathBuf],
     watched: &[Found],
 ) -> Result<Rewatched, PlatformError> {
-    let present = present_dirs(dirs)?;
+    let (present, unreadable) = present_dirs(dirs)?;
     let new: Vec<_> = present.iter().map(|(dir, _)| dir.clone()).collect();
     // A failed rewatch may have left some of `new` watched (FSEvents keeps
     // the paths of a stream that did not start, Windows replaces a watch
@@ -180,7 +188,7 @@ fn rewatch(
     };
     let mut now = Rewatched {
         watched: Vec::new(),
-        failed: None,
+        failed: unreadable,
     };
     for (found, outcome) in present.into_iter().zip(outcomes) {
         match outcome {
@@ -195,10 +203,11 @@ fn rewatch(
 
 /// Those of `dirs` that exist now, with their identities; one that is not
 /// a directory (a symlink to one included) is refused. One whose metadata
-/// cannot be read (briefly held, say) is taken as present with no identity:
-/// the backend's watch of it reports the real failure, to be retried.
-fn present_dirs(dirs: &[PathBuf]) -> Result<Vec<Found>, PlatformError> {
+/// cannot be read (briefly held, say) is taken as present with no identity,
+/// and its error returned beside them: a failure, to be retried.
+fn present_dirs(dirs: &[PathBuf]) -> Result<(Vec<Found>, Option<PlatformError>), PlatformError> {
     let mut present = Vec::new();
+    let mut unreadable = None;
     for dir in dirs {
         match fs::symlink_metadata(dir) {
             Ok(meta) if meta.is_dir() => {
@@ -206,10 +215,13 @@ fn present_dirs(dirs: &[PathBuf]) -> Result<Vec<Found>, PlatformError> {
             }
             Ok(_) => return Err(io_err(dir, "not a directory")),
             Err(e) if e.kind() == io::ErrorKind::NotFound => {}
-            Err(_) => present.push((dir.clone(), None)),
+            Err(e) => {
+                present.push((dir.clone(), None));
+                unreadable = Some(PlatformError::io(dir, e));
+            }
         }
     }
-    Ok(present)
+    Ok((present, unreadable))
 }
 
 fn io_err(
