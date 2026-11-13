@@ -35,7 +35,7 @@ Download from the [latest release](https://github.com/pratyush618/carrova/releas
 | Ubuntu, Debian, Mint, Pop!_OS | `.deb` | `sudo apt install ./Carrova_*.deb` |
 | Fedora / openSUSE | `.rpm` | `sudo dnf install ./Carrova-*.rpm` / `sudo zypper install ./Carrova-*.rpm` |
 | Any distro | `.AppImage` | `chmod +x Carrova_*.AppImage && ./Carrova_*.AppImage` |
-| macOS 11+ (Intel and Apple silicon) | `.dmg` | Open it and drag Carrova to Applications. Not notarized yet: the first time, right-click Carrova → Open |
+| macOS 11+ (Intel and Apple silicon) | `.dmg` | Open it and drag Carrova to Applications. Not notarized yet: the first time, open System Settings → Privacy & Security and choose Open Anyway (macOS 14 and older: right-click Carrova → Open) |
 | Windows 10/11 | `.msi` or `-setup.exe` | Run the installer. Not signed yet: on the SmartScreen prompt choose More info → Run anyway |
 
 Needs glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+). If the AppImage won't
