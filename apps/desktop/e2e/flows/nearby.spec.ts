@@ -94,8 +94,9 @@ const apart = (a: Box, b: Box) =>
 
 const sizes = [
   { width: 720, height: 560 },
-  // The sidebar is 212px: a 748px field, where the fifth outer slot opens.
-  { width: 960, height: 640 },
+  // The sidebar is 212px: a 752px field, where the fifth outer slot opens (at 520, the shortest field).
+  { width: 964, height: 640 },
+  { width: 964, height: 520 },
   { width: 1100, height: 520 },
   { width: 1440, height: 900 },
 ];
@@ -104,7 +105,11 @@ const sizes = [
 // opens (spots.ts: 4+3, 5+5, 5+8, 6+12) and sums up the rest in the chip.
 const cases = [
   ...sizes.map((size) => ({ scenario: 'nearby', size, shown: 5 })),
-  ...sizes.map((size, i) => ({ scenario: 'nearby-crowded', size, shown: [7, 10, 13, 18][i] ?? 0 })),
+  ...sizes.map((size, i) => ({
+    scenario: 'nearby-crowded',
+    size,
+    shown: [7, 10, 10, 13, 18][i] ?? 0,
+  })),
 ];
 
 for (const { scenario, size, shown } of cases)

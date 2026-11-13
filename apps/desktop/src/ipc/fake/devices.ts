@@ -93,7 +93,7 @@ const stranger = (
   offers_code: true,
 });
 
-/** A busy office: more devices than the widest map has slots for (7 answer fast, 14 slowly), one with a very long name. Nobody here is known. */
+/** A busy office: more devices than the widest map has slots for (7 answer fast, 14 slowly), one with a very long name, and outer names long enough to hit the pill cap. Nobody here is known. */
 const CROWDED: readonly NearbyDeviceView[] = [
   stranger("Ana's laptop", 'linux', 'inner', 60),
   stranger('The shared render workstation in the back office', 'linux', 'inner', 70),
@@ -101,7 +101,7 @@ const CROWDED: readonly NearbyDeviceView[] = [
     stranger(name, i % 2 === 0 ? 'windows' : 'mac_os', 'inner', 80 + 10 * i),
   ),
   ...Array.from({ length: 14 }, (_, i) =>
-    stranger(`Lab PC ${String(i + 1)}`, 'linux', 'outer', 700 + 50 * i),
+    stranger(`Lab PC ${String(i + 1)} in the north building annex`, 'linux', 'outer', 700 + 50 * i),
   ),
 ];
 
