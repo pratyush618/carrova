@@ -235,6 +235,15 @@ jobs:
           # Clients only see it (releases/latest/download/latest.json) once published.
           releaseDraft: true
           uploadUpdaterJson: true
+      # Without it the system copy loads against the AppImage's older glib and
+      # closing to the tray panics (tauri-cli bundles it only if it sees `tray-icon`).
+      - name: AppImage ships appindicator
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP"
+          "$GITHUB_WORKSPACE"/target/release/bundle/appimage/*.AppImage --appimage-extract >/dev/null
+          ls squashfs-root/usr/lib/libayatana-appindicator3.so.1
 
   recipes:
     name: publish recipe bundle
