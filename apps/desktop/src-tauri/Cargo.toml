@@ -30,7 +30,9 @@ carrova-view = { workspace = true }
 serde = { workspace = true }
 # `generate_context!` embeds plugin config (`plugins.updater`) as `serde_json` values.
 serde_json = { workspace = true }
-tauri = { workspace = true }
+# Not `workspace = true`: tauri-cli only sees `tray-icon` here, and without
+# it the AppImage ships no appindicator and crashes closing to the tray.
+tauri = { version = "2.12.5", features = ["tray-icon"] }
 tauri-plugin-dialog = { workspace = true }
 tauri-plugin-notification = { workspace = true }
 tauri-plugin-opener = { workspace = true }
