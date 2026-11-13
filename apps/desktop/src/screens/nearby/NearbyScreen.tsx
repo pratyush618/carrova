@@ -5,6 +5,7 @@ import { DeviceCard } from './DeviceCard';
 import type { NearbyIntents, NearbyModel, NearbyView } from './model';
 import { NearbyList } from './NearbyList';
 import { NearbyMap } from './NearbyMap';
+import type { Placement } from './place';
 import { VisibilityPill } from './VisibilityPill';
 import './nearby.css';
 
@@ -39,6 +40,10 @@ export function NearbyScreen({
   // The scan pulse plays once per page open, not again on returning to the map.
   const [pulse, setPulse] = useState(true);
   if (pulse && model.view !== 'map') setPulse(false);
+  // Map slots outlive the map, so devices are where they were on coming back from the list.
+  // The map's chip opens the list with the keyboard; the Segmented control does not.
+  const [viaChip, setViaChip] = useState(false);
+  const [seats, setSeats] = useState<readonly Placement[]>([]);
   const views: SegmentOption<NearbyView>[] = VIEWS.map((value) => ({
     value,
     label: t(`nearby.views.${value}`),
@@ -55,7 +60,10 @@ export function NearbyScreen({
           label={t('nearby.show')}
           options={views}
           value={model.view}
-          onChange={on.onView}
+          onChange={(view) => {
+            setViaChip(false);
+            on.onView(view);
+          }}
         />
       }
     >
@@ -70,11 +78,23 @@ export function NearbyScreen({
               setPulse(false);
             }}
             onSelect={on.onSelect}
+            onMore={() => {
+              setViaChip(true);
+              on.onView('list');
+            }}
+            seats={seats}
+            onSeats={setSeats}
           >
             {selected === null ? looking : <DeviceCard device={selected} now={model.now} on={on} />}
           </NearbyMap>
         ) : (
-          <NearbyList here={model.here} away={model.away} now={model.now} on={on}>
+          <NearbyList
+            here={model.here}
+            away={model.away}
+            now={model.now}
+            on={on}
+            focusOnOpen={viaChip}
+          >
             {looking}
           </NearbyList>
         )}

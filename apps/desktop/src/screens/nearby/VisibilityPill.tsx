@@ -27,7 +27,13 @@ export function VisibilityPill({
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const pill = useRef<HTMLButtonElement>(null);
+  const text = useRef<HTMLSpanElement>(null);
   const menuId = useId();
+
+  // The pill cuts a long name short; the title carries it in full, as on the map.
+  useEffect(() => {
+    if (pill.current && text.current) pill.current.title = text.current.textContent;
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -74,7 +80,7 @@ export function VisibilityPill({
           className={cx('s-near__dot', visibility.choice === 'no_one' && 's-near__dot--off')}
           aria-hidden="true"
         />
-        <span>
+        <span className="s-near__pill-text" ref={text}>
           <Trans
             i18nKey={named ? 'nearby.visibility.pill' : 'nearby.visibility.pillUnnamed'}
             values={{ who, name: me }}

@@ -65,6 +65,9 @@ const ABOUT: About = {
   status_tray: true,
 };
 
+/** A computer name wider than the visibility pill's cap (`nearby-crowded`). */
+const LONG_COMPUTER_NAME = 'ana-render-workstation-third-floor-north-building-desk-14';
+
 /** The bell's notices at the start: a request, a finished move, an old one. */
 function seedNotices(nowSeconds: number): Notice[] {
   return [
@@ -206,7 +209,10 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
       }),
     recipesReset: () => later(() => fx.recipesStatus),
 
-    about: () => later(() => ABOUT),
+    about: () =>
+      later(() =>
+        scenario === 'nearby-crowded' ? { ...ABOUT, device_name: LONG_COMPUTER_NAME } : ABOUT,
+      ),
 
     settings: () => later(() => settings),
     saveSettings: (patch) =>

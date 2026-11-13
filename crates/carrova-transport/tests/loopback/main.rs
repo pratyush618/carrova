@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::net::UdpSocket;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -252,14 +252,66 @@ fn browsing_names_senders_only_while_they_offer_a_code() {
     listener
         .advertise_resume(&ResumeSecret::from_bytes([5; 32]))
         .unwrap();
-    // mDNS responders defer shared answers by up to 120 ms and resend
-    // goodbyes once after 120 ms: a pairing answer already queued (to
-    // another browser) may still go out after the switch.
-    thread::sleep(Duration::from_millis(250));
+    // No grace period: the switch withdrew the name before returning.
     assert!(
         !browsed_names().contains(&name),
         "resume adverts never carry the name"
     );
+}
+
+#[test]
+fn no_name_is_answered_once_the_code_offer_is_withdrawn() {
+    /// Stops the browsers however the test ends.
+    struct StopOnDrop(Arc<AtomicBool>);
+    impl Drop for StopOnDrop {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Relaxed);
+        }
+    }
+
+    if !loopback_broadcast_works() {
+        return;
+    }
+    let name = format!("withdraw-test-{}", unique_code().nameplate());
+    let mut listener = named_listener(&name);
+    let names = || -> Vec<String> {
+        browse(&*carrova_platform::current(), Duration::from_millis(300))
+            .unwrap()
+            .into_iter()
+            .filter_map(|n| n.advert.name)
+            .collect()
+    };
+    let stop = StopOnDrop(Arc::new(AtomicBool::new(false)));
+    // Browsers query all along, so answers are queued at every switch.
+    let browsers: Vec<_> = (0..3)
+        .map(|_| {
+            let stop = Arc::clone(&stop.0);
+            thread::spawn(move || {
+                while !stop.load(Ordering::Relaxed) {
+                    let _ = browse(&*carrova_platform::current(), Duration::from_millis(100));
+                }
+            })
+        })
+        .collect();
+    for round in 0..3 {
+        listener.advertise_pairing(&unique_code()).unwrap();
+        // Long enough for the advert to be probed and answered over mDNS.
+        thread::sleep(Duration::from_secs(1));
+        let found = names();
+        assert!(found.contains(&name), "round {round}: offered: {found:?}");
+        listener
+            .advertise_resume(&ResumeSecret::from_bytes([round; 32]))
+            .unwrap();
+        let found = names();
+        assert!(
+            !found.contains(&name),
+            "round {round}: withdrawn: {found:?}"
+        );
+    }
+    drop(stop);
+    for browser in browsers {
+        browser.join().unwrap();
+    }
 }
 
 #[test]
@@ -373,8 +425,8 @@ fn resume_with_a_wrong_secret_is_refused() {
 
 /// Answers every pairing query for `nameplate` with `port` on this host,
 /// like a spoofed sender would; stops when the returned flag is set.
-fn spoofed_broadcast_answer(nameplate: u16, port: u16) -> Arc<std::sync::atomic::AtomicBool> {
-    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+fn spoofed_broadcast_answer(nameplate: u16, port: u16) -> Arc<AtomicBool> {
+    let stop = Arc::new(AtomicBool::new(false));
     let socket = carrova_platform::current()
         .bind_broadcast_udp(BROADCAST_PORT)
         .unwrap();

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppGlyph, Badge, List, Row } from '../../ui';
 import { DeviceActions, useDeviceSub } from './DeviceCard';
@@ -20,7 +20,7 @@ function DeviceRows({
   if (devices.length === 0) return null;
   return (
     <section className="s-near__group">
-      <h2>{title}</h2>
+      <h2 tabIndex={-1}>{title}</h2>
       <List label={title}>
         {devices.map((device) => (
           <Row
@@ -53,18 +53,25 @@ export function NearbyList({
   away,
   now,
   on,
+  focusOnOpen = false,
   children,
 }: {
   readonly here: readonly DeviceEntry[];
   readonly away: readonly DeviceEntry[];
   readonly now: Date;
   readonly on: NearbyIntents;
+  /** Opened from the map's chip: the keyboard moves to the first heading. */
+  readonly focusOnOpen?: boolean;
   /** Above the rows: the "looking" note while nobody answers. */
   readonly children?: ReactNode;
 }) {
   const { t } = useTranslation();
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focusOnOpen) root.current?.querySelector<HTMLElement>('.s-near__group > h2')?.focus();
+  }, [focusOnOpen]);
   return (
-    <div className="s-near__list">
+    <div className="s-near__list" ref={root}>
       {children}
       <DeviceRows title={t('nearby.here')} devices={here} now={now} on={on} />
       <DeviceRows title={t('nearby.away')} devices={away} now={now} on={on} />

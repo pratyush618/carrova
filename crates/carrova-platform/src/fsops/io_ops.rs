@@ -8,6 +8,8 @@ use rustix::fs::CWD;
 
 use super::dir::open_dir_nofollow;
 use super::errno;
+#[cfg(any(test, target_os = "macos"))]
+use crate::notify_watch::DirId;
 use crate::{Allocation, DiskInfo, FsId, PlatformError};
 
 /// See [`crate::Platform::fs_id`].
@@ -15,6 +17,13 @@ pub(crate) fn fs_id(path: &Path) -> Result<FsId, PlatformError> {
     use std::os::unix::fs::MetadataExt;
     let meta = std::fs::metadata(path).map_err(|e| PlatformError::io(path, e))?;
     Ok(FsId::new(meta.dev()))
+}
+
+/// A dir's identity for the watch: its `(dev, ino)`.
+#[cfg(any(test, target_os = "macos"))]
+pub(crate) fn dir_id(_path: &Path, meta: &std::fs::Metadata) -> io::Result<DirId> {
+    use std::os::unix::fs::MetadataExt;
+    Ok(DirId(meta.dev(), meta.ino()))
 }
 
 /// See [`crate::Platform::free_space`]: `statvfs(2)` blocks available to

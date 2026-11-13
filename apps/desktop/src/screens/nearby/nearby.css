@@ -12,7 +12,7 @@
   block-size: 100%;
   min-block-size: 520px;
   overflow: hidden;
-  /* Field unit: 1px, shrunk so the outer orbit (290u) plus half a device pill fits a narrow field. */
+  /* Field unit: 1px, shrunk on a narrow field; which slots fit at each width is in spots.ts (`minField`). */
   container-type: inline-size;
   --u: min(1px, (50cqi - 96px) / 290);
   background: radial-gradient(
@@ -125,7 +125,7 @@
   translate: calc(-50% + var(--dx) * var(--k)) calc(-50% + var(--dy) * 1px);
 }
 
-/* Inner devices shrink less: at the narrowest field they must still clear this computer's label (half the widest pill, `PILL` in tests/screens/nearby/spots.test.ts, plus half the label). */
+/* Inner devices shrink less, so their side slots clear this computer's label on a narrow field (spots.ts, tests/screens/nearby/spots.test.ts). */
 .s-near__spot--inner {
   /* Keep 0.95 in sync with INNER_FLOOR in tests/screens/nearby/spots.test.ts. */
   --k: max(var(--u), 0.95px);
@@ -146,6 +146,8 @@
   border: 1px solid var(--border);
   box-shadow: var(--e-2);
   color: var(--text-primary);
+  /* Keep 164px in sync with PILL in tests/screens/nearby/spots.test.ts: slots are spaced for it. */
+  max-inline-size: 164px;
   font-size: var(--t-sm);
   text-align: start;
   white-space: nowrap;
@@ -158,8 +160,19 @@
   border-color: var(--border-strong);
 }
 
-.s-near__dev b {
+.s-near__dev-text {
+  min-inline-size: 0;
+}
+
+/* A long name is cut short; the pill's title and accessible name keep it whole. */
+.s-near__dev b,
+.s-near__dev small {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.s-near__dev b {
   font-weight: 650;
   line-height: var(--lh-tight);
 }
@@ -170,6 +183,7 @@
 }
 
 .s-near__dev-icon {
+  flex: none;
   display: grid;
   place-items: center;
   inline-size: 32px;
@@ -200,6 +214,28 @@
 
 .s-near__dev--away .s-near__dev-icon {
   opacity: 0.55;
+}
+
+/* Devices with no room on the map, summed up; it opens the list. */
+.s-near__more {
+  max-inline-size: 164px;
+  padding-block: 8px;
+  padding-inline: 14px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  box-shadow: var(--e-2);
+  color: var(--accent);
+  font-size: var(--t-sm);
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: border-color var(--dur-1) var(--ease);
+}
+
+.s-near__more:hover {
+  border-color: var(--border-strong);
 }
 
 /* The selected device's card, and the "looking" note, sit over the field. */
@@ -375,6 +411,14 @@
   font-size: var(--t-sm);
   color: var(--text-secondary);
   white-space: nowrap;
+  /* Keeps a long name out of the map's slots. */
+  max-inline-size: 300px;
+}
+
+.s-near__pill-text {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .s-near__pill b {
@@ -383,6 +427,7 @@
 }
 
 .s-near__pill > .p-icon {
+  flex: none;
   inline-size: 14px;
   block-size: 14px;
   rotate: 90deg;
@@ -393,6 +438,7 @@
 }
 
 .s-near__dot {
+  flex: none;
   inline-size: 7px;
   block-size: 7px;
   border-radius: 50%;
