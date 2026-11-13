@@ -166,7 +166,7 @@ This document covers *how and in what order* it gets built.
 
 ## Feature — Manual mode and "Send with Carrova" (merged, PR #7)
 
-**Goal:** the user picks exact files and folders (system picker, file-manager right-click, or `carrova send|export PATH...`); picks go through the same sensitive confirm, dry-run, staged apply and undo as Auto, and arrive unticked on the receiver with one "Accept all" for safe ones. Right-click entries on Linux, Windows and macOS are per-user and written only after the user agrees. Next release ships it for Linux; macOS/Windows release jobs stay off until signing is ready.
+**Goal:** the user picks exact files and folders (system picker, file-manager right-click, or `carrova send|export PATH...`); picks go through the same sensitive confirm, dry-run, staged apply and undo as Auto, and arrive unticked on the receiver with one "Accept all" for safe ones. Right-click entries on Linux, Windows and macOS are per-user and written only after the user agrees. v0.2.0 ships it on Linux, macOS and Windows (macOS/Windows packages unsigned until the signing secrets exist).
 
 Spec: `docs/superpowers/specs/2026-11-11-manual-mode-design.md` · Plan: `docs/superpowers/plans/2026-11-11-manual-mode.md`
 
