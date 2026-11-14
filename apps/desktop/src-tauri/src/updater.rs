@@ -7,12 +7,18 @@
 //! `restart_app`.
 
 use std::sync::Mutex;
+use std::time::Duration;
 
 use carrova_view::ipc::{ErrorCode, UpdateInfo, UpdateStatus};
 use tauri::{AppHandle, State};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
 use crate::command_error::CommandError;
+
+/// Longest wait for the release feed before the check reports a network error.
+const CHECK_TIMEOUT: Duration = Duration::from_secs(10);
+/// Ceiling on fetching the installer (~90 MB), so a stalled link fails instead of hanging.
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
 /// The feed's view of `update`, as the UI shows it.
 fn update_info(update: &Update) -> UpdateInfo {
@@ -63,7 +69,16 @@ pub async fn check_update(
     app: AppHandle,
     pending: State<'_, PendingUpdate>,
 ) -> Result<UpdateStatus, CommandError> {
-    let update = app.updater()?.check().await?;
+    let mut update = app
+        .updater_builder()
+        .timeout(CHECK_TIMEOUT)
+        .build()?
+        .check()
+        .await?;
+    // The check's timeout carries over to the download; a big file needs longer.
+    if let Some(update) = update.as_mut() {
+        update.timeout = Some(DOWNLOAD_TIMEOUT);
+    }
     let status = update.as_ref().map_or(UpdateStatus::UpToDate, |update| {
         UpdateStatus::Available(update_info(update))
     });
