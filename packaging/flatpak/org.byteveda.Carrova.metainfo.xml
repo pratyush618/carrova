@@ -43,6 +43,6 @@
   <content_rating type="oars-1.1"/>
   <!-- Flathub needs screenshots before submission: add <screenshots> with hosted PNG URLs. -->
   <releases>
-    <release version="0.2.1" date="2026-11-13"/>
+    <release version="0.2.2" date="2026-11-14"/>
   </releases>
 </component>
