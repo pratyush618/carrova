@@ -63,6 +63,8 @@
   display: grid;
   gap: var(--sp-3);
   align-content: start;
+  /* Rows hug their content: auto rows would squeeze clipped cards (lists) to fit the height. */
+  grid-auto-rows: max-content;
 }
 
 .p-sheet__foot {
