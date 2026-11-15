@@ -17,7 +17,7 @@ export function EcosystemToasts() {
   const { clip } = useLink();
   const port = usePort();
   const { ask, answer, failed, dismissFailure } = useAsks(port);
-  const { transfer, dismiss, retry } = useTransfers(port);
+  const { transfer, dismiss, retry, retryFailed, dismissRetryFailure } = useTransfers(port);
   const name = (id: string) =>
     linked.devices.find((d) => d.id === id)?.name ?? t('ecosystem.unknownDevice');
   return (
@@ -37,6 +37,13 @@ export function EcosystemToasts() {
           onDismiss={dismiss}
           onRetry={retry}
         />
+      )}
+      {retryFailed !== null && (
+        <Toast icon="warn" onDismiss={dismissRetryFailure}>
+          {retryFailed.away
+            ? t('ecosystem.transfer.retryAway', { name: name(retryFailed.device) })
+            : t('ecosystem.transfer.retryFailed')}
+        </Toast>
       )}
       {clip !== null && (
         <ClipToast

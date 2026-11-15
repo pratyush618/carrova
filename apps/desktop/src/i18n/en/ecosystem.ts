@@ -97,6 +97,8 @@ export const ecosystem = {
     refused: "{{name}} didn't take the file",
     failed: "{{file}} didn't arrive",
     retry: 'Retry',
+    retryAway: "{{name}} is still away. Retry once it's back.",
+    retryFailed: "Couldn't send the file again.",
   },
   history: {
     title: 'Clipboard',
