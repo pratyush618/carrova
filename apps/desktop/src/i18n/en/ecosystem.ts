@@ -18,6 +18,7 @@ export const ecosystem = {
       "It links again on its own when you're both on the same network. Your choices below are kept.",
     failed: "Couldn't change that. Try again.",
     ring: 'Ring',
+    stopRing: 'Stop ringing',
     sendFiles: 'Send files',
     sendClipboard: 'Send clipboard',
     clipSent: 'Clipboard sent to {{name}}',

@@ -49,12 +49,16 @@ export function DeviceRoute({ id }: { readonly id: string }) {
       <DevicePage
         device={device}
         failed={linked.failed}
+        ringing={linked.ringing.has(id)}
         on={{
           onFeature: (feature, state) => {
             linked.setFeature(id, feature, state);
           },
           onRing: () => {
             linked.ring(id).catch(failed);
+          },
+          onStopRing: () => {
+            linked.stopRing(id).catch(failed);
           },
           onSendClipboard: () => {
             linked.sendClipboard(id).then(() => {

@@ -121,3 +121,48 @@ describe('useLinkedDevices features', () => {
     ).toBe('ask');
   });
 });
+
+describe('useLinkedDevices ring', () => {
+  it('shows a ring in progress until it is stopped', async () => {
+    const port = createFakePort({ stepMs: 0, scenario: 'linked' });
+    const stop = vi.spyOn(port, 'stopRing');
+    const { hook } = setup(port);
+    await waitFor(() => {
+      expect(hook.result.current.devices).toHaveLength(2);
+    });
+    await act(() => hook.result.current.ring('p8'));
+    expect(hook.result.current.ringing.has('p8')).toBe(true);
+    await act(() => hook.result.current.stopRing('p8'));
+    expect(stop).toHaveBeenCalledWith('p8');
+    expect(hook.result.current.ringing.has('p8')).toBe(false);
+  });
+
+  it('ends a ring by itself after 30 seconds, and not before', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { hook } = setup(createFakePort({ stepMs: 0, scenario: 'linked' }));
+      await waitFor(() => {
+        expect(hook.result.current.devices).toHaveLength(2);
+      });
+      await act(() => hook.result.current.ring('p8'));
+      act(() => {
+        vi.advanceTimersByTime(29_000);
+      });
+      expect(hook.result.current.ringing.has('p8')).toBe(true);
+      act(() => {
+        vi.advanceTimersByTime(1_000);
+      });
+      expect(hook.result.current.ringing.has('p8')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows no ring when the ring was refused', async () => {
+    const port = createFakePort({ stepMs: 0, scenario: 'linked' });
+    vi.spyOn(port, 'ring').mockRejectedValue({ code: 'known_device', message: 'm', hint: null });
+    const { hook } = setup(port);
+    await act(() => hook.result.current.ring('p8').catch(() => undefined));
+    expect(hook.result.current.ringing.has('p8')).toBe(false);
+  });
+});

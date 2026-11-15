@@ -108,6 +108,7 @@ export function PhoneApp() {
               },
               // Computers cannot ring.
               onRing: () => undefined,
+              onStopRing: () => undefined,
               onSendClipboard: () => {
                 sendTo(device, sendClipboard, 'clipSent');
               },

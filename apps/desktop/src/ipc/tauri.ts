@@ -103,6 +103,7 @@ export function createTauriPort(): CarrovaPort {
     sendFiles: (id, paths) => call('send_files', { id, paths }),
     handoffUrl: (id, url) => call('handoff_url', { id, url }),
     ring: (id) => call('ring', { id }),
+    stopRing: (id) => call('stop_ring', { id }),
     clipHistory: () => call('clip_history'),
     clearClipHistory: () => call('clear_clip_history'),
     clipSettings: () => call('clip_settings'),

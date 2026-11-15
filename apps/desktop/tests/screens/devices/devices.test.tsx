@@ -12,6 +12,7 @@ import { revealDuration } from '@/ui/CodeDisplay/flaps';
 const deviceOn = (): DeviceIntents => ({
   onFeature: vi.fn(),
   onRing: vi.fn(),
+  onStopRing: vi.fn(),
   onSendClipboard: vi.fn(),
   onSendFiles: vi.fn(),
   onForget: vi.fn(),
@@ -45,6 +46,16 @@ describe('Device page', () => {
       within(screen.getByRole('radiogroup', { name: 'Files' })).getByRole('radio', { name: 'Off' }),
     );
     expect(on.onFeature).toHaveBeenCalledWith('files', 'off');
+  });
+
+  it('offers Stop ringing while the phone rings', async () => {
+    const user = userEvent.setup();
+    const on = deviceOn();
+    renderScreen(<DevicePage device={pixel} ringing on={on} />);
+    expect(screen.queryByRole('button', { name: 'Ring' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Stop ringing' }));
+    expect(on.onStopRing).toHaveBeenCalledOnce();
+    expect(on.onRing).not.toHaveBeenCalled();
   });
 
   it('dims the page and offers no actions while the device is away', () => {

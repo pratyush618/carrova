@@ -17,6 +17,9 @@ export interface Pairing {
   readonly cancel: () => void;
 }
 
+/** How long a phone rings (`carrova_link::ring::RING_SECONDS`); the ringer gets no event when it ends. */
+const RING_MS = 30_000;
+
 const CANCELLED: BridgeError = { code: 'cancelled', message: 'cancelled', hint: null };
 
 export interface LinkedController {
@@ -33,6 +36,10 @@ export interface LinkedController {
   /** Link a computer by its code, or by its pasted `carrova://pair?…` link. */
   readonly linkComputer: (ticket: string) => Pairing;
   readonly ring: (id: string) => Promise<void>;
+  /** Stop the ring this computer started. */
+  readonly stopRing: (id: string) => Promise<void>;
+  /** Devices this computer rang, until stopped or the ring runs out. */
+  readonly ringing: ReadonlySet<string>;
   readonly sendClipboard: (id: string) => Promise<void>;
   readonly sendFiles: (id: string, paths: string[]) => Promise<void>;
 }
@@ -142,7 +149,40 @@ export function useLinkedDevices(port: CarrovaPort): LinkedController {
     },
     [port, startPairing],
   );
-  const ring = useCallback((id: string) => port.ring(id), [port]);
+  const [ringing, setRinging] = useState<ReadonlySet<string>>(new Set());
+  const ringTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const ringEnded = useCallback((id: string) => {
+    clearTimeout(ringTimers.current.get(id));
+    ringTimers.current.delete(id);
+    setRinging((now) => new Set([...now].filter((d) => d !== id)));
+  }, []);
+  useEffect(() => {
+    const timers = ringTimers.current;
+    return () => {
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+  const ring = useCallback(
+    async (id: string) => {
+      await port.ring(id);
+      clearTimeout(ringTimers.current.get(id));
+      ringTimers.current.set(
+        id,
+        setTimeout(() => {
+          ringEnded(id);
+        }, RING_MS),
+      );
+      setRinging((now) => new Set(now).add(id));
+    },
+    [port, ringEnded],
+  );
+  const stopRing = useCallback(
+    async (id: string) => {
+      await port.stopRing(id);
+      ringEnded(id);
+    },
+    [port, ringEnded],
+  );
   const sendClipboard = useCallback((id: string) => port.sendClipboard(id), [port]);
   const sendFiles = useCallback((id: string, paths: string[]) => port.sendFiles(id, paths), [port]);
 
@@ -155,9 +195,23 @@ export function useLinkedDevices(port: CarrovaPort): LinkedController {
       pairDevice,
       linkComputer,
       ring,
+      stopRing,
+      ringing,
       sendClipboard,
       sendFiles,
     }),
-    [devices, reload, setFeature, failed, pairDevice, linkComputer, ring, sendClipboard, sendFiles],
+    [
+      devices,
+      reload,
+      setFeature,
+      failed,
+      pairDevice,
+      linkComputer,
+      ring,
+      stopRing,
+      ringing,
+      sendClipboard,
+      sendFiles,
+    ],
   );
 }

@@ -27,6 +27,8 @@ export interface DeviceDetailsProps {
   readonly device: LinkedDeviceView;
   /** The engine refused the last feature change. */
   readonly failed?: boolean;
+  /** This computer rang it and the ring still runs. */
+  readonly ringing?: boolean;
   readonly on: DeviceIntents;
 }
 
@@ -35,7 +37,7 @@ export interface DeviceDetailsProps {
  * (things that run quietly once on, things that ask every time), and the
  * few actions it offers now. Laid out by the page around it (desktop hub, phone).
  */
-export function DeviceDetails({ device, failed = false, on }: DeviceDetailsProps) {
+export function DeviceDetails({ device, failed = false, ringing = false, on }: DeviceDetailsProps) {
   const { t } = useTranslation();
   const here = device.state === 'linked';
   const rows = device.features.filter(isPhase1Row);
@@ -65,8 +67,8 @@ export function DeviceDetails({ device, failed = false, on }: DeviceDetailsProps
       {here && (
         <div className="s-device__acts">
           {device.os === 'android' && flows(device, 'ring') && (
-            <Button size="sm" icon="bell" onClick={on.onRing}>
-              {t('ecosystem.device.ring')}
+            <Button size="sm" icon="bell" onClick={ringing ? on.onStopRing : on.onRing}>
+              {t(ringing ? 'ecosystem.device.stopRing' : 'ecosystem.device.ring')}
             </Button>
           )}
           {flows(device, 'clipboard') && (

@@ -35,6 +35,7 @@ export const FEATURE_ICON: Readonly<Record<Phase1Feature, IconName>> = {
 export interface DeviceIntents {
   readonly onFeature: (feature: Feature, state: FeatureState) => void;
   readonly onRing: () => void;
+  readonly onStopRing: () => void;
   readonly onSendClipboard: () => void;
   /** Absent where this build has no file picker. */
   readonly onSendFiles?: () => void;
