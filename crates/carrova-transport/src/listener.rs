@@ -82,6 +82,9 @@ impl fmt::Debug for dyn KnownPeers {
 #[derive(Debug)]
 pub struct Listener {
     endpoint: quinn::Endpoint,
+    /// The endpoint's server config; each accept reuses it (and so its
+    /// retry-token key) with that accept's transport parameters.
+    config: quinn::ServerConfig,
     identity: Arc<Identity>,
     platform: Arc<dyn Platform>,
     device: Option<Arc<DeviceKey>>,
@@ -99,7 +102,8 @@ impl Listener {
     /// Bind the QUIC endpoint (IPv4) and start discovery responders.
     pub fn bind(opts: ListenOptions) -> Result<Self> {
         let identity = Arc::new(Identity::generate()?);
-        let endpoint = endpoint::server(opts.platform.as_ref(), &identity, opts.port)?;
+        let config = endpoint::server_config(&identity, endpoint::session_transport()?)?;
+        let endpoint = endpoint::server(opts.platform.as_ref(), config.clone(), opts.port)?;
         let port = endpoint::local_v4(&endpoint)?.port();
         let advertiser = if opts.discovery {
             // Unique per listener without extra randomness: the throwaway
@@ -116,6 +120,7 @@ impl Listener {
         };
         Ok(Self {
             endpoint,
+            config,
             identity,
             platform: opts.platform,
             device: opts.device,
@@ -276,7 +281,11 @@ impl Listener {
             Expected::Link { .. } => endpoint::link_transport(self.platform.as_ref())?,
             Expected::Pair { .. } | Expected::Resume { .. } => endpoint::session_transport()?,
         };
-        let config = endpoint::server_config(&self.identity, transport)?;
+        // A fresh config would carry a fresh retry-token key: a receiver
+        // retried under the previous one would never validate (it may not
+        // follow a second Retry) and stall until it times out.
+        let mut config = self.config.clone();
+        config.transport_config(transport);
         self.endpoint.set_server_config(Some(config));
         let deadline = Instant::now() + timeout;
         self.cancel.block_on(accept::accept(

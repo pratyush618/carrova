@@ -11,7 +11,12 @@ use crate::tuning::TLS_SERVER_NAME;
 /// (client, server); the endpoints must outlive them.
 async fn raw_pair() -> (quinn::Connection, quinn::Connection, [quinn::Endpoint; 2]) {
     let platform = carrova_platform::current();
-    let server_ep = endpoint::server(platform.as_ref(), &Identity::generate().unwrap(), 0).unwrap();
+    let config = endpoint::server_config(
+        &Identity::generate().unwrap(),
+        endpoint::session_transport().unwrap(),
+    )
+    .unwrap();
+    let server_ep = endpoint::server(platform.as_ref(), config, 0).unwrap();
     let port = endpoint::local_v4(&server_ep).unwrap().port();
     let (client_ep, cfg) =
         endpoint::client(platform.as_ref(), &Identity::generate().unwrap()).unwrap();

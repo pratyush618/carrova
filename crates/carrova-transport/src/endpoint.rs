@@ -78,14 +78,14 @@ fn endpoint(socket: UdpSocket, server: Option<quinn::ServerConfig>) -> Result<qu
     )?)
 }
 
-/// Sender endpoint on `port` (0 = any), accepting mutual-TLS connections.
+/// Sender endpoint on `port` (0 = any), accepting mutual-TLS connections
+/// with `config` ([`server_config`]).
 pub(crate) fn server(
     platform: &dyn Platform,
-    identity: &Identity,
+    config: quinn::ServerConfig,
     port: u16,
 ) -> Result<quinn::Endpoint> {
-    let cfg = server_config(identity, session_transport()?)?;
-    endpoint(udp_socket(platform, port)?, Some(cfg))
+    endpoint(udp_socket(platform, port)?, Some(config))
 }
 
 /// Server config for `identity` whose connections use `transport`.

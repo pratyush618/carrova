@@ -55,6 +55,21 @@ fn recv_times_out_without_losing_the_next_message() {
 }
 
 #[test]
+fn receiver_dialling_before_the_sender_accepts_still_pairs() {
+    let mut listener = direct_listener();
+    let code = PairingCode::generate().unwrap();
+    let t = ticket(&code, &listener);
+    // The receiver's first packet waits in the endpoint until the sender
+    // accepts, which answers it with a QUIC Retry.
+    let receiver =
+        thread::spawn(move || connect(Target::Pairing(&t), T, &ConnectOptions::default()));
+    thread::sleep(Duration::from_millis(200));
+    let sender = listener.accept_pairing(&code, T, || {});
+    assert!(receiver.join().unwrap().is_ok());
+    assert!(sender.is_ok());
+}
+
+#[test]
 fn wrong_code_fails_on_both_sides_and_burns_the_code() {
     let mut listener = direct_listener();
     let code = PairingCode::generate().unwrap();

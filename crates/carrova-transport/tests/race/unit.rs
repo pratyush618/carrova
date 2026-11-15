@@ -55,7 +55,9 @@ mod one_sender {
         fn start() -> Self {
             let platform = carrova_platform::current();
             let identity = Identity::generate().unwrap();
-            let ep = endpoint::server(platform.as_ref(), &identity, 0).unwrap();
+            let config =
+                endpoint::server_config(&identity, endpoint::session_transport().unwrap()).unwrap();
+            let ep = endpoint::server(platform.as_ref(), config, 0).unwrap();
             let port = endpoint::local_v4(&ep).unwrap().port();
             let hellos = Arc::new(AtomicUsize::new(0));
             let (accepting, counter) = (ep.clone(), Arc::clone(&hellos));
@@ -335,7 +337,9 @@ mod real_sender {
     fn closing_sender() -> (quinn::Endpoint, u16) {
         let platform = carrova_platform::current();
         let identity = Identity::generate().unwrap();
-        let ep = endpoint::server(platform.as_ref(), &identity, 0).unwrap();
+        let config =
+            endpoint::server_config(&identity, endpoint::session_transport().unwrap()).unwrap();
+        let ep = endpoint::server(platform.as_ref(), config, 0).unwrap();
         let port = endpoint::local_v4(&ep).unwrap().port();
         let accepting = ep.clone();
         runtime().unwrap().spawn(async move {

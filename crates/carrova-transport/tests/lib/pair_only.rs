@@ -53,7 +53,9 @@ fn pair_only_without_identify_rejected() {
 fn wrong_pin_receiver_never_sends_its_identify() {
     let identity = Identity::generate().unwrap();
     let platform = carrova_platform::current();
-    let ep = endpoint::server(platform.as_ref(), &identity, 0).unwrap();
+    let config =
+        endpoint::server_config(&identity, endpoint::session_transport().unwrap()).unwrap();
+    let ep = endpoint::server(platform.as_ref(), config, 0).unwrap();
     let code = PairingCode::generate().unwrap();
     let ticket = Ticket {
         code: code.clone(),
