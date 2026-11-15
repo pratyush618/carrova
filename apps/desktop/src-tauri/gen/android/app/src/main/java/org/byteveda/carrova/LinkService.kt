@@ -62,7 +62,7 @@ class LinkService : Service() {
             else -> getString(R.string.link_running, shown.devices.joinToString(", "))
         }
         val builder = Notification.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_stat_link)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setContentIntent(activity(Intent(this, MainActivity::class.java)))
@@ -77,7 +77,7 @@ class LinkService : Service() {
     }
 
     private fun action(title: Int, intent: PendingIntent): Notification.Action =
-        Notification.Action.Builder(Icon.createWithResource(this, R.mipmap.ic_launcher), getString(title), intent)
+        Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_stat_link), getString(title), intent)
             .build()
 
     private fun activity(intent: Intent): PendingIntent = PendingIntent.getActivity(
