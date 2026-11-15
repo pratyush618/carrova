@@ -4,6 +4,7 @@ import { useHost } from '../../../engine/host';
 import { usePort } from '../../../engine/port';
 import { toBridgeError } from '../../../engine/errors';
 import { useClipHistory } from '../../../flows/ecosystem/useClipHistory';
+import type { Pairing } from '../../../flows/ecosystem/useLinkedDevices';
 import { ClipHistorySheet } from '../../../screens/clipboard/ClipHistorySheet';
 import { AddPhoneDialog } from '../../../screens/devices/AddPhoneDialog';
 import { DevicePage } from '../../../screens/devices/DevicePage';
@@ -95,27 +96,23 @@ export function AddPhoneOverlay() {
   const invite = useInvite();
   const [attempt, setAttempt] = useState(() => Date.now());
   const [end, setEnd] = useState<PairEnd | null>(null);
-  const { pairPhone, cancelPairing } = linked;
+  const { pairPhone } = linked;
   useEffect(() => {
-    let waiting = true;
-    pairPhone().then(
+    const pairing = pairPhone();
+    let live = true;
+    pairing.done.then(
       (device) => {
-        waiting = false;
-        setEnd({ state: 'linked', id: device?.id ?? null, name: device?.name ?? null });
+        if (live) setEnd({ state: 'linked', id: device?.id ?? null, name: device?.name ?? null });
       },
       (reason: unknown) => {
-        if (!waiting) return;
-        waiting = false;
-        if (toBridgeError(reason).code !== 'cancelled') setEnd({ state: 'failed' });
+        if (live && toBridgeError(reason).code !== 'cancelled') setEnd({ state: 'failed' });
       },
     );
     return () => {
-      if (waiting) {
-        waiting = false;
-        cancelPairing();
-      }
+      live = false;
+      pairing.cancel();
     };
-  }, [pairPhone, cancelPairing, attempt]);
+  }, [pairPhone, attempt]);
   const current = invite !== null && invite.receivedAt >= attempt ? invite : null;
   const expiresAt = current === null ? 0 : current.receivedAt + current.view.expires_in_s * 1000;
   const seconds = useSecondsLeft(expiresAt);
@@ -157,13 +154,12 @@ export function LinkComputerOverlay() {
   const [code, setCode] = useState('');
   const [state, setState] = useState<LinkComputerState>('typing');
   const [id, setId] = useState<string | null>(null);
-  const { cancelPairing } = linked;
-  const pending = useRef(false);
+  const pairing = useRef<Pairing | null>(null);
   useEffect(
     () => () => {
-      if (pending.current) cancelPairing();
+      pairing.current?.cancel();
     },
-    [cancelPairing],
+    [],
   );
   return (
     <LinkComputerDialog
@@ -174,21 +170,16 @@ export function LinkComputerOverlay() {
         onCancel: nav.close,
         onLink: () => {
           setState('linking');
-          pending.current = true;
-          linked
-            .linkComputer(code)
-            .then(
-              (device) => {
-                setId(device?.id ?? null);
-                setState('linked');
-              },
-              (reason: unknown) => {
-                if (toBridgeError(reason).code !== 'cancelled') setState('failed');
-              },
-            )
-            .finally(() => {
-              pending.current = false;
-            });
+          pairing.current = linked.linkComputer(code);
+          pairing.current.done.then(
+            (device) => {
+              setId(device?.id ?? null);
+              setState('linked');
+            },
+            (reason: unknown) => {
+              if (toBridgeError(reason).code !== 'cancelled') setState('failed');
+            },
+          );
         },
         onOpen: () => {
           if (id === null) nav.close();
