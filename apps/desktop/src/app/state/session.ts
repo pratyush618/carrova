@@ -155,6 +155,7 @@ export function applyEvent(session: SessionProgress, event: EngineEvent): Sessio
     case 'clip_skipped':
     case 'file_progress':
     case 'file_saved':
+    case 'file_sent':
     case 'file_failed':
     case 'handoff_opened':
     case 'ring_started':

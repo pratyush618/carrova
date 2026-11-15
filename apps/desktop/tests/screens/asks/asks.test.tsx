@@ -60,6 +60,7 @@ describe('Asks', () => {
       total: 1024,
       state: { kind: 'active' },
       dismissed: false,
+      sent: false,
     } as const;
     const { rerender } = renderScreen(
       <TransferToast device="Pixel 8" transfer={transfer} onDismiss={vi.fn()} onRetry={vi.fn()} />,
@@ -76,6 +77,27 @@ describe('Asks', () => {
     expect(screen.getByText('report.pdf saved to Downloads')).toBeInTheDocument();
   });
 
+  it('says a sent file arrived on the other device', () => {
+    renderScreen(
+      <TransferToast
+        device="Pixel 8"
+        transfer={{
+          device: 'p8',
+          id: 1,
+          file_name: '',
+          done: 9,
+          total: 9,
+          state: { kind: 'done' },
+          dismissed: false,
+          sent: true,
+        }}
+        onDismiss={vi.fn()}
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Sent to Pixel 8')).toBeInTheDocument();
+  });
+
   it('says neutrally that a file was not taken (declined, expired or switched off there)', () => {
     renderScreen(
       <TransferToast
@@ -88,6 +110,7 @@ describe('Asks', () => {
           total: 9,
           state: { kind: 'failed', reason: 'refused', retry: false },
           dismissed: false,
+          sent: false,
         }}
         onDismiss={vi.fn()}
         onRetry={vi.fn()}
@@ -105,6 +128,7 @@ describe('Asks', () => {
       total: 9,
       state: { kind: 'failed', reason: 'device_left', retry },
       dismissed: false,
+      sent: false,
     }) as const;
 
   it('offers Retry for a file whose device left, and sends it again', async () => {

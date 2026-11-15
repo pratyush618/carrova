@@ -22,6 +22,8 @@ export interface Transfer {
   readonly state: TransferState;
   /** The user closed its note; it stays (keeping its total) until it finishes. */
   readonly dismissed: boolean;
+  /** This device sent it and the other side saved it. */
+  readonly sent: boolean;
 }
 
 /** A clip note: this computer's clipboard kept here and why, or a device's that arrived. */
@@ -72,6 +74,7 @@ function updateTransfer(
       total: 0,
       state: { kind: 'active' },
       dismissed: false,
+      sent: false,
     },
   );
   const transfers = old
@@ -118,6 +121,13 @@ export function applyLinkEvent(link: LinkState, event: EngineEvent): LinkState {
         file_name: baseName(event.path),
         done: t.total,
         state: { kind: 'done' },
+      }));
+    case 'file_sent':
+      return updateTransfer(link, event.device, event.id, (t) => ({
+        ...t,
+        done: t.total,
+        state: { kind: 'done' },
+        sent: true,
       }));
     case 'file_failed':
       return updateTransfer(link, event.device, event.id, (t) => ({

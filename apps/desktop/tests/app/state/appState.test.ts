@@ -177,6 +177,7 @@ describe('appReducer peer facts', () => {
         total: 9,
         state: { kind: 'done' },
         dismissed: false,
+        sent: false,
       },
     ]);
     expect(state.link.clip?.note).toEqual({ kind: 'skipped', reason: 'sensitive' });
@@ -210,6 +211,30 @@ describe('appReducer peer facts', () => {
 
     state = link(state, { event: 'file_saved', device: 'p8', id: 2, path: '/d/b.pdf' });
     expect(state.link.transfers.map((t) => t.id)).toEqual([1]);
+  });
+
+  it('finishes a sent file once the other side saved it, and lets it go when dismissed', () => {
+    const link = (state: AppState, event: EngineEvent) =>
+      appReducer(state, { type: 'engine', session: LINK_SESSION, event });
+    let state = link(initialAppState, {
+      event: 'file_progress',
+      device: 'p8',
+      id: 4,
+      done: 9,
+      total: 9,
+    });
+    state = appReducer(state, { type: 'transfer_dismissed', device: 'p8', id: 4 });
+    state = link(state, { event: 'file_progress', device: 'p8', id: 5, done: 3, total: 9 });
+    state = link(state, { event: 'file_sent', device: 'p8', id: 5 });
+    expect(state.link.transfers.find((t) => t.id === 5)).toMatchObject({
+      done: 9,
+      total: 9,
+      state: { kind: 'done' },
+      sent: true,
+    });
+    // The dismissed one still waits for its end, then goes.
+    state = link(state, { event: 'file_sent', device: 'p8', id: 4 });
+    expect(state.link.transfers.map((t) => t.id)).toEqual([5]);
   });
 
   it('dismissing the newest finished transfer also lets the older finished ones go', () => {

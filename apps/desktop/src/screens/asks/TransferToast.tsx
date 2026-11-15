@@ -3,7 +3,7 @@ import type { Transfer } from '../../app/state/appState';
 import { useFormat } from '../../i18n/useFormat';
 import { Button, Progress, Toast } from '../../ui';
 
-/** A file moving with a linked device: progress, then saved or why it stopped. */
+/** A file moving with a linked device: progress, then saved (or sent) or why it stopped. */
 export function TransferToast({
   device,
   transfer,
@@ -38,7 +38,13 @@ export function TransferToast({
         </Toast>
       );
     case 'done':
-      return <Toast onDismiss={onDismiss}>{t('ecosystem.transfer.saved', { file })}</Toast>;
+      return (
+        <Toast onDismiss={onDismiss}>
+          {transfer.sent
+            ? t('ecosystem.transfer.sent', { name: device })
+            : t('ecosystem.transfer.saved', { file })}
+        </Toast>
+      );
     case 'failed':
       return (
         <Toast

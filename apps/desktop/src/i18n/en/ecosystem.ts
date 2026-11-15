@@ -105,6 +105,7 @@ export const ecosystem = {
     with: '{{file}} · {{name}}',
     label: 'File with {{name}}',
     saved: '{{file}} saved to Downloads',
+    sent: 'Sent to {{name}}',
     device_left: '{{name}} went away. The file stopped.',
     refused: "{{name}} didn't take the file",
     failed: "{{file}} didn't arrive",
