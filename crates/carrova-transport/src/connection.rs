@@ -198,11 +198,19 @@ impl Connection {
         self.close = CloseCode::Cancelled;
     }
 
-    /// Like [`Self::close`], telling the peer a newer link between the
-    /// same two devices replaced this one: its pending and later calls
+    /// Close at once, though other threads share the connection (a
+    /// link): pending and later calls on both sides end, here with
+    /// [`TransportError::PeerLost`]; the peer reads it as a normal close.
+    /// Nothing still unsent is delivered.
+    pub fn close_now(&self) {
+        CloseCode::Normal.close(&self.conn);
+    }
+
+    /// Like [`Self::close_now`], telling the peer a newer link between
+    /// the same two devices replaced this one: its pending and later calls
     /// end with [`TransportError::Superseded`].
-    pub fn close_superseded(mut self) {
-        self.close = CloseCode::Superseded;
+    pub fn close_superseded(&self) {
+        CloseCode::Superseded.close(&self.conn);
     }
 }
 
