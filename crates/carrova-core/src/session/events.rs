@@ -1,9 +1,12 @@
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Mutex;
 
+use carrova_crypto::identity::DeviceId;
 use serde::{Deserialize, Serialize};
 
 use crate::checklist::Checklist;
+use crate::ecosystem::{AskId, AskKind, ClipSkip, FileFailure};
 use crate::key::ItemKey;
 use crate::lan::{Inventory, PlanSummary};
 use crate::session::{Phase, SessionId, State};
@@ -105,6 +108,86 @@ pub enum Event {
     DeviceRemembered {
         name: String,
         fingerprint: String,
+    },
+    /// A linked device connected (not repeated when a newer connection
+    /// replaces a live one).
+    LinkUp {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+    },
+    /// The link to a device closed; `retrying` while this side redials.
+    LinkDown {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        retrying: bool,
+    },
+    /// A linked device's policy arrived or changed.
+    PolicyChanged {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+    },
+    /// A device offers something that needs the user's answer
+    /// ([`crate::ecosystem::Supervisor::answer`]).
+    AskReceived {
+        ask: AskId,
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        kind: AskKind,
+    },
+    /// An ask went unanswered (or its link closed); answering it now fails.
+    AskExpired {
+        ask: AskId,
+    },
+    /// A device's clipboard arrived and replaced this one's.
+    ClipReceived {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+    },
+    /// This clipboard reached a device.
+    ClipSent {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+    },
+    /// The clipboard was not shared.
+    ClipSkipped {
+        reason: ClipSkip,
+    },
+    /// Bytes of file `id` sent to or received from a device so far.
+    FileProgress {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        id: u64,
+        done: u64,
+        total: u64,
+    },
+    /// File `id` from a device was saved at `path` (in Downloads).
+    FileSaved {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        id: u64,
+        path: PathBuf,
+    },
+    /// File `id` to or from a device did not arrive.
+    FileFailed {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        id: u64,
+        reason: FileFailure,
+    },
+    /// A device's handed-off link or file was opened here.
+    HandoffOpened {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+    },
+    /// A device made this one ring.
+    RingStarted {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+    },
+    /// A device stopped this one ringing.
+    RingStopped {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
     },
 }
 

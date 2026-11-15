@@ -1,0 +1,210 @@
+//! Two linked devices in one process: each its own home, state dir,
+//! recording platform, event sink and fake presence source.
+
+use std::net::{Ipv4Addr, SocketAddrV4};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
+use std::thread;
+use std::time::{Duration, Instant};
+
+use carrova_core::devices::{DeviceRecord, KnownDevices};
+use carrova_core::ecosystem::{PeerSource, PolicyStore, SeenPeer, Supervisor, SupervisorConfig};
+use carrova_core::{Engine, Event};
+use carrova_crypto::identity::{DeviceId, DeviceKey};
+use carrova_crypto::pairing::KnownSecret;
+use carrova_link::PolicyDoc;
+use carrova_platform::OsKind;
+use carrova_platform::fake::FakePlatform;
+use carrova_transport::{ConnectOptions, Connection, Target, connect};
+use tempfile::TempDir;
+
+use super::recording::Recording;
+use crate::lan_support::HookSink;
+
+/// Every wait in these tests gives up after this long.
+pub const T: Duration = Duration::from_secs(20);
+
+/// A presence source the test controls; counts how often it was asked.
+#[derive(Debug, Default)]
+pub struct FakeSource {
+    seen: Mutex<Vec<SeenPeer>>,
+    asked: AtomicUsize,
+}
+
+impl FakeSource {
+    pub fn set(&self, seen: Vec<SeenPeer>) {
+        *self.seen.lock().unwrap_or_else(PoisonError::into_inner) = seen;
+    }
+
+    /// Wait until the supervisor asked `more` more times than now (it has
+    /// run that many maintenance rounds).
+    pub fn wait_rounds(&self, more: usize) {
+        let target = self.asked.load(Ordering::SeqCst) + more;
+        wait_until("maintenance rounds", || {
+            self.asked.load(Ordering::SeqCst) >= target
+        });
+    }
+}
+
+impl PeerSource for FakeSource {
+    fn seen(&self) -> Vec<SeenPeer> {
+        self.asked.fetch_add(1, Ordering::SeqCst);
+        self.seen
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+}
+
+pub struct Device {
+    _tmp: TempDir,
+    pub home: PathBuf,
+    pub platform: Arc<Recording>,
+    pub sink: Arc<HookSink>,
+    pub engine: Engine,
+    pub id: DeviceId,
+    pub source: Arc<FakeSource>,
+}
+
+impl Device {
+    fn new(name: &str) -> Self {
+        let tmp = TempDir::new().unwrap();
+        let home = tmp.path().join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        let fake = FakePlatform::with_home(&home)
+            .with_state_dir(tmp.path().join("state/carrova"))
+            .with_device_name(name);
+        let platform = Arc::new(Recording::new(fake));
+        let sink = Arc::new(HookSink::default());
+        let engine = Engine::new(platform.clone(), Vec::new(), sink.clone());
+        let id = KnownDevices::open(&*platform)
+            .unwrap()
+            .device_key(&*platform)
+            .unwrap()
+            .public();
+        Self {
+            _tmp: tmp,
+            home,
+            platform,
+            sink,
+            engine,
+            id,
+            source: Arc::new(FakeSource::default()),
+        }
+    }
+
+    pub fn key(&self) -> Arc<DeviceKey> {
+        let known = KnownDevices::open(&*self.platform).unwrap();
+        Arc::new(known.device_key(&*self.platform).unwrap())
+    }
+
+    pub fn start(&self, config: SupervisorConfig) -> Supervisor {
+        Supervisor::start_with(self.engine.clone(), self.source.clone(), config).unwrap()
+    }
+
+    pub fn set_policy(&self, peer: &DeviceId, doc: &PolicyDoc) {
+        let store = PolicyStore::open(&*self.platform).unwrap();
+        store.put(&*self.platform, peer, doc).unwrap();
+    }
+
+    /// This device's presence source reports `peer` at `sup`'s port.
+    pub fn sees(&self, peer: &Device, sup: &Supervisor) {
+        self.source.set(vec![SeenPeer {
+            id: peer.id,
+            addr: SocketAddrV4::new(Ipv4Addr::LOCALHOST, sup.port()),
+        }]);
+    }
+
+    pub fn forget(&self, peer: &DeviceId) {
+        let known = KnownDevices::open(&*self.platform).unwrap();
+        assert!(known.forget(&*self.platform, peer).unwrap());
+    }
+
+    pub fn events(&self) -> Vec<Event> {
+        self.sink.events()
+    }
+
+    pub fn count(&self, f: impl Fn(&Event) -> bool) -> usize {
+        self.events().iter().filter(|e| f(e)).count()
+    }
+
+    pub fn wait(&self, what: &str, f: impl Fn(&Event) -> bool) -> Event {
+        let mut found = None;
+        wait_until(what, || {
+            found = self.events().into_iter().find(&f);
+            found.is_some()
+        });
+        found.unwrap()
+    }
+
+    /// Dial `peer`'s supervisor as this device, outside any supervisor.
+    pub fn dial(&self, peer: &Device, sup: &Supervisor, secret: &KnownSecret) -> Connection {
+        connect(
+            Target::Link {
+                peer: &peer.id,
+                secret,
+                addr: SocketAddrV4::new(Ipv4Addr::LOCALHOST, sup.port()),
+            },
+            T,
+            &ConnectOptions {
+                platform: self.platform.clone(),
+                device: Some(self.key()),
+                cancel: None,
+            },
+        )
+        .unwrap()
+    }
+}
+
+/// Poll `done` until it holds; panics after [`T`].
+pub fn wait_until(what: &str, mut done: impl FnMut() -> bool) {
+    let until = Instant::now() + T;
+    while !done() {
+        assert!(Instant::now() < until, "timed out waiting for {what}");
+        thread::sleep(Duration::from_millis(20));
+    }
+}
+
+/// Two devices that know each other (one shared secret), each on `doc`
+/// for the other: `(low, high, secret)`, the low key dials (ADR 0002 §4).
+pub fn pair(doc: &PolicyDoc) -> (Device, Device, KnownSecret) {
+    let (mut low, mut high) = (Device::new("Low"), Device::new("High"));
+    if low.id.as_bytes() > high.id.as_bytes() {
+        std::mem::swap(&mut low, &mut high);
+    }
+    let secret = KnownSecret::from_bytes([7; 32]);
+    for (me, other, name) in [(&low, &high, "High"), (&high, &low, "Low")] {
+        let known = KnownDevices::open(&*me.platform).unwrap();
+        let record = DeviceRecord {
+            public: other.id,
+            name: name.to_owned(),
+            os: OsKind::Linux,
+            first_seen: 1,
+            last_move: None,
+            moves: 0,
+            mac_hint: None,
+        };
+        known.remember(&*me.platform, record, &secret).unwrap();
+        me.set_policy(&other.id, doc);
+    }
+    (low, high, secret)
+}
+
+/// Fast rounds and backoff, so the tests run in seconds.
+pub fn fast() -> SupervisorConfig {
+    SupervisorConfig {
+        tick: Duration::from_millis(50),
+        backoff_min: Duration::from_millis(50),
+        backoff_max: Duration::from_millis(400),
+        ..SupervisorConfig::default()
+    }
+}
+
+/// Both supervisors started, each seeing the other: `(low's, high's)`.
+pub fn start_both(low: &Device, high: &Device) -> (Supervisor, Supervisor) {
+    let (sl, sh) = (low.start(fast()), high.start(fast()));
+    low.sees(high, &sh);
+    high.sees(low, &sl);
+    (sl, sh)
+}

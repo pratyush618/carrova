@@ -144,6 +144,21 @@ export function applyEvent(session: SessionProgress, event: EngineEvent): Sessio
     case 'conflict_found':
     case 'device_remembered':
     case 'action_applied':
+    // Linked-device events belong to no move session.
+    case 'link_up':
+    case 'link_down':
+    case 'policy_changed':
+    case 'ask_received':
+    case 'ask_expired':
+    case 'clip_received':
+    case 'clip_sent':
+    case 'clip_skipped':
+    case 'file_progress':
+    case 'file_saved':
+    case 'file_failed':
+    case 'handoff_opened':
+    case 'ring_started':
+    case 'ring_stopped':
       return session;
   }
 }

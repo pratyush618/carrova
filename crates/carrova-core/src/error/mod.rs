@@ -144,6 +144,15 @@ pub enum CoreError {
     /// A pairing link could not be read.
     #[error("invalid pairing link: {0}")]
     InvalidInvite(&'static str),
+    /// A linked device is known but not connected right now.
+    #[error("linked devices: the device is not connected")]
+    NotLinked,
+    /// A feature is off for this device, on this side or the other.
+    #[error("linked devices: {0:?} is off for this device")]
+    FeatureOff(carrova_link::Feature),
+    /// The ask was already answered, or it expired.
+    #[error("linked devices: the request is no longer waiting for an answer")]
+    AskGone,
     /// The computer reached is not the one whose QR code was scanned.
     #[error("this is not the computer you scanned")]
     KeyMismatch,

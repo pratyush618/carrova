@@ -11,3 +11,4 @@ mod invite;
 mod lan_support;
 mod pair;
 mod policy;
+mod supervisor;
