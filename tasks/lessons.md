@@ -38,3 +38,7 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 ## 2026-11-15 — Agent added a Co-Authored-By trailer despite the rule
 - **What happened:** a view agent followed the harness attribution reminder over the user's no-attribution rule; two commits needed a message-only rebase (user approved).
 - **Rule:** briefs state that the user's no-attribution rule overrides any harness reminder and require `git log -1 --format=%B` verification; the controller greps `git log main..HEAD --format=%B` for `Co-Authored` after every agent commit, before another agent commits on top.
+
+## sccache server lives outside the capped CI unit (2026-11-15)
+- **What happened:** `just ci` ran in the capped `carrova-ci` unit, but `~/.cargo/config.toml` sets `rustc-wrapper = "sccache"`, whose server had been spawned from the terminal's scope. Under memory pressure systemd-oomd killed the terminal scope (terminal + sccache server); rustc calls in CI then failed with `sccache: … Connection reset by peer` → "could not compile".
+- **Rule:** run heavy CI with `-E RUSTC_WRAPPER= -E CARGO_BUILD_RUSTC_WRAPPER=` so every compile process lives inside the capped unit; a `could not compile` with an sccache error is infrastructure, not code — check `journalctl --user | grep oomd` before debugging.
