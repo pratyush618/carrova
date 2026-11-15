@@ -28,6 +28,7 @@ mod screen;
 #[path = "../../tests/linux/unit.rs"]
 mod tests;
 mod watch;
+mod x11;
 
 /// Snapshot of the environment variables the adapter depends on.
 #[derive(Debug, Clone, Default)]

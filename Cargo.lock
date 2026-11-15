@@ -810,6 +810,7 @@ dependencies = [
  "winapi-util",
  "winreg",
  "wl-clipboard-rs",
+ "x11rb",
  "zbus 5.19.0",
 ]
 

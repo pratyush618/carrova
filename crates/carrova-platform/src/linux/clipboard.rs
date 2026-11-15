@@ -4,6 +4,7 @@
 
 use std::collections::HashSet;
 use std::io::Read;
+use std::sync::OnceLock;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread;
 use std::time::Duration;
@@ -11,7 +12,7 @@ use std::time::Duration;
 use wl_clipboard_rs::copy::{self, Options, Source};
 use wl_clipboard_rs::paste::{self, ClipboardType, Seat};
 
-use super::LinuxPlatform;
+use super::{LinuxPlatform, x11};
 use crate::{ClipContent, ClipKind, ClipboardWatch, PlatformError};
 
 #[cfg(test)]
@@ -38,12 +39,30 @@ pub(super) enum Clipboard {
 
 impl LinuxPlatform {
     pub(super) fn clipboard(&self) -> Clipboard {
-        if self.env.wayland_display.is_some() {
-            Clipboard::Wayland
-        } else {
-            Clipboard::X11
-        }
+        select(self.env.wayland_display.is_some(), data_control_supported)
     }
+}
+
+/// Wayland if the session has a compositor that `data_control` says serves
+/// the clipboard to background apps; else X11 (XWayland on GNOME, whose
+/// Mutter has no data-control protocol).
+fn select(wayland_session: bool, data_control: impl FnOnce() -> bool) -> Clipboard {
+    if wayland_session && data_control() {
+        Clipboard::Wayland
+    } else {
+        Clipboard::X11
+    }
+}
+
+/// Whether the compositor offers data-control; asked once per process.
+fn data_control_supported() -> bool {
+    static SUPPORTED: OnceLock<bool> = OnceLock::new();
+    *SUPPORTED.get_or_init(|| {
+        !matches!(
+            paste::get_mime_types(ClipboardType::Regular, Seat::Unspecified),
+            Err(paste::Error::MissingProtocol { .. })
+        )
+    })
 }
 
 impl Clipboard {
@@ -91,8 +110,15 @@ impl Clipboard {
 
 /// Whether the clipboard's `mimes` carry the password-manager hint;
 /// `read_hint` yields the hint's content and runs only if it is offered.
-pub(super) fn is_sensitive(mimes: &HashSet<String>, read_hint: impl FnOnce() -> Vec<u8>) -> bool {
-    mimes.contains(HINT_MIME) && read_hint().trim_ascii() == SECRET
+/// A hint that is offered but cannot be read counts as set: fail closed.
+pub(super) fn is_sensitive<E>(
+    mimes: &HashSet<String>,
+    read_hint: impl FnOnce() -> Result<Vec<u8>, E>,
+) -> bool {
+    mimes.contains(HINT_MIME)
+        && read_hint()
+            .map(|hint| hint.trim_ascii() == SECRET)
+            .unwrap_or(true)
 }
 
 fn clipboard_err(e: impl std::fmt::Display) -> PlatformError {
@@ -114,7 +140,7 @@ fn read_wayland() -> Result<Option<ClipContent>, PlatformError> {
     };
     let bytes = wayland_bytes(wanted)?;
     let sensitive = is_sensitive(&mimes, || {
-        wayland_bytes(paste::MimeType::Specific(HINT_MIME)).unwrap_or_default()
+        wayland_bytes(paste::MimeType::Specific(HINT_MIME))
     });
     Ok(Some(ClipContent {
         kind,
@@ -152,15 +178,17 @@ fn write_wayland(content: &ClipContent) -> Result<(), PlatformError> {
 
 // shortcut: X11 syncs text only (arboard's image data is raw RGBA), PNG needs an encoder.
 fn read_x11() -> Result<Option<ClipContent>, PlatformError> {
-    match arboard::Clipboard::new().map_err(clipboard_err)?.get_text() {
-        Ok(text) => Ok(Some(ClipContent {
-            kind: ClipKind::Text,
-            bytes: text.into_bytes(),
-            sensitive: false,
-        })),
-        Err(arboard::Error::ContentNotAvailable) => Ok(None),
-        Err(e) => Err(clipboard_err(e)),
-    }
+    let text = match arboard::Clipboard::new().map_err(clipboard_err)?.get_text() {
+        Ok(text) => text,
+        Err(arboard::Error::ContentNotAvailable) => return Ok(None),
+        Err(e) => return Err(clipboard_err(e)),
+    };
+    let sensitive = is_sensitive(&x11::targets()?, || x11::selection(HINT_MIME));
+    Ok(Some(ClipContent {
+        kind: ClipKind::Text,
+        bytes: text.into_bytes(),
+        sensitive,
+    }))
 }
 
 fn write_x11(content: &ClipContent) -> Result<(), PlatformError> {

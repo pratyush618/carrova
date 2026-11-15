@@ -27,6 +27,7 @@ zbus = { workspace = true }
 # Clipboard: X11 text, Wayland data-control, content hash for the change poll.
 arboard = { workspace = true }
 blake3 = { workspace = true }
+x11rb = { workspace = true }
 wl-clipboard-rs = { workspace = true }
 
 # Directory watch (FSEvents, ReadDirectoryChangesW).
