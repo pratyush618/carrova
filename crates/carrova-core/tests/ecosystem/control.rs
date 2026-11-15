@@ -13,7 +13,7 @@ use carrova_core::ecosystem::{
 };
 use carrova_core::{CoreError, Engine, Event};
 use carrova_link::{ClipItem, PolicyDoc};
-use carrova_platform::{ClipContent, ClipKind, Platform};
+use carrova_platform::{ClipContent, ClipKind, Platform, PlatformError};
 
 use crate::supervisor::device::{Device, T, fast, pair, wait_until};
 
@@ -26,9 +26,23 @@ fn socket(device: &Device) -> PathBuf {
     device.platform.state_dir().unwrap().join("link.sock")
 }
 
+/// Whether another process can attach to `device`'s supervisor; tests
+/// that need one skip (saying so) where the OS has no local sockets.
+fn attachable(device: &Device) -> bool {
+    let probe = device.platform.connect_local_socket(&socket(device));
+    let unsupported = matches!(probe, Err(PlatformError::Unsupported(_)));
+    if unsupported {
+        eprintln!("skipped: this OS has no local sockets to attach over");
+    }
+    !unsupported
+}
+
 #[test]
 fn second_supervisor_becomes_client() {
     let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    if !attachable(&low) {
+        return;
+    }
 
     let first = attach_or_start(low.engine.clone()).unwrap();
     let second = attach_or_start(other_process(&low)).unwrap();
@@ -40,6 +54,9 @@ fn second_supervisor_becomes_client() {
 #[test]
 fn client_status_matches_server() {
     let (low, high, _) = pair(&PolicyDoc::phone_defaults());
+    if !attachable(&low) {
+        return;
+    }
     let server = attach_or_start(low.engine.clone()).unwrap();
     let client = attach_or_start(other_process(&low)).unwrap();
 
@@ -56,9 +73,12 @@ fn client_status_matches_server() {
 #[test]
 fn stale_socket_file_replaced() {
     let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    if !attachable(&low) {
+        return;
+    }
     let path = socket(&low);
     // A socket left behind by a process that died: nobody listens on it.
-    drop(low.platform.bind_local_socket(&path).unwrap());
+    low.platform.bind_local_socket(&path).unwrap();
     assert!(path.exists());
 
     let server = attach_or_start(low.engine.clone()).unwrap();
@@ -103,6 +123,9 @@ fn read_reply(raw: &mut impl Read) -> ControlResponse {
 #[test]
 fn unreadable_request_error_does_not_echo_it() {
     let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    if !attachable(&low) {
+        return;
+    }
     let _server = attach_or_start(low.engine.clone()).unwrap();
     let mut raw = low.platform.connect_local_socket(&socket(&low)).unwrap();
     let mut body = Vec::new();
@@ -121,6 +144,9 @@ fn unreadable_request_error_does_not_echo_it() {
 #[test]
 fn oversize_request_rejected() {
     let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    if !attachable(&low) {
+        return;
+    }
     let _server = attach_or_start(low.engine.clone()).unwrap();
     let mut raw = low.platform.connect_local_socket(&socket(&low)).unwrap();
 
@@ -159,6 +185,9 @@ fn request_debug_hides_shared_text() {
 #[test]
 fn dropped_server_frees_the_lock_despite_an_idle_client() {
     let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    if !attachable(&low) {
+        return;
+    }
     let server = attach_or_start(low.engine.clone()).unwrap();
     let idle = attach_or_start(other_process(&low)).unwrap();
     // Served once, then idle: its connection is open on the server.
@@ -196,8 +225,12 @@ struct Served {
     high: Device,
 }
 
-fn served_and_linked() -> Served {
+/// [`Served`], or `None` where the OS has no local sockets.
+fn served_and_linked() -> Option<Served> {
     let (low, high, _) = pair(&PolicyDoc::phone_defaults());
+    if !attachable(&low) {
+        return None;
+    }
     let server = attach_or_start_with(low.engine.clone(), low.source.clone(), fast()).unwrap();
     let client = attach_or_start(other_process(&low)).unwrap();
     assert!(matches!(client, SupervisorHandle::Remote(_)));
@@ -215,14 +248,14 @@ fn served_and_linked() -> Served {
     wait_until("policies", || {
         has_policy(sh.status()) && has_policy(server.status().unwrap())
     });
-    Served {
+    Some(Served {
         low,
         high,
         server,
         client,
         events,
         sh,
-    }
+    })
 }
 
 /// The first event `events` delivers that `f` picks.
@@ -241,7 +274,7 @@ fn next<R>(events: &Receiver<Event>, what: &str, f: impl Fn(Event) -> Option<R>)
 
 #[test]
 fn remote_subscriber_receives_link_up() {
-    let s = served_and_linked();
+    let Some(s) = served_and_linked() else { return };
 
     let up = next(&s.events, "link up", |e| match e {
         Event::LinkUp { device } => Some(device),
@@ -253,7 +286,7 @@ fn remote_subscriber_receives_link_up() {
 
 #[test]
 fn remote_client_answers_an_ask() {
-    let s = served_and_linked();
+    let Some(s) = served_and_linked() else { return };
     let src = s.high.home.join("notes.txt");
     std::fs::write(&src, b"remote answer").unwrap();
     next(&s.events, "link up", |e| {
@@ -276,7 +309,7 @@ fn remote_client_answers_an_ask() {
 
 #[test]
 fn remote_client_answers_while_its_own_send_waits() {
-    let s = served_and_linked();
+    let Some(s) = served_and_linked() else { return };
     let out = s.low.home.join("out.txt");
     let inbound = s.high.home.join("in.txt");
     std::fs::write(&out, b"waiting").unwrap();
@@ -313,7 +346,7 @@ fn remote_client_answers_while_its_own_send_waits() {
 
 #[test]
 fn remote_client_sends_text_up_to_the_clip_cap() {
-    let s = served_and_linked();
+    let Some(s) = served_and_linked() else { return };
     let text = "y".repeat(carrova_link::MAX_CLIP_TEXT);
 
     s.client.send_text(&s.high.id, text.clone()).unwrap();
@@ -326,7 +359,7 @@ fn remote_client_sends_text_up_to_the_clip_cap() {
 
 #[test]
 fn clip_history_round_trips() {
-    let s = served_and_linked();
+    let Some(s) = served_and_linked() else { return };
     next(&s.events, "link up", |e| {
         matches!(e, Event::LinkUp { .. }).then_some(())
     });
@@ -349,7 +382,7 @@ fn clip_history_round_trips() {
 
 #[test]
 fn clip_history_of_max_size_pngs_round_trips() {
-    let s = served_and_linked();
+    let Some(s) = served_and_linked() else { return };
     let png = |n: u8| {
         // 0xff bytes: the most a byte costs in CBOR (two).
         let mut bytes = vec![0xff; carrova_link::MAX_CLIP_PNG];
@@ -393,6 +426,9 @@ impl carrova_core::EventSink for ToChannel {
 #[test]
 fn shared_supervisor_attaches_again_when_its_host_exits() {
     let (low, high, _) = pair(&PolicyDoc::phone_defaults());
+    if !attachable(&low) {
+        return;
+    }
     // Fake source: a real browse holds the host's drop ~2 s, long enough for
     // the forwarder to re-attach to the dying host and miss the link.
     let host = attach_or_start_with(low.engine.clone(), low.source.clone(), fast()).unwrap();
@@ -435,6 +471,9 @@ fn shared_supervisor_attaches_again_when_its_host_exits() {
 #[test]
 fn clip_settings_round_trip_through_a_client() {
     let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    if !attachable(&low) {
+        return;
+    }
     let server = attach_or_start(low.engine.clone()).unwrap();
     let client = attach_or_start(other_process(&low)).unwrap();
     assert_eq!(client.clip_settings().unwrap(), ClipSettings::default());
@@ -453,6 +492,9 @@ fn clip_settings_round_trip_through_a_client() {
 #[test]
 fn retrying_an_unknown_file_is_refused_through_a_client() {
     let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    if !attachable(&low) {
+        return;
+    }
     let _server = attach_or_start(low.engine.clone()).unwrap();
     let client = attach_or_start(other_process(&low)).unwrap();
 
