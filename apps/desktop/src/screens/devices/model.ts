@@ -11,6 +11,11 @@ import type { IconName } from '../../ui';
 /** A phone or a computer, by its system. */
 export const deviceIcon = (os: OsKind | null): IconName => (os === 'android' ? 'phone' : 'laptop');
 
+/** A phone or a computer, as the copy names it. */
+export type DeviceKind = 'phone' | 'computer';
+
+export const deviceKind = (os: OsKind): DeviceKind => (os === 'android' ? 'phone' : 'computer');
+
 /** The features Phase 1 shows (the reserved ones stay hidden), in the spec's order. */
 export const PHASE1_FEATURES = ['clipboard', 'ring', 'files', 'handoff'] as const;
 
@@ -48,6 +53,8 @@ export type AddDeviceModel =
   /** A device answered: the user checks its key before it is linked; `answered` once they chose. */
   | { readonly state: 'found'; readonly peer: PairPeerView; readonly answered: boolean }
   | { readonly state: 'expired' | 'failed' }
+  /** The user said the device found wasn't theirs: nothing linked. */
+  | { readonly state: 'rejected'; readonly kind: DeviceKind }
   /** `device`: the one that linked, when the list names it. */
   | { readonly state: 'linked'; readonly device: LinkedDeviceView | null };
 

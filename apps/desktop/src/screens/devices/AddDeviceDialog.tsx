@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Button, CodeDisplay, Dialog, Note, Status } from '../../ui';
 import { clock, useSecondsLeft } from '../send/countdown';
 import { LinkedSummary } from './LinkedSummary';
-import { deviceIcon, type AddDeviceIntents, type AddDeviceModel } from './model';
+import { deviceIcon, deviceKind, type AddDeviceIntents, type AddDeviceModel } from './model';
 import './devices.css';
 
 /** What to check when the device couldn't connect. */
@@ -17,8 +17,8 @@ function Expiry({ at }: { readonly at: number }) {
 /**
  * Add a device: a QR code that carries the one-time code and this computer's
  * address, the three words as the fallback, then the device found (its key
- * to check: nothing links before the user confirms), then linked, expired
- * or failed.
+ * to check: nothing links before the user confirms), then linked, expired,
+ * failed or turned down.
  */
 export function AddDeviceDialog({
   model,
@@ -62,7 +62,7 @@ export function AddDeviceDialog({
       );
     case 'found': {
       const { peer, answered } = model;
-      const kind = peer.os === 'android' ? 'phone' : 'computer';
+      const kind = deviceKind(peer.os);
       return (
         <Dialog
           icon={deviceIcon(peer.os)}
@@ -130,6 +130,24 @@ export function AddDeviceDialog({
               <li key={reason}>{t(`ecosystem.pair.reasons.${reason}`)}</li>
             ))}
           </ul>
+        </Dialog>
+      );
+    case 'rejected':
+      return (
+        <Dialog
+          icon="shield"
+          title={t('ecosystem.pair.rejectedTitle')}
+          onDismiss={on.onCancel}
+          foot={
+            <>
+              {cancel}
+              <Button kind="primary" icon="refresh" onClick={on.onRetry}>
+                {t('ecosystem.pair.retry')}
+              </Button>
+            </>
+          }
+        >
+          <p>{t(`ecosystem.pair.rejectedBody.${model.kind}`)}</p>
         </Dialog>
       );
     case 'linked':

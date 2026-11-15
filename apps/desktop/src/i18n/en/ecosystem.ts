@@ -61,6 +61,11 @@ export const ecosystem = {
       vpn: 'VPN on? Turn it off on either device and try again.',
     },
     retry: 'Try again',
+    rejectedTitle: 'Not linked',
+    rejectedBody: {
+      phone: "You said this wasn't your phone. Nothing was saved on either side.",
+      computer: "You said this wasn't your computer. Nothing was saved on either side.",
+    },
     cancel: 'Cancel',
     found: { phone: 'Phone found', computer: 'Computer found' },
     foundLede: 'Check that it shows this same key, then confirm.',

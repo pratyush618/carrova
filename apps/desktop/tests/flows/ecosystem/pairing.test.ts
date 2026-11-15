@@ -67,6 +67,14 @@ describe('the Add a device model', () => {
     });
   });
 
+  it('keeps "not linked" after the user turned the device down', () => {
+    const rejected = { state: 'rejected', kind: 'phone' } as const;
+    // The engine then fails the pairing; the user's answer is what happened.
+    expect(settle(rejected, { state: 'failed' })).toBe(rejected);
+    expect(settle(rejected, { state: 'expired' })).toBe(rejected);
+    expect(addDeviceModel(attemptInvite(invite(T0), T0), pixelPeer, rejected, 0)).toBe(rejected);
+  });
+
   it('counts only the device found for this attempt', () => {
     expect(attemptPeer({ view: pixelPeer, receivedAt: T0 - 1 }, T0)).toBeNull();
     expect(attemptPeer(null, T0)).toBeNull();

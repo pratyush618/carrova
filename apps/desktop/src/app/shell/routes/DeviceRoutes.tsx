@@ -16,6 +16,7 @@ import {
 import { ClipHistorySheet } from '../../../screens/clipboard/ClipHistorySheet';
 import { AddDeviceDialog } from '../../../screens/devices/AddDeviceDialog';
 import { DevicePage } from '../../../screens/devices/DevicePage';
+import { deviceKind } from '../../../screens/devices/model';
 import { ForgetDialog } from '../../../screens/devices/ForgetDialog';
 import {
   LinkComputerDialog,
@@ -158,10 +159,10 @@ export function AddDeviceOverlay() {
           void answer(true);
         },
         onNotMine: () => {
-          if (answered) return;
+          if (answered || peer === null) return;
           setAnswered(true);
           void answer(false);
-          setEnd(settle(end, { state: 'failed' }));
+          setEnd(settle(end, { state: 'rejected', kind: deviceKind(peer.os) }));
         },
       }}
     />

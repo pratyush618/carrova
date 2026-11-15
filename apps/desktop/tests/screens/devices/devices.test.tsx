@@ -182,6 +182,21 @@ describe('Add a device', () => {
     expect(confirm).toHaveAttribute('aria-busy', 'true');
     expect(screen.getByRole('button', { name: 'Not my phone' })).toBeDisabled();
   });
+
+  it('says nothing linked after the user turned a computer down, and offers a new code', async () => {
+    const user = userEvent.setup();
+    const on = pairOn();
+    renderScreen(<AddDeviceDialog model={{ state: 'rejected', kind: 'computer' }} on={on} />);
+    const dialog = screen.getByRole('dialog', { name: 'Not linked' });
+    expect(
+      within(dialog).getByText(
+        "You said this wasn't your computer. Nothing was saved on either side.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Wi-Fi/)).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Try again' }));
+    expect(on.onRetry).toHaveBeenCalledOnce();
+  });
 });
 
 describe('Link a computer', () => {

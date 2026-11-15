@@ -58,9 +58,11 @@ test('turn down a device found, then try a new code (fake port)', async ({ page 
     .getByRole('dialog', { name: 'Phone found' })
     .getByRole('button', { name: 'Not my phone' })
     .click();
-  const failed = page.getByRole('alertdialog', { name: "Couldn't reach the device" });
-  await expect(failed).toBeVisible();
-  await failed.getByRole('button', { name: 'Try again' }).click();
+  const rejected = page.getByRole('dialog', { name: 'Not linked' });
+  await expect(
+    rejected.getByText("You said this wasn't your phone.", { exact: false }),
+  ).toBeVisible();
+  await rejected.getByRole('button', { name: 'Try again' }).click();
   await expect(
     page
       .getByRole('dialog', { name: 'Add a device' })
