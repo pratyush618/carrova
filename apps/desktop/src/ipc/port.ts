@@ -217,6 +217,8 @@ export interface CarrovaPort {
   linkInvite(uri: string): Promise<void>;
   /** This device's own key fingerprint, shown while it links. */
   ownFingerprint(): Promise<string>;
+  /** Scan a computer's pairing QR code with the phone's camera: its `carrova://pair?…` link, `null` if cancelled. */
+  scanQr(): Promise<string | null>;
   /** Whether this device has a LAN address now (`false`: the phone is not on Wi-Fi). */
   lanAvailable(): Promise<boolean>;
   /** Change one feature on this computer's side of the link with `id`. */

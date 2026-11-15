@@ -1,0 +1,49 @@
+/** The phone app (Android): pairing with a computer, Home, a computer's page, Settings. */
+export const mobile = {
+  back: 'Back',
+  welcome: {
+    title: 'Your computers, one tap away.',
+    body: 'Clipboard, files and links between this phone and your computers, over your own Wi-Fi.',
+    add: 'Add a computer',
+    hint: 'Open Carrova on the computer first: Nearby → Add a device.',
+  },
+  add: {
+    title: 'Add a computer',
+    lede: 'Scan the code Carrova shows on your computer. The camera is used only for this.',
+    scan: 'Scan the code',
+    type: 'Type the code instead',
+  },
+  type: {
+    title: 'Type the code',
+    lede: "It's under the QR code on your computer.",
+    field: 'Code',
+    link: 'Link',
+  },
+  pair: {
+    linking: 'Linking…',
+    linkingBody: 'Checking the code with your computer.',
+    thisPhone: 'This phone: {{fingerprint}}',
+    confirmThere: 'Confirm on your computer',
+    linked: 'Linked',
+    linkedBody: 'From now on this phone and {{name}} connect by themselves on the same Wi-Fi.',
+    linkedUnnamed:
+      'From now on this phone and your computer connect by themselves on the same Wi-Fi.',
+    choose: 'Choose what to share',
+    failed: "Couldn't link",
+    failedBody: "Your computer didn't answer. Make sure Carrova is open there, then try again.",
+    offline: 'Join the same Wi-Fi',
+    offlineBody:
+      'This phone is not on Wi-Fi. Carrova only links over a network you share with your computer.',
+    retry: 'Try again',
+    cancel: 'Cancel',
+  },
+  choose: {
+    title: 'Choose what to share',
+    lede: 'With {{name}}. Change any of it later on its page.',
+    done: 'Done',
+  },
+  home: {
+    title: 'Carrova',
+    computers: 'Computers',
+  },
+} as const;

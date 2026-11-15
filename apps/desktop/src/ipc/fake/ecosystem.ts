@@ -9,6 +9,7 @@ import type { FeatureRowView } from '../../bindings/FeatureRowView';
 import type { FeatureState } from '../../bindings/FeatureState';
 import type { ForgetDevices } from '../../bindings/ForgetDevices';
 import type { LinkedDeviceView } from '../../bindings/LinkedDeviceView';
+import type { OsKind } from '../../bindings/OsKind';
 import type { PairInviteView } from '../../bindings/PairInviteView';
 import type { PairPeerView } from '../../bindings/PairPeerView';
 import type { ClipItemView } from '../../bindings/ClipItemView';
@@ -84,6 +85,9 @@ const computer = (): LinkedDeviceView => ({
   features: [row('clipboard', 'off'), row('files', 'off'), row('handoff', 'off')],
 });
 
+/** A computer as a phone sees it: the new phone link's defaults on both sides. */
+const computerFromPhone = (): LinkedDeviceView => ({ ...computer(), features: phone().features });
+
 const seedClips = (now: number): ClipItemView[] => [
   { kind: 'text', preview: 'Meet at 7, gate B', at: now - 120 },
   { kind: 'image', preview: '', at: now - 3_600 },
@@ -98,6 +102,7 @@ type EcosystemPort = Pick<
   | 'linkComputer'
   | 'linkInvite'
   | 'ownFingerprint'
+  | 'scanQr'
   | 'setFeature'
   | 'answerAsk'
   | 'sendClipboard'
@@ -119,10 +124,16 @@ export interface FakeEcosystem extends EcosystemPort {
   readonly forget: (which: ForgetDevices) => void;
 }
 
-/** The linked-device commands of a fake port acting out `scenario`. */
-export function fakeEcosystem(runtime: Runtime, scenario: Scenario): FakeEcosystem {
+/**
+ * The linked-device commands of a fake port acting out `scenario` on a
+ * device running `os`: a phone links only computers, with the phone's defaults.
+ */
+export function fakeEcosystem(runtime: Runtime, scenario: Scenario, os: OsKind): FakeEcosystem {
   const seeded = scenario === 'linked';
-  let linked: LinkedDeviceView[] = seeded ? [phone('off'), computer()] : [];
+  const onPhone = os === 'android';
+  const linkedComputer = onPhone ? computerFromPhone : computer;
+  const seed = onPhone ? [linkedComputer()] : [phone('off'), computer()];
+  let linked: LinkedDeviceView[] = seeded ? seed : [];
   let clips = seeded ? seedClips(Math.floor(Date.now() / 1000)) : [];
   let pairing: { cancelled: boolean } | null = null;
   /** Resolves the open key check (`pair_peer_found`); `null` when cancelled. */
@@ -178,16 +189,18 @@ export function fakeEcosystem(runtime: Runtime, scenario: Scenario): FakeEcosyst
         if (!/^\d+-[a-z]+-[a-z]+(@\S+)?$/.test(ticket.trim()))
           raise(bridgeError('bad_code', 'that is not a pairing code'));
       });
-      await awaitPairing(computer(), false);
+      await awaitPairing(linkedComputer(), false);
     },
     linkInvite: async (uri) => {
       await later(() => {
         if (!uri.startsWith('carrova://pair?'))
           raise(bridgeError('bad_code', 'that is not a Carrova pairing link'));
       });
-      await awaitPairing(computer(), false);
+      await awaitPairing(linkedComputer(), false);
     },
     ownFingerprint: () => later(() => 'A1B2·C3D4'),
+    // The camera always finds the fake computer's code.
+    scanQr: () => later(() => INVITE.uri),
     setFeature: (id, feature, state) =>
       later(() => {
         const device = find(id);

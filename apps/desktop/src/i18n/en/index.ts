@@ -4,6 +4,7 @@ import { ecosystem } from './ecosystem';
 import { errors } from './errors';
 import { file } from './file';
 import { history } from './history';
+import { mobile } from './mobile';
 import { nearby } from './nearby';
 import { override } from './override';
 import { receive } from './receive';
@@ -29,4 +30,5 @@ export const en = {
   settings,
   override,
   ecosystem,
+  mobile,
 } as const;

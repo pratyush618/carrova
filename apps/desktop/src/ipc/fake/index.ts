@@ -7,6 +7,7 @@
  * look like `7-acid-lemon`.
  */
 import type { About } from '../../bindings/About';
+import type { OsKind } from '../../bindings/OsKind';
 import type { FileManagerStatus } from '../../bindings/FileManagerStatus';
 import type { Notice } from '../../bindings/Notice';
 import type { ReportConsent } from '../../bindings/ReportConsent';
@@ -33,6 +34,8 @@ export interface FakeOptions {
   stepMs?: number;
   /** How to wait (default: real timers). */
   sleep?: Sleep;
+  /** This device's OS (default `linux`; `android` renders the phone layouts). */
+  os?: OsKind;
   /** Whether this device is on a LAN (default `true`; `false`: a phone on mobile data). */
   lan?: boolean;
 }
@@ -114,7 +117,11 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
   const runtime = new Runtime(options.stepMs ?? 150, options.sleep ?? realSleep);
   const sender = new FakeSender(runtime, scenario);
   const receiver = new FakeReceiver(runtime, scenario);
-  const { cancel: cancelPairing, forget: unlink, ...ecosystem } = fakeEcosystem(runtime, scenario);
+  const {
+    cancel: cancelPairing,
+    forget: unlink,
+    ...ecosystem
+  } = fakeEcosystem(runtime, scenario, options.os ?? 'linux');
   const devices = fakeDevices(scenario);
   let settings = DEFAULT_SETTINGS;
   let consent: ReportConsent = 'unset';
@@ -223,9 +230,11 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
     lanAvailable: () => later(() => options.lan ?? true),
 
     about: () =>
-      later(() =>
-        scenario === 'nearby-crowded' ? { ...ABOUT, device_name: LONG_COMPUTER_NAME } : ABOUT,
-      ),
+      later(() => ({
+        ...ABOUT,
+        os: options.os ?? ABOUT.os,
+        ...(scenario === 'nearby-crowded' && { device_name: LONG_COMPUTER_NAME }),
+      })),
 
     settings: () => later(() => settings),
     saveSettings: (patch) =>
