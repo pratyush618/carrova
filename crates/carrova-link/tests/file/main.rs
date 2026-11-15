@@ -11,11 +11,12 @@ use std::path::PathBuf;
 use std::thread;
 
 use carrova_link::{
-    FileOffer, LaneKind, LinkError, OfferAnswer, accept_lane, offer_file, open_lane, receive_file,
+    FileOffer, FileSink, LaneKind, LinkError, OfferAnswer, accept_lane, offer_file, open_lane,
+    receive_file,
 };
 use carrova_transport::Connection;
 use serde::Serialize;
-use sink::mem_sink;
+use sink::{mem_sink, sink_over};
 use support::{Open, T, linked};
 
 const MIB: usize = 1 << 20;
@@ -255,4 +256,92 @@ fn resume_past_end_is_refused() {
     });
     let seen = seen.lock().unwrap();
     assert!(seen.writes.is_empty() && !seen.committed && seen.aborted);
+}
+
+#[test]
+fn aborted_partial_file_resumes_in_a_later_transfer() {
+    let (a, b) = linked();
+    let data = bytes(3 * MIB);
+    let (sink, seen) = mem_sink();
+    thread::scope(|s| {
+        let recv = s.spawn(|| receiver(&b, OfferAnswer::Accept { resume_from: 0 }, sink));
+        let mut src = Failing {
+            inner: Cursor::new(data.clone()),
+            ok: (MIB + MIB / 2) as u64,
+        };
+        assert!(offer_file(&a, &offer("x", data.len()), &mut src, &mut |_| {}).is_err());
+        assert!(recv.join().unwrap().0.is_err());
+    });
+    // Retry: the receiver asks for the bytes its aborted sink did not keep.
+    let held = seen.lock().unwrap().data.len() as u64;
+    assert_eq!(held, MIB as u64);
+    thread::scope(|s| {
+        let recv = s.spawn(|| {
+            receiver(
+                &b,
+                OfferAnswer::Accept { resume_from: held },
+                sink_over(&seen),
+            )
+        });
+        offer_file(
+            &a,
+            &offer("x", data.len()),
+            &mut Cursor::new(&data),
+            &mut |_| {},
+        )
+        .unwrap();
+        recv.join().unwrap().0.unwrap();
+    });
+    let seen = seen.lock().unwrap();
+    assert!(seen.committed);
+    assert_eq!(seen.writes, [0, held, held + MIB as u64]);
+    assert_eq!(blake3::hash(&seen.data), blake3::hash(&data));
+}
+
+/// Sink that loses the connection while committing, so the ack cannot be sent.
+struct DropConnOnCommit {
+    inner: Box<dyn FileSink>,
+    conn: Option<Connection>,
+}
+
+impl FileSink for DropConnOnCommit {
+    fn write_at(&mut self, offset: u64, bytes: &[u8]) -> io::Result<()> {
+        self.inner.write_at(offset, bytes)
+    }
+
+    fn commit(mut self: Box<Self>) -> io::Result<PathBuf> {
+        drop(self.conn.take());
+        self.inner.commit()
+    }
+
+    fn abort(self: Box<Self>) {
+        self.inner.abort();
+    }
+}
+
+#[test]
+fn saved_file_is_success_even_if_ack_is_lost() {
+    let (a, b) = linked();
+    let data = bytes(1000);
+    let (inner, seen) = mem_sink();
+    thread::scope(|s| {
+        let recv = s.spawn(move || {
+            let (_, stream) = accept_lane(&b, &Open, T).unwrap();
+            let sink = Box::new(DropConnOnCommit {
+                inner,
+                conn: Some(b),
+            });
+            let accept = &mut |_: &FileOffer| OfferAnswer::Accept { resume_from: 0 };
+            receive_file(stream, accept, sink, &mut |_| {})
+        });
+        let sent = offer_file(
+            &a,
+            &offer("x", data.len()),
+            &mut Cursor::new(&data),
+            &mut |_| {},
+        );
+        assert_eq!(recv.join().unwrap().unwrap(), PathBuf::from("mem"));
+        assert!(sent.is_err());
+    });
+    assert!(seen.lock().unwrap().committed);
 }

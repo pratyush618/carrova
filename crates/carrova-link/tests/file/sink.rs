@@ -23,7 +23,13 @@ pub struct MemSink(pub Arc<Mutex<Seen>>);
 /// A fresh sink and the handle to inspect it.
 pub fn mem_sink() -> (Box<dyn FileSink>, Arc<Mutex<Seen>>) {
     let seen = Arc::new(Mutex::new(Seen::default()));
-    (Box::new(MemSink(Arc::clone(&seen))), seen)
+    (sink_over(&seen), seen)
+}
+
+/// A sink continuing in `seen`: like a real sink, `abort` keeps the partial
+/// bytes so a later transfer can resume from them.
+pub fn sink_over(seen: &Arc<Mutex<Seen>>) -> Box<dyn FileSink> {
+    Box::new(MemSink(Arc::clone(seen)))
 }
 
 impl FileSink for MemSink {

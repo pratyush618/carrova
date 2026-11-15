@@ -24,6 +24,9 @@ use crate::name::safe_file_name;
 const CHUNK: usize = 1 << 20;
 /// How long the sender waits for an answer: the receiver's 60 s ask plus margin.
 pub const ANSWER_TIMEOUT: Duration = Duration::from_secs(75);
+/// How long the sender waits for the receiver's "saved" ack after `Done`;
+/// generous because it covers `FileSink::commit`, which should be a rename.
+const SAVED_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// A file one device offers another.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -58,9 +61,13 @@ pub enum OfferAnswer {
 pub trait FileSink: Send {
     /// Write `bytes` at `offset`.
     fn write_at(&mut self, offset: u64, bytes: &[u8]) -> io::Result<()>;
-    /// Every byte arrived and was verified: publish the file, return where.
+    /// Every byte arrived and was verified: publish the file under its final
+    /// name, return where. On `Err` the sink cleans up after itself.
     fn commit(self: Box<Self>) -> io::Result<PathBuf>;
-    /// The transfer failed or was refused: discard anything written.
+    /// Stopped without completing (refused, failed or interrupted): never
+    /// publish under the final name. May keep the partial data, keyed by
+    /// offer id, so a later transfer can ask for `resume_from`; it is then
+    /// responsible for eventually discarding it.
     fn abort(self: Box<Self>);
 }
 
@@ -91,7 +98,7 @@ pub fn offer_file(
         OfferAnswer::Expired => return Err(LinkError::Expired),
     };
     src.seek(SeekFrom::Start(offset))?;
-    let mut buf = vec![0; CHUNK];
+    let mut buf = vec![0; chunk_len(offer.size - offset)];
     while offset < offer.size {
         let chunk = &mut buf[..chunk_len(offer.size - offset)];
         src.read_exact(chunk)?;
@@ -104,14 +111,15 @@ pub fn offer_file(
         on_progress(offset);
     }
     stream.send(&FileFrame::Done)?;
-    stream.recv::<()>(FRAME_TIMEOUT)?;
+    stream.recv::<()>(SAVED_TIMEOUT)?;
     Ok(())
 }
 
 /// Answer the offer on an accepted `File` lane and receive the file into
 /// `sink`. `decide` sees the offer with its name already normalised by
 /// [`safe_file_name`]. Commits only after `Done` and exactly `size` verified
-/// bytes; on decline, expiry or any failure the sink is aborted.
+/// bytes; on decline, expiry or any failure the sink is aborted. Once the
+/// sink has committed, the result is `Ok` even if the sender misses the ack.
 /// `on_progress` gets the bytes held so far.
 pub fn receive_file(
     mut stream: Stream,
@@ -127,8 +135,8 @@ pub fn receive_file(
         return Err(e);
     }
     let path = sink.commit()?;
-    stream.send(&())?;
-    stream.finish()?;
+    // The file is saved: a lost ack must not report failure (and a retry would duplicate it).
+    let _ = stream.send(&()).and_then(|()| stream.finish());
     Ok(path)
 }
 
@@ -170,7 +178,7 @@ fn receive_bytes(
     sink: &mut dyn FileSink,
     on_progress: &mut dyn FnMut(u64),
 ) -> Result<(), LinkError> {
-    let mut buf = vec![0; CHUNK];
+    let mut buf = vec![0; chunk_len(size - offset)];
     loop {
         match stream.recv(FRAME_TIMEOUT)? {
             FileFrame::Done if offset == size => return Ok(()),
