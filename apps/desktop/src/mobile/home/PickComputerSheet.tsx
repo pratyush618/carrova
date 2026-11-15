@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LinkedDeviceView } from '../../engine/types';
-import { Button, Segmented, Sheet } from '../../ui';
+import { Button, Muted, Segmented, Sheet } from '../../ui';
 
 /**
  * Send something to one computer: the computers it can reach now, the
@@ -15,14 +15,16 @@ export function PickComputerSheet({
   children,
 }: {
   readonly title: string;
-  /** Linked computers the feature reaches now (at least one). */
+  /** Linked computers the feature reaches now. */
   readonly devices: readonly LinkedDeviceView[];
   readonly onSend: (id: string) => void;
   readonly onClose: () => void;
   readonly children?: ReactNode;
 }) {
   const { t } = useTranslation();
-  const [id, setId] = useState(devices[0]?.id ?? null);
+  const [picked, setPicked] = useState<string | null>(null);
+  // The first one until the user picks (the list may load after the sheet opens).
+  const id = picked ?? devices[0]?.id ?? null;
   return (
     <Sheet
       title={title}
@@ -43,12 +45,16 @@ export function PickComputerSheet({
       }
     >
       {children}
-      <Segmented
-        label={t('mobile.pick.to')}
-        options={devices.map((d) => ({ value: d.id, label: d.name }))}
-        value={id}
-        onChange={setId}
-      />
+      {devices.length === 0 ? (
+        <Muted>{t('mobile.home.noneNearby')}</Muted>
+      ) : (
+        <Segmented
+          label={t('mobile.pick.to')}
+          options={devices.map((d) => ({ value: d.id, label: d.name }))}
+          value={id}
+          onChange={setPicked}
+        />
+      )}
     </Sheet>
   );
 }

@@ -51,6 +51,10 @@ export const mobile = {
     noneNearby: 'No computer nearby',
   },
   pick: {
+    files_one: 'Send {{count}} file',
+    files_other: 'Send {{count}} files',
+    link: 'Open on a computer',
+    linkSent: 'Sent to {{name}}',
     to: 'To',
     send: 'Send',
     cancel: 'Cancel',

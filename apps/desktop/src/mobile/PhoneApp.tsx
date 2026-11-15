@@ -3,18 +3,19 @@ import { useTranslation } from 'react-i18next';
 import { useControllers } from '../app/controllers/Controllers';
 import { EcosystemToasts } from '../app/shell/EcosystemToasts';
 import type { LinkedDeviceView } from '../engine/types';
-import { ForgetDialog } from '../screens/devices/ForgetDialog';
 import { Toast, Window } from '../ui';
 import { PhoneDevice } from './home/PhoneDevice';
 import { PhoneHome } from './home/PhoneHome';
-import { PickComputerSheet } from './home/PickComputerSheet';
-import { readyFor, shareChanges } from './model';
+import { shareChanges } from './model';
 import { ChooseShare } from './pairing/ChooseShare';
 import { PhonePairing } from './pairing/PhonePairing';
 import { Welcome } from './pairing/Welcome';
 import { PhoneActivity } from './PhoneActivity';
+import { PhoneOverlay, type PhoneOverlayModel } from './PhoneOverlay';
 import { PhoneSettings } from './PhoneSettings';
 import { PhoneTabs, type PhoneTab } from './PhoneTabs';
+import { useOpened } from './useOpened';
+import { useSendNote, NOTE_KEY } from './useSendNote';
 import './mobile.css';
 
 /** Which phone screen shows. */
@@ -24,17 +25,6 @@ type PhoneView =
   | { readonly kind: 'choose'; readonly device: LinkedDeviceView }
   | { readonly kind: 'device'; readonly id: string };
 
-/** What sits over the screen. */
-type PhoneOverlay =
-  | { readonly kind: 'clipboard' }
-  | { readonly kind: 'forget'; readonly id: string; readonly name: string };
-
-/** What the last action said: sent, or the computer didn't answer. */
-interface Note {
-  readonly kind: 'clipSent' | 'actionFailed';
-  readonly name: string;
-}
-
 /**
  * The phone app (`about.os === 'android'`): the same engine, controllers and
  * events as the desktop, laid out for a phone. Welcome until a computer is
@@ -42,52 +32,39 @@ interface Note {
  */
 export function PhoneApp() {
   const { t } = useTranslation();
-  const { linked, devices: nearby } = useControllers();
+  const { linked } = useControllers();
   const [view, setView] = useState<PhoneView>({ kind: 'home' });
-  const [overlay, setOverlay] = useState<PhoneOverlay | null>(null);
-  const [note, setNote] = useState<Note | null>(null);
+  const [overlay, setOverlay] = useState<PhoneOverlayModel | null>(null);
+  const { note, sendTo, dismiss } = useSendNote();
   // Welcome or Home only once the list is known, so neither flashes.
   const [loaded, setLoaded] = useState(false);
   const { reload, setFeature, sendClipboard } = linked;
+  useOpened(setOverlay);
   useEffect(() => {
     void reload().then(() => {
       setLoaded(true);
     });
   }, [reload]);
 
-  const go = (next: PhoneView) => {
-    setView(next);
-  };
   const close = () => {
     setOverlay(null);
   };
   const pair = () => {
-    go({ kind: 'pair' });
+    setView({ kind: 'pair' });
   };
   const open = (id: string) => {
-    go({ kind: 'device', id });
+    setView({ kind: 'device', id });
   };
-  const sendClip = (device: LinkedDeviceView) => {
-    sendClipboard(device.id).then(
-      () => {
-        setNote({ kind: 'clipSent', name: device.name });
-      },
-      () => {
-        setNote({ kind: 'actionFailed', name: device.name });
-      },
-    );
-  };
-
   const page = ((): ReactNode => {
     switch (view.kind) {
       case 'pair':
         return (
           <PhonePairing
             onClose={() => {
-              go({ kind: 'home' });
+              setView({ kind: 'home' });
             }}
             onChoose={(device) => {
-              go(device === null ? { kind: 'home' } : { kind: 'choose', device });
+              setView(device === null ? { kind: 'home' } : { kind: 'choose', device });
             }}
           />
         );
@@ -98,7 +75,7 @@ export function PhoneApp() {
             onDone={(choices) => {
               for (const [feature, state] of shareChanges(view.device, choices))
                 setFeature(view.device.id, feature, state);
-              go({ kind: 'home' });
+              setView({ kind: 'home' });
             }}
           />
         );
@@ -110,7 +87,7 @@ export function PhoneApp() {
             device={device}
             failed={linked.failed}
             onBack={() => {
-              go({ kind: 'home' });
+              setView({ kind: 'home' });
             }}
             on={{
               onFeature: (feature, state) => {
@@ -119,7 +96,7 @@ export function PhoneApp() {
               // Computers cannot ring.
               onRing: () => undefined,
               onSendClipboard: () => {
-                sendClip(device);
+                sendTo(device, sendClipboard, 'clipSent');
               },
               onForget: () => {
                 setOverlay({ kind: 'forget', id: device.id, name: device.name });
@@ -137,7 +114,7 @@ export function PhoneApp() {
               onOpen: open,
               onAdd: pair,
               onActivity: () => {
-                go({ kind: 'activity' });
+                setView({ kind: 'activity' });
               },
             }}
           />
@@ -161,67 +138,42 @@ export function PhoneApp() {
     }
   })();
 
-  const over = ((): ReactNode => {
-    switch (overlay?.kind) {
-      case undefined:
-        return null;
-      case 'clipboard':
-        return (
-          <PickComputerSheet
-            title={t('mobile.home.sendClipboard')}
-            devices={readyFor(linked.devices, 'clipboard')}
-            onClose={close}
-            onSend={(id) => {
-              close();
-              const device = linked.devices.find((d) => d.id === id);
-              if (device !== undefined) sendClip(device);
-            }}
-          />
-        );
-      case 'forget': {
-        const { id, name } = overlay;
-        return (
-          <ForgetDialog
-            name={name}
-            on={{
-              onCancel: close,
-              onForget: () => {
-                close();
-                void nearby.forget({ device: id }).then(() => reload());
-                go({ kind: 'home' });
-              },
-            }}
-          />
-        );
-      }
-    }
-  })();
-
   // The tabs show on the three places, once a computer is linked.
   const tab = view.kind === 'home' || view.kind === 'activity' || view.kind === 'settings';
   return (
     <div className="m-app">
-      <Window overlays={over === null ? [] : [over]}>
+      <Window
+        overlays={
+          overlay === null
+            ? []
+            : [
+                <PhoneOverlay
+                  key={overlay.kind}
+                  overlay={overlay}
+                  sendTo={sendTo}
+                  onClose={close}
+                  onForgotten={() => {
+                    setView({ kind: 'home' });
+                  }}
+                />,
+              ]
+        }
+      >
         <div className="m-frame">
           {page}
           {tab && linked.devices.length > 0 && (
             <PhoneTabs
               current={view.kind}
               onSelect={(kind) => {
-                go({ kind });
+                setView({ kind });
               }}
             />
           )}
         </div>
         <EcosystemToasts />
         {note !== null && (
-          <Toast
-            icon={note.kind === 'clipSent' ? 'check' : 'warn'}
-            onDismiss={() => {
-              setNote(null);
-            }}
-          >
-            {t(`ecosystem.device.${note.kind}`, { name: note.name })}
+          <Toast icon={note.kind === 'actionFailed' ? 'warn' : 'check'} onDismiss={dismiss}>
+            {t(NOTE_KEY[note.kind], { name: note.name })}
           </Toast>
         )}
       </Window>

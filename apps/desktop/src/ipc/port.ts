@@ -219,6 +219,14 @@ export interface CarrovaPort {
   ownFingerprint(): Promise<string>;
   /** Scan a computer's pairing QR code with the phone's camera: its `carrova://pair?…` link, `null` if cancelled. */
   scanQr(): Promise<string | null>;
+  /**
+   * Links the phone app was opened with (share sheet, tile, notification)
+   * since the last call, oldest first: `carrova://send-clipboard`, `file:`
+   * links to shared copies, `http(s)` and `data:text/plain` text.
+   */
+  takeOpened(): Promise<string[]>;
+  /** Be told when opened links are waiting for `takeOpened`. */
+  onOpened(listener: () => void): Promise<Unsubscribe>;
   /** Whether this device has a LAN address now (`false`: the phone is not on Wi-Fi). */
   lanAvailable(): Promise<boolean>;
   /** Change one feature on this computer's side of the link with `id`. */

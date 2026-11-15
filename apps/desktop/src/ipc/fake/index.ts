@@ -38,6 +38,8 @@ export interface FakeOptions {
   os?: OsKind;
   /** Whether this device is on a LAN (default `true`; `false`: a phone on mobile data). */
   lan?: boolean;
+  /** Links the app was opened with, taken once (`takeOpened`). */
+  opened?: readonly string[];
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -131,6 +133,7 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
   const newerRecipes = () => scenario === 'recipes-update' && !recipesInstalled;
   const noReport = () => later(() => raise(bridgeError('session', 'no such error report')));
   let fileManager: FileManagerStatus = { supported: true, installed: false, skipped: [] };
+  let opened = [...(options.opened ?? [])];
   /** Paths "sent from the file manager", handed over once. */
   let forwarded = scenario === 'forwarded' ? [...FORWARDED] : [];
 
@@ -228,6 +231,14 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
     recipesReset: () => later(() => fx.recipesStatus),
 
     lanAvailable: () => later(() => options.lan ?? true),
+    takeOpened: () =>
+      later(() => {
+        const links = opened;
+        opened = [];
+        return links;
+      }),
+    // Every opened link is there from the start: none arrives later.
+    onOpened: () => later(() => () => undefined),
 
     about: () =>
       later(() => ({

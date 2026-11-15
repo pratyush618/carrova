@@ -36,7 +36,7 @@ describe('the Tauri port', () => {
     ]);
   });
 
-  it('asks the phone commands by name: LAN and QR scan', async () => {
+  it('asks the phone commands by name: LAN, QR scan and opened links', async () => {
     const calls: string[] = [];
     mockIPC((command) => {
       calls.push(command);
@@ -45,7 +45,8 @@ describe('the Tauri port', () => {
     const port = createTauriPort();
     await expect(port.lanAvailable()).resolves.toBe(false);
     await port.scanQr();
-    expect(calls).toEqual(['lan_available', 'scan_qr']);
+    await port.takeOpened();
+    expect(calls).toEqual(['lan_available', 'scan_qr', 'take_opened']);
   });
 
   it('invokes the snake_case command with named arguments', async () => {

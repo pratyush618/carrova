@@ -52,3 +52,35 @@ export const readyFor = (
       d.state === 'linked' &&
       d.features.some((f) => f.feature === feature && f.effective !== 'off'),
   );
+
+/** What a link the app was opened with asks for. */
+export type OpenedIntent =
+  | { readonly kind: 'clipboard' }
+  | { readonly kind: 'files'; readonly paths: readonly string[] }
+  | { readonly kind: 'handoff'; readonly url: string };
+
+/**
+ * What `link` asks for: send the clipboard (tile, notification), send a
+ * shared file (its path), hand a web link off; `null` for shared text and
+ * anything else (no Phase 1 feature takes them).
+ */
+export function openedIntent(link: string): OpenedIntent | null {
+  if (link === 'carrova://send-clipboard') return { kind: 'clipboard' };
+  if (link.startsWith('http://') || link.startsWith('https://'))
+    return { kind: 'handoff', url: link };
+  if (link.startsWith('file:///'))
+    return { kind: 'files', paths: [decodeURIComponent(new URL(link).pathname)] };
+  return null;
+}
+
+/** What `links` ask for, oldest first; one share's files become one send. */
+export function openedIntents(links: readonly string[]): readonly OpenedIntent[] {
+  const intents: OpenedIntent[] = [];
+  for (const intent of links.map(openedIntent)) {
+    const last = intents.at(-1);
+    if (intent?.kind === 'files' && last?.kind === 'files')
+      intents[intents.length - 1] = { kind: 'files', paths: [...last.paths, ...intent.paths] };
+    else if (intent !== null) intents.push(intent);
+  }
+  return intents;
+}

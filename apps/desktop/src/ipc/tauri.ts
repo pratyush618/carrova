@@ -14,6 +14,9 @@ import { raise } from './reject';
 /** The bridge's event channel (`carrova_view::ipc::EVENT_CHANNEL`). */
 export const EVENT_CHANNEL = 'carrova://event';
 
+/** Opened links are waiting (`crate::opened::OPENED_EVENT`, no payload). */
+const OPENED_EVENT = 'carrova://opened';
+
 /** `invoke`, rejecting only with a `BridgeError`. */
 async function call<T>(command: string, args?: InvokeArgs): Promise<T> {
   try {
@@ -88,6 +91,11 @@ export function createTauriPort(): CarrovaPort {
     ownFingerprint: () => call('own_fingerprint'),
     lanAvailable: () => call('lan_available'),
     scanQr: () => call('scan_qr'),
+    takeOpened: () => call('take_opened'),
+    onOpened: (listener) =>
+      listen(OPENED_EVENT, () => {
+        listener();
+      }),
     // `state` is taken by Tauri's managed state on the Rust side.
     setFeature: (id, feature, state) => call('set_feature', { id, feature, featureState: state }),
     answerAsk: (askId, accept) => call('answer_ask', { askId, accept }),

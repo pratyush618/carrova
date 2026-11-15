@@ -80,3 +80,8 @@
 .m-tabs__tab[aria-current='page'] {
   color: var(--accent);
 }
+
+.m-url {
+  overflow-wrap: anywhere;
+  font-size: var(--t-sm);
+}
