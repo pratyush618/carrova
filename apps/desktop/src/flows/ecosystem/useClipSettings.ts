@@ -3,13 +3,17 @@ import type { CarrovaPort, ClipSettings } from '../../engine/types';
 
 /**
  * The user's clipboard settings (`null` until loaded). A change shows at
- * once; if it cannot be saved, the saved ones are loaded again.
+ * once; if it cannot be saved, `failed` says so and the saved ones are
+ * loaded again.
  */
 export function useClipSettings(port: CarrovaPort): {
   readonly clip: ClipSettings | null;
   readonly setClip: (patch: Partial<ClipSettings>) => void;
+  /** The last change could not be saved. */
+  readonly failed: boolean;
 } {
   const [clip, setLoaded] = useState<ClipSettings | null>(null);
+  const [failed, setFailed] = useState(false);
   const load = useCallback(() => {
     port.clipSettings().then(setLoaded, () => undefined);
   }, [port]);
@@ -19,9 +23,13 @@ export function useClipSettings(port: CarrovaPort): {
       if (clip === null) return;
       const next = { ...clip, ...patch };
       setLoaded(next);
-      port.setClipSettings(next).catch(load);
+      setFailed(false);
+      port.setClipSettings(next).catch(() => {
+        setFailed(true);
+        load();
+      });
     },
     [clip, port, load],
   );
-  return { clip, setClip };
+  return { clip, setClip, failed };
 }

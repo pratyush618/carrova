@@ -21,6 +21,8 @@ interface Props {
   readonly linked: readonly LinkedDeviceView[];
   /** Clipboard settings (Settings → Clipboard); `null` until loaded. */
   readonly clip: ClipSettings | null;
+  /** The last clipboard change could not be saved. */
+  readonly clipFailed?: boolean;
 }
 
 /** What each section shows. */
@@ -50,6 +52,7 @@ export function SettingsScreen({
   on,
   linked,
   clip,
+  clipFailed = false,
 }: Props & { readonly section: SettingsSection }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
@@ -92,7 +95,7 @@ export function SettingsScreen({
           ))}
         </Group>
       ) : (
-        BODY[section]({ model, on, linked, clip })
+        BODY[section]({ model, on, linked, clip, clipFailed })
       )}
     </HubLayout>
   );

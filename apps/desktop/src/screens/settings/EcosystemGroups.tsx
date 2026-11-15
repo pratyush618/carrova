@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { ClipSettings, FeatureState, LinkedDeviceView } from '../../engine/types';
-import { AppGlyph, Badge, Button, Icon, LinkRow, Muted, Row, Toggle } from '../../ui';
+import { AppGlyph, Badge, Banner, Button, Icon, LinkRow, Muted, Row, Toggle } from '../../ui';
 import { deviceIcon, FEATURE_ICON, type Phase1Feature } from '../devices/model';
 import { Group } from './Group';
 import type { SettingsIntents } from './model';
@@ -112,43 +112,49 @@ const CLIP_SWITCHES = [
  */
 export function ClipboardGroup({
   clip,
+  clipFailed = false,
   on,
 }: {
   readonly clip: ClipSettings | null;
+  /** The last change could not be saved. */
+  readonly clipFailed?: boolean;
   readonly on: SettingsIntents;
 }) {
   const { t } = useTranslation();
   return (
-    <Group title={t('ecosystem.settings.clipGroup')}>
-      {clip !== null &&
-        CLIP_SWITCHES.map(({ row, key, sub }) => (
-          <Row
-            key={row}
-            title={t(ROW_TITLE[row])}
-            sub={sub === null ? undefined : t(sub)}
-            trail={
-              <Toggle
-                on={clip[key]}
-                label={t(ROW_TITLE[row])}
-                onChange={(value) => {
-                  on.onClip({ [key]: value });
-                }}
-              />
-            }
-          />
-        ))}
-      <LinkRow
-        title={t(ROW_TITLE.clipHistory)}
-        sub={t('ecosystem.settings.historySub')}
-        trail={<Icon name="chev" />}
-        onClick={on.onClipHistory}
-      />
-      <Row
-        title={t(ROW_TITLE.clipPasswords)}
-        sub={t('ecosystem.settings.passwordsSub')}
-        trail={<Badge>{t('ecosystem.settings.always')}</Badge>}
-      />
-      <Row title={t(ROW_TITLE.clipLimits)} sub={t('ecosystem.settings.limitsSub')} />
-    </Group>
+    <>
+      {clipFailed && <Banner tone="warning" title={t('ecosystem.device.failed')} />}
+      <Group title={t('ecosystem.settings.clipGroup')}>
+        {clip !== null &&
+          CLIP_SWITCHES.map(({ row, key, sub }) => (
+            <Row
+              key={row}
+              title={t(ROW_TITLE[row])}
+              sub={sub === null ? undefined : t(sub)}
+              trail={
+                <Toggle
+                  on={clip[key]}
+                  label={t(ROW_TITLE[row])}
+                  onChange={(value) => {
+                    on.onClip({ [key]: value });
+                  }}
+                />
+              }
+            />
+          ))}
+        <LinkRow
+          title={t(ROW_TITLE.clipHistory)}
+          sub={t('ecosystem.settings.historySub')}
+          trail={<Icon name="chev" />}
+          onClick={on.onClipHistory}
+        />
+        <Row
+          title={t(ROW_TITLE.clipPasswords)}
+          sub={t('ecosystem.settings.passwordsSub')}
+          trail={<Badge>{t('ecosystem.settings.always')}</Badge>}
+        />
+        <Row title={t(ROW_TITLE.clipLimits)} sub={t('ecosystem.settings.limitsSub')} />
+      </Group>
+    </>
   );
 }

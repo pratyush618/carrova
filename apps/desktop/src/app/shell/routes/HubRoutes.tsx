@@ -205,7 +205,7 @@ export function AppsRoute() {
 export function SettingsRoute({ section }: { readonly section: SettingsSection }) {
   const { settings, update, report, devices, linked } = useControllers();
   const nav = useNav();
-  const { clip, setClip } = useClipSettings(usePort());
+  const { clip, setClip, failed: clipFailed } = useClipSettings(usePort());
   const { model } = settings;
   if (model === null) return <HubLayout>{null}</HubLayout>;
   return (
@@ -214,6 +214,7 @@ export function SettingsRoute({ section }: { readonly section: SettingsSection }
       model={model}
       linked={linked.devices}
       clip={clip}
+      clipFailed={clipFailed}
       on={{
         onClip: setClip,
         onOpenDevice: (id) => {

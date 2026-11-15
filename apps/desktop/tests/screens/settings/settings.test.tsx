@@ -379,4 +379,18 @@ describe('Clipboard settings', () => {
     await user.click(screen.getByRole('switch', { name: 'Keep the history in a file' }));
     expect(on.onClip).toHaveBeenCalledWith({ history_file: true });
   });
+
+  it('says when a clipboard change did not stick', () => {
+    renderScreen(
+      <SettingsScreen
+        section="clipboard"
+        model={settingsModel}
+        on={settingsOn()}
+        linked={[]}
+        clip={clipDefaults}
+        clipFailed
+      />,
+    );
+    expect(screen.getByText("Couldn't change that. Try again.")).toBeInTheDocument();
+  });
 });
