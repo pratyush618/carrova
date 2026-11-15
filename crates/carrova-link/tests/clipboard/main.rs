@@ -50,7 +50,7 @@ fn raw(header: &RawHeader, payload: &[u8]) -> Result<ClipItem, LinkError> {
         let server = s.spawn(|| recv_clip(accept_lane(&b, &Open, T).unwrap().1));
         let mut stream = open_lane(&a, LaneKind::Clipboard).unwrap();
         stream.send(header).unwrap();
-        stream.write_all(payload).unwrap();
+        stream.write_all(payload, T).unwrap();
         server.join().unwrap()
     })
 }

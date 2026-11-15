@@ -11,7 +11,7 @@ use tokio::time::{Instant, timeout, timeout_at};
 
 use crate::cancel::Watch;
 use crate::error::{Result, TransportError};
-use crate::tuning::STREAM_OPEN_TIMEOUT;
+use crate::tuning::{FRAME_WRITE_TIMEOUT, STREAM_OPEN_TIMEOUT};
 use crate::wire::{STREAM_CANCELLED, StreamOpen, StreamReader, encode_frame};
 
 /// One lane: control frames (length + CBOR, at most
@@ -28,10 +28,11 @@ pub struct Stream {
 }
 
 impl Stream {
-    /// Send one frame.
+    /// Send one frame, waiting at most 30 s for the
+    /// peer to make room (see [`Self::write_all`]).
     pub fn send<T: Serialize>(&mut self, msg: &T) -> Result<()> {
         let frame = encode_frame(msg)?;
-        self.write_all(&frame)
+        self.write_all(&frame, FRAME_WRITE_TIMEOUT)
     }
 
     /// Receive the next frame, waiting at most `timeout_after`. A timeout
@@ -47,12 +48,15 @@ impl Stream {
         })
     }
 
-    /// Write raw bytes.
-    pub fn write_all(&mut self, bytes: &[u8]) -> Result<()> {
+    /// Write raw bytes, waiting at most `timeout_after` for a peer that
+    /// stopped reading ([`TransportError::Timeout`]). After a timeout part
+    /// of `bytes` may be sent, so the lane is unusable: drop it.
+    pub fn write_all(&mut self, bytes: &[u8], timeout_after: Duration) -> Result<()> {
         let send = &mut self.send;
         self.cancel.block_on(async {
-            send.write_all(bytes)
+            timeout(timeout_after, send.write_all(bytes))
                 .await
+                .map_err(|_| TransportError::Timeout)?
                 .map_err(|e| TransportError::write(&e))
         })
     }

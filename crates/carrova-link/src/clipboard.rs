@@ -21,7 +21,7 @@ pub const MAX_CLIP_TEXT: usize = 1 << 20;
 pub const MAX_CLIP_PNG: usize = 10 << 20;
 /// Clips kept in [`ClipHistory`].
 const HISTORY_CAP: usize = 20;
-/// Payload bytes read per call, so a stalled peer is noticed between slices.
+/// Payload bytes read or written per call, so a stalled peer is noticed between slices.
 const SLICE: usize = 1 << 20;
 /// How long either side waits for the next frame or slice.
 const CLIP_TIMEOUT: Duration = Duration::from_secs(30);
@@ -87,7 +87,10 @@ pub fn send_clip(conn: &Connection, item: &ClipItem) -> Result<(), LinkError> {
         kind,
         len: bytes.len() as u64,
     })?;
-    stream.write_all(bytes)?;
+    // Slices, so each wait is bounded per MiB rather than for the whole clip.
+    for slice in bytes.chunks(SLICE) {
+        stream.write_all(slice, CLIP_TIMEOUT)?;
+    }
     stream.recv::<()>(CLIP_TIMEOUT)?;
     Ok(())
 }

@@ -141,7 +141,7 @@ fn corrupt_chunk_fails() {
         let mut corrupt = data.clone();
         corrupt[100] ^= 1;
         lane.send(&FileFrame::Chunk { len: 4096, hash }).unwrap();
-        lane.write_all(&corrupt).unwrap();
+        lane.write_all(&corrupt, T).unwrap();
         lane.send(&FileFrame::Done).unwrap();
         let (got, _, _) = recv.join().unwrap();
         assert!(matches!(got, Err(LinkError::Protocol(_))));
@@ -164,7 +164,7 @@ fn oversized_or_extra_chunks_fail() {
             let hash = *blake3::hash(&data).as_bytes();
             // The receiver may stop reading at the bad header; later writes can fail.
             let _ = lane.send(&FileFrame::Chunk { len, hash });
-            let _ = lane.write_all(&data);
+            let _ = lane.write_all(&data, T);
             let _ = lane.send(&FileFrame::Done);
             let (got, _, _) = recv.join().unwrap();
             assert!(matches!(got, Err(LinkError::Protocol(_))), "len {len}");

@@ -46,6 +46,9 @@ pub(crate) const LINK_IDLE_FACTOR: u32 = 3;
 /// open, so this only bounds a misbehaving peer).
 pub(crate) const STREAM_OPEN_TIMEOUT: Duration = Duration::from_secs(2);
 
+/// Longest a lane frame write waits for a peer that stopped reading.
+pub(crate) const FRAME_WRITE_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// TLS server name the receiver presents (certificates are self-signed and
 /// authenticated by the PAKE, so the name only has to be well-formed).
 pub(crate) const TLS_SERVER_NAME: &str = "carrova.invalid";

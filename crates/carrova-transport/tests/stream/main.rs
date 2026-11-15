@@ -65,7 +65,7 @@ fn frames_and_raw_bytes_on_one_stream() {
     let raw: Vec<u8> = (0..=255).cycle().take(300_000).collect();
 
     a.send(&"header".to_owned()).unwrap();
-    a.write_all(&raw).unwrap();
+    a.write_all(&raw, T).unwrap();
     a.send(&"trailer".to_owned()).unwrap();
     a.finish().unwrap();
 
@@ -85,15 +85,29 @@ fn read_exact_times_out_without_losing_bytes() {
     let (sender, receiver) = pair();
     let (mut a, mut b) = lane(&sender, &receiver);
 
-    a.write_all(b"half").unwrap();
+    a.write_all(b"half", T).unwrap();
     let mut buf = [0u8; 8];
     assert!(matches!(
         b.read_exact(&mut buf, SHORT),
         Err(TransportError::Timeout)
     ));
-    a.write_all(b"-done").unwrap();
+    a.write_all(b"-done", T).unwrap();
     b.read_exact(&mut buf, T).unwrap();
     assert_eq!(&buf, b"half-don");
+}
+
+#[test]
+fn write_all_times_out_when_peer_stops_reading() {
+    let (sender, receiver) = pair();
+    let (mut a, _b) = lane(&sender, &receiver);
+    // Far beyond the stream and connection windows; `_b` never reads.
+    let big = vec![0u8; 64 * 1024 * 1024];
+    let start = Instant::now();
+    assert!(matches!(
+        a.write_all(&big, SHORT),
+        Err(TransportError::Timeout)
+    ));
+    assert!(start.elapsed() < T);
 }
 
 #[test]
@@ -109,7 +123,7 @@ fn frame_cap_enforced() {
 
     // A peer announcing an oversized frame is refused before its body.
     let len = u32::try_from(MAX_FRAME_LEN + 1).unwrap();
-    a.write_all(&len.to_be_bytes()).unwrap();
+    a.write_all(&len.to_be_bytes(), T).unwrap();
     assert!(matches!(
         b.recv::<String>(T),
         Err(TransportError::FrameTooLarge { len }) if len == MAX_FRAME_LEN + 1

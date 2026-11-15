@@ -101,7 +101,7 @@ pub fn offer_file(
             len: chunk_u32(chunk.len()),
             hash: *blake3::hash(chunk).as_bytes(),
         })?;
-        stream.write_all(chunk)?;
+        stream.write_all(chunk, FRAME_TIMEOUT)?;
         offset += chunk.len() as u64;
         on_progress(offset);
     }
