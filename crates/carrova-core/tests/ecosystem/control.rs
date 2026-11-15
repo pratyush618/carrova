@@ -67,6 +67,33 @@ fn stale_socket_file_replaced() {
     assert_eq!(client.status().unwrap().len(), 1);
 }
 
+/// One framed message read off `raw`.
+fn read_reply(raw: &mut impl Read) -> ControlResponse {
+    let mut len = [0; 4];
+    raw.read_exact(&mut len).unwrap();
+    let mut body = vec![0; u32::from_be_bytes(len) as usize];
+    raw.read_exact(&mut body).unwrap();
+    ciborium::from_reader(body.as_slice()).unwrap()
+}
+
+#[test]
+fn unreadable_request_error_does_not_echo_it() {
+    let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    let _server = attach_or_start(low.engine.clone()).unwrap();
+    let mut raw = low.platform.connect_local_socket(&socket(&low)).unwrap();
+    let mut body = Vec::new();
+    ciborium::into_writer("secret clip text", &mut body).unwrap();
+
+    raw.write_all(&u32::try_from(body.len()).unwrap().to_be_bytes())
+        .unwrap();
+    raw.write_all(&body).unwrap();
+
+    let ControlResponse::Failed(reason) = read_reply(&mut raw) else {
+        panic!("not refused")
+    };
+    assert!(!reason.contains("secret"), "{reason}");
+}
+
 #[test]
 fn oversize_request_rejected() {
     let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
@@ -75,15 +102,11 @@ fn oversize_request_rejected() {
 
     raw.write_all(&(MAX_CONTROL_MESSAGE + 1).to_be_bytes())
         .unwrap();
-    let mut len = [0; 4];
-    raw.read_exact(&mut len).unwrap();
-    let mut body = vec![0; u32::from_be_bytes(len) as usize];
-    raw.read_exact(&mut body).unwrap();
-    let reply: ControlResponse = ciborium::from_reader(body.as_slice()).unwrap();
+    let reply = read_reply(&mut raw);
 
     assert!(matches!(reply, ControlResponse::Failed(_)), "{reply:?}");
     // The connection is closed, and the server still serves others.
-    assert_eq!(raw.read(&mut len).unwrap(), 0);
+    assert_eq!(raw.read(&mut [0; 4]).unwrap(), 0);
     let client = attach_or_start(other_process(&low)).unwrap();
     assert_eq!(client.status().unwrap().len(), 1);
 }

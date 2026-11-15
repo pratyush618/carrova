@@ -96,9 +96,10 @@ pub enum ControlError {
     /// A message is over its size limit.
     #[error("message over the size limit")]
     TooLarge,
-    /// A message could not be decoded.
-    #[error("unreadable message: {0}")]
-    Decode(#[from] ciborium::de::Error<io::Error>),
+    /// A message could not be decoded. Opaque: a decode error quotes the
+    /// message (e.g. clip text).
+    #[error("unreadable message")]
+    Decode,
     /// A message could not be encoded.
     #[error("cannot encode message: {0}")]
     Encode(#[from] ciborium::ser::Error<io::Error>),
@@ -144,6 +145,6 @@ pub(super) fn read_message<T: DeserializeOwned>(r: &mut impl Read, cap: u32) -> 
     let mut body = vec![0; len as usize];
     r.read_exact(&mut body)?;
     Ok(Some(
-        ciborium::from_reader(body.as_slice()).map_err(ControlError::from)?,
+        ciborium::from_reader(body.as_slice()).map_err(|_| ControlError::Decode)?,
     ))
 }
