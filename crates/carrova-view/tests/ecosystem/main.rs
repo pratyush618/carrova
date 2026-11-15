@@ -232,6 +232,28 @@ fn transfer_progress_then_saved_completes_it() {
 }
 
 #[test]
+fn outgoing_transfer_completes_when_sent() {
+    let mut t = Transfers::default();
+    let progress = Event::FileProgress {
+        device: dev(),
+        id: 5,
+        done: 100,
+        total: 100,
+    };
+    t.apply(&progress, "Pixel");
+    t.apply(
+        &Event::FileSent {
+            device: dev(),
+            id: 5,
+        },
+        "Pixel",
+    );
+    let v = &t.views()[0];
+    assert_eq!((v.state.clone(), v.done), (TransferState::Done, 100));
+    assert_eq!(t.views().len(), 1);
+}
+
+#[test]
 fn transfer_failure_keeps_progress_reason_and_retry() {
     let mut t = Transfers::default();
     t.apply(

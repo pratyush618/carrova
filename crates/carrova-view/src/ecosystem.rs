@@ -346,6 +346,11 @@ impl Transfers {
                     view.file_name = name.to_string_lossy().into_owned();
                 }
             }
+            Event::FileSent { device, id } => {
+                let view = self.entry(*device, *id, device_name);
+                view.done = view.total;
+                view.state = TransferState::Done;
+            }
             Event::FileFailed {
                 device,
                 id,

@@ -378,6 +378,31 @@ fn file_ask_accept_saves_to_downloads() {
 }
 
 #[test]
+fn sender_hears_the_file_was_sent() {
+    let (low, high, sl, sh) = linked(&PolicyDoc::phone_defaults());
+    let src = low.home.join("empty.txt");
+    std::fs::write(&src, b"").unwrap();
+
+    thread::scope(|s| {
+        let sending = s.spawn(|| sl.send_file(&high.id, &src));
+        wait_until("the ask", || asks(&high).len() == 1);
+        sh.answer(asks(&high)[0].0, Answer::Accept).unwrap();
+        sending.join().unwrap().unwrap();
+    });
+
+    let Event::FileSaved { id, .. } = high.wait("saved", |e| matches!(e, Event::FileSaved { .. }))
+    else {
+        unreachable!()
+    };
+    let sent = Event::FileSent {
+        device: high.id,
+        id,
+    };
+    low.wait("sent", |e| *e == sent);
+    assert_eq!(low.count(|e| matches!(e, Event::FileFailed { .. })), 0);
+}
+
+#[test]
 fn stop_waits_for_lanes_in_flight() {
     let (low, high, sl, sh) = linked(&PolicyDoc::phone_defaults());
     let src = low.home.join("big.bin");

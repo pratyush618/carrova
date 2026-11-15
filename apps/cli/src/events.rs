@@ -104,6 +104,7 @@ impl CliSink {
             | Event::ClipSkipped { .. }
             | Event::FileProgress { .. }
             | Event::FileSaved { .. }
+            | Event::FileSent { .. }
             | Event::FileFailed { .. }
             | Event::HandoffOpened { .. }
             | Event::RingStarted { .. }

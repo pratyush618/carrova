@@ -418,7 +418,8 @@ impl Supervisor {
     }
 
     /// Offer `path` to `device` (after `announce` succeeds with the
-    /// offer), reporting progress and failure. If `retryable` and the
+    /// offer), reporting progress and the outcome ([`Event::FileSent`] or
+    /// [`Event::FileFailed`]). If `retryable` and the
     /// device left, it is kept for [`Self::retry_file`].
     fn offer(
         &self,
@@ -451,6 +452,12 @@ impl Supervisor {
             };
             Ok(offer_file(conn, &offer, &mut src, &mut progress)?)
         });
+        if sent.is_ok() {
+            self.shared.emit(Event::FileSent {
+                device: *device,
+                id,
+            });
+        }
         if let Err(e) = &sent {
             let reason = FileFailure::of(e);
             let retry = retryable && reason == FileFailure::DeviceLeft;

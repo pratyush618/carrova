@@ -169,6 +169,12 @@ pub enum Event {
         id: u64,
         path: PathBuf,
     },
+    /// File `id` this device offered was sent: the other device saved it.
+    FileSent {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        id: u64,
+    },
     /// File `id` to or from a device did not arrive; `retry` if it can be
     /// sent again ([`crate::ecosystem::Supervisor::retry_file`]).
     FileFailed {
