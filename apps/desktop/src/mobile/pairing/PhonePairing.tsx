@@ -47,7 +47,7 @@ export function PhonePairing({
           <p>{t('mobile.add.lede')}</p>
           {step.scanFailed && <Banner tone="warning" title={t('mobile.add.scanFailed')} />}
           <div className="m-wide">
-            <Button kind="primary" size="lg" icon="laptop" onClick={scan}>
+            <Button kind="primary" size="lg" icon="camera" onClick={scan}>
               {t('mobile.add.scan')}
             </Button>
             <Button onClick={type}>{t('mobile.add.type')}</Button>

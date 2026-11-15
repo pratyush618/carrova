@@ -66,6 +66,10 @@ export const ICONS = {
     'M12 18.6v.2M8.64 15.36a4.8 4.8 0 0 1 6.72 0M5.52 12.24a9.12 9.12 0 0 1 12.96 0M2.64 9.12a13.2 13.2 0 0 1 18.72 0',
   ],
   refresh: ['M19.2 12a7.2 7.2 0 1 1-2.16-5.16M19.2 4.2v3.6h-3.6'],
+  // Phone (Android mockup `scan`, scaled from its 20-unit grid).
+  camera: [
+    'M3.6 7.8h3.6l1.8-2.4h6l1.8 2.4h3.6v11.4H3.6zM12 10.2a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2z',
+  ],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconName = keyof typeof ICONS;
