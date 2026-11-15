@@ -783,6 +783,10 @@ dependencies = [
 name = "carrova-link"
 version = "0.2.3"
 dependencies = [
+ "blake3",
+ "carrova-crypto",
+ "carrova-platform",
+ "carrova-transport",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

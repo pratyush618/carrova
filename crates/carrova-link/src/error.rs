@@ -1,5 +1,7 @@
 //! Link errors.
 
+use std::io;
+
 use carrova_transport::TransportError;
 
 use crate::lane::RefuseReason;
@@ -30,6 +32,18 @@ pub enum LinkError {
     /// The peer refused the lane, or this side refused the peer's.
     #[error("lane refused: {0:?}")]
     Refused(RefuseReason),
+    /// The receiver declined the file offer.
+    #[error("the other device declined the file")]
+    Declined,
+    /// The file offer went unanswered.
+    #[error("the file offer expired")]
+    Expired,
+    /// The peer broke a lane protocol.
+    #[error("protocol error: {0}")]
+    Protocol(&'static str),
+    /// Reading the source or writing the sink failed.
+    #[error(transparent)]
+    Io(#[from] io::Error),
     /// The transport failed.
     #[error(transparent)]
     Transport(#[from] TransportError),
