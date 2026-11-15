@@ -8,6 +8,7 @@
 //! | `device.key` | this device's 32-byte Ed25519 seed |
 //! | `devices/known.json` | versioned list of [`DeviceRecord`]s |
 //! | `devices/<public key hex>.key` | the 32-byte `KnownSecret` shared with that device |
+//! | `devices/policy/<public key hex>.json` | that device's feature policy ([`crate::ecosystem`]) |
 //!
 //! Everything is keyed by the full public key ([`DeviceId`]); fingerprints
 //! are display labels ([`KnownDevices::resolve`] turns a typed one into
@@ -34,6 +35,7 @@ use serde::{Deserialize, Serialize};
 
 pub use record::{DeviceRecord, HintUpdate};
 
+use crate::ecosystem::PolicyStore;
 use crate::error::{CoreError, Corruption, EncodeError, Result};
 use crate::fsx;
 use crate::lan::clean_device_name;
@@ -257,6 +259,7 @@ impl KnownDevices {
         let _lock = self.lock(platform)?;
         let mut file = self.load(platform)?;
         secret_file::wipe(platform, &self.dir, &key_file_name(id), KNOWN_SECRET_LEN)?;
+        self.policies().remove(platform, id)?;
         let before = file.devices.len();
         file.devices.retain(|d| d.public != *id);
         if file.devices.len() == before {
@@ -286,6 +289,7 @@ impl KnownDevices {
                 secret_file::wipe(platform, &self.dir, &name, KNOWN_SECRET_LEN)?;
             }
         }
+        self.policies().remove_all(platform)?;
         self.save(
             platform,
             &KnownFile {
@@ -306,6 +310,11 @@ impl KnownDevices {
         let key = self.new_device_key(platform)?;
         self.forget_all_locked(platform)?;
         Ok(key)
+    }
+
+    /// The per-device policy files, deleted along with their device.
+    fn policies(&self) -> PolicyStore {
+        PolicyStore::at(self.dir.join(crate::ecosystem::POLICY_DIR))
     }
 
     /// Make and store a new device key (caller holds the lock).

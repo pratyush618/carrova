@@ -138,6 +138,15 @@ pub enum CoreError {
         key: String,
         problem: KeyFileProblem,
     },
+    /// A device policy is not valid.
+    #[error(transparent)]
+    Link(#[from] carrova_link::LinkError),
+    /// A pairing link could not be read.
+    #[error("invalid pairing link: {0}")]
+    InvalidInvite(&'static str),
+    /// The computer reached is not the one whose QR code was scanned.
+    #[error("this is not the computer you scanned")]
+    KeyMismatch,
     /// No known device matches (forget, rename or a typed fingerprint).
     #[error("known devices: no known device matches")]
     UnknownDevice,
