@@ -1,6 +1,6 @@
 import type { Invite } from '../../app/state/EngineState';
 import type { LinkedDeviceView, PairInviteView } from '../../engine/types';
-import type { AddPhoneModel } from '../../screens/devices/model';
+import type { AddDeviceModel } from '../../screens/devices/model';
 
 /** How a pairing attempt ended. */
 export type PairEnd =
@@ -28,12 +28,12 @@ export function settle(end: PairEnd | null, next: PairEnd): PairEnd {
   return next;
 }
 
-/** What the Add a phone dialog shows, `secondsLeft` on the attempt's code. */
-export function addPhoneModel(
+/** What the Add a device dialog shows, `secondsLeft` on the attempt's code. */
+export function addDeviceModel(
   current: AttemptInvite | null,
   end: PairEnd | null,
   secondsLeft: number,
-): AddPhoneModel {
+): AddDeviceModel {
   if (end?.state === 'linked') return end;
   if (end?.state === 'expired' || (current !== null && secondsLeft === 0))
     return { state: 'expired' };

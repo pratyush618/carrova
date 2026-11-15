@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '../../support/render';
-import { AddPhoneDialog } from '@/screens/devices/AddPhoneDialog';
+import { AddDeviceDialog } from '@/screens/devices/AddDeviceDialog';
 import { DevicePage } from '@/screens/devices/DevicePage';
 import { pixel, pixelInvite } from '@/screens/devices/fixtures';
 import type { DeviceIntents } from '@/screens/devices/model';
@@ -45,12 +45,12 @@ describe('Device page', () => {
   });
 });
 
-describe('Add a phone', () => {
-  it('AddPhoneDialog renders QR svg and code, shows expired state', async () => {
+describe('Add a device', () => {
+  it('AddDeviceDialog renders QR svg and code, shows expired state', async () => {
     const user = userEvent.setup();
     const on = pairOn();
     const { rerender } = renderScreen(
-      <AddPhoneDialog
+      <AddDeviceDialog
         model={{ state: 'waiting', invite: pixelInvite, expiresAt: Date.now() + 160_000 }}
         on={on}
       />,
@@ -59,17 +59,31 @@ describe('Add a phone', () => {
     expect(qr.getAttribute('src')).toMatch(/^data:image\/svg\+xml,/);
     expect(screen.getByRole('img', { name: /4 maple orbit/ })).toBeInTheDocument();
 
-    rerender(<AddPhoneDialog model={{ state: 'expired' }} on={on} />);
+    rerender(<AddDeviceDialog model={{ state: 'expired' }} on={on} />);
     expect(screen.getByRole('heading', { name: 'This code expired' })).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: 'Pairing QR code' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'New code' }));
     expect(on.onRetry).toHaveBeenCalledOnce();
   });
 
+  it('offers the QR to a phone and the code to a computer', () => {
+    renderScreen(
+      <AddDeviceDialog
+        model={{ state: 'waiting', invite: pixelInvite, expiresAt: Date.now() + 160_000 }}
+        on={pairOn()}
+      />,
+    );
+    expect(screen.getByRole('dialog', { name: 'Add a device' })).toBeInTheDocument();
+    expect(screen.getByText(/On a phone, open Carrova/)).toBeInTheDocument();
+    expect(
+      screen.getByText('On a computer, choose Link a computer and type this code'),
+    ).toBeInTheDocument();
+  });
+
   it('names the linked phone and opens its page', async () => {
     const user = userEvent.setup();
     const on = pairOn();
-    renderScreen(<AddPhoneDialog model={{ state: 'linked', device: pixel }} on={on} />);
+    renderScreen(<AddDeviceDialog model={{ state: 'linked', device: pixel }} on={on} />);
     expect(screen.getByRole('heading', { name: 'Pixel 8 is linked' })).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -85,7 +99,7 @@ describe('Add a phone', () => {
       ...pixel,
       features: pixel.features.map((f) => ({ ...f, local: 'off' as const })),
     };
-    renderScreen(<AddPhoneDialog model={{ state: 'linked', device: off }} on={pairOn()} />);
+    renderScreen(<AddDeviceDialog model={{ state: 'linked', device: off }} on={pairOn()} />);
     expect(
       screen.getByText('Everything is off for now. Change any of it on its page.'),
     ).toBeInTheDocument();

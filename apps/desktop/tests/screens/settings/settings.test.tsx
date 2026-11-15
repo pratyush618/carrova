@@ -33,7 +33,7 @@ const settingsOn = (): SettingsIntents => ({
   onSection: vi.fn(),
   onBack: vi.fn(),
   onOpenDevice: vi.fn(),
-  onAddPhone: vi.fn(),
+  onAddDevice: vi.fn(),
   onLinkComputer: vi.fn(),
   onClipHistory: vi.fn(),
 });

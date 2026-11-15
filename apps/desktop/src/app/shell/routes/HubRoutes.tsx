@@ -159,8 +159,8 @@ export function NearbyRoute() {
         onOpen: ({ id }) => {
           if (id !== null) nav.go({ type: 'openDevice', id });
         },
-        onAddPhone: () => {
-          nav.open({ kind: 'add-phone' });
+        onAddDevice: () => {
+          nav.open({ kind: 'add-device' });
         },
         onLinkComputer: () => {
           nav.open({ kind: 'link-computer' });
@@ -214,8 +214,8 @@ export function SettingsRoute({ section }: { readonly section: SettingsSection }
         onOpenDevice: (id) => {
           nav.go({ type: 'openDevice', id });
         },
-        onAddPhone: () => {
-          nav.open({ kind: 'add-phone' });
+        onAddDevice: () => {
+          nav.open({ kind: 'add-device' });
         },
         onLinkComputer: () => {
           nav.open({ kind: 'link-computer' });

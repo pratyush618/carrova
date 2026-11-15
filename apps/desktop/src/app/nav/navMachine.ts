@@ -40,7 +40,7 @@ export type Overlay =
   /** Confirm forgetting every remembered device, or giving this computer a new identity. */
   | { readonly kind: 'forget-devices'; readonly what: 'all' | 'identity' }
   /** Link a phone by QR code or typed code. */
-  | { readonly kind: 'add-phone' }
+  | { readonly kind: 'add-device' }
   /** Link another computer by typing its code. */
   | { readonly kind: 'link-computer' }
   /** Confirm forgetting a linked device. */

@@ -35,8 +35,8 @@ export interface DeviceIntents {
   readonly onForget: () => void;
 }
 
-/** The Add a phone dialog: making a code, waiting for a scan, and how it ended. */
-export type AddPhoneModel =
+/** The Add a device dialog: making a code, waiting for a scan, and how it ended. */
+export type AddDeviceModel =
   | { readonly state: 'starting' }
   | {
       readonly state: 'waiting';
@@ -48,7 +48,7 @@ export type AddPhoneModel =
   /** `device`: the one that linked, when the list names it. */
   | { readonly state: 'linked'; readonly device: LinkedDeviceView | null };
 
-export interface AddPhoneIntents {
+export interface AddDeviceIntents {
   readonly onCancel: () => void;
   /** A new code, after it expired or failed. */
   readonly onRetry: () => void;

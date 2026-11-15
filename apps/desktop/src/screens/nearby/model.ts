@@ -97,6 +97,6 @@ export interface NearbyIntents {
   readonly onDismissWake: () => void;
   /** Open a linked device's page. */
   readonly onOpen: (device: DeviceEntry) => void;
-  readonly onAddPhone: () => void;
+  readonly onAddDevice: () => void;
   readonly onLinkComputer: () => void;
 }

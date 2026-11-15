@@ -37,14 +37,14 @@ describe('useLinkedDevices pairing', () => {
       .mockImplementationOnce(() => Promise.resolve());
     const cancel = vi.spyOn(port, 'cancelConnect');
 
-    const first = hook.result.current.pairPhone();
+    const first = hook.result.current.pairDevice();
     first.done.catch(() => undefined);
     await settle();
     expect(invite).toHaveBeenCalledOnce();
     first.cancel();
     expect(cancel).toHaveBeenCalledOnce();
 
-    const second = hook.result.current.pairPhone();
+    const second = hook.result.current.pairDevice();
     await settle();
     expect(invite).toHaveBeenCalledOnce();
 
@@ -58,7 +58,7 @@ describe('useLinkedDevices pairing', () => {
     const { port, hook } = setup();
     const invite = vi.spyOn(port, 'pairInvite');
     const cancel = vi.spyOn(port, 'cancelConnect');
-    const first = hook.result.current.pairPhone();
+    const first = hook.result.current.pairDevice();
     first.cancel();
     await expect(first.done).rejects.toEqual(CANCELLED);
     expect(invite).not.toHaveBeenCalled();
@@ -74,7 +74,7 @@ describe('useLinkedDevices pairing', () => {
       .mockResolvedValue([{ ...away, state: 'linked' }]);
     await act(() => hook.result.current.reload());
     vi.spyOn(port, 'pairInvite').mockResolvedValue();
-    await expect(hook.result.current.pairPhone().done).resolves.toMatchObject({ id: 'p8' });
+    await expect(hook.result.current.pairDevice().done).resolves.toMatchObject({ id: 'p8' });
   });
 });
 

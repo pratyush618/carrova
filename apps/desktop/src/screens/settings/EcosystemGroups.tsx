@@ -77,10 +77,10 @@ export function LinkedGroup({
       </Group>
       <Group title={t('ecosystem.settings.newGroup')}>
         <Row
-          title={t(ROW_TITLE.addPhone)}
-          sub={t('ecosystem.settings.addPhoneSub')}
+          title={t(ROW_TITLE.addDevice)}
+          sub={t('ecosystem.settings.addDeviceSub')}
           trail={
-            <Button size="sm" icon="phone" onClick={on.onAddPhone}>
+            <Button size="sm" icon="phone" onClick={on.onAddDevice}>
               {t('ecosystem.settings.add')}
             </Button>
           }

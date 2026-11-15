@@ -66,8 +66,8 @@ export function NearbyScreen({
               on.onView(view);
             }}
           />
-          <Button size="sm" icon="phone" onClick={on.onAddPhone}>
-            {t('ecosystem.nearby.addPhone')}
+          <Button size="sm" icon="phone" onClick={on.onAddDevice}>
+            {t('ecosystem.nearby.addDevice')}
           </Button>
           <Button size="sm" kind="quiet" icon="laptop" onClick={on.onLinkComputer}>
             {t('ecosystem.nearby.linkComputer')}

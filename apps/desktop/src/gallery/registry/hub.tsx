@@ -74,7 +74,7 @@ const settingsOn = noops(
   'onSection',
   'onBack',
   'onOpenDevice',
-  'onAddPhone',
+  'onAddDevice',
   'onLinkComputer',
   'onClipHistory',
 );
@@ -98,7 +98,7 @@ const nearbyOn = noops(
   'onForget',
   'onDismissWake',
   'onOpen',
-  'onAddPhone',
+  'onAddDevice',
   'onLinkComputer',
 );
 const NEARBY: Readonly<Record<string, NearbyModel>> = {

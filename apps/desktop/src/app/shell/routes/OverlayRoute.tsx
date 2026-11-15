@@ -11,7 +11,7 @@ import {
   UpdateOverlay,
 } from './HubOverlays';
 import {
-  AddPhoneOverlay,
+  AddDeviceOverlay,
   ClipHistoryOverlay,
   ForgetDeviceOverlay,
   LinkComputerOverlay,
@@ -63,8 +63,8 @@ export function OverlayRoute({ overlay }: { readonly overlay: Overlay }) {
       return <ReportOverlay />;
     case 'about':
       return <AboutOverlay />;
-    case 'add-phone':
-      return <AddPhoneOverlay />;
+    case 'add-device':
+      return <AddDeviceOverlay />;
     case 'link-computer':
       return <LinkComputerOverlay />;
     case 'forget-device':

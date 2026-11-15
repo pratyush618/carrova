@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Button, CodeDisplay, Dialog, Note, Status } from '../../ui';
 import { clock, useSecondsLeft } from '../send/countdown';
 import { LinkedSummary } from './LinkedSummary';
-import type { AddPhoneIntents, AddPhoneModel } from './model';
+import type { AddDeviceIntents, AddDeviceModel } from './model';
 import './devices.css';
 
 /** What to check when the phone couldn't connect. */
@@ -15,15 +15,15 @@ function Expiry({ at }: { readonly at: number }) {
 }
 
 /**
- * Add a phone: a QR code that carries the one-time code and this computer's
+ * Add a device: a QR code that carries the one-time code and this computer's
  * address, the three words as the fallback, then linked, expired or failed.
  */
-export function AddPhoneDialog({
+export function AddDeviceDialog({
   model,
   on,
 }: {
-  readonly model: AddPhoneModel;
-  readonly on: AddPhoneIntents;
+  readonly model: AddDeviceModel;
+  readonly on: AddDeviceIntents;
 }) {
   const { t } = useTranslation();
   const cancel = (

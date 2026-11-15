@@ -29,7 +29,7 @@ export interface LinkedController {
   /** The engine refused the last feature change. */
   readonly failed: boolean;
   /** Invite a phone (the invite arrives as an event). */
-  readonly pairPhone: () => Pairing;
+  readonly pairDevice: () => Pairing;
   /** Link a computer by its code. */
   readonly linkComputer: (ticket: string) => Pairing;
   readonly ring: (id: string) => Promise<void>;
@@ -132,7 +132,7 @@ export function useLinkedDevices(port: CarrovaPort): LinkedController {
     },
     [port, linkedBy],
   );
-  const pairPhone = useCallback(() => startPairing(() => port.pairInvite()), [port, startPairing]);
+  const pairDevice = useCallback(() => startPairing(() => port.pairInvite()), [port, startPairing]);
   const linkComputer = useCallback(
     (ticket: string) => startPairing(() => port.linkComputer(ticket.trim())),
     [port, startPairing],
@@ -147,12 +147,12 @@ export function useLinkedDevices(port: CarrovaPort): LinkedController {
       reload,
       setFeature,
       failed,
-      pairPhone,
+      pairDevice,
       linkComputer,
       ring,
       sendClipboard,
       sendFiles,
     }),
-    [devices, reload, setFeature, failed, pairPhone, linkComputer, ring, sendClipboard, sendFiles],
+    [devices, reload, setFeature, failed, pairDevice, linkComputer, ring, sendClipboard, sendFiles],
   );
 }

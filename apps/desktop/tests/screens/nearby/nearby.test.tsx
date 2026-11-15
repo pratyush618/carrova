@@ -26,7 +26,7 @@ const nearbyOn = (): NearbyIntents => ({
   onWake: vi.fn(),
   onForget: vi.fn(),
   onOpen: vi.fn(),
-  onAddPhone: vi.fn(),
+  onAddDevice: vi.fn(),
   onLinkComputer: vi.fn(),
   onDismissWake: vi.fn(),
 });
@@ -391,7 +391,7 @@ describe('Nearby', () => {
     expect(here.getByText('Android')).toBeInTheDocument();
     await user.click(here.getByRole('button', { name: 'Open: Pixel 8' }));
     expect(on.onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'p8' }));
-    await user.click(screen.getByRole('button', { name: 'Add a phone' }));
-    expect(on.onAddPhone).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole('button', { name: 'Add a device' }));
+    expect(on.onAddDevice).toHaveBeenCalledOnce();
   });
 });

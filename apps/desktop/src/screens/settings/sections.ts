@@ -24,7 +24,7 @@ export const ROW_TITLE = {
   featureRing: 'ecosystem.features.ring.title',
   featureFiles: 'ecosystem.features.files.title',
   featureHandoff: 'ecosystem.features.handoff.title',
-  addPhone: 'ecosystem.nearby.addPhone',
+  addDevice: 'ecosystem.nearby.addDevice',
   linkComputer: 'ecosystem.nearby.linkComputer',
   clipHistory: 'ecosystem.settings.history',
   clipPasswords: 'ecosystem.settings.passwords',
@@ -76,7 +76,7 @@ export const SECTIONS: readonly SectionDef[] = [
     icon: 'swap',
     rows: ['featureClipboard', 'featureRing', 'featureFiles', 'featureHandoff'],
   },
-  { id: 'linked', icon: 'phone', rows: ['addPhone', 'linkComputer'] },
+  { id: 'linked', icon: 'phone', rows: ['addDevice', 'linkComputer'] },
   { id: 'clipboard', icon: 'copy', rows: ['clipHistory', 'clipPasswords', 'clipLimits'] },
   { id: 'sending', icon: 'send', rows: ['manual', 'fileManager', 'caches'] },
   {

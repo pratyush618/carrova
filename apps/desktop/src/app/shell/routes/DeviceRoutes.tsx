@@ -7,13 +7,13 @@ import { toBridgeError } from '../../../engine/errors';
 import { useClipHistory } from '../../../flows/ecosystem/useClipHistory';
 import type { Pairing } from '../../../flows/ecosystem/useLinkedDevices';
 import {
-  addPhoneModel,
+  addDeviceModel,
   attemptInvite,
   settle,
   type PairEnd,
 } from '../../../flows/ecosystem/pairing';
 import { ClipHistorySheet } from '../../../screens/clipboard/ClipHistorySheet';
-import { AddPhoneDialog } from '../../../screens/devices/AddPhoneDialog';
+import { AddDeviceDialog } from '../../../screens/devices/AddDeviceDialog';
 import { DevicePage } from '../../../screens/devices/DevicePage';
 import { ForgetDialog } from '../../../screens/devices/ForgetDialog';
 import {
@@ -86,19 +86,19 @@ export function DeviceRoute({ id }: { readonly id: string }) {
 }
 
 /**
- * Add a phone: one invite per attempt; closing the dialog or a new code
+ * Add a device: one invite per attempt; closing the dialog or a new code
  * cancels the one waiting. The code leaves memory once the dialog closes or
  * the code runs out.
  */
-export function AddPhoneOverlay() {
+export function AddDeviceOverlay() {
   const { linked } = useControllers();
   const nav = useNav();
   const { invite, clear } = useInvite();
   const [attempt, setAttempt] = useState(() => Date.now());
   const [end, setEnd] = useState<PairEnd | null>(null);
-  const { pairPhone } = linked;
+  const { pairDevice } = linked;
   useEffect(() => {
-    const pairing = pairPhone();
+    const pairing = pairDevice();
     let live = true;
     const ended = (next: PairEnd) => {
       if (live) setEnd((now) => settle(now, next));
@@ -115,7 +115,7 @@ export function AddPhoneOverlay() {
       live = false;
       pairing.cancel();
     };
-  }, [pairPhone, attempt]);
+  }, [pairDevice, attempt]);
   useEffect(() => clear, [clear]);
   const current = attemptInvite(invite, attempt);
   const seconds = useSecondsLeft(current?.expiresAt ?? 0);
@@ -126,10 +126,10 @@ export function AddPhoneOverlay() {
   useEffect(() => {
     if (ranOut) clear();
   }, [ranOut, clear]);
-  const model = addPhoneModel(current, end, seconds);
+  const model = addDeviceModel(current, end, seconds);
   const linkedId = end?.state === 'linked' ? (end.device?.id ?? null) : null;
   return (
-    <AddPhoneDialog
+    <AddDeviceDialog
       model={model}
       on={{
         onCancel: nav.close,

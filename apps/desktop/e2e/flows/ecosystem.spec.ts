@@ -2,19 +2,22 @@ import { expect, test } from '@playwright/test';
 import { consoleErrors, expectAccessible, openApp } from './support';
 
 // The fake links "Pixel 8" a moment after the invite shows (nothing to scan).
-test('pair a phone then send clipboard (fake port)', async ({ page }) => {
+test('add a device then send clipboard (fake port)', async ({ page }) => {
   const errors = consoleErrors(page);
   await openApp(page);
   await page
     .getByRole('navigation', { name: 'Main' })
     .getByRole('button', { name: 'Nearby' })
     .click();
-  await page.getByRole('button', { name: 'Add a phone' }).click();
+  await page.getByRole('button', { name: 'Add a device' }).click();
 
-  const pairing = page.getByRole('dialog', { name: 'Add a phone' });
+  const pairing = page.getByRole('dialog', { name: 'Add a device' });
   await expect(pairing.getByRole('img', { name: 'Pairing QR code' })).toBeVisible();
   await expect(pairing.getByRole('img', { name: /4 maple orbit/ })).toBeVisible();
-  await expectAccessible(page, 'add a phone');
+  await expect(
+    pairing.getByText('On a computer, choose Link a computer and type this code'),
+  ).toBeVisible();
+  await expectAccessible(page, 'add a device');
 
   const linked = page.getByRole('dialog', { name: 'Pixel 8 is linked' });
   await expect(linked).toBeVisible();
