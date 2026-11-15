@@ -84,6 +84,8 @@ pub(super) struct Shared {
     pub(super) clips: Mutex<Clips>,
     /// Fires on [`Supervisor::stop`]: every thread and connection ends.
     pub(super) stop: Cancel,
+    /// Per-link, lane and dial threads, joined on stop.
+    threads: Mutex<Vec<JoinHandle<()>>>,
 }
 
 impl Shared {
@@ -91,6 +93,27 @@ impl Shared {
     /// blocking call.
     pub(super) fn peers(&self) -> MutexGuard<'_, Vec<Peer>> {
         self.peers.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Run `f` on a thread the stop waits for.
+    pub(super) fn spawn(&self, name: &str, f: impl FnOnce() + Send + 'static) -> Result<()> {
+        let thread = spawn(name, f)?;
+        let mut threads = self.threads.lock().unwrap_or_else(PoisonError::into_inner);
+        threads.retain(|t| !t.is_finished());
+        threads.push(thread);
+        Ok(())
+    }
+
+    /// Wait for every thread of [`Self::spawn`], including any they start.
+    fn join_all(&self) {
+        loop {
+            let threads =
+                std::mem::take(&mut *self.threads.lock().unwrap_or_else(PoisonError::into_inner));
+            if threads.is_empty() {
+                return;
+            }
+            join(threads);
+        }
     }
 
     pub(super) fn platform(&self) -> &Arc<dyn Platform> {
@@ -172,6 +195,7 @@ impl Supervisor {
             asks: Asks::default(),
             clips: Mutex::default(),
             stop: Cancel::default(),
+            threads: Mutex::default(),
         });
         dial::refresh(&shared)?;
         let listener = dial::bind(&shared)?;
@@ -203,7 +227,8 @@ impl Supervisor {
         self.port
     }
 
-    /// Close every link and wait for the supervisor's own threads.
+    /// Close every link and wait for every thread of the supervisor: once
+    /// it returns, nothing more is received, written or emitted.
     pub fn stop(self) {
         drop(self);
     }
@@ -391,14 +416,19 @@ impl Drop for Supervisor {
             .get_mut()
             .unwrap_or_else(PoisonError::into_inner)
             .take();
-        for thread in self.threads.drain(..) {
-            if thread.join().is_err() {
-                tracing::warn!("a link supervisor thread panicked");
-            }
-        }
+        join(self.threads.drain(..));
         // Only once the listener is gone: a peer that sees its link drop
         // redials at once, and must not reach this stopping supervisor.
         dial::close_all(&self.shared);
+        self.shared.join_all();
+    }
+}
+
+fn join(threads: impl IntoIterator<Item = JoinHandle<()>>) {
+    for thread in threads {
+        if thread.join().is_err() {
+            tracing::warn!("a link supervisor thread panicked");
+        }
     }
 }
 

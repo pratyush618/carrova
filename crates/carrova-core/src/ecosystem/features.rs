@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use super::asks::{Answer, AskKind};
 use super::clip::lock_clips;
 use super::sink::Download;
-use super::supervisor::{Shared, spawn};
+use super::supervisor::Shared;
 use crate::cancel::Cancel;
 use crate::error::{CoreError, Result};
 use crate::session::Event;
@@ -149,7 +149,7 @@ pub(super) fn serve(
                     generation,
                     closed: closed.clone(),
                 };
-                if let Err(e) = spawn("carrova-link-lane", move || lane.run(kind, stream)) {
+                if let Err(e) = shared.spawn("carrova-link-lane", move || lane.run(kind, stream)) {
                     tracing::warn!(error = %e, "lane dropped");
                 }
             }

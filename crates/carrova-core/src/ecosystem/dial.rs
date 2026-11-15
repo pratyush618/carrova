@@ -28,7 +28,7 @@ use super::PolicyStore;
 use super::clip::lock_clips;
 use super::features;
 use super::peer::{Link, Peer, PeerSource, dials};
-use super::supervisor::{Shared, spawn};
+use super::supervisor::Shared;
 use crate::cancel::Cancel;
 use crate::error::Result;
 use crate::lan::known_by_recent_use;
@@ -187,7 +187,7 @@ fn round(shared: &Arc<Shared>, seen: &[super::SeenPeer]) {
     }
     for (device, secret, addr) in due {
         let dialer = Arc::clone(shared);
-        let started = spawn("carrova-link-dial", move || {
+        let started = shared.spawn("carrova-link-dial", move || {
             dial(&dialer, device, &secret, addr);
         });
         if started.is_err() {
@@ -269,15 +269,16 @@ fn register(shared: &Arc<Shared>, conn: Connection) {
         shared.emit(Event::LinkUp { device });
     }
     let (link, pushing, pushed_conn) = (Arc::clone(shared), Arc::clone(shared), Arc::clone(&conn));
-    let started = spawn("carrova-link", move || {
-        let ended = features::serve(&link, device, &conn, generation, &closed);
-        ended_link(&link, device, generation, &ended);
-    })
-    .and_then(|_| {
-        spawn("carrova-link-policy", move || {
-            features::push_policy(&pushing, &device, &pushed_conn);
+    let started = shared
+        .spawn("carrova-link", move || {
+            let ended = features::serve(&link, device, &conn, generation, &closed);
+            ended_link(&link, device, generation, &ended);
         })
-    });
+        .and_then(|()| {
+            shared.spawn("carrova-link-policy", move || {
+                features::push_policy(&pushing, &device, &pushed_conn);
+            })
+        });
     if let Err(e) = started {
         tracing::warn!(error = %e, "link not served");
     }

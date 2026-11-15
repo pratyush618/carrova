@@ -324,6 +324,26 @@ fn file_ask_accept_saves_to_downloads() {
 }
 
 #[test]
+fn stop_waits_for_lanes_in_flight() {
+    let (low, high, sl, sh) = linked(&PolicyDoc::phone_defaults());
+    let src = low.home.join("big.bin");
+    std::fs::write(&src, vec![7; 1 << 20]).unwrap();
+
+    thread::scope(|s| {
+        let sending = s.spawn(|| sl.send_file(&high.id, &src));
+        high.wait("ask", |e| matches!(e, Event::AskReceived { .. }));
+        sh.stop();
+        let at_stop = high.events().len();
+        thread::sleep(std::time::Duration::from_millis(500));
+        assert_eq!(high.events().len(), at_stop, "no event after stop returned");
+        assert!(sending.join().unwrap().is_err());
+    });
+    let downloads = high.home.join("Downloads");
+    let left = std::fs::read_dir(&downloads).map_or(0, Iterator::count);
+    assert_eq!(left, 0, "nothing saved, no partial left");
+}
+
+#[test]
 fn file_ask_expires_after_timeout() {
     let (low, high, _) = pair(&PolicyDoc::phone_defaults());
     let (sl, sh) = (
