@@ -20,8 +20,8 @@ use crate::{
 /// Adapter rooted at the app's files directory.
 #[derive(Debug, Clone)]
 pub(crate) struct AndroidPlatform {
-    /// App files directory (`Context.getFilesDir()`); the Tauri runtime
-    /// exports it as `HOME`.
+    /// App files directory (`Context.getFilesDir()`). `HOME` is a
+    /// placeholder until Task 13 reads it over JNI.
     files_dir: Option<OsString>,
     path: Option<OsString>,
 }
@@ -80,6 +80,14 @@ impl Platform for AndroidPlatform {
 
     fn snapshot_capability(&self, _path: &Path) -> Result<SnapshotCapability, PlatformError> {
         Ok(SnapshotCapability::None)
+    }
+
+    fn bind_local_socket(&self, path: &Path) -> Result<crate::LocalListener, PlatformError> {
+        crate::LocalListener::bind(path, crate::netops::current_uid())
+    }
+
+    fn connect_local_socket(&self, path: &Path) -> Result<crate::LocalStream, PlatformError> {
+        crate::LocalStream::connect(path)
     }
 
     fn disk(&self, path: &Path) -> Result<DiskInfo, PlatformError> {

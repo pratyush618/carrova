@@ -45,7 +45,7 @@ pub(crate) fn set_mode(path: &Path, mode: u32) -> Result<(), PlatformError> {
 /// effects on special files), checks its type with `fstat`, then chmods the
 /// inode it pins via `/proc/self/fd/N` — `fchmod` is not allowed on `O_PATH`
 /// fds, and `fchmodat(AT_SYMLINK_NOFOLLOW)` is not portable across kernels.
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn chmod_nofollow(path: &Path, mode: Mode, expect: Option<FileType>) -> Result<(), PlatformError> {
     use std::os::fd::AsRawFd;
 
@@ -67,7 +67,7 @@ fn chmod_nofollow(path: &Path, mode: Mode, expect: Option<FileType>) -> Result<(
 /// `fchmodat(AT_SYMLINK_NOFOLLOW)` changes whatever is at `path` without
 /// following it, so a swap in between can at worst chmod a link itself,
 /// never its target.
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
 fn chmod_nofollow(path: &Path, mode: Mode, expect: Option<FileType>) -> Result<(), PlatformError> {
     use rustix::fs::{AtFlags, CWD};
 
