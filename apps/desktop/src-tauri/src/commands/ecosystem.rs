@@ -128,6 +128,17 @@ pub async fn handoff_url(
     reply(&app, ops::ecosystem::handoff_url(&state, id, url).await)
 }
 
+/// `CarrovaPort.sendText`.
+#[tauri::command]
+pub async fn send_text(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: DeviceId,
+    text: String,
+) -> Result<(), CommandError> {
+    reply(&app, ops::ecosystem::send_text(&state, id, text).await)
+}
+
 /// `CarrovaPort.ring`.
 #[tauri::command]
 pub async fn ring(

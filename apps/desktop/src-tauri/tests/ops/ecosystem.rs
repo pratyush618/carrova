@@ -148,6 +148,17 @@ fn ops_retry_of_an_unknown_file_errors() {
 }
 
 #[test]
+fn ops_send_text_reaches_the_supervisor() {
+    let machine = Machine::new();
+    remember(&machine, 1, "Pixel 8");
+    let state = served(&machine);
+
+    let sent = block_on(ecosystem::send_text(&state, public(1), "hi".to_owned()));
+
+    assert!(sent.is_err(), "not linked");
+}
+
+#[test]
 fn ops_stop_ring_reaches_the_supervisor() {
     let machine = Machine::new();
     remember(&machine, 1, "Pixel 8");

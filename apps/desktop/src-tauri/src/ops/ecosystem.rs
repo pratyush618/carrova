@@ -366,6 +366,19 @@ pub async fn handoff_url(
     .await
 }
 
+/// Send `text` (shared with the app) to `device` as a clip.
+///
+/// # Errors
+///
+/// Not linked, clipboard off for it, or the link failed.
+pub async fn send_text(
+    state: &AppState,
+    device: DeviceId,
+    text: String,
+) -> Result<(), CommandError> {
+    with_link(state, move |link| link.send_text(&device, text.clone())).await
+}
+
 /// Make `device` ring.
 ///
 /// # Errors

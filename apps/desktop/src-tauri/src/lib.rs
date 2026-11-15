@@ -190,6 +190,7 @@ pub fn run() -> tauri::Result<()> {
             commands::ecosystem::set_feature,
             commands::ecosystem::answer_ask,
             commands::ecosystem::send_clipboard,
+            commands::ecosystem::send_text,
             commands::ecosystem::send_files,
             commands::ecosystem::handoff_url,
             commands::ecosystem::ring,
