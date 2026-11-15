@@ -65,4 +65,23 @@ describe('Asks', () => {
     );
     expect(screen.getByText('report.pdf saved to Downloads')).toBeInTheDocument();
   });
+
+  it('says neutrally that a file was not taken (declined, expired or switched off there)', () => {
+    renderScreen(
+      <TransferToast
+        device="Pixel 8"
+        transfer={{
+          device: 'p8',
+          id: 1,
+          file_name: '',
+          done: 0,
+          total: 9,
+          state: { kind: 'failed', reason: 'refused' },
+          dismissed: false,
+        }}
+        onDismiss={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Pixel 8 didn't take the file")).toBeInTheDocument();
+  });
 });

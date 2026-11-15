@@ -92,7 +92,7 @@ export const ecosystem = {
     label: 'File with {{name}}',
     saved: '{{file}} saved to Downloads',
     device_left: '{{name}} went away. The file stopped.',
-    refused: '{{name}} declined the file',
+    refused: "{{name}} didn't take the file",
     failed: "{{file}} didn't arrive",
   },
   history: {
