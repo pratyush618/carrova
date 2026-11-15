@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
+use carrova_link::ClipItem;
 use carrova_platform::{FileKind, FileLock, LocalListener, LocalStream, Platform, PlatformError};
 
 use super::wire::{
@@ -19,7 +20,7 @@ use super::wire::{
 use super::{SOCKET_FILE, spawn};
 use crate::ecosystem::{HandoffItem, PeerSource, Supervisor, SupervisorConfig};
 use crate::engine::Engine;
-use crate::error::Result;
+use crate::error::{CoreError, Result};
 use crate::fsx;
 use crate::session::{Event, EventSink};
 
@@ -170,13 +171,14 @@ impl Served {
             ControlRequest::StopRing(d) => sup.stop_ring(&d).map(done)?,
             ControlRequest::Answer(ask, answer) => sup.answer(ask, answer).map(done)?,
             ControlRequest::SetFeature(d, f, s) => sup.set_feature(&d, f, s).map(done)?,
-            ControlRequest::ClipHistory => ControlResponse::ClipHistory(sup.clip_history()),
             ControlRequest::ClearClipHistory => {
                 sup.clear_clip_history();
                 ControlResponse::Done
             }
-            // A connection of its own ([`serve_connection`]).
-            ControlRequest::Subscribe => return Err(ControlError::Unexpected.into()),
+            // Answered with more than one message ([`serve_connection`]).
+            ControlRequest::ClipHistory | ControlRequest::Subscribe => {
+                return Err(ControlError::Unexpected.into());
+            }
         })
     }
 }
@@ -348,20 +350,52 @@ fn serve_connection(mut stream: LocalStream, served: &Weak<Served>) {
         let Some(served) = served.upgrade() else {
             return;
         };
-        if request == ControlRequest::Subscribe {
-            let events = served.events.subscribe();
-            drop(served);
-            return stream_events(stream, &events);
-        }
-        let response = served
-            .run(request)
-            .unwrap_or_else(|e| ControlResponse::Failed(e.to_string()));
-        drop(served);
-        if let Err(e) = write_message(&mut stream, &response, MAX_CONTROL_REPLY) {
+        let sent = match request {
+            ControlRequest::Subscribe => {
+                let events = served.events.subscribe();
+                drop(served);
+                return stream_events(stream, &events);
+            }
+            ControlRequest::ClipHistory => {
+                let clips = served.supervisor.clip_history();
+                drop(served);
+                send_clips(&mut stream, &clips)
+            }
+            request => {
+                let response = served
+                    .run(request)
+                    .unwrap_or_else(|e| ControlResponse::Failed(e.to_string()));
+                drop(served);
+                reply(&mut stream, &response)
+            }
+        };
+        if let Err(e) = sent {
             tracing::debug!(error = %e, "control client left");
             return;
         }
     }
+}
+
+/// Write `response`, or [`ControlResponse::Failed`] if it is over the
+/// size limit (nothing of it was written then).
+fn reply(stream: &mut LocalStream, response: &ControlResponse) -> Result<()> {
+    match write_message(stream, response, MAX_CONTROL_REPLY) {
+        Err(CoreError::Control(ControlError::TooLarge)) => {
+            let failed = ControlResponse::Failed(ControlError::TooLarge.to_string());
+            write_message(stream, &failed, MAX_CONTROL_REPLY)
+        }
+        written => written,
+    }
+}
+
+/// The count, then one message per clip. Every clip fits the limit (its
+/// size is checked before it enters the history).
+fn send_clips(stream: &mut LocalStream, clips: &[ClipItem]) -> Result<()> {
+    let count = u32::try_from(clips.len()).map_err(|_| ControlError::TooLarge)?;
+    reply(stream, &ControlResponse::ClipHistory(count))?;
+    clips
+        .iter()
+        .try_for_each(|clip| write_message(stream, clip, MAX_CONTROL_REPLY))
 }
 
 /// Acknowledge a subscription, then send each event until either side

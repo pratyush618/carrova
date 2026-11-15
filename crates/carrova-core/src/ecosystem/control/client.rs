@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use carrova_link::ClipItem;
 use carrova_platform::{LocalStream, Platform};
 
 use super::server::SUBSCRIBER_QUEUE;
@@ -45,6 +46,22 @@ impl ControlClient {
     pub(super) fn request(&self, request: &ControlRequest) -> Result<ControlResponse> {
         let mut stream = self.stream.lock().unwrap_or_else(PoisonError::into_inner);
         exchange(&mut stream, request)
+    }
+
+    /// The clip history: a count, then one message per clip.
+    pub(super) fn clip_history(&self) -> Result<Vec<ClipItem>> {
+        let mut stream = self.stream.lock().unwrap_or_else(PoisonError::into_inner);
+        let ControlResponse::ClipHistory(count) =
+            exchange(&mut stream, &ControlRequest::ClipHistory)?
+        else {
+            return Err(ControlError::Unexpected.into());
+        };
+        (0..count)
+            .map(|_| {
+                read_message(&mut *stream, MAX_CONTROL_REPLY)?
+                    .ok_or_else(|| ControlError::Closed.into())
+            })
+            .collect()
     }
 
     /// The supervisor's events, read on a thread of their own connection

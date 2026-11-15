@@ -261,3 +261,31 @@ fn clip_history_round_trips() {
     s.client.clear_clip_history().unwrap();
     assert!(s.server.clip_history().unwrap().is_empty());
 }
+
+#[test]
+fn clip_history_of_max_size_pngs_round_trips() {
+    let s = served_and_linked();
+    let png = |n: u8| {
+        // 0xff bytes: the most a byte costs in CBOR (two).
+        let mut bytes = vec![0xff; carrova_link::MAX_CLIP_PNG];
+        bytes[..8].copy_from_slice(b"\x89PNG\r\n\x1a\n");
+        bytes[8] = n;
+        bytes
+    };
+    for n in 1..=3 {
+        let clip = ClipContent {
+            kind: ClipKind::Png,
+            bytes: png(n),
+            sensitive: false,
+        };
+        s.high.platform.clipboard_write(&clip).unwrap();
+        wait_until("the clip", || {
+            s.server.clip_history().unwrap().len() == usize::from(n)
+        });
+    }
+
+    let history = s.client.clip_history().unwrap();
+
+    let expected: Vec<_> = (1..=3).rev().map(|n| ClipItem::Png(png(n))).collect();
+    assert!(history == expected, "history differs");
+}

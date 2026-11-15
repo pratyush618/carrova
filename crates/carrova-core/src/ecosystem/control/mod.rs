@@ -164,9 +164,9 @@ impl SupervisorHandle {
     ///
     /// The control socket failed.
     pub fn clip_history(&self) -> Result<Vec<ClipItem>> {
-        match self.call(ControlRequest::ClipHistory)? {
-            ControlResponse::ClipHistory(clips) => Ok(clips),
-            _ => Err(ControlError::Unexpected.into()),
+        match self {
+            Self::Local(server) => Ok(server.supervisor().clip_history()),
+            Self::Remote(client) => client.clip_history(),
         }
     }
 

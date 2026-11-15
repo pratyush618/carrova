@@ -5,7 +5,7 @@ use std::io::{self, Read, Write};
 use std::path::PathBuf;
 
 use carrova_crypto::identity::DeviceId;
-use carrova_link::{ClipItem, Feature, FeatureState};
+use carrova_link::{Feature, FeatureState};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -14,9 +14,9 @@ use crate::error::Result;
 
 /// Largest message the supervisor reads (a request), in bytes.
 pub const MAX_CONTROL_MESSAGE: u32 = 64 * 1024;
-/// Largest message a client reads (an answer or an event), in bytes: the
-/// clip history holds up to 20 clips of up to 10 MiB.
-pub(super) const MAX_CONTROL_REPLY: u32 = 256 << 20;
+/// Largest message a client reads (an answer, a clip or an event), in
+/// bytes: one clip of up to 10 MiB, its bytes up to two each in CBOR.
+pub(super) const MAX_CONTROL_REPLY: u32 = 32 << 20;
 
 /// What a client asks the supervisor (its [`super::Supervisor`] call of
 /// the same name). Its `Debug` leaves out paths.
@@ -82,8 +82,10 @@ pub enum ControlResponse {
     Status(Vec<LinkedPeer>),
     /// To [`ControlRequest::Ping`]: the round trip in milliseconds.
     Pong(u64),
-    /// To [`ControlRequest::ClipHistory`], newest first.
-    ClipHistory(Vec<ClipItem>),
+    /// To [`ControlRequest::ClipHistory`]: this many
+    /// [`carrova_link::ClipItem`] messages follow, newest first (one clip
+    /// per message keeps each under the size limit).
+    ClipHistory(u32),
     /// The request succeeded.
     Done,
     /// The request failed; the error's message.
