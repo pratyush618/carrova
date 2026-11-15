@@ -27,6 +27,12 @@ const GLYPH: Record<OsKind, ReactElement> = {
       <rect x="8.75" y="8.75" width="5.25" height="5.25" rx="1" />
     </>
   ),
+  android: (
+    <>
+      <rect x="4.25" y="1.75" width="7.5" height="12.5" rx="1.75" />
+      <path d="M7 12h2" />
+    </>
+  ),
 };
 
 export interface OsBadgeProps {
