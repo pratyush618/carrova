@@ -1,26 +1,33 @@
 //! Pretend background service for [`FakePlatform`]: every
 //! [`Platform::keep_running`](crate::Platform::keep_running) is recorded,
-//! and linking is paused only when a test says so.
+//! and linking is paused (or keeping running refused) only when a test
+//! says so.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, PoisonError};
 
 use super::FakePlatform;
-use crate::LinkNotice;
+use crate::{LinkNotice, PlatformError};
 
 /// Shared by clones of one fake, like the hooks.
 #[derive(Debug, Default)]
 pub(super) struct FakeLinks {
     kept: Mutex<Vec<Option<LinkNotice>>>,
     paused: AtomicBool,
+    refuse_next: AtomicBool,
 }
 
 impl FakeLinks {
-    pub(super) fn keep_running(&self, notice: Option<&LinkNotice>) {
+    /// Records the attempt; fails it once after [`FakePlatform::refuse_next_keep_running`].
+    pub(super) fn keep_running(&self, notice: Option<&LinkNotice>) -> Result<(), PlatformError> {
         self.kept
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .push(notice.cloned());
+        if self.refuse_next.swap(false, Ordering::SeqCst) {
+            return Err(PlatformError::Unsupported("keep_running"));
+        }
+        Ok(())
     }
 
     pub(super) fn paused(&self) -> bool {
@@ -38,6 +45,12 @@ impl FakePlatform {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
+    }
+
+    /// Make the next [`Platform::keep_running`](crate::Platform::keep_running)
+    /// fail (like a refused foreground-service start); it is still recorded.
+    pub fn refuse_next_keep_running(&self) {
+        self.links.refuse_next.store(true, Ordering::SeqCst);
     }
 
     /// Pretend the user paused (`true`) or resumed linking

@@ -72,3 +72,20 @@ fn pausing_closes_the_links_until_resumed() {
     wait_until("linked again", || low.count(up) > ups);
     wait_kept(&low, high_notice(false).as_ref());
 }
+
+#[test]
+fn a_refused_keep_running_is_asked_again() {
+    let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    low.platform.inner.refuse_next_keep_running();
+    let _sl = low.start(fast());
+
+    wait_until("asked again after the refusal", || {
+        low.platform.inner.kept_running().len() >= 2
+    });
+    low.source.wait_rounds(5);
+    assert_eq!(
+        low.platform.inner.kept_running(),
+        [high_notice(false), high_notice(false)],
+        "retried once, then told only on change"
+    );
+}

@@ -377,8 +377,7 @@ impl Platform for FakePlatform {
     }
 
     fn keep_running(&self, notice: Option<&LinkNotice>) -> Result<(), PlatformError> {
-        self.links.keep_running(notice);
-        Ok(())
+        self.links.keep_running(notice)
     }
 
     fn links_paused(&self) -> bool {

@@ -92,10 +92,11 @@ pub(super) fn maintain(shared: &Arc<Shared>, source: &dyn PeerSource) {
         let paused = shared.platform().links_paused();
         let notice = notice(shared, paused);
         if shown.as_ref() != Some(&notice) {
-            if let Err(e) = shared.platform().keep_running(notice.as_ref()) {
-                tracing::warn!(error = %e, "could not keep running for the links");
+            // Recorded only once given, so a refusal is asked again next round.
+            match shared.platform().keep_running(notice.as_ref()) {
+                Ok(()) => shown = Some(notice),
+                Err(e) => tracing::warn!(error = %e, "could not keep running for the links"),
             }
-            shown = Some(notice);
         }
         let seen = source.seen();
         let now = interfaces(shared);
