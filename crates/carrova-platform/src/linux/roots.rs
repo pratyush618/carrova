@@ -63,19 +63,42 @@ impl LinuxPlatform {
     }
 
     fn documents(&self) -> Result<PathBuf, PlatformError> {
+        match self.user_dir("XDG_DOCUMENTS_DIR")? {
+            Some(p) => confine(SemanticRoot::Documents, &p),
+            None => confine(SemanticRoot::Documents, &self.home()?.join("Documents")),
+        }
+    }
+
+    /// The user's downloads directory: `XDG_DOWNLOAD_DIR`, else `~/Downloads`.
+    pub(super) fn downloads(&self) -> Result<PathBuf, PlatformError> {
+        let dir = match self.user_dir("XDG_DOWNLOAD_DIR")? {
+            Some(p) => p,
+            None => self.home()?.join("Downloads"),
+        };
+        crate::path::normalize_abs(&dir)
+            .filter(|d| d.parent().is_some())
+            .ok_or_else(|| PlatformError::RootUnavailable {
+                root: SemanticRoot::Home,
+                reason: "XDG_DOWNLOAD_DIR is, or climbs above, the filesystem root".into(),
+            })
+    }
+
+    /// A directory `key` names in `user-dirs.dirs`. Best effort: a
+    /// missing/unreadable/non-UTF-8 file or an unusable value means `None`
+    /// ("use the default").
+    fn user_dir(&self, key: &str) -> Result<Option<PathBuf>, PlatformError> {
         let config = self.xdg_dir(
             SemanticRoot::UserConfig,
             self.env.xdg_config_home.as_ref(),
             ".config",
         )?;
-        // Best effort: a missing/unreadable/non-UTF-8 user-dirs.dirs means "use default".
-        if let Ok(text) = std::fs::read_to_string(config.join("user-dirs.dirs"))
-            && let Some(value) = parse_user_dir(&text, "XDG_DOCUMENTS_DIR")
-            && let Some(p) = expand_user_dir(&value, || self.home())?
-        {
-            return confine(SemanticRoot::Documents, &p);
+        let Ok(text) = std::fs::read_to_string(config.join("user-dirs.dirs")) else {
+            return Ok(None);
+        };
+        match parse_user_dir(&text, key) {
+            Some(value) => expand_user_dir(&value, || self.home()),
+            None => Ok(None),
         }
-        confine(SemanticRoot::Documents, &self.home()?.join("Documents"))
     }
 }
 

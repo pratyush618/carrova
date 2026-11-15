@@ -5,10 +5,12 @@ use std::io;
 use std::net::{IpAddr, UdpSocket};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
+use std::time::Duration;
 
 use crate::{
-    Allocation, DirEntry, DirWatch, DiskInfo, FileLock, FileManagerStatus, FileMeta, FsId,
-    LanInterface, OsKind, PermissionModel, PlatformError, ProcessInfo, ScreenLock, SemanticRoot,
+    Allocation, ClipContent, ClipboardWatch, DirEntry, DirWatch, DiskInfo, FileLock,
+    FileManagerStatus, FileMeta, FsId, LanInterface, LocalListener, LocalStream, MulticastGuard,
+    OsKind, PermissionModel, PlatformError, ProcessInfo, ScreenLock, SemanticRoot,
     SnapshotCapability, SocketBuffers,
 };
 
@@ -413,5 +415,84 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     fn set_autostart(&self, launcher: &Path, on: bool) -> Result<bool, PlatformError> {
         let _ = (launcher, on);
         Err(PlatformError::Unsupported("set_autostart"))
+    }
+
+    // ---- Ecosystem Phase 1: clipboard, open, local socket ----------------
+    // Default bodies return `Unsupported` so stub adapters stay honest.
+
+    /// The clipboard's content; `None` when it is empty or holds nothing
+    /// Carrova syncs (text and PNG).
+    fn clipboard_read(&self) -> Result<Option<ClipContent>, PlatformError> {
+        Err(PlatformError::Unsupported("clipboard_read"))
+    }
+
+    /// Replace the clipboard's content.
+    fn clipboard_write(&self, content: &ClipContent) -> Result<(), PlatformError> {
+        let _ = content;
+        Err(PlatformError::Unsupported("clipboard_write"))
+    }
+
+    /// Call `on_change` (on a thread the watch owns) whenever the clipboard's
+    /// content changes, until the returned guard drops.
+    fn watch_clipboard(
+        &self,
+        on_change: Box<dyn Fn() + Send>,
+    ) -> Result<ClipboardWatch, PlatformError> {
+        let _ = on_change;
+        Err(PlatformError::Unsupported("watch_clipboard"))
+    }
+
+    /// Where the user keeps downloads.
+    fn downloads_dir(&self) -> Result<PathBuf, PlatformError> {
+        Err(PlatformError::Unsupported("downloads_dir"))
+    }
+
+    /// Open an `http(s)` URL in the user's browser; any other scheme is
+    /// [`PlatformError::InvalidInput`].
+    fn open_url(&self, url: &str) -> Result<(), PlatformError> {
+        let _ = url;
+        Err(PlatformError::Unsupported("open_url"))
+    }
+
+    /// Open an absolute path with the user's default application.
+    fn open_path(&self, path: &Path) -> Result<(), PlatformError> {
+        let _ = path;
+        Err(PlatformError::Unsupported("open_path"))
+    }
+
+    /// Make this device ring for `seconds` (phones only: a computer cannot).
+    fn ring(&self, seconds: u16) -> Result<(), PlatformError> {
+        let _ = seconds;
+        Err(PlatformError::Unsupported("ring"))
+    }
+
+    /// End a [`Platform::ring`] early.
+    fn stop_ring(&self) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported("stop_ring"))
+    }
+
+    /// Keep multicast traffic (mDNS) flowing while the guard lives. A no-op
+    /// where the OS never filters it.
+    fn multicast_lock(&self) -> Result<MulticastGuard, PlatformError> {
+        Ok(MulticastGuard::unfiltered())
+    }
+
+    /// Listen on a Unix socket at `path` (mode `0600`); only peers with
+    /// this process's [`Platform::current_uid`] are served.
+    fn bind_local_socket(&self, path: &Path) -> Result<LocalListener, PlatformError> {
+        let _ = path;
+        Err(PlatformError::Unsupported("bind_local_socket"))
+    }
+
+    /// Connect to a socket bound by [`Platform::bind_local_socket`].
+    fn connect_local_socket(&self, path: &Path) -> Result<LocalStream, PlatformError> {
+        let _ = path;
+        Err(PlatformError::Unsupported("connect_local_socket"))
+    }
+
+    /// How often a link must send a keepalive so the OS keeps the
+    /// connection (and a mobile radio) alive.
+    fn link_keepalive(&self) -> Duration {
+        Duration::from_secs(15)
     }
 }

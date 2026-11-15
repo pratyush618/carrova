@@ -18,3 +18,16 @@ impl FileLock {
         Self { _file: file }
     }
 }
+
+/// Holds the OS open to multicast traffic (Android filters it unless an
+/// app asks) until the guard is dropped.
+#[derive(Debug)]
+#[must_use = "multicast may be filtered again as soon as the guard is dropped"]
+pub struct MulticastGuard(());
+
+impl MulticastGuard {
+    /// Guard for an OS that never filters multicast.
+    pub(crate) fn unfiltered() -> Self {
+        Self(())
+    }
+}

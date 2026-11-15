@@ -7,6 +7,15 @@ pub enum PlatformError {
     #[error("operation not supported on this platform: {0}")]
     Unsupported(&'static str),
 
+    /// The caller passed a value the OS must not act on (e.g. a URL that is
+    /// not `http(s)`).
+    #[error("invalid input: {0}")]
+    InvalidInput(&'static str),
+
+    /// The clipboard could not be read or written.
+    #[error("clipboard error: {0}")]
+    Clipboard(String),
+
     /// A semantic root could not be determined (e.g. `HOME` unset).
     #[error("cannot resolve semantic root `{root}`: {reason}")]
     RootUnavailable {

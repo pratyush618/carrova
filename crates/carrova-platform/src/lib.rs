@@ -4,8 +4,10 @@
 //! the [`Platform`] trait. Adding OS behaviour means adding a trait method here,
 //! never a `cfg(target_os)` elsewhere.
 
+mod clipboard;
 mod device;
 mod error;
+mod local_socket;
 mod lock;
 mod meta;
 mod neighbours;
@@ -39,8 +41,10 @@ use windows::fs as sys;
 #[cfg(unix)]
 use fsops as sys;
 
+pub use clipboard::{ClipContent, ClipKind, ClipboardWatch};
 pub use error::PlatformError;
-pub use lock::FileLock;
+pub use local_socket::{LocalListener, LocalStream};
+pub use lock::{FileLock, MulticastGuard};
 pub use os::{OsKind, PermissionModel, UnknownOsKind};
 pub use platform::Platform;
 pub use root::SemanticRoot;

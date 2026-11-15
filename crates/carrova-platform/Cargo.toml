@@ -18,12 +18,16 @@ ts-rs = { workspace = true, optional = true }
 # Safe syscalls for the Linux and macOS adapters (fsops, netops); `event`:
 # poll, for the Linux directory watch.
 [target.'cfg(unix)'.dependencies]
-rustix = { workspace = true, features = ["event"] }
+rustix = { workspace = true, features = ["event", "net"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Session bus: tray-host detection (`org.kde.StatusNotifierWatcher`), screen
 # wake and lock query (`org.freedesktop.ScreenSaver`).
 zbus = { workspace = true }
+# Clipboard: X11 text, Wayland data-control, content hash for the change poll.
+arboard = { workspace = true }
+blake3 = { workspace = true }
+wl-clipboard-rs = { workspace = true }
 
 # Directory watch (FSEvents, ReadDirectoryChangesW).
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]

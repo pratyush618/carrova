@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use super::{EntriesWrite, FakePlatform};
+use crate::{ClipContent, ClipboardWatch, LocalListener, LocalStream};
 use crate::{
     DiskInfo, FileManagerStatus, FileMeta, FsId, OsKind, PermissionModel, Platform, PlatformError,
     ProcessInfo, SemanticRoot, SnapshotCapability,
@@ -324,5 +325,40 @@ impl Platform for FakePlatform {
 
     fn set_autostart(&self, launcher: &Path, on: bool) -> Result<bool, PlatformError> {
         Ok(self.background.set_autostart(launcher, on))
+    }
+
+    fn clipboard_read(&self) -> Result<Option<ClipContent>, PlatformError> {
+        Ok(self.clip_read())
+    }
+
+    fn clipboard_write(&self, content: &ClipContent) -> Result<(), PlatformError> {
+        self.clip_write(content);
+        Ok(())
+    }
+
+    fn watch_clipboard(
+        &self,
+        on_change: Box<dyn Fn() + Send>,
+    ) -> Result<ClipboardWatch, PlatformError> {
+        Ok(self.clip_watch(on_change))
+    }
+
+    fn downloads_dir(&self) -> Result<PathBuf, PlatformError> {
+        Ok(self.resolve_root(SemanticRoot::Home)?.join("Downloads"))
+    }
+
+    /// Real sockets, owned by [`Platform::current_uid`] (so
+    /// [`Hooks::uid`](super::Hooks::uid) plays another user).
+    #[cfg(unix)]
+    fn bind_local_socket(&self, path: &Path) -> Result<LocalListener, PlatformError> {
+        let owner = self
+            .current_uid()
+            .ok_or(PlatformError::Unsupported("current_uid"))?;
+        LocalListener::bind(path, owner)
+    }
+
+    #[cfg(unix)]
+    fn connect_local_socket(&self, path: &Path) -> Result<LocalStream, PlatformError> {
+        LocalStream::connect(path)
     }
 }

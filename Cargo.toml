@@ -26,6 +26,8 @@ carrova-report = { path = "crates/carrova-report" }
 
 aead-stream = "0.6"
 anyhow = "1"
+# Linux clipboard: X11 text (no image codecs) and the Wayland data-control protocol (carrova-platform only).
+arboard = { version = "3", default-features = false }
 argon2 = { version = "0.6", default-features = false, features = ["alloc", "zeroize"] }
 blake3 = "1"
 chacha20poly1305 = { version = "0.11", features = ["zeroize"] }
@@ -96,6 +98,7 @@ wat = "1.263.0"
 winapi-util = "0.1.11"
 # Safe Windows registry API for per-user Explorer verbs (carrova-platform only).
 winreg = "0.56.0"
+wl-clipboard-rs = "0.9"
 zeroize = { version = "1", features = ["derive"] }
 # Linux session bus: tray-host detection, screen wake and lock query (already in the tree via Tauri).
 zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }

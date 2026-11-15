@@ -10,7 +10,8 @@
 //! are unsupported unless [`FakePlatform::file_manager_entries`] pretends
 //! them. A status tray is shown until [`FakePlatform::set_status_tray`]
 //! takes it away; autostart is kept in memory. Directory watches report
-//! only the changes a test fires ([`FakePlatform::fire_dir_change`]).
+//! only the changes a test fires ([`FakePlatform::fire_dir_change`]). The
+//! clipboard is in memory; downloads sit in `~/Downloads`.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -21,6 +22,7 @@ use crate::Platform;
 use crate::{FsId, OsKind, ProcessInfo, ScreenLock, SemanticRoot};
 
 mod background;
+mod clipboard;
 mod file_manager;
 mod fixture;
 mod hooks;
@@ -37,6 +39,7 @@ pub use fixture::{pin_umask, write_tool_script};
 pub use hooks::{Hooks, MetadataHook, OpenHook, RenameHook, StatusHook, SyncDirHook};
 
 use background::FakeBackground;
+use clipboard::FakeClipboard;
 use file_manager::FakeEntries;
 use hooks::HookState;
 use watch::FakeWatches;
@@ -67,6 +70,8 @@ pub struct FakePlatform {
     background: Arc<FakeBackground>,
     /// Pretend directory watches (shared by clones).
     watches: Arc<FakeWatches>,
+    /// Pretend clipboard (shared by clones).
+    clipboard: Arc<FakeClipboard>,
 }
 
 /// A pretend filesystem mounted at `mount` (see [`FakePlatform::filesystem`]).
@@ -108,6 +113,7 @@ impl FakePlatform {
             entries: None,
             background: Arc::default(),
             watches: Arc::default(),
+            clipboard: Arc::default(),
         }
     }
 
