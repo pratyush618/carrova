@@ -131,7 +131,7 @@ fn link_tag_bound_to_dialer() {
 fn link_tag_not_discovery_tag() {
     let s = secret(1);
     let full = s
-        .tag_mac(KnownPurpose::Discovery, &nonce(9), &device(1))
+        .tag_mac(KnownPurpose::Discovery.label(), &nonce(9), &device(1))
         .unwrap()
         .finalize()
         .into_bytes();
@@ -151,6 +151,17 @@ fn link_tag_matches_construction() {
     let full = hmac::Mac::finalize(mac).into_bytes();
     let t = secret(0x33).link_tag(&nonce(0x44), &device(1)).unwrap();
     assert_eq!(t.0[..], full[..LINK_TAG_LEN]);
+}
+
+/// Link tags exist only at full length: no public [`KnownPurpose`] makes
+/// a truncated (8-byte) tag under the link label. This match stops
+/// compiling if a link purpose is added back.
+#[test]
+fn link_has_no_known_purpose() {
+    let label = |purpose: KnownPurpose| match purpose {
+        KnownPurpose::Discovery => purpose.label(),
+    };
+    assert_ne!(label(KnownPurpose::Discovery), KNOWN_TAG_LINK);
 }
 
 #[test]

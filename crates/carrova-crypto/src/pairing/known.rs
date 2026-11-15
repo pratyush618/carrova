@@ -51,7 +51,7 @@ impl KnownSecret {
         advertiser: &DevicePublic,
     ) -> Result<KnownTag> {
         let full = self
-            .tag_mac(purpose, nonce, advertiser)?
+            .tag_mac(purpose.label(), nonce, advertiser)?
             .finalize()
             .into_bytes();
         let mut tag = [0u8; KNOWN_TAG_LEN];
@@ -68,7 +68,7 @@ impl KnownSecret {
         advertiser: &DevicePublic,
         tag: &KnownTag,
     ) -> bool {
-        self.tag_mac(purpose, nonce, advertiser)
+        self.tag_mac(purpose.label(), nonce, advertiser)
             .is_ok_and(|mac| mac.verify_truncated_left(&tag.0).is_ok())
     }
 
@@ -76,7 +76,7 @@ impl KnownSecret {
     /// `HMAC(secret, "carrova/1/known-link" ‖ nonce ‖ dialer)[..16]`.
     pub fn link_tag(&self, nonce: &TagNonce, dialer: &DevicePublic) -> Result<LinkTag> {
         let full = self
-            .tag_mac(KnownPurpose::Link, nonce, dialer)?
+            .tag_mac(KNOWN_TAG_LINK, nonce, dialer)?
             .finalize()
             .into_bytes();
         let mut tag = [0u8; LINK_TAG_LEN];
@@ -88,7 +88,7 @@ impl KnownSecret {
     /// `dialer` (constant time).
     #[must_use]
     pub fn recognises_link(&self, nonce: &TagNonce, dialer: &DevicePublic, tag: &LinkTag) -> bool {
-        self.tag_mac(KnownPurpose::Link, nonce, dialer)
+        self.tag_mac(KNOWN_TAG_LINK, nonce, dialer)
             .is_ok_and(|mac| mac.verify_truncated_left(&tag.0).is_ok())
     }
 
@@ -112,13 +112,14 @@ impl KnownSecret {
         MacKey::new(&self.0)
     }
 
+    /// `HMAC(secret, label ‖ nonce ‖ device)`, untruncated.
     fn tag_mac(
         &self,
-        purpose: KnownPurpose,
+        label: &[u8],
         nonce: &TagNonce,
         advertiser: &DevicePublic,
     ) -> Result<HmacSha256> {
-        let mut mac = self.key().tag_mac(purpose.label(), nonce)?;
+        let mut mac = self.key().tag_mac(label, nonce)?;
         mac.update(advertiser.as_bytes());
         Ok(mac)
     }
@@ -131,20 +132,18 @@ impl fmt::Debug for KnownSecret {
 }
 
 /// Where a [`KnownTag`] is used; each purpose has its own HMAC label, so
-/// a tag made for one never verifies as another.
+/// a tag made for one never verifies as another. Link tags are not a
+/// purpose: they exist only at full length ([`KnownSecret::link_tag`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KnownPurpose {
     /// Presence adverts on the LAN (public).
     Discovery,
-    /// A linked device's `Hello` ([`KnownSecret::link_tag`]).
-    Link,
 }
 
 impl KnownPurpose {
     const fn label(self) -> &'static [u8] {
         match self {
             Self::Discovery => KNOWN_TAG_DISCOVERY,
-            Self::Link => KNOWN_TAG_LINK,
         }
     }
 }
@@ -177,7 +176,9 @@ impl FromStr for KnownTag {
 
 /// Tag naming a known pair in a link `Hello` (ADR 0002 §3). Its own type
 /// so it is never mixed up with a [`KnownTag`]; `Debug` hides the bytes.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+/// No `PartialEq`: compare only through [`KnownSecret::recognises_link`]
+/// (constant time).
+#[derive(Clone, Copy)]
 pub struct LinkTag(pub [u8; LINK_TAG_LEN]);
 
 impl fmt::Debug for LinkTag {
