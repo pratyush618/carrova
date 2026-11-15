@@ -10,7 +10,7 @@ use std::sync::{Arc, LazyLock, Mutex, OnceLock, PoisonError};
 use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::ecosystem::{
     Answer, AskId, ClipSettings, HandoffItem, PAIR_CONFIRM_WINDOW, PairInvite, PeerState,
-    SharedSupervisor, SupervisorHandle, link_with_code, offer_pairing,
+    SharedSupervisor, SupervisorHandle, accept_invite, link_with_code, offer_pairing,
 };
 use carrova_core::lan::CODE_LIFETIME;
 use carrova_core::{Cancel, CodeOffer, CoreError, Engine, NullSink, SessionId};
@@ -206,6 +206,25 @@ pub async fn link_computer(state: &AppState, code: String) -> Result<(), Command
     let engine = link_engine(&state.platform);
     pairing(state, move |cancel| {
         link_with_code(&engine, &ticket, cancel).map_err(|e| CommandError::when_connecting(&e))
+    })
+    .await
+}
+
+/// Link with the computer whose `carrova://pair?…` invite was scanned or
+/// pasted. `cancel_connect` stops it.
+///
+/// # Errors
+///
+/// Not a pairing link, another pairing runs, it was cancelled, the
+/// computer reached does not hold the invite's key, or the pairing failed.
+pub async fn link_invite(state: &AppState, uri: String) -> Result<(), CommandError> {
+    let invite: PairInvite = uri.parse().map_err(|_| {
+        CommandError::new(ErrorCode::BadCode, "that is not a Carrova pairing link")
+            .with_hint("Scan the code Carrova shows on the computer.")
+    })?;
+    let engine = link_engine(&state.platform);
+    pairing(state, move |cancel| {
+        accept_invite(&engine, &invite, cancel).map_err(|e| CommandError::when_connecting(&e))
     })
     .await
 }

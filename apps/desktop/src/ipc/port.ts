@@ -213,6 +213,8 @@ export interface CarrovaPort {
   answerPairPeer(accept: boolean): Promise<void>;
   /** Link with another computer by its code (or `code@ip:port` ticket). Stop it with `cancelConnect`. */
   linkComputer(ticket: string): Promise<void>;
+  /** Link with the computer whose `carrova://pair?…` link was scanned or pasted. Stop it with `cancelConnect`. */
+  linkInvite(uri: string): Promise<void>;
   /** This device's own key fingerprint, shown while it links. */
   ownFingerprint(): Promise<string>;
   /** Change one feature on this computer's side of the link with `id`. */

@@ -78,6 +78,21 @@ describe('useLinkedDevices pairing', () => {
   });
 });
 
+describe('useLinkedDevices linking a computer', () => {
+  it('links from a pasted pairing link, and from a typed code', async () => {
+    const { port, hook } = setup();
+    const invite = vi.spyOn(port, 'linkInvite').mockResolvedValue();
+    const code = vi.spyOn(port, 'linkComputer').mockResolvedValue();
+    const link = 'carrova://pair?v=1&t=4-maple-orbit&k=KEY';
+
+    await hook.result.current.linkComputer(` ${link} `).done;
+    await hook.result.current.linkComputer('4-maple-orbit').done;
+
+    expect(invite).toHaveBeenCalledExactlyOnceWith(link);
+    expect(code).toHaveBeenCalledExactlyOnceWith('4-maple-orbit');
+  });
+});
+
 describe('useLinkedDevices features', () => {
   it('shows a refused change as failed and loads the list again', async () => {
     const port = createFakePort({ stepMs: 0, scenario: 'linked' });

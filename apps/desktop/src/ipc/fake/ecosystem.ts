@@ -96,6 +96,7 @@ type EcosystemPort = Pick<
   | 'pairInvite'
   | 'answerPairPeer'
   | 'linkComputer'
+  | 'linkInvite'
   | 'ownFingerprint'
   | 'setFeature'
   | 'answerAsk'
@@ -176,6 +177,13 @@ export function fakeEcosystem(runtime: Runtime, scenario: Scenario): FakeEcosyst
       await later(() => {
         if (!/^\d+-[a-z]+-[a-z]+(@\S+)?$/.test(ticket.trim()))
           raise(bridgeError('bad_code', 'that is not a pairing code'));
+      });
+      await awaitPairing(computer(), false);
+    },
+    linkInvite: async (uri) => {
+      await later(() => {
+        if (!uri.startsWith('carrova://pair?'))
+          raise(bridgeError('bad_code', 'that is not a Carrova pairing link'));
       });
       await awaitPairing(computer(), false);
     },

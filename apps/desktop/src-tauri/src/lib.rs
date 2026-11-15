@@ -183,6 +183,7 @@ pub fn run() -> tauri::Result<()> {
             commands::ecosystem::linked_devices,
             commands::ecosystem::pair_invite,
             commands::ecosystem::link_computer,
+            commands::ecosystem::link_invite,
             commands::ecosystem::answer_pair_peer,
             commands::ecosystem::own_fingerprint,
             commands::ecosystem::set_feature,

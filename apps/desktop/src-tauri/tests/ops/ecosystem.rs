@@ -11,9 +11,9 @@ use carrova_core::NullSink;
 use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::ecosystem::{
     AskId, ClipSettings, PairInvite, PeerSource, PeerState, PolicyStore, SeenPeer,
-    SharedSupervisor, SupervisorConfig, accept_invite,
+    SharedSupervisor, SupervisorConfig,
 };
-use carrova_core::{Cancel, CoreError, Engine, Ticket};
+use carrova_core::{CoreError, Engine, Ticket};
 use carrova_crypto::identity::{DeviceKey, DevicePublic, Fingerprint};
 use carrova_crypto::pairing::KnownSecret;
 use carrova_link::{Feature, FeatureState};
@@ -218,7 +218,7 @@ fn answer_pair_peer_without_question_errors() {
 }
 
 /// `host` invites with `pair_invite`, answering its key check with
-/// `accept`; `guest` joins with the invite.
+/// `accept`; `guest` links from the invite's link (`link_invite`).
 /// Returns both results and what `host` was shown.
 fn pair(
     host: &Machine,
@@ -255,14 +255,7 @@ fn pair(
         },
         key: shown.key,
     };
-    let guest_engine = Engine::new(
-        Arc::new(guest.platform.clone()),
-        Vec::new(),
-        Arc::new(NullSink),
-    );
-    let joined = accept_invite(&guest_engine, &local, &Cancel::default())
-        .map(drop)
-        .map_err(CommandError::from);
+    let joined = block_on(ecosystem::link_invite(&guest.state, local.to_uri()));
     let hosted = hosting.join().unwrap();
     let found = host.events.recorded.of_kind("pair_peer_found");
     (hosted, joined, found.first().cloned().unwrap_or_default())
@@ -299,6 +292,18 @@ fn pair_invite_not_my_device_links_nothing() {
     assert!(found.is_object());
     assert!(known(&host).is_empty());
     assert!(known(&guest).is_empty());
+}
+
+#[test]
+fn link_invite_rejects_a_non_invite() {
+    let machine = Machine::new();
+
+    let linked = block_on(ecosystem::link_invite(
+        &machine.state,
+        "7-acid-lemon".into(),
+    ));
+
+    assert_eq!(linked.unwrap_err().bridge().code, ErrorCode::BadCode);
 }
 
 #[test]

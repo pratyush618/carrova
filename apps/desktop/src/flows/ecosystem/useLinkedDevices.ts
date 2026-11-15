@@ -30,7 +30,7 @@ export interface LinkedController {
   readonly failed: boolean;
   /** Invite a phone (the invite arrives as an event). */
   readonly pairDevice: () => Pairing;
-  /** Link a computer by its code. */
+  /** Link a computer by its code, or by its pasted `carrova://pair?…` link. */
   readonly linkComputer: (ticket: string) => Pairing;
   readonly ring: (id: string) => Promise<void>;
   readonly sendClipboard: (id: string) => Promise<void>;
@@ -134,7 +134,12 @@ export function useLinkedDevices(port: CarrovaPort): LinkedController {
   );
   const pairDevice = useCallback(() => startPairing(() => port.pairInvite()), [port, startPairing]);
   const linkComputer = useCallback(
-    (ticket: string) => startPairing(() => port.linkComputer(ticket.trim())),
+    (ticket: string) => {
+      const typed = ticket.trim();
+      return startPairing(() =>
+        typed.startsWith('carrova://') ? port.linkInvite(typed) : port.linkComputer(typed),
+      );
+    },
     [port, startPairing],
   );
   const ring = useCallback((id: string) => port.ring(id), [port]);
