@@ -49,3 +49,10 @@ fn unreadable_sensitive_extra_fails_closed() {
     assert!(is_sensitive(Some("1")));
     assert!(is_sensitive(Some("yes")));
 }
+
+#[test]
+fn clip_size_cap_is_inclusive() {
+    let cap = crate::clipboard::MAX_BYTES as usize;
+    assert!(within_cap(cap));
+    assert!(!within_cap(cap + 1));
+}

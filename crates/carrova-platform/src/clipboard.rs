@@ -2,6 +2,9 @@
 
 use crate::watch::StopGuard;
 
+/// A clipboard owner could stream without end: refuse more than this.
+pub(crate) const MAX_BYTES: u64 = 64 << 20;
+
 /// What a [`ClipContent`] holds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ClipKind {

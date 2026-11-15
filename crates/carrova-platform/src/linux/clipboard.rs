@@ -13,6 +13,7 @@ use wl_clipboard_rs::copy::{self, Options, Source};
 use wl_clipboard_rs::paste::{self, ClipboardType, Seat};
 
 use super::{LinuxPlatform, x11};
+use crate::clipboard::MAX_BYTES;
 use crate::{ClipContent, ClipKind, ClipboardWatch, PlatformError};
 
 #[cfg(test)]
@@ -25,8 +26,6 @@ const HINT_MIME: &str = "x-kde-passwordManagerHint";
 const SECRET: &[u8] = b"secret";
 const TEXT_MIME: &str = "text/plain;charset=utf-8";
 const PNG_MIME: &str = "image/png";
-/// A clipboard owner could stream without end: refuse more than this.
-const MAX_BYTES: u64 = 64 << 20;
 /// How often a watch looks at the clipboard.
 const POLL: Duration = Duration::from_millis(500);
 

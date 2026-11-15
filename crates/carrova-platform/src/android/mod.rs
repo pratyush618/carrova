@@ -50,3 +50,9 @@ fn clip_kind<'a>(mimes: impl IntoIterator<Item = &'a str>) -> Option<ClipKind> {
 fn is_sensitive(extra: Option<&str>) -> bool {
     extra.is_some_and(|value| value != "false")
 }
+
+/// Whether `len` clip bytes are within the cap Linux applies too. The glue
+/// reads at most one byte past it, so an endless stream is refused here.
+fn within_cap(len: usize) -> bool {
+    len as u64 <= crate::clipboard::MAX_BYTES
+}

@@ -3,7 +3,7 @@
 use ::jni::JNIEnv;
 use ::jni::objects::{JByteArray, JObject, JObjectArray, JString};
 
-use super::{clip_kind, is_sensitive, jni};
+use super::{clip_kind, is_sensitive, jni, within_cap};
 use crate::{ClipContent, ClipKind, PlatformError};
 
 /// JNI type of the glue's `Clipboard.Clip`.
@@ -12,10 +12,18 @@ const CLIP: &str = "Lorg/byteveda/carrova/platform/Clipboard$Clip;";
 /// The primary clip, if it holds text or a PNG. Android hands it only to
 /// the app in the foreground.
 pub(super) fn read() -> Result<Option<ClipContent>, PlatformError> {
-    jni::call("Clipboard.read", |env, context| {
-        let sig = format!("(Landroid/content/Context;){CLIP}");
-        let clip =
-            jni::call_static(env, context, "Clipboard", "read", &sig, &[context.into()])?.l()?;
+    let clip = jni::call("Clipboard.read", |env, context| {
+        let sig = format!("(Landroid/content/Context;J){CLIP}");
+        let max = crate::clipboard::MAX_BYTES as i64;
+        let clip = jni::call_static(
+            env,
+            context,
+            "Clipboard",
+            "read",
+            &sig,
+            &[context.into(), max.into()],
+        )?
+        .l()?;
         if clip.is_null() {
             return Ok(None);
         }
@@ -38,7 +46,13 @@ pub(super) fn read() -> Result<Option<ClipContent>, PlatformError> {
             bytes,
             sensitive: is_sensitive(extra.as_deref()),
         }))
-    })
+    })?;
+    match clip {
+        Some(clip) if !within_cap(clip.bytes.len()) => {
+            Err(PlatformError::Clipboard("content too large".into()))
+        }
+        clip => Ok(clip),
+    }
 }
 
 /// Replace the primary clip, marked sensitive if `content` is.
