@@ -56,7 +56,14 @@ export function isBridgeEvent(value: unknown): value is BridgeEvent {
     return true;
   }
   if (value['kind'] === 'pair_invite') {
-    return isRecord(value['invite']) && typeof value['invite']['qr_svg'] === 'string';
+    const invite = value['invite'];
+    return (
+      isRecord(invite) &&
+      typeof invite['qr_svg'] === 'string' &&
+      typeof invite['expires_in_s'] === 'number' &&
+      isRecord(invite['code']) &&
+      typeof invite['code']['code'] === 'string'
+    );
   }
   if (value['kind'] === 'notice') {
     return isRecord(value['notice']) && typeof value['notice']['summary'] === 'string';

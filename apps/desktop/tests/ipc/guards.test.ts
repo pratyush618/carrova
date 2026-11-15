@@ -28,7 +28,7 @@ describe('the IPC guards', () => {
     expect(toBridgeError({ code: 'mystery', message: 'm', hint: null }).code).toBe('internal');
   });
 
-  it('accept a pairing invite, which names no session, only with its QR code', () => {
+  it('accept a pairing invite, which names no session, only with its QR code, code and lifetime', () => {
     const code = {
       code: '4-maple-orbit',
       fallback: null,
@@ -39,5 +39,9 @@ describe('the IPC guards', () => {
     const invite = { uri: 'carrova://pair?v=1', qr_svg: '<svg/>', code, expires_in_s: 180 };
     expect(isBridgeEvent({ kind: 'pair_invite', invite })).toBe(true);
     expect(isBridgeEvent({ kind: 'pair_invite', invite: { uri: 'x' } })).toBe(false);
+    expect(isBridgeEvent({ kind: 'pair_invite', invite: { ...invite, code: {} } })).toBe(false);
+    expect(isBridgeEvent({ kind: 'pair_invite', invite: { ...invite, expires_in_s: '180' } })).toBe(
+      false,
+    );
   });
 });
