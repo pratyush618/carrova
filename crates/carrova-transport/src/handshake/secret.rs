@@ -5,14 +5,16 @@ use std::sync::Arc;
 
 use carrova_crypto::identity::{DeviceKey, DevicePublic};
 use carrova_crypto::pairing::{
-    LinkTag, PairingCode, ResumeSecret, ResumeTag, TagNonce, TagPurpose,
+    KnownSecret, LinkTag, PairingCode, ResumeSecret, ResumeTag, TagNonce, TagPurpose,
 };
 
 use super::PeerIdentity;
 use crate::claim::CodeClaim;
 use crate::discovery::{Subject, TagProof};
 use crate::error::Result;
+use crate::listener::KnownPeers;
 use crate::replay::ResumeNonces;
+use crate::tuning::MAX_LINK_CANDIDATES;
 use crate::wire::{CloseCode, Intent, PairPurpose};
 
 /// What the receiver brings to the handshake.
@@ -125,13 +127,10 @@ pub(crate) enum Expected {
         secret: ResumeSecret,
         nonces: Arc<ResumeNonces>,
     },
-    /// Links from known peers (at most [`MAX_LINK_CANDIDATES`], most
-    /// recently used first), this device's key, and the `Hello` nonces
-    /// already used (shared with resume).
-    ///
-    /// [`MAX_LINK_CANDIDATES`]: crate::tuning::MAX_LINK_CANDIDATES
+    /// Links from the known peers (read per `Hello`), this device's key,
+    /// and the `Hello` nonces already used (shared with resume).
     Link {
-        peers: Arc<[PeerIdentity]>,
+        known: Arc<dyn KnownPeers>,
         device: Arc<DeviceKey>,
         nonces: Arc<ResumeNonces>,
     },
@@ -171,12 +170,10 @@ impl Expected {
                 (proof.made_with(secret, TagPurpose::Hello) && nonces.first_use(proof.nonce))
                     .then_some(Admitted::Offer)
             }
-            (Self::Link { peers, nonces, .. }, Intent::Link { nonce, tag }) if identify => {
+            (Self::Link { known, nonces, .. }, Intent::Link { nonce, tag }) if identify => {
                 let nonce = TagNonce(*nonce);
-                let peer = recognise(peers, &nonce, &LinkTag(*tag))?;
-                nonces
-                    .first_use(nonce)
-                    .then(|| Admitted::Link(peer.clone()))
+                let peer = recognise(known.candidates(), &nonce, &LinkTag(*tag))?;
+                nonces.first_use(nonce).then_some(Admitted::Link(peer))
             }
             _ => None,
         }
@@ -223,16 +220,19 @@ impl Expected {
     }
 }
 
-/// The peer whose secret made `tag` for `nonce` with its own key. Every
-/// candidate is checked (each in constant time, no early exit), so timing
-/// does not tell which one matched.
-fn recognise<'a>(
-    peers: &'a [PeerIdentity],
+/// Which of the first [`MAX_LINK_CANDIDATES`] `candidates` made `tag` for
+/// `nonce` with its own key. Every one is checked (each in constant time,
+/// no early exit), so timing does not tell which one matched.
+fn recognise(
+    candidates: Vec<(DevicePublic, KnownSecret)>,
     nonce: &TagNonce,
     tag: &LinkTag,
-) -> Option<&'a PeerIdentity> {
-    peers.iter().fold(None, |found, peer| {
-        let hit = peer.secret.recognises_link(nonce, &peer.public, tag);
-        found.or(hit.then_some(peer))
-    })
+) -> Option<PeerIdentity> {
+    candidates
+        .into_iter()
+        .take(MAX_LINK_CANDIDATES)
+        .fold(None, |found, (public, secret)| {
+            let hit = secret.recognises_link(nonce, &public, tag);
+            found.or(hit.then_some(PeerIdentity { public, secret }))
+        })
 }

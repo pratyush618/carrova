@@ -4,7 +4,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::net::{Ipv4Addr, SocketAddrV4};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -20,12 +20,22 @@ const T: Duration = Duration::from_secs(10);
 /// How long a listener waits in tests that expect no link.
 const SHORT: Duration = Duration::from_secs(2);
 
-/// A fixed list of linkable peers.
-struct Known(Vec<(DevicePublic, KnownSecret)>);
+/// Linkable peers; a test may forget one while a listener runs.
+struct Known(Mutex<Vec<(DevicePublic, KnownSecret)>>);
+
+impl Known {
+    fn new(peers: Vec<(DevicePublic, KnownSecret)>) -> Arc<Self> {
+        Arc::new(Self(Mutex::new(peers)))
+    }
+
+    fn forget(&self, peer: &DevicePublic) {
+        self.0.lock().unwrap().retain(|(public, _)| public != peer);
+    }
+}
 
 impl KnownPeers for Known {
     fn candidates(&self) -> Vec<(DevicePublic, KnownSecret)> {
-        self.0.clone()
+        self.0.lock().unwrap().clone()
     }
 }
 
@@ -60,10 +70,10 @@ fn addr(listener: &Listener) -> SocketAddrV4 {
 /// Run `accept_link` on its own thread for `wait`, knowing `known`.
 fn accept(
     mut listener: Listener,
-    known: Known,
+    known: Arc<Known>,
     wait: Duration,
 ) -> thread::JoinHandle<Result<Connection>> {
-    thread::spawn(move || listener.accept_link(&known, wait))
+    thread::spawn(move || listener.accept_link(known, wait))
 }
 
 /// Dial `addr` as the device `me`, expecting `peer` and proving `secret`.
@@ -108,7 +118,7 @@ fn link_after_pair_only_connects() {
     let shared = pair_only_secret(&a, &b);
     let listening = listener(Some(Arc::clone(&a)));
     let at = addr(&listening);
-    let accepted = accept(listening, Known(vec![(b.public(), shared.clone())]), T);
+    let accepted = accept(listening, Known::new(vec![(b.public(), shared.clone())]), T);
     let mut dialed = dial(&b, &a.public(), &shared, at).unwrap();
     let mut accepted = accepted.join().unwrap().unwrap();
 
@@ -125,7 +135,7 @@ fn link_bad_tag_rejected() {
     let (a, b) = (device(), device());
     let listening = listener(Some(Arc::clone(&a)));
     let at = addr(&listening);
-    let accepted = accept(listening, Known(vec![(b.public(), secret(1))]), T);
+    let accepted = accept(listening, Known::new(vec![(b.public(), secret(1))]), T);
 
     let wrong = dial(&b, &a.public(), &secret(2), at);
     assert!(
@@ -152,7 +162,7 @@ fn link_wrong_device_key_rejected() {
     // The listener holds the right secret but is not the device we stored.
     let listening = listener(Some(Arc::clone(&impostor)));
     let at = addr(&listening);
-    let accepted = accept(listening, Known(vec![(b.public(), secret(1))]), SHORT);
+    let accepted = accept(listening, Known::new(vec![(b.public(), secret(1))]), SHORT);
     let dialed = dial(&b, &a.public(), &secret(1), at);
     assert!(
         matches!(dialed, Err(TransportError::LinkFailed)),
@@ -167,7 +177,7 @@ fn link_wrong_device_key_rejected() {
     // A dialer with the right secret but another key is not recognised.
     let listening = listener(Some(Arc::clone(&a)));
     let at = addr(&listening);
-    let accepted = accept(listening, Known(vec![(b.public(), secret(1))]), SHORT);
+    let accepted = accept(listening, Known::new(vec![(b.public(), secret(1))]), SHORT);
     let dialed = dial(&impostor, &a.public(), &secret(1), at);
     assert!(
         matches!(dialed, Err(TransportError::LinkFailed)),
@@ -181,7 +191,7 @@ fn forgotten_peer_link_rejected() {
     let (a, b) = (device(), device());
     let listening = listener(Some(Arc::clone(&a)));
     let at = addr(&listening);
-    let accepted = accept(listening, Known(Vec::new()), SHORT);
+    let accepted = accept(listening, Known::new(Vec::new()), SHORT);
     let dialed = dial(&b, &a.public(), &secret(1), at);
     assert!(
         matches!(dialed, Err(TransportError::LinkFailed)),
@@ -201,7 +211,7 @@ fn only_the_first_64_candidates_are_tried() {
         .collect();
     let listening = listener(Some(Arc::clone(&a)));
     let at = addr(&listening);
-    let known = Known(
+    let known = Known::new(
         others
             .into_iter()
             .chain([(b.public(), secret(1))])
@@ -222,7 +232,7 @@ fn link_needs_a_device_key() {
     let mut listening = listener(None);
     let at = addr(&listening);
     assert!(matches!(
-        listening.accept_link(&Known(Vec::new()), SHORT),
+        listening.accept_link(Known::new(Vec::new()), SHORT),
         Err(TransportError::Internal(SetupFailure::NoDeviceKey))
     ));
     let dialed = connect(
@@ -248,12 +258,45 @@ fn superseded_close_reaches_the_peer() {
     let (a, b) = (device(), device());
     let listening = listener(Some(Arc::clone(&a)));
     let at = addr(&listening);
-    let accepted = accept(listening, Known(vec![(b.public(), secret(1))]), T);
+    let accepted = accept(listening, Known::new(vec![(b.public(), secret(1))]), T);
     let mut dialed = dial(&b, &a.public(), &secret(1), at).unwrap();
     accepted.join().unwrap().unwrap().close_superseded();
     let ended = dialed.recv::<String>(T);
     assert!(
         matches!(ended, Err(TransportError::Superseded)),
         "{ended:?}"
+    );
+}
+
+#[test]
+fn forgetting_a_peer_stops_its_links_in_a_running_listener() {
+    let (a, b, c) = (device(), device(), device());
+    let listening = listener(Some(Arc::clone(&a)));
+    let at = addr(&listening);
+    let known = Known::new(vec![(b.public(), secret(1)), (c.public(), secret(2))]);
+    let accepted = accept(listening, Arc::clone(&known), T);
+    // A failed attempt first, so the listener is surely running.
+    let early = dial(&b, &a.public(), &secret(9), at);
+    assert!(
+        matches!(early, Err(TransportError::LinkFailed)),
+        "{early:?}"
+    );
+
+    known.forget(&b.public());
+    let forgotten = dial(&b, &a.public(), &secret(1), at);
+    assert!(
+        matches!(forgotten, Err(TransportError::LinkFailed)),
+        "{forgotten:?}"
+    );
+    dial(&c, &a.public(), &secret(2), at).unwrap();
+    assert_eq!(
+        accepted
+            .join()
+            .unwrap()
+            .unwrap()
+            .peer_identity()
+            .unwrap()
+            .public,
+        c.public()
     );
 }

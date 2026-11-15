@@ -38,10 +38,10 @@ fn link_listener(
     })
     .unwrap();
     let port = listener.port();
-    let known = Known(vec![(dialer, secret())]);
+    let known = Arc::new(Known(vec![(dialer, secret())]));
     (
         port,
-        thread::spawn(move || listener.accept_link(&known, T / 5)),
+        thread::spawn(move || listener.accept_link(known, T / 5)),
     )
 }
 
@@ -125,11 +125,14 @@ fn link_from_old_proto_rejected() {
         true,
     ));
     let answer = old.recv();
+    // The `Reject` frame is best effort (the close may overtake it, as for
+    // every turned-away `Hello`): exactly `Reject(Version)`, or else the
+    // link close and nothing more.
     assert!(
-        matches!(answer, Ok(Handshake::Reject(RejectReason::Version))) || answer.is_err(),
+        matches!(answer, Ok(Handshake::Reject(RejectReason::Version)))
+            || link_failed(&old, &answer),
         "{answer:?}"
     );
-    assert!(!matches!(answer, Ok(Handshake::Welcome)));
     assert!(matches!(
         listening.join().unwrap(),
         Err(TransportError::Timeout)
