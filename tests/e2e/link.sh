@@ -41,7 +41,8 @@ fail() {
   for f in "$out"/*.out "$out"/*.err; do
     [ -s "$f" ] || continue
     echo "---- $(basename "$f") (last 25 lines)" >&2
-    tail -n 25 "$f" >&2
+    # host.out starts with the pairing ticket: never print it.
+    if [ "$(basename "$f")" = host.out ]; then tail -n +2 "$f"; else cat "$f"; fi | tail -n 25 >&2
   done
   exit 1
 }
@@ -53,7 +54,7 @@ poll() { # poll SECS CMD...
   local end=$((SECONDS + $1)); shift
   until "$@"; do [ "$SECONDS" -lt "$end" ] || return 1; sleep 0.2; done
 }
-host_lines() { [ "$(wc -l <"$out/host.out")" -ge "$1" ]; }
+host_lines() { [ -f "$out/host.out" ] && [ "$(wc -l <"$out/host.out")" -ge "$1" ]; }
 
 up() { # up: fresh host + guest with empty homes
   mkdir -p "$out"; chmod a+rwx "$out"
