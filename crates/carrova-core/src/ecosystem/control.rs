@@ -8,10 +8,11 @@
 //! [`ControlRequest`] and reads one [`ControlResponse`], as often as it
 //! likes on one connection.
 
+use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -158,22 +159,61 @@ pub fn attach_or_start(engine: Engine) -> Result<SupervisorHandle> {
     ControlServer::serve(&platform, supervisor, lock).map(SupervisorHandle::Local)
 }
 
-/// The supervisor and the lock that makes it the user's only one; the
-/// lock is released only after the supervisor stopped (field order).
+/// The supervisor, its socket file and the lock that makes it the user's
+/// only one. Dropped in field order: the supervisor stops, the socket file
+/// goes, then the lock is released (so the file never outlives the lock
+/// and is never removed from under the next server).
 #[derive(Debug)]
 struct Served {
     supervisor: Supervisor,
     platform: Arc<dyn Platform>,
+    socket: SocketFile,
     _lock: FileLock,
 }
 
+/// `<state>/link.sock`, removed on drop.
+#[derive(Debug)]
+struct SocketFile {
+    platform: Arc<dyn Platform>,
+    path: PathBuf,
+}
+
+impl Drop for SocketFile {
+    fn drop(&mut self) {
+        if let Err(e) = fsx::remove_any(&*self.platform, &self.path) {
+            tracing::warn!(error = %e, "control socket left behind");
+        }
+    }
+}
+
+/// Open client connections, so a stopping server can hang them up.
+#[derive(Debug, Default)]
+struct Conns {
+    next: AtomicU64,
+    open: Mutex<HashMap<u64, LocalStream>>,
+}
+
+impl Conns {
+    fn open(&self) -> MutexGuard<'_, HashMap<u64, LocalStream>> {
+        self.open.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Hang up every connection: their blocked reads end.
+    fn shutdown_all(&self) {
+        for stream in self.open().values() {
+            // Already closed by the client: nothing to do.
+            let _ = stream.shutdown();
+        }
+    }
+}
+
 /// Runs the user's supervisor and serves it on `<state>/link.sock`.
-/// Dropping it stops serving, then the supervisor (once requests in
-/// flight finish), then releases the lock.
+/// Dropping it hangs up every client and stops the supervisor (after a
+/// request still running finishes), then releases the lock.
 #[derive(Debug)]
 pub struct ControlServer {
     served: Arc<Served>,
-    socket: PathBuf,
+    conns: Arc<Conns>,
     stopping: Arc<AtomicBool>,
     accept: Option<JoinHandle<()>>,
 }
@@ -182,24 +222,30 @@ impl ControlServer {
     /// Serve `supervisor` while holding `lock` (replacing a socket file a
     /// dead process left behind).
     fn serve(platform: &Arc<dyn Platform>, supervisor: Supervisor, lock: FileLock) -> Result<Self> {
+        let path = platform.state_dir()?.join(SOCKET_FILE);
+        fsx::remove_any(&**platform, &path)?;
+        let listener = platform.bind_local_socket(&path)?;
         let served = Arc::new(Served {
             supervisor,
             platform: Arc::clone(platform),
+            socket: SocketFile {
+                platform: Arc::clone(platform),
+                path,
+            },
             _lock: lock,
         });
-        let socket = platform.state_dir()?.join(SOCKET_FILE);
-        fsx::remove_any(&**platform, &socket)?;
-        let listener = platform.bind_local_socket(&socket)?;
+        let conns = Arc::<Conns>::default();
         let stopping = Arc::new(AtomicBool::new(false));
         let accept = {
-            let (served, stopping) = (Arc::clone(&served), Arc::clone(&stopping));
+            let (served, conns) = (Arc::downgrade(&served), Arc::clone(&conns));
+            let stopping = Arc::clone(&stopping);
             spawn("carrova-control-accept", move || {
-                accept_loop(&listener, &served, &stopping);
+                accept_loop(&listener, &served, &conns, &stopping);
             })?
         };
         Ok(Self {
             served,
-            socket,
+            conns,
             stopping,
             accept: Some(accept),
         })
@@ -216,7 +262,8 @@ impl Drop for ControlServer {
     fn drop(&mut self) {
         self.stopping.store(true, Ordering::SeqCst);
         // Wake the blocked accept; without that it can never be joined.
-        match self.served.platform.connect_local_socket(&self.socket) {
+        let socket = &self.served.socket.path;
+        match self.served.platform.connect_local_socket(socket) {
             Ok(_) => {
                 if let Some(t) = self.accept.take()
                     && t.join().is_err()
@@ -226,13 +273,18 @@ impl Drop for ControlServer {
             }
             Err(e) => tracing::warn!(error = %e, "control accept thread left running"),
         }
-        if let Err(e) = fsx::remove_any(&*self.served.platform, &self.socket) {
-            tracing::warn!(error = %e, "control socket left behind");
-        }
+        // Connection threads hold the server only while serving a request,
+        // so once they are hung up `served` drops with this.
+        self.conns.shutdown_all();
     }
 }
 
-fn accept_loop(listener: &LocalListener, served: &Arc<Served>, stopping: &AtomicBool) {
+fn accept_loop(
+    listener: &LocalListener,
+    served: &Weak<Served>,
+    conns: &Arc<Conns>,
+    stopping: &AtomicBool,
+) {
     let mut backoff = ACCEPT_BACKOFF_MIN;
     loop {
         let accepted = listener.accept();
@@ -242,12 +294,7 @@ fn accept_loop(listener: &LocalListener, served: &Arc<Served>, stopping: &Atomic
         match accepted {
             Ok(stream) => {
                 backoff = ACCEPT_BACKOFF_MIN;
-                let served = Arc::clone(served);
-                // Not joined: a request may block for minutes (a file ask).
-                let spawned = spawn("carrova-control-conn", move || {
-                    serve_connection(stream, &served);
-                });
-                if let Err(e) = spawned {
+                if let Err(e) = start_connection(stream, served, conns) {
                     tracing::warn!(error = %e, "control connection dropped");
                 }
             }
@@ -269,12 +316,29 @@ fn accept_loop(listener: &LocalListener, served: &Arc<Served>, stopping: &Atomic
     }
 }
 
-/// Answer requests on `stream` until the client hangs up. A message that
-/// cannot be read gets [`ControlResponse::Failed`] and ends the connection.
-fn serve_connection(mut stream: LocalStream, served: &Served) {
+/// Serve `stream` on its own thread (not joined: a request may block for
+/// minutes, e.g. a file ask), registered in `conns` while open.
+fn start_connection(stream: LocalStream, served: &Weak<Served>, conns: &Arc<Conns>) -> Result<()> {
+    let id = conns.next.fetch_add(1, Ordering::Relaxed);
+    conns.open().insert(id, stream.try_clone()?);
+    let (served, conns_t) = (Weak::clone(served), Arc::clone(conns));
+    let spawned = spawn("carrova-control-conn", move || {
+        serve_connection(stream, &served);
+        conns_t.open().remove(&id);
+    });
+    if spawned.is_err() {
+        conns.open().remove(&id);
+    }
+    spawned.map(drop)
+}
+
+/// Answer requests on `stream` until the client or the server hangs up.
+/// A message that cannot be read gets [`ControlResponse::Failed`] and ends
+/// the connection.
+fn serve_connection(mut stream: LocalStream, served: &Weak<Served>) {
     loop {
-        let response = match read_message(&mut stream) {
-            Ok(Some(request)) => served.serve(request),
+        let request = match read_message(&mut stream) {
+            Ok(Some(request)) => request,
             Ok(None) => return,
             Err(e) => {
                 // Not the error itself: a decode error echoes the input.
@@ -283,6 +347,12 @@ fn serve_connection(mut stream: LocalStream, served: &Served) {
                 return;
             }
         };
+        // Held only for the request: an idle client keeps nothing alive.
+        let Some(served) = served.upgrade() else {
+            return;
+        };
+        let response = served.serve(request);
+        drop(served);
         if let Err(e) = write_message(&mut stream, &response) {
             tracing::debug!(error = %e, "control client left");
             return;

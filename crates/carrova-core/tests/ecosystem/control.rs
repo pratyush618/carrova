@@ -103,3 +103,20 @@ fn request_debug_hides_the_path() {
     assert!(!shown.contains("secret-plan"), "{shown}");
     assert!(shown.starts_with("SendFile"), "{shown}");
 }
+
+#[test]
+fn dropped_server_frees_the_lock_despite_an_idle_client() {
+    let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    let server = attach_or_start(low.engine.clone()).unwrap();
+    let idle = attach_or_start(other_process(&low)).unwrap();
+    // Served once, then idle: its connection is open on the server.
+    assert!(matches!(
+        idle.request(ControlRequest::Status).unwrap(),
+        ControlResponse::Status(_)
+    ));
+
+    drop(server);
+
+    let next = attach_or_start(other_process(&low)).unwrap();
+    assert!(matches!(next, SupervisorHandle::Local(_)));
+}
