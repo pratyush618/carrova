@@ -14,21 +14,28 @@ const isPhase1Row = (row: FeatureRowView): row is Phase1Row => isPhase1(row.feat
 const flows = (device: LinkedDeviceView, feature: Phase1Feature): boolean =>
   device.features.some((f) => f.feature === feature && f.effective !== 'off');
 
-/**
- * One linked device: what it can do with this computer, in two groups
- * (things that run quietly once on, things that ask every time), and the
- * few actions it offers now.
- */
-export function DevicePage({
-  device,
-  failed = false,
-  on,
-}: {
+/** One linked device's page in the desktop's hub. */
+export function DevicePage(props: DeviceDetailsProps) {
+  return (
+    <HubLayout>
+      <DeviceDetails {...props} />
+    </HubLayout>
+  );
+}
+
+export interface DeviceDetailsProps {
   readonly device: LinkedDeviceView;
   /** The engine refused the last feature change. */
   readonly failed?: boolean;
   readonly on: DeviceIntents;
-}) {
+}
+
+/**
+ * One linked device: what it can do with this device, in two groups
+ * (things that run quietly once on, things that ask every time), and the
+ * few actions it offers now. Laid out by the page around it (desktop hub, phone).
+ */
+export function DeviceDetails({ device, failed = false, on }: DeviceDetailsProps) {
   const { t } = useTranslation();
   const here = device.state === 'linked';
   const rows = device.features.filter(isPhase1Row);
@@ -50,52 +57,50 @@ export function DevicePage({
   const quiet = group('quiet');
   const ask = group('ask');
   return (
-    <HubLayout>
-      <div className="s-device">
-        <Head
-          title={device.name}
-          lede={`${t(`ecosystem.status.${device.state}`)} · ${t(`settings.about.os.${device.os}`)}`}
+    <div className="s-device">
+      <Head
+        title={device.name}
+        lede={`${t(`ecosystem.status.${device.state}`)} · ${t(`settings.about.os.${device.os}`)}`}
+      />
+      {here && (
+        <div className="s-device__acts">
+          {device.os === 'android' && flows(device, 'ring') && (
+            <Button size="sm" icon="bell" onClick={on.onRing}>
+              {t('ecosystem.device.ring')}
+            </Button>
+          )}
+          {flows(device, 'clipboard') && (
+            <Button size="sm" icon="copy" onClick={on.onSendClipboard}>
+              {t('ecosystem.device.sendClipboard')}
+            </Button>
+          )}
+          {on.onSendFiles && flows(device, 'files') && (
+            <Button size="sm" icon="file" onClick={on.onSendFiles}>
+              {t('ecosystem.device.sendFiles')}
+            </Button>
+          )}
+        </div>
+      )}
+      {device.state === 'away' && (
+        <Banner
+          tone="accent"
+          title={t('ecosystem.device.awayTitle', { name: device.name })}
+          body={t('ecosystem.device.awayBody')}
         />
-        {here && (
-          <div className="s-device__acts">
-            {device.os === 'android' && flows(device, 'ring') && (
-              <Button size="sm" icon="bell" onClick={on.onRing}>
-                {t('ecosystem.device.ring')}
-              </Button>
-            )}
-            {flows(device, 'clipboard') && (
-              <Button size="sm" icon="copy" onClick={on.onSendClipboard}>
-                {t('ecosystem.device.sendClipboard')}
-              </Button>
-            )}
-            {on.onSendFiles && flows(device, 'files') && (
-              <Button size="sm" icon="file" onClick={on.onSendFiles}>
-                {t('ecosystem.device.sendFiles')}
-              </Button>
-            )}
-          </div>
-        )}
-        {device.state === 'away' && (
-          <Banner
-            tone="accent"
-            title={t('ecosystem.device.awayTitle', { name: device.name })}
-            body={t('ecosystem.device.awayBody')}
-          />
-        )}
-        {failed && <Banner tone="warning" title={t('ecosystem.device.failed')} />}
-        {quiet.length > 0 && <Group title={t('ecosystem.groups.quiet')}>{quiet}</Group>}
-        {ask.length > 0 && (
-          <Group title={t('ecosystem.groups.ask')} sub={t('ecosystem.askFoot')}>
-            {ask}
-          </Group>
-        )}
-        <p className="s-device__foot">
-          <span className="p-mono">{t('ecosystem.device.key', { key: device.fingerprint })}</span>
-          <LinkButton onClick={on.onForget}>
-            {t('ecosystem.device.forget', { name: device.name })}
-          </LinkButton>
-        </p>
-      </div>
-    </HubLayout>
+      )}
+      {failed && <Banner tone="warning" title={t('ecosystem.device.failed')} />}
+      {quiet.length > 0 && <Group title={t('ecosystem.groups.quiet')}>{quiet}</Group>}
+      {ask.length > 0 && (
+        <Group title={t('ecosystem.groups.ask')} sub={t('ecosystem.askFoot')}>
+          {ask}
+        </Group>
+      )}
+      <p className="s-device__foot">
+        <span className="p-mono">{t('ecosystem.device.key', { key: device.fingerprint })}</span>
+        <LinkButton onClick={on.onForget}>
+          {t('ecosystem.device.forget', { name: device.name })}
+        </LinkButton>
+      </p>
+    </div>
   );
 }

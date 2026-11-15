@@ -41,3 +41,14 @@ export const shareChanges = (
   PHASE1_FEATURES.filter(
     (feature) => device.features.find((f) => f.feature === feature)?.local !== choices[feature],
   ).map((feature) => [feature, choices[feature]] as const);
+
+/** The devices `feature` reaches now: linked, with it on or asking on both sides. */
+export const readyFor = (
+  devices: readonly LinkedDeviceView[],
+  feature: Phase1Feature,
+): readonly LinkedDeviceView[] =>
+  devices.filter(
+    (d) =>
+      d.state === 'linked' &&
+      d.features.some((f) => f.feature === feature && f.effective !== 'off'),
+  );

@@ -118,7 +118,7 @@ export function ClipboardGroup({
   readonly clip: ClipSettings | null;
   /** The last change could not be saved. */
   readonly clipFailed?: boolean;
-  readonly on: SettingsIntents;
+  readonly on: Pick<SettingsIntents, 'onClip' | 'onClipHistory'>;
 }) {
   const { t } = useTranslation();
   return (

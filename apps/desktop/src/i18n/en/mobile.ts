@@ -42,8 +42,33 @@ export const mobile = {
     lede: 'With {{name}}. Change any of it later on its page.',
     done: 'Done',
   },
+  nav: { label: 'Carrova', home: 'Home', activity: 'Activity', settings: 'Settings' },
   home: {
     title: 'Carrova',
     computers: 'Computers',
+    sendClipboard: 'Send clipboard',
+    to: 'To {{name}}',
+    noneNearby: 'No computer nearby',
+  },
+  pick: {
+    to: 'To',
+    send: 'Send',
+    cancel: 'Cancel',
+  },
+  activity: {
+    title: 'Activity',
+    sub: 'Copies from your computers, kept on this phone only.',
+  },
+  settings: {
+    title: 'Settings',
+    phone: 'This phone',
+    name: 'Name',
+    visibility: 'Visibility',
+    computers: 'Computers',
+    about: 'About',
+    version: 'Carrova {{version}}',
+    license: 'Open source · Apache-2.0',
+    reports: 'Error reports',
+    reportsSub: 'You see each report before it goes.',
   },
 } as const;

@@ -3,10 +3,18 @@
   block-size: 100%;
 }
 
-.m-page {
+/* Fills the window: the page above, the tabs below. */
+.m-frame {
+  grid-row: 1 / -1;
   display: flex;
   flex-direction: column;
-  block-size: 100%;
+  min-block-size: 0;
+}
+
+.m-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   min-block-size: 0;
 }
 
@@ -47,4 +55,28 @@
 .m-note {
   font-size: var(--t-sm);
   color: var(--text-muted);
+}
+
+.m-tabs {
+  display: flex;
+  border-block-start: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.m-tabs__tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-0);
+  padding: var(--sp-1) 0 var(--sp-2);
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--t-xs);
+  color: var(--text-muted);
+}
+
+.m-tabs__tab[aria-current='page'] {
+  color: var(--accent);
 }
