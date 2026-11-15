@@ -187,6 +187,20 @@ describe('Add a device', () => {
     expect(screen.getByRole('button', { name: 'Not my phone' })).toBeDisabled();
   });
 
+  it('keeps focus in the dialog when Confirm is held', async () => {
+    const user = userEvent.setup();
+    const found = { state: 'found', peer: pixelPeer, answered: false } as const;
+    const { rerender } = renderScreen(<AddDeviceDialog model={found} on={pairOn()} />);
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+    rerender(<AddDeviceDialog model={{ ...found, answered: true }} on={pairOn()} />);
+    const dialog = screen.getByRole('dialog', { name: 'Phone found' });
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Linking…');
+    expect(dialog).toContainElement(
+      document.activeElement instanceof HTMLElement ? document.activeElement : null,
+    );
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
   it('says nothing linked after the user turned a computer down, and offers a new code', async () => {
     const user = userEvent.setup();
     const on = pairOn();

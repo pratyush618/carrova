@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, CodeDisplay, Dialog, Note, Status } from '../../ui';
 import { clock, useSecondsLeft } from '../send/countdown';
@@ -12,6 +13,20 @@ const REASONS = ['wifi', 'guest', 'vpn'] as const;
 function Expiry({ at }: { readonly at: number }) {
   const { t } = useTranslation();
   return <Note center>{t('ecosystem.pair.expiresIn', { time: clock(useSecondsLeft(at)) })}</Note>;
+}
+
+/** "Linking…" once the user answered; takes focus from the Confirm it disabled. */
+function Linking() {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
+  return (
+    <div ref={ref} tabIndex={-1}>
+      <Status>{t('ecosystem.pair.linking')}</Status>
+    </div>
+  );
 }
 
 /**
@@ -87,6 +102,7 @@ export function AddDeviceDialog({
             })}
           </p>
           <p className="p-mono">{peer.fingerprint}</p>
+          {answered && <Linking />}
         </Dialog>
       );
     }

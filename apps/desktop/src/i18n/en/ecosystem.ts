@@ -71,6 +71,7 @@ export const ecosystem = {
     foundLede: 'Check that it shows this same key, then confirm.',
     peer: '{{name}} · {{os}}',
     confirm: 'Confirm',
+    linking: 'Linking…',
     notMine: { phone: 'Not my phone', computer: 'Not my computer' },
   },
   linkComputer: {
