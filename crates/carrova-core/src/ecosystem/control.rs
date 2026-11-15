@@ -38,8 +38,8 @@ const SOCKET_FILE: &str = "link.sock";
 const CONNECT_WAIT: Duration = Duration::from_secs(5);
 
 /// What a client asks the supervisor (its [`Supervisor`] call of the same
-/// name).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, serde::Deserialize)]
+/// name). Its `Debug` leaves out paths.
+#[derive(Clone, PartialEq, Eq, Serialize, serde::Deserialize)]
 pub enum ControlRequest {
     /// [`Supervisor::status`].
     Status,
@@ -56,6 +56,25 @@ pub enum ControlRequest {
     Ring(DeviceId),
     /// [`Supervisor::set_feature`].
     SetFeature(DeviceId, Feature, FeatureState),
+}
+
+impl std::fmt::Debug for ControlRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Status => f.write_str("Status"),
+            Self::Ping(d) => f.debug_tuple("Ping").field(d).finish(),
+            Self::SendClipboard(d) => f.debug_tuple("SendClipboard").field(d).finish(),
+            Self::SendFile(d, _) => f.debug_tuple("SendFile").field(d).finish_non_exhaustive(),
+            Self::Handoff(d, item) => f.debug_tuple("Handoff").field(d).field(item).finish(),
+            Self::Ring(d) => f.debug_tuple("Ring").field(d).finish(),
+            Self::SetFeature(d, feature, state) => f
+                .debug_tuple("SetFeature")
+                .field(d)
+                .field(feature)
+                .field(state)
+                .finish(),
+        }
+    }
 }
 
 /// The supervisor's answer to a [`ControlRequest`].

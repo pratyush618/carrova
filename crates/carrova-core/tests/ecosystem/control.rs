@@ -92,3 +92,14 @@ fn oversize_request_rejected() {
         ControlResponse::Status(_)
     ));
 }
+
+#[test]
+fn request_debug_hides_the_path() {
+    let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    let request = ControlRequest::SendFile(low.id, PathBuf::from("/home/me/secret-plan.pdf"));
+
+    let shown = format!("{request:?}");
+
+    assert!(!shown.contains("secret-plan"), "{shown}");
+    assert!(shown.starts_with("SendFile"), "{shown}");
+}
