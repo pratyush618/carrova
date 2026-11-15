@@ -197,6 +197,12 @@ impl Engine {
     pub fn sink(&self) -> &Arc<dyn EventSink> {
         &self.sink
     }
+
+    /// This engine reporting to `sink` instead.
+    pub(crate) fn with_sink(mut self, sink: Arc<dyn EventSink>) -> Self {
+        self.sink = sink;
+        self
+    }
 }
 
 impl fmt::Debug for Engine {

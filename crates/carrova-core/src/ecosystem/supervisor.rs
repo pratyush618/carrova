@@ -247,6 +247,11 @@ impl Supervisor {
         clip::lock_clips(&self.shared).history()
     }
 
+    /// Forget the clips received.
+    pub fn clear_clip_history(&self) {
+        clip::lock_clips(&self.shared).clear();
+    }
+
     /// Round-trip time to `device`.
     ///
     /// # Errors

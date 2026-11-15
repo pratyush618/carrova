@@ -3,15 +3,18 @@
 
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::sync::mpsc::Receiver;
+use std::thread;
 
-use carrova_core::Engine;
 use carrova_core::ecosystem::{
-    ControlRequest, ControlResponse, MAX_CONTROL_MESSAGE, SupervisorHandle, attach_or_start,
+    Answer, ControlRequest, ControlResponse, MAX_CONTROL_MESSAGE, Supervisor, SupervisorHandle,
+    attach_or_start, attach_or_start_with,
 };
-use carrova_link::PolicyDoc;
-use carrova_platform::Platform;
+use carrova_core::{Engine, Event};
+use carrova_link::{ClipItem, PolicyDoc};
+use carrova_platform::{ClipContent, ClipKind, Platform};
 
-use crate::supervisor::device::{Device, pair};
+use crate::supervisor::device::{Device, T, fast, pair, wait_until};
 
 /// A second engine (another process) of `device`'s user.
 fn other_process(device: &Device) -> Engine {
@@ -42,9 +45,7 @@ fn client_status_matches_server() {
     let SupervisorHandle::Local(local) = &server else {
         panic!("first is not local")
     };
-    let ControlResponse::Status(remote) = client.request(ControlRequest::Status).unwrap() else {
-        panic!("no status")
-    };
+    let remote = client.status().unwrap();
 
     assert_eq!(remote, local.supervisor().status());
     assert_eq!(remote.len(), 1);
@@ -63,10 +64,7 @@ fn stale_socket_file_replaced() {
     let client = attach_or_start(other_process(&low)).unwrap();
 
     assert!(matches!(server, SupervisorHandle::Local(_)));
-    assert!(matches!(
-        client.request(ControlRequest::Status).unwrap(),
-        ControlResponse::Status(_)
-    ));
+    assert_eq!(client.status().unwrap().len(), 1);
 }
 
 #[test]
@@ -87,10 +85,7 @@ fn oversize_request_rejected() {
     // The connection is closed, and the server still serves others.
     assert_eq!(raw.read(&mut len).unwrap(), 0);
     let client = attach_or_start(other_process(&low)).unwrap();
-    assert!(matches!(
-        client.request(ControlRequest::Status).unwrap(),
-        ControlResponse::Status(_)
-    ));
+    assert_eq!(client.status().unwrap().len(), 1);
 }
 
 #[test]
@@ -110,10 +105,7 @@ fn dropped_server_frees_the_lock_despite_an_idle_client() {
     let server = attach_or_start(low.engine.clone()).unwrap();
     let idle = attach_or_start(other_process(&low)).unwrap();
     // Served once, then idle: its connection is open on the server.
-    assert!(matches!(
-        idle.request(ControlRequest::Status).unwrap(),
-        ControlResponse::Status(_)
-    ));
+    assert_eq!(idle.status().unwrap().len(), 1);
 
     drop(server);
 
@@ -133,4 +125,116 @@ fn runs_unserved_where_local_sockets_are_unsupported() {
     };
     assert_eq!(server.supervisor().status()[0].id, high.id);
     assert!(!socket(&low).exists());
+}
+
+/// Low runs the user's supervisor (served), a second process of low is its
+/// client, and high runs its own; the two are linked.
+/// Fields drop in order: everything running before the devices' dirs.
+struct Served {
+    server: SupervisorHandle,
+    client: SupervisorHandle,
+    events: Receiver<Event>,
+    sh: Supervisor,
+    low: Device,
+    high: Device,
+}
+
+fn served_and_linked() -> Served {
+    let (low, high, _) = pair(&PolicyDoc::phone_defaults());
+    let server = attach_or_start_with(low.engine.clone(), low.source.clone(), fast()).unwrap();
+    let client = attach_or_start(other_process(&low)).unwrap();
+    assert!(matches!(client, SupervisorHandle::Remote(_)));
+    let events = client.subscribe().unwrap();
+    let sh = high.start(fast());
+    let SupervisorHandle::Local(local) = &server else {
+        panic!("not local")
+    };
+    low.sees(&high, &sh);
+    high.sees(&low, local.supervisor());
+    // Linked, and each side holds the other's policy (features gate on it).
+    let has_policy = |peers: Vec<carrova_core::ecosystem::LinkedPeer>| {
+        peers.first().is_some_and(|p| p.remote.is_some())
+    };
+    wait_until("policies", || {
+        has_policy(sh.status()) && has_policy(server.status().unwrap())
+    });
+    Served {
+        low,
+        high,
+        server,
+        client,
+        events,
+        sh,
+    }
+}
+
+/// The first event `events` delivers that `f` picks.
+fn next<R>(events: &Receiver<Event>, what: &str, f: impl Fn(Event) -> Option<R>) -> R {
+    let deadline = std::time::Instant::now() + T;
+    loop {
+        let left = deadline.saturating_duration_since(std::time::Instant::now());
+        let event = events
+            .recv_timeout(left)
+            .unwrap_or_else(|e| panic!("no {what}: {e}"));
+        if let Some(r) = f(event) {
+            return r;
+        }
+    }
+}
+
+#[test]
+fn remote_subscriber_receives_link_up() {
+    let s = served_and_linked();
+
+    let up = next(&s.events, "link up", |e| match e {
+        Event::LinkUp { device } => Some(device),
+        _ => None,
+    });
+
+    assert_eq!(up, s.high.id);
+}
+
+#[test]
+fn remote_client_answers_an_ask() {
+    let s = served_and_linked();
+    let src = s.high.home.join("notes.txt");
+    std::fs::write(&src, b"remote answer").unwrap();
+    next(&s.events, "link up", |e| {
+        matches!(e, Event::LinkUp { .. }).then_some(())
+    });
+
+    thread::scope(|scope| {
+        let sending = scope.spawn(|| s.sh.send_file(&s.low.id, &src));
+        let ask = next(&s.events, "the ask", |e| match e {
+            Event::AskReceived { ask, .. } => Some(ask),
+            _ => None,
+        });
+        s.client.answer(ask, Answer::Accept).unwrap();
+        sending.join().unwrap().unwrap();
+    });
+
+    let saved = s.low.home.join("Downloads/notes.txt");
+    assert_eq!(std::fs::read(saved).unwrap(), b"remote answer");
+}
+
+#[test]
+fn clip_history_round_trips() {
+    let s = served_and_linked();
+    next(&s.events, "link up", |e| {
+        matches!(e, Event::LinkUp { .. }).then_some(())
+    });
+    let clip = ClipContent {
+        kind: ClipKind::Text,
+        bytes: b"from high".to_vec(),
+        sensitive: false,
+    };
+    s.high.platform.clipboard_write(&clip).unwrap();
+    wait_until("the clip", || !s.server.clip_history().unwrap().is_empty());
+
+    assert_eq!(
+        s.client.clip_history().unwrap(),
+        vec![ClipItem::Text("from high".to_owned())]
+    );
+    s.client.clear_clip_history().unwrap();
+    assert!(s.server.clip_history().unwrap().is_empty());
 }
