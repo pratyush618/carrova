@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
@@ -26,6 +26,9 @@ use crate::session::{Event, EventSink};
 /// First and longest wait before accepting again after a failed accept.
 const ACCEPT_BACKOFF_MIN: Duration = Duration::from_millis(100);
 const ACCEPT_BACKOFF_MAX: Duration = Duration::from_secs(5);
+/// Events a subscriber may fall behind by before it is dropped (emit
+/// never waits for one).
+pub(super) const SUBSCRIBER_QUEUE: usize = 1024;
 
 /// Runs the user's supervisor and serves it on `<state>/link.sock`.
 /// Dropping it hangs up every client and stops the supervisor (after a
@@ -206,7 +209,7 @@ impl Drop for SocketFile {
 /// The engine's sink, also copying every event to the subscribers.
 struct Fanout {
     inner: Arc<dyn EventSink>,
-    subscribers: Mutex<Vec<Sender<Event>>>,
+    subscribers: Mutex<Vec<SyncSender<Event>>>,
 }
 
 impl std::fmt::Debug for Fanout {
@@ -223,14 +226,14 @@ impl Fanout {
         }
     }
 
-    fn subscribers(&self) -> MutexGuard<'_, Vec<Sender<Event>>> {
+    fn subscribers(&self) -> MutexGuard<'_, Vec<SyncSender<Event>>> {
         self.subscribers
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
     }
 
     fn subscribe(&self) -> Receiver<Event> {
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = mpsc::sync_channel(SUBSCRIBER_QUEUE);
         self.subscribers().push(tx);
         rx
     }
@@ -243,7 +246,10 @@ impl Fanout {
 
 impl EventSink for Fanout {
     fn emit(&self, event: Event) {
-        self.subscribers().retain(|s| s.send(event.clone()).is_ok());
+        // A full queue (a stalled subscriber) or a dropped receiver ends
+        // that subscription.
+        self.subscribers()
+            .retain(|s| s.try_send(event.clone()).is_ok());
         self.inner.emit(event);
     }
 }
@@ -370,3 +376,7 @@ fn stream_events(mut stream: LocalStream, events: &Receiver<Event>) {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../tests/ecosystem/control/server/unit.rs"]
+mod tests;

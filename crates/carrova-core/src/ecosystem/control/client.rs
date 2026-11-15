@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 
 use carrova_platform::{LocalStream, Platform};
 
+use super::server::SUBSCRIBER_QUEUE;
 use super::wire::{
     ControlError, ControlRequest, ControlResponse, MAX_CONTROL_MESSAGE, MAX_CONTROL_REPLY,
     read_message, write_message,
@@ -55,7 +56,9 @@ impl ControlClient {
             ControlResponse::Done => {}
             _ => return Err(ControlError::Unexpected.into()),
         }
-        let (tx, rx) = mpsc::channel();
+        // Bounded: a reader that stalls stops this thread reading, and the
+        // server then drops the subscription.
+        let (tx, rx) = mpsc::sync_channel(SUBSCRIBER_QUEUE);
         spawn("carrova-control-events", move || {
             while let Ok(Some(event)) = read_message(&mut stream, MAX_CONTROL_REPLY) {
                 if tx.send(event).is_err() {
