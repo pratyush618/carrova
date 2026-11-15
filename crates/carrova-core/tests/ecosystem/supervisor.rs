@@ -100,6 +100,20 @@ fn presence_advertises_the_link_port_while_running() {
 }
 
 #[test]
+fn unreadable_policy_reads_as_all_off() {
+    let (low, high, _) = pair(&PolicyDoc::phone_defaults());
+    let state = low.platform.state_dir().unwrap();
+    let file = state.join(format!("devices/policy/{}.json", high.id.to_hex()));
+    std::fs::write(file, b"{ not json").unwrap();
+
+    let sl = low.start(fast());
+
+    let status = sl.status();
+    assert_eq!(status.len(), 1);
+    assert_eq!(status[0].local, PolicyDoc::computer_defaults());
+}
+
+#[test]
 fn no_dial_when_all_off() {
     let (low, high, _) = pair(&PolicyDoc::computer_defaults());
     // Only the side that does not dial wants a feature.

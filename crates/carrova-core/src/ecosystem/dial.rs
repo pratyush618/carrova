@@ -112,7 +112,12 @@ pub(super) fn refresh(shared: &Shared) -> Result<()> {
     let policies = PolicyStore::open(platform)?;
     let mut new: HashMap<DeviceId, PolicyDoc> = HashMap::new();
     for (record, _) in known.iter().filter(|(r, _)| !present.contains(&r.public)) {
-        new.insert(record.public, policies.get(platform, &record.public)?);
+        let policy = policies.get(platform, &record.public).unwrap_or_else(|e| {
+            // One bad file must not stop the others: that device gets nothing.
+            tracing::warn!(device = ?record.public, error = %e, "policy unreadable: all off");
+            PolicyDoc::computer_defaults()
+        });
+        new.insert(record.public, policy);
     }
     let forgotten = {
         let mut peers = shared.peers();
