@@ -19,6 +19,12 @@ fn safe_file_name_cases() {
         ("console.txt", "console.txt"),
         (".pdf", "pdf"),
         ("///", "file"),
+        ("a:b", "ab"),
+        ("a<b>c\"d|e?f*g", "abcdefg"),
+        ("a\u{202E}b\u{2066}c\u{2069}d\u{202A}", "abcd"),
+        ("con .txt", "_con .txt"),
+        ("CONIN$", "_CONIN$"),
+        ("conout$.log", "_conout$.log"),
     ] {
         assert_eq!(safe_file_name(raw), want, "raw = {raw:?}");
     }
@@ -44,4 +50,10 @@ fn cap_never_splits_a_multibyte_char() {
 fn extension_only_name_is_capped_without_panic() {
     let n = safe_file_name(&format!(".{}", "e".repeat(300)));
     assert_eq!(n, "e".repeat(200));
+}
+
+#[test]
+fn reserved_prefix_still_fits_the_cap() {
+    let n = safe_file_name(&format!("con.{}", "e".repeat(300)));
+    assert!(n.len() <= 200 && n.starts_with("_con."));
 }
