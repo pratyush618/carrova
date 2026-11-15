@@ -178,11 +178,11 @@ impl Platform for LinuxPlatform {
     }
 
     fn open_url(&self, url: &str) -> Result<(), PlatformError> {
-        self.xdg_open(open::checked_url(url)?)
+        self.xdg_open(crate::open::checked_url(url)?.as_ref())
     }
 
     fn open_path(&self, path: &Path) -> Result<(), PlatformError> {
-        self.xdg_open(open::checked_path(path)?)
+        self.xdg_open(crate::open::checked_path(path)?.as_os_str())
     }
 
     fn bind_local_socket(&self, path: &Path) -> Result<LocalListener, PlatformError> {

@@ -49,10 +49,14 @@ if-addrs = "0.15"
 # SHA-2 generation pinned to spake2 0.4 (digest 0.10): hkdf/hmac/sha2 share it.
 hkdf = "0.12.4"
 hmac = "0.12.1"
+# Android JNI bridge (carrova-platform only); 0.21 as Tauri/tao/wry use (ADR 0003).
+jni = "0.21.1"
 jsonschema = { version = "0.33", default-features = false }
 # Windows Known Folder API (semantic roots), safe wrapper (carrova-platform only).
 known-folders = "1.4.2"
 mdns-sd = { version = "0.21.7", default-features = false }
+# Android JavaVM + app context, set by tao's activity or by `android/jni.rs`.
+ndk-context = "0.1.1"
 # Directory watch on macOS (FSEvents) and Windows (ReadDirectoryChangesW); carrova-platform only.
 notify = { version = "8.2.2", default-features = false, features = ["macos_fsevent"] }
 # QUIC/TLS: ring backend only (no aws-lc anywhere).

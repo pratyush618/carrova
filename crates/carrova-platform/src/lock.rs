@@ -2,6 +2,8 @@
 
 use std::fs::File;
 
+use crate::watch::StopGuard;
+
 /// An exclusive advisory lock on a file, held until the guard is dropped
 /// (closing the file releases it). Advisory: it only excludes other
 /// lockers (other Carrova processes, or other threads of this one), never
@@ -23,11 +25,21 @@ impl FileLock {
 /// app asks) until the guard is dropped.
 #[derive(Debug)]
 #[must_use = "multicast may be filtered again as soon as the guard is dropped"]
-pub struct MulticastGuard(());
+pub struct MulticastGuard {
+    _release: Option<StopGuard>,
+}
 
 impl MulticastGuard {
     /// Guard for an OS that never filters multicast.
     pub(crate) fn unfiltered() -> Self {
-        Self(())
+        Self { _release: None }
+    }
+
+    /// Guard that runs `release` (let the OS filter again) on drop.
+    #[cfg(target_os = "android")]
+    pub(crate) fn held(release: impl FnOnce() + Send + 'static) -> Self {
+        Self {
+            _release: Some(StopGuard::new(release)),
+        }
     }
 }

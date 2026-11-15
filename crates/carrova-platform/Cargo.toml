@@ -30,6 +30,11 @@ blake3 = { workspace = true }
 x11rb = { workspace = true }
 wl-clipboard-rs = { workspace = true }
 
+[target.'cfg(target_os = "android")'.dependencies]
+# Clipboard, Downloads, ring, multicast lock through Kotlin glue (ADR 0003).
+jni = { workspace = true }
+ndk-context = { workspace = true }
+
 # Directory watch (FSEvents, ReadDirectoryChangesW).
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]
 notify = { workspace = true }

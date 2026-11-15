@@ -1,200 +1,52 @@
-//! Android adapter (skeleton).
+//! Android adapter.
 //!
 //! Filesystem primitives and `PATH` lookup are the Unix ones shared with
-//! Linux (`crate::sys`). Everything lives under the app's private files
-//! directory; methods Android cannot serve, or that need the Java side
-//! (clipboard, ring, multicast lock, ...), keep the [`Platform`] defaults.
+//! Linux (`crate::sys`). Clipboard, Downloads, opening, ring and the
+//! multicast lock go through one static Kotlin method each
+//! (`org.byteveda.carrova.platform.*`), reached over JNI in [`jni`] (ADR
+//! 0003). The helpers here are pure, so they are tested on any host.
 
-use std::ffi::OsString;
-use std::fs::File;
-use std::io;
-use std::net::UdpSocket;
-use std::path::{Path, PathBuf};
+use crate::ClipKind;
 
-use crate::sys;
-use crate::{
-    Allocation, DirEntry, DiskInfo, FileLock, FileMeta, FsId, LanInterface, OsKind, Platform,
-    PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
-};
+#[cfg(target_os = "android")]
+mod clipboard;
+#[cfg(target_os = "android")]
+mod files;
+#[cfg(target_os = "android")]
+mod jni;
+#[cfg(target_os = "android")]
+mod net;
+#[cfg(target_os = "android")]
+mod platform;
+#[cfg(target_os = "android")]
+mod ring;
+#[cfg(test)]
+#[path = "../../tests/android/unit.rs"]
+mod tests;
 
-/// Adapter rooted at the app's files directory.
-#[derive(Debug, Clone)]
-pub(crate) struct AndroidPlatform {
-    /// App files directory (`Context.getFilesDir()`). `HOME` is a
-    /// placeholder until Task 13 reads it over JNI.
-    files_dir: Option<OsString>,
-    path: Option<OsString>,
-}
+#[cfg(target_os = "android")]
+pub use jni::attach_service_context;
+#[cfg(target_os = "android")]
+pub(crate) use platform::AndroidPlatform;
 
-impl AndroidPlatform {
-    pub(crate) fn from_env() -> Self {
-        Self {
-            files_dir: std::env::var_os("HOME"),
-            path: std::env::var_os("PATH"),
+/// What Carrova syncs of a clip offered as `mimes`: text (any `text/*`,
+/// read as text) before PNG; `None` for anything else.
+fn clip_kind<'a>(mimes: impl IntoIterator<Item = &'a str>) -> Option<ClipKind> {
+    let mut kind = None;
+    for mime in mimes {
+        if mime.starts_with("text/") {
+            return Some(ClipKind::Text);
+        }
+        if mime == "image/png" {
+            kind = Some(ClipKind::Png);
         }
     }
-
-    fn files_dir(&self) -> Result<PathBuf, PlatformError> {
-        sys::home_dir(self.files_dir.as_deref())
-    }
+    kind
 }
 
-impl Platform for AndroidPlatform {
-    fn os(&self) -> OsKind {
-        OsKind::Android
-    }
-
-    /// Every root is a folder of the files directory; `Home` and
-    /// `Documents` are the directory itself.
-    fn resolve_root(&self, root: SemanticRoot) -> Result<PathBuf, PlatformError> {
-        let dir = self.files_dir()?;
-        let rel = match root {
-            SemanticRoot::Home | SemanticRoot::Documents => return Ok(dir),
-            SemanticRoot::UserConfig => "config",
-            SemanticRoot::UserData => "data",
-            SemanticRoot::Cache => "cache",
-        };
-        sys::confine(root, &dir.join(rel))
-    }
-
-    fn state_dir(&self) -> Result<PathBuf, PlatformError> {
-        Ok(self.files_dir()?.join("state"))
-    }
-
-    fn find_binary(&self, name: &str) -> Result<Option<PathBuf>, PlatformError> {
-        Ok(sys::find_binary(self.path.as_deref(), name))
-    }
-
-    fn metadata(&self, path: &Path) -> Result<FileMeta, PlatformError> {
-        crate::meta::lstat(path)
-    }
-
-    /// Android hides other apps' processes.
-    fn running_processes(&self) -> Result<Vec<ProcessInfo>, PlatformError> {
-        Err(PlatformError::Unsupported("running_processes"))
-    }
-
-    fn free_space(&self, path: &Path) -> Result<u64, PlatformError> {
-        sys::free_space(path)
-    }
-
-    fn snapshot_capability(&self, _path: &Path) -> Result<SnapshotCapability, PlatformError> {
-        Ok(SnapshotCapability::None)
-    }
-
-    fn bind_local_socket(&self, path: &Path) -> Result<crate::LocalListener, PlatformError> {
-        crate::LocalListener::bind(path, crate::netops::current_uid())
-    }
-
-    fn connect_local_socket(&self, path: &Path) -> Result<crate::LocalStream, PlatformError> {
-        crate::LocalStream::connect(path)
-    }
-
-    fn disk(&self, path: &Path) -> Result<DiskInfo, PlatformError> {
-        sys::disk(path)
-    }
-
-    fn open_read_nofollow(&self, path: &Path) -> Result<File, PlatformError> {
-        sys::open_read_nofollow(path)
-    }
-
-    fn open_append_nofollow(&self, path: &Path) -> Result<File, PlatformError> {
-        sys::open_append_nofollow(path)
-    }
-
-    fn open_rw_nofollow(&self, path: &Path) -> Result<File, PlatformError> {
-        sys::open_rw_nofollow(path)
-    }
-
-    fn create_new_file(&self, path: &Path, mode: Option<u32>) -> Result<File, PlatformError> {
-        sys::create_new_file(path, mode)
-    }
-
-    fn create_dir(&self, path: &Path, mode: Option<u32>) -> Result<(), PlatformError> {
-        sys::create_dir(path, mode)
-    }
-
-    fn set_mode(&self, path: &Path, mode: u32) -> Result<(), PlatformError> {
-        sys::set_mode(path, mode)
-    }
-
-    fn create_symlink(&self, target: &str, link: &Path) -> Result<(), PlatformError> {
-        sys::create_symlink(target, link)
-    }
-
-    fn read_link(&self, path: &Path) -> Result<PathBuf, PlatformError> {
-        sys::read_link(path)
-    }
-
-    fn rename_noreplace(&self, from: &Path, to: &Path) -> Result<(), PlatformError> {
-        sys::rename_noreplace(from, to)
-    }
-
-    fn rename_replace(&self, from: &Path, to: &Path) -> Result<(), PlatformError> {
-        sys::rename_replace(from, to)
-    }
-
-    fn sync_dir(&self, path: &Path) -> Result<(), PlatformError> {
-        sys::sync_dir(path)
-    }
-
-    fn remove_file(&self, path: &Path) -> Result<(), PlatformError> {
-        sys::remove_file(path)
-    }
-
-    fn read_dir(&self, path: &Path) -> Result<Vec<DirEntry>, PlatformError> {
-        sys::read_dir(path)
-    }
-
-    fn remove_dir_all_confined(&self, path: &Path, within: &Path) -> Result<(), PlatformError> {
-        sys::remove_dir_all_confined(path, within)
-    }
-
-    fn fs_id(&self, path: &Path) -> Result<FsId, PlatformError> {
-        sys::fs_id(path)
-    }
-
-    fn sync_fs(&self, path: &Path) -> Result<(), PlatformError> {
-        sys::sync_fs(path)
-    }
-
-    fn write_all_at(&self, file: &File, buf: &[u8], offset: u64) -> io::Result<()> {
-        sys::write_all_at(file, buf, offset)
-    }
-
-    fn preallocate(&self, file: &File, len: u64) -> io::Result<Allocation> {
-        sys::preallocate(file, len)
-    }
-
-    fn file_metadata(&self, file: &File) -> io::Result<FileMeta> {
-        crate::meta::fstat(file)
-    }
-
-    fn lock_exclusive(&self, path: &Path) -> Result<FileLock, PlatformError> {
-        sys::lock_exclusive(path)
-    }
-
-    fn current_uid(&self) -> Option<u32> {
-        Some(crate::netops::current_uid())
-    }
-
-    fn device_name(&self) -> Option<String> {
-        crate::device::sanitize_device_name(&crate::netops::host_name())
-    }
-
-    fn lan_ipv4_interfaces(&self) -> Result<Vec<LanInterface>, PlatformError> {
-        crate::netops::lan_ipv4_interfaces()
-    }
-
-    fn bind_broadcast_udp(&self, port: u16) -> io::Result<UdpSocket> {
-        crate::netops::bind_broadcast_udp(port)
-    }
-
-    fn bind_udp(&self, port: u16, buffer: usize) -> io::Result<(UdpSocket, SocketBuffers)> {
-        crate::netops::bind_udp(port, buffer)
-    }
-
-    fn send_magic_packet(&self, mac: [u8; 6]) -> Result<(), PlatformError> {
-        crate::netops::send_magic_packet(mac)
-    }
+/// Whether a clip is secret, from its `ClipDescription.EXTRA_IS_SENSITIVE`
+/// extra as text (`None`: not set). Anything but `"false"` counts as set:
+/// fail closed.
+fn is_sensitive(extra: Option<&str>) -> bool {
+    extra.is_some_and(|value| value != "false")
 }

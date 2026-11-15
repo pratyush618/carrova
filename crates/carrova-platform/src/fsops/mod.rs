@@ -26,7 +26,10 @@ mod rename;
 
 pub(crate) use create::{create_dir, create_new_file, create_symlink, set_mode};
 pub(crate) use dir::read_dir;
-pub(crate) use env::{confine, find_binary, home_dir, isolate_tool, kill_tool, tool_command};
+/// Android runs no external tools.
+#[cfg(any(feature = "fake", not(target_os = "android")))]
+pub(crate) use env::tool_command;
+pub(crate) use env::{confine, find_binary, home_dir, isolate_tool, kill_tool};
 #[cfg(any(test, target_os = "macos"))]
 pub(crate) use io_ops::dir_id;
 pub(crate) use io_ops::{disk, free_space, fs_id, preallocate, sync_dir, sync_fs, write_all_at};

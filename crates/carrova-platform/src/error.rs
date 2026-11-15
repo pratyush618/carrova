@@ -31,6 +31,11 @@ pub enum PlatformError {
     #[error("network error: {0}")]
     Network(String),
 
+    /// A call into the Android (Java) side failed; `cause` names the error
+    /// or exception class, never its message (it may hold names or URLs).
+    #[error("Android call {call} failed: {cause}")]
+    Android { call: &'static str, cause: String },
+
     /// I/O failure on a specific path.
     #[error("I/O error on {path}: {source}")]
     Io {

@@ -8,7 +8,7 @@ use std::process::{Child, Command};
 use std::time::Duration;
 
 use crate::{
-    Allocation, ClipContent, ClipboardWatch, DirEntry, DirWatch, DiskInfo, FileLock,
+    Allocation, ClipContent, ClipboardWatch, DirEntry, DirWatch, DiskInfo, DownloadSink, FileLock,
     FileManagerStatus, FileMeta, FsId, LanInterface, LocalListener, LocalStream, MulticastGuard,
     OsKind, PermissionModel, PlatformError, ProcessInfo, ScreenLock, SemanticRoot,
     SnapshotCapability, SocketBuffers,
@@ -445,6 +445,19 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     /// Where the user keeps downloads.
     fn downloads_dir(&self) -> Result<PathBuf, PlatformError> {
         Err(PlatformError::Unsupported("downloads_dir"))
+    }
+
+    /// A new file named like `name` (type `mime`) that the OS itself saves
+    /// into Downloads, where apps may not write paths directly (Android's
+    /// MediaStore). `Unsupported` where [`Platform::downloads_dir`] is
+    /// writable: callers write there instead.
+    fn downloads_sink(
+        &self,
+        name: &str,
+        mime: &str,
+    ) -> Result<Box<dyn DownloadSink>, PlatformError> {
+        let _ = (name, mime);
+        Err(PlatformError::Unsupported("downloads_sink"))
     }
 
     /// Open an `http(s)` URL in the user's browser; any other scheme is

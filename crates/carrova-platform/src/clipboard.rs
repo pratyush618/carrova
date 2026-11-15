@@ -34,6 +34,8 @@ pub struct ClipboardWatch {
 
 impl ClipboardWatch {
     /// Guard that runs `stop` (end the watcher, wait for it) on drop.
+    /// (Android has no clipboard or directory watch.)
+    #[cfg(any(feature = "fake", not(target_os = "android")))]
     pub(crate) fn new(stop: impl FnOnce() + Send + 'static) -> Self {
         Self {
             _stop: StopGuard::new(stop),

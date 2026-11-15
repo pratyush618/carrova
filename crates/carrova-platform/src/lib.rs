@@ -6,13 +6,17 @@
 
 mod clipboard;
 mod device;
+mod download;
 mod error;
 mod local_socket;
 mod lock;
 mod meta;
+#[cfg(any(test, target_os = "linux", target_os = "macos", target_os = "windows"))]
 mod neighbours;
 #[cfg(any(test, target_os = "macos", target_os = "windows"))]
 mod notify_watch;
+#[cfg(any(test, target_os = "linux", target_os = "android"))]
+mod open;
 mod os;
 pub mod path;
 mod platform;
@@ -22,7 +26,7 @@ mod tool;
 mod types;
 mod watch;
 
-#[cfg(target_os = "android")]
+#[cfg(any(test, target_os = "android"))]
 mod android;
 #[cfg(feature = "fake")]
 pub mod fake;
@@ -43,7 +47,10 @@ use windows::fs as sys;
 #[cfg(unix)]
 use fsops as sys;
 
+#[cfg(target_os = "android")]
+pub use android::attach_service_context;
 pub use clipboard::{ClipContent, ClipKind, ClipboardWatch};
+pub use download::DownloadSink;
 pub use error::PlatformError;
 pub use local_socket::{LocalListener, LocalStream};
 pub use lock::{FileLock, MulticastGuard};
