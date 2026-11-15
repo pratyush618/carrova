@@ -10,8 +10,7 @@ use std::time::Duration;
 use crate::{
     Allocation, ClipContent, ClipboardWatch, DirEntry, DirWatch, DiskInfo, DownloadSink, FileLock,
     FileManagerStatus, FileMeta, FsId, LanInterface, LinkNotice, LocalListener, LocalStream,
-    MulticastGuard,
-    OsKind, PermissionModel, PlatformError, ProcessInfo, ScreenLock, SemanticRoot,
+    MulticastGuard, OsKind, PermissionModel, PlatformError, ProcessInfo, ScreenLock, SemanticRoot,
     SnapshotCapability, SocketBuffers,
 };
 

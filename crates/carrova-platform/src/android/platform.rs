@@ -15,8 +15,8 @@ use super::{clipboard, net, ring, scan, service};
 use crate::sys;
 use crate::{
     Allocation, ClipContent, DirEntry, DiskInfo, DownloadSink, FileLock, FileMeta, FsId,
-    LanInterface, LinkNotice, MulticastGuard, OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot,
-    SnapshotCapability, SocketBuffers,
+    LanInterface, LinkNotice, MulticastGuard, OsKind, Platform, PlatformError, ProcessInfo,
+    SemanticRoot, SnapshotCapability, SocketBuffers,
 };
 
 /// Keepalive of a link: a phone radio sleeps longer between packets.
