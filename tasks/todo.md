@@ -592,3 +592,25 @@ Follow-ups (after PR #9):
 - [x] Robustness round: system tool runs (arp, scutil) bounded to 3 s / 64 KiB and killed on timeout; mac/Windows dir watch survives re-created dirs (fixed recheck deadline, rewatch retried up to 3x); mDNS withdraw restarts the daemon so no stale name lingers (known: ~0.8 s probe silence after a switch, broadcast covers Carrova peers); Nearby map slots/sticky seats/"+N more"/pill cap
 - Results: follow-ups verified on Linux only; mac/Windows code covered by pure-parser + shared watch tests, not real hardware.
 - [x] Move the wake-hint save policy (clear hints, rollback, error order) out of `src-tauri/ops/settings.rs` into shared code (`Settings::save_over` in carrova-view) (boundary rule 2; PR #9 CodeRabbit review 5870606766)
+
+## Ecosystem Phase 1 — exit gate (2026-11-15)
+Automated: `just ci` green and `just e2e --link` PASS (controller). Do not mark Phase 1 complete until the user reports the hardware checks below.
+
+Real hardware (user): Ubuntu 24.04 laptop + Android 13+ phone, plus a second Ubuntu computer
+- [ ] Pair the phone by QR (Nearby → Add a device)
+- [ ] Key check: desktop shows "Phone found" with its fingerprint; Confirm links; the phone showed its own fingerprint while linking
+- [ ] Clipboard both ways (laptop → phone, phone → laptop)
+- [ ] File both ways (accept on the receiving side)
+- [ ] Handoff a URL both ways
+- [ ] Ring the phone from the laptop and stop it
+- [ ] Link survives a Wi-Fi drop and return
+- [ ] Link survives laptop suspend/resume
+- [ ] Link survives swiping the Android app away
+- [ ] Link survives a phone reboot
+- [ ] Idle phone battery over 8 h with one link: Carrova below 2% of total
+- [ ] Two Ubuntu computers: link by code, clipboard and file both ways
+- [ ] Android emulator smoke (controller)
+
+Notes
+- `just e2e --link` drives the real CLI as the joining computer; the other computer is the test-only example `apps/cli/examples/link_host.rs` (the CLI never offers a pair code, answers an ask or announces itself on the LAN). Clipboard and Handoff are covered by in-process tests only.
+- Open product question: `carrova link serve` does not announce presence, so two CLI-only computers link only when the one that dials (lower device key) can see the other's advert. Needs a decision before CLI-to-CLI links are advertised as working.

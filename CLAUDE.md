@@ -8,14 +8,14 @@ Open-source desktop app that moves app data (configs, keys, user data) between c
 
 ## Status
 
-Phase 1 (Foundation) and Phase 2 (Archive migration) complete. Phase 3 (LAN transfer) complete (`carrova send|receive`, resume, `just e2e --lan`; hardware exit gate passed 2026-11-11). Phase 4 (Desktop app + recipe ecosystem) implemented: Tauri 2 app over a typed IPC contract, signed recipe bundle (Ed25519, delta updates, `carrova recipes update|status|rollback|reset`), 15 recipes, opt-in error reports, AppImage/.deb + updater, local git + CI workflows; v0.1 exit gate pending (user: clean-Ubuntu install, wizard migration, bundle update) after replacing release placeholders (`just release-preflight`). Phase 5 (cross-OS + WASM plugins) implemented except macOS notarization (needs Apple account) and Flathub (deferred); exit gate pending (user: Windows beta, macOS notarized build, cross-OS restores). Background + Nearby Phase 2 (known devices, Nearby, Wake-on-LAN) merged (PRs #9, #10, #11); real-hardware Windows/macOS check pending.
+Phase 1 (Foundation) and Phase 2 (Archive migration) complete. Phase 3 (LAN transfer) complete (`carrova send|receive`, resume, `just e2e --lan`; hardware exit gate passed 2026-11-11). Phase 4 (Desktop app + recipe ecosystem) implemented: Tauri 2 app over a typed IPC contract, signed recipe bundle (Ed25519, delta updates, `carrova recipes update|status|rollback|reset`), 15 recipes, opt-in error reports, AppImage/.deb + updater, local git + CI workflows; v0.1 exit gate pending (user: clean-Ubuntu install, wizard migration, bundle update) after replacing release placeholders (`just release-preflight`). Phase 5 (cross-OS + WASM plugins) implemented except macOS notarization (needs Apple account) and Flathub (deferred); exit gate pending (user: Windows beta, macOS notarized build, cross-OS restores). Background + Nearby Phase 2 (known devices, Nearby, Wake-on-LAN) merged (PRs #9, #10, #11); real-hardware Windows/macOS check pending. Ecosystem Phase 1 (link between computers and Android phones: clipboard, files, Handoff, Ring; `carrova devices|link|clip|file|handoff`, `just e2e --link`) implemented, exit gate pending (user: real-hardware checklist in `tasks/todo.md`).
 
 ## Hard constraints
 
 - **Monorepo.** Everything lives in this repo. Never propose splitting.
 - **Git (user, 2026-11-10).** Remote `origin` = https://github.com/pratyush618/carrova, branch `main`. Commit and push only when the user asks; Conventional Commits (commitlint), split into focused commits, no AI attribution. Never force-push, hard-reset or clean (denied in `.claude/settings.json`). Use `cargo new --vcs none`.
 - **Stay in the current phase.** Don't build ahead (no UI before Phase 4, no Windows/macOS/plugins before Phase 5). Stubs required by the plan are fine.
-- **v1 scope:** Ubuntu → Ubuntu, developers, LAN + archive file.
+- **v1 scope:** Ubuntu → Ubuntu, developers, LAN + archive file. Ecosystem Phase 1 adds linked devices (Ubuntu computers and Android 13+ phones); see `docs/PLAN.md` "Ecosystem".
 
 ## Layout (target)
 
@@ -29,10 +29,12 @@ crates/carrova-archive     encrypted single-file export/import
 crates/carrova-platform    the ONLY OS-aware crate (Linux adapter; Win/mac stubs)
 crates/carrova-plugin      WASM runtime (stub until Phase 5)
 crates/carrova-view        shared front-end view-models + desktop IPC contract (ts-rs bindings)
+crates/carrova-link      linked-device protocol: features, policy, clipboard/file/handoff/ring lanes
 crates/carrova-bundle      signed recipe bundle: build, verify, update, store, resolve
 crates/carrova-report      opt-in redacted error reports (consent, store, issue draft)
 apps/cli                  carrova-cli
 apps/desktop              React UI (src/, tests/, e2e/, e2e-app/) + src-tauri/ bridge
+apps/desktop/src/mobile  phone layouts of the same React app (Android shell)
 xtask/                    dev tooling: `cargo xtask bundle keygen|certify|build|sign|verify|pin`
 keys/                     bundle trust roots (DEV root until replaced before release)
 packaging/                packaging docs, desktop entry
