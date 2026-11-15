@@ -1,7 +1,7 @@
 use carrova_manifest::ChunkHash;
 
 use super::*;
-use crate::wire::{ChunkRequest, Handshake, Intent};
+use crate::wire::{ChunkRequest, Handshake, Intent, PairPurpose};
 
 #[test]
 fn handshake_byte_fields_encode_as_cbor_byte_strings() {
@@ -39,6 +39,7 @@ fn hello_from_an_old_receiver_asks_for_no_identity() {
         proto,
         intent,
         identify,
+        purpose,
     } = decode_body(OLD_HELLO).unwrap()
     else {
         panic!("not a hello");
@@ -46,6 +47,7 @@ fn hello_from_an_old_receiver_asks_for_no_identity() {
     assert_eq!(proto, 1);
     assert_eq!(intent, Intent::Pair { nameplate: 42 });
     assert!(!identify);
+    assert_eq!(purpose, PairPurpose::Move);
 }
 
 #[test]
@@ -54,6 +56,7 @@ fn identifying_hello_still_reads_on_an_old_sender() {
         proto: 1,
         intent: Intent::Pair { nameplate: 42 },
         identify: true,
+        purpose: PairPurpose::Move,
     })
     .unwrap();
     let OldHandshake::Hello { proto, intent } = decode_body(&frame[FRAME_HEADER_LEN..]).unwrap();

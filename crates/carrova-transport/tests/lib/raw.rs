@@ -17,7 +17,9 @@ use crate::handshake::binding;
 use crate::runtime::runtime;
 use crate::tls::Identity;
 use crate::tuning::TLS_SERVER_NAME;
-use crate::wire::{CloseCode, Handshake, Intent, RejectReason, StreamReader, encode_frame};
+use crate::wire::{
+    CloseCode, Handshake, Intent, PairPurpose, RejectReason, StreamReader, encode_frame,
+};
 
 /// `127.0.0.<n>`.
 pub(super) fn loopback(n: u8) -> Ipv4Addr {
@@ -129,6 +131,7 @@ impl RawPeer {
             proto: PROTOCOL_VERSION,
             intent,
             identify,
+            purpose: PairPurpose::default(),
         });
         self.recv()
     }

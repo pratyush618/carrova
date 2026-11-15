@@ -14,7 +14,7 @@ use crate::error::{ProtocolViolation, Result, TransportError};
 use crate::race::PakeBudget;
 use crate::tls::Identity;
 use crate::tuning::HANDSHAKE_TIMEOUT;
-use crate::wire::{CloseCode, Handshake, RejectReason, StreamReader};
+use crate::wire::{CloseCode, Handshake, PairPurpose, RejectReason, StreamReader};
 
 /// Receiver: authenticate an established QUIC connection with `secret`.
 /// On failure the connection is closed with the matching code.
@@ -80,6 +80,7 @@ async fn open_control(
         proto: PROTOCOL_VERSION,
         intent: secret.intent()?,
         identify: secret.device().is_some(),
+        purpose: PairPurpose::default(),
     };
     write(&mut send, &[hello]).await.map_err(rejected)?;
     match recv.expect_frame().await.map_err(rejected)? {

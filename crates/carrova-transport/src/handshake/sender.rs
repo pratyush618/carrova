@@ -91,6 +91,7 @@ async fn stake(conn: &quinn::Connection, expected: &Expected) -> Result<Staked, 
         proto,
         intent,
         identify,
+        ..
     } = recv.expect_frame().await.map_err(Retry)?
     else {
         return Err(Retry(unexpected("hello")));

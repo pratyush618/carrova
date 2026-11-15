@@ -15,6 +15,12 @@ pub enum TransportError {
     /// its code after this.
     #[error("pairing failed: wrong code or tampered connection")]
     PairingFailed,
+    /// The peer's device key differs from the one remembered for it.
+    #[error("the other machine's key changed")]
+    KeyMismatch,
+    /// The link proof failed (unknown device, revoked link or tampering).
+    #[error("link failed")]
+    LinkFailed,
     /// No answer within the caller's timeout.
     #[error("timed out")]
     Timeout,
@@ -188,7 +194,10 @@ impl TransportError {
             Some(CloseCode::PairingFailed) => Self::PairingFailed,
             Some(CloseCode::Protocol) => ProtocolViolation::PeerClosed.into(),
             Some(CloseCode::Cancelled) => Self::PeerCancelled,
-            Some(CloseCode::Normal | CloseCode::Rejected) | None => Self::PeerLost,
+            Some(CloseCode::LinkFailed) => Self::LinkFailed,
+            Some(CloseCode::Normal | CloseCode::Rejected | CloseCode::Superseded) | None => {
+                Self::PeerLost
+            }
         }
     }
 

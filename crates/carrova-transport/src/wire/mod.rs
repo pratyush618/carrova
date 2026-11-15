@@ -18,6 +18,6 @@ mod record;
 
 pub(crate) use close::{CloseCode, STREAM_CANCELLED};
 pub(crate) use frame::encode_frame;
-pub(crate) use messages::{ChunkRequest, Handshake, Intent, RejectReason, StreamOpen};
+pub(crate) use messages::{ChunkRequest, Handshake, Intent, PairPurpose, RejectReason, StreamOpen};
 pub(crate) use reader::StreamReader;
 pub(crate) use record::{RECORD_HEADER_LEN, RecordHeader, RecordKind, chunk_len};

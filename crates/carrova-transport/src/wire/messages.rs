@@ -1,8 +1,9 @@
 //! CBOR control messages.
 
 use carrova_crypto::identity::{DEVICE_PUBLIC_LEN, IDENTITY_SIG_LEN};
-use carrova_crypto::pairing::{CONFIRMATION_LEN, RESUME_TAG_LEN, TAG_NONCE_LEN};
+use carrova_crypto::pairing::{CONFIRMATION_LEN, LINK_TAG_LEN, RESUME_TAG_LEN, TAG_NONCE_LEN};
 use carrova_manifest::ChunkHash;
+use carrova_platform::OsKind;
 use serde::{Deserialize, Serialize};
 
 /// Handshake messages on the control stream (before a `Connection` exists).
@@ -19,6 +20,10 @@ pub(crate) enum Handshake {
         /// receivers omit it (`false`).
         #[serde(default)]
         identify: bool,
+        /// Whether the paired session carries a transfer. Older receivers
+        /// omit it ([`PairPurpose::Move`]).
+        #[serde(default)]
+        purpose: PairPurpose,
     },
     /// Sender → receiver: the intent is being offered; continue.
     Welcome,
@@ -41,6 +46,27 @@ pub(crate) enum Handshake {
     },
     /// Sender → receiver: both checks passed.
     Established,
+    /// Link handshake, sender → receiver: the link tag verified; the
+    /// connection is authenticated without a transfer.
+    Linked,
+    /// Pair-only handshake: a peer's display name and OS, sent by each
+    /// side after `Established`.
+    PeerInfo {
+        /// The peer's device name.
+        name: String,
+        /// The peer's OS family.
+        os: OsKind,
+    },
+}
+
+/// What a code-paired session is for.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) enum PairPurpose {
+    /// Pair, then move data.
+    #[default]
+    Move,
+    /// Pair to remember each other; no transfer follows.
+    PairOnly,
 }
 
 /// What a receiver's `Hello` asks for.
@@ -60,6 +86,15 @@ pub(crate) enum Intent {
         /// [`carrova_crypto::pairing::ResumeTag`] bytes.
         #[serde(with = "serde_bytes")]
         tag: [u8; RESUME_TAG_LEN],
+    },
+    /// Connect to a linked device: `tag` proves the link secret for `nonce`.
+    Link {
+        /// A fresh nonce per attempt.
+        #[serde(with = "serde_bytes")]
+        nonce: [u8; TAG_NONCE_LEN],
+        /// [`carrova_crypto::pairing::LinkTag`] bytes.
+        #[serde(with = "serde_bytes")]
+        tag: [u8; LINK_TAG_LEN],
     },
 }
 
@@ -87,3 +122,7 @@ pub(crate) enum StreamOpen {
 pub(crate) struct ChunkRequest {
     pub(crate) hashes: Vec<ChunkHash>,
 }
+
+#[cfg(test)]
+#[path = "../../tests/wire/messages/unit.rs"]
+mod tests;
