@@ -10,8 +10,10 @@ node_modules/
 dist/
 *.tsbuildinfo
 .vite/
-# Tauri-generated schemas/capabilities (regenerated on every build).
-apps/desktop/src-tauri/gen/
+# Tauri-generated schemas/capabilities (regenerated on every build); the
+# Android project under gen/android is source (it has its own .gitignore).
+apps/desktop/src-tauri/gen/*
+!apps/desktop/src-tauri/gen/android/
 # Playwright output.
 playwright-report/
 test-results/
