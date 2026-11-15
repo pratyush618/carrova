@@ -30,7 +30,7 @@ android-check:
     export CC_aarch64_linux_android="$bin/aarch64-linux-android29-clang"
     export AR_aarch64_linux_android="$bin/llvm-ar"
     export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CC_aarch64_linux_android"
-    cargo check -p carrova-platform -p carrova-core --target aarch64-linux-android
+    cargo check -p carrova-platform -p carrova-core -p carrova-desktop --target aarch64-linux-android
 
 # Build every plugin under plugins/ to plugins/<id>/plugin.wasm (+ host tests).
 plugins:

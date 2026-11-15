@@ -39,6 +39,7 @@ pub mod registry;
 pub mod send_request;
 pub mod settings;
 pub mod state;
+#[cfg(desktop)]
 pub mod tray;
 pub mod updater;
 pub mod worker;
@@ -74,12 +75,17 @@ use updater::PendingUpdate;
 pub fn run() -> tauri::Result<()> {
     // Before the builder: a second launch can arrive before `setup` runs.
     let pending_send = send_request::SendRequests::default();
+    #[cfg(desktop)]
     let early_sends = pending_send.clone();
-    tauri::Builder::default()
-        // First, so a second launch is caught before anything else starts.
+    let builder = tauri::Builder::default();
+    // First, so a second launch is caught before anything else starts.
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_single_instance::init(move |app, argv, cwd| {
             send_request::on_second_instance(app, &early_sends, argv, &cwd);
         }))
+        .on_window_event(tray::on_window_event);
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
@@ -97,10 +103,12 @@ pub fn run() -> tauri::Result<()> {
             app.manage(presence);
             send_request::forward(&state, &launch_send_paths());
             app.manage(state.clone());
+            #[cfg(desktop)]
             tray::start(app.handle(), &state, launched_in_background());
+            #[cfg(mobile)]
+            open_main_window(app.handle())?;
             Ok(())
         })
-        .on_window_event(tray::on_window_event)
         .manage(PendingUpdate::default())
         .invoke_handler(tauri::generate_handler![
             commands::send::scan,
@@ -173,6 +181,7 @@ pub fn run() -> tauri::Result<()> {
             {
                 presence.stop();
             }
+            #[cfg(desktop)]
             tray::on_run_event(app, &event);
         });
     Ok(())
@@ -187,7 +196,33 @@ fn launch_send_paths() -> Vec<PathBuf> {
     send_request::send_paths(&argv, &cwd).unwrap_or_default()
 }
 
+/// Entry point the Android and iOS runtimes call (they cannot take a
+/// `Result`). The macro emits `extern` JNI glue, hence the one `unsafe`
+/// exception to the workspace's `forbid` (ADR 0003 sign-off).
+#[cfg(mobile)]
+#[allow(unsafe_code)]
+#[tauri::mobile_entry_point]
+fn mobile_main() {
+    if let Err(error) = run() {
+        tracing::error!(%error, "the app failed to run");
+    }
+}
+
+/// Phones have no tray: open the one window from the config at start-up.
+#[cfg(mobile)]
+fn open_main_window(app: &AppHandle) -> tauri::Result<()> {
+    let config = app
+        .config()
+        .app
+        .windows
+        .first()
+        .ok_or(tauri::Error::WindowNotFound)?;
+    tauri::WebviewWindowBuilder::from_config(app, config)?.build()?;
+    Ok(())
+}
+
 /// Whether this launch is a start at sign-in.
+#[cfg(desktop)]
 fn launched_in_background() -> bool {
     std::env::args_os().any(|arg| arg == tray::BACKGROUND_FLAG)
 }
