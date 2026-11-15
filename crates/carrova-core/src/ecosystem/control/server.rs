@@ -157,6 +157,7 @@ impl Served {
                 ControlResponse::Pong(u64::try_from(rtt.as_millis()).unwrap_or(u64::MAX))
             }
             ControlRequest::SendClipboard(d) => sup.send_clipboard(&d).map(done)?,
+            ControlRequest::SendText(d, text) => sup.send_text(&d, text).map(done)?,
             ControlRequest::SendFile(d, path) => {
                 regular_file(platform, &path)?;
                 sup.send_file(&d, &path).map(done)?

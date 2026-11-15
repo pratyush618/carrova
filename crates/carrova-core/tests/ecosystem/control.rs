@@ -124,6 +124,16 @@ fn request_debug_hides_the_path() {
 }
 
 #[test]
+fn request_debug_hides_shared_text() {
+    let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    let request = ControlRequest::SendText(low.id, "hunter2".to_owned());
+
+    let shown = format!("{request:?}");
+
+    assert!(!shown.contains("hunter2"), "{shown}");
+}
+
+#[test]
 fn dropped_server_frees_the_lock_despite_an_idle_client() {
     let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
     let server = attach_or_start(low.engine.clone()).unwrap();
@@ -276,6 +286,19 @@ fn remote_client_answers_while_its_own_send_waits() {
 
     let saved = s.low.home.join("Downloads/in.txt");
     assert_eq!(std::fs::read(saved).unwrap(), b"answered");
+}
+
+#[test]
+fn remote_client_sends_text_up_to_the_clip_cap() {
+    let s = served_and_linked();
+    let text = "y".repeat(carrova_link::MAX_CLIP_TEXT);
+
+    s.client.send_text(&s.high.id, text.clone()).unwrap();
+
+    s.high
+        .wait("clip", |e| matches!(e, Event::ClipReceived { .. }));
+    let got = s.high.platform.clipboard_read().unwrap().unwrap().bytes;
+    assert!(got == text.into_bytes(), "the whole text arrived");
 }
 
 #[test]

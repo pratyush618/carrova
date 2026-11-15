@@ -12,8 +12,9 @@ use serde::{Deserialize, Serialize};
 use crate::ecosystem::{Answer, AskId, ClipSettings, HandoffItem, LinkedPeer};
 use crate::error::Result;
 
-/// Largest message the supervisor reads (a request), in bytes.
-pub const MAX_CONTROL_MESSAGE: u32 = 64 * 1024;
+/// Largest message the supervisor reads (a request), in bytes: a shared
+/// text of up to [`carrova_link::MAX_CLIP_TEXT`] (1 MiB) and some room.
+pub const MAX_CONTROL_MESSAGE: u32 = (1 << 20) + 64 * 1024;
 /// Largest message a client reads (an answer, a clip or an event), in
 /// bytes: one clip of up to 10 MiB, its bytes up to two each in CBOR.
 pub(super) const MAX_CONTROL_REPLY: u32 = 32 << 20;
@@ -28,6 +29,8 @@ pub enum ControlRequest {
     Ping(DeviceId),
     /// [`crate::ecosystem::Supervisor::send_clipboard`].
     SendClipboard(DeviceId),
+    /// [`crate::ecosystem::Supervisor::send_text`].
+    SendText(DeviceId, String),
     /// [`crate::ecosystem::Supervisor::send_file`]; the path must be absolute and name
     /// a regular file (not a symlink).
     SendFile(DeviceId, PathBuf),
@@ -69,6 +72,7 @@ impl std::fmt::Debug for ControlRequest {
             Self::Subscribe => f.write_str("Subscribe"),
             Self::Ping(d) => f.debug_tuple("Ping").field(d).finish(),
             Self::SendClipboard(d) => f.debug_tuple("SendClipboard").field(d).finish(),
+            Self::SendText(d, _) => f.debug_tuple("SendText").field(d).finish_non_exhaustive(),
             Self::SendFile(d, _) => f.debug_tuple("SendFile").field(d).finish_non_exhaustive(),
             Self::Handoff(d, item) => f.debug_tuple("Handoff").field(d).field(item).finish(),
             Self::Ring(d) => f.debug_tuple("Ring").field(d).finish(),

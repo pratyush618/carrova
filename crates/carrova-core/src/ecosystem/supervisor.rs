@@ -13,7 +13,7 @@ use carrova_link::{
     Feature, FeatureState, FileOffer, Handoff, OfferAnswer, PolicyDoc, RING_SECONDS, ReceivedClip,
     RingMsg, allowed, offer_file, send_handoff, send_ring,
 };
-use carrova_platform::{ClipboardWatch, Platform};
+use carrova_platform::{ClipContent, ClipKind, ClipboardWatch, Platform};
 use carrova_transport::Connection;
 
 use super::asks::{Answer, AskId, Asks};
@@ -294,6 +294,28 @@ impl Supervisor {
         let conn = self.shared.conn(device, Some(Feature::Clipboard))?;
         let content = self.shared.platform().clipboard_read()?;
         match content.and_then(|c| clip::clip_item(&self.shared, c)) {
+            Some(item) => clip::send_clip_to(&self.shared, device, &conn, &item),
+            None => Ok(()),
+        }
+    }
+
+    /// Send `text` (shared with this app, not copied) to `device` as a
+    /// clip, as [`Self::send_clipboard`] would; this device's clipboard is
+    /// left alone. Over [`carrova_link::MAX_CLIP_TEXT`] it is skipped
+    /// ([`Event::ClipSkipped`]).
+    ///
+    /// # Errors
+    ///
+    /// [`CoreError::NotLinked`], [`CoreError::FeatureOff`], or the link
+    /// failed.
+    pub fn send_text(&self, device: &DeviceId, text: String) -> Result<()> {
+        let conn = self.shared.conn(device, Some(Feature::Clipboard))?;
+        let content = ClipContent {
+            kind: ClipKind::Text,
+            bytes: text.into_bytes(),
+            sensitive: false,
+        };
+        match clip::clip_item(&self.shared, content) {
             Some(item) => clip::send_clip_to(&self.shared, device, &conn, &item),
             None => Ok(()),
         }

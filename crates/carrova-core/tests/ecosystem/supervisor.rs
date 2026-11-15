@@ -307,6 +307,52 @@ fn clipboard_flows_only_when_both_on() {
 }
 
 #[test]
+fn shared_text_is_sent_as_a_clip() {
+    let (low, high, sl, _sh) = linked(&PolicyDoc::phone_defaults());
+
+    sl.send_text(&high.id, "shared words".to_owned()).unwrap();
+
+    high.wait("clip", |e| matches!(e, Event::ClipReceived { .. }));
+    assert_eq!(clipboard(&high).as_deref(), Some(&b"shared words"[..]));
+    low.wait("sent", |e| matches!(e, Event::ClipSent { .. }));
+    assert_eq!(
+        clipboard(&low),
+        None,
+        "this device's clipboard is untouched"
+    );
+}
+
+#[test]
+fn shared_text_over_the_cap_is_skipped() {
+    let (low, high, sl, _sh) = linked(&PolicyDoc::phone_defaults());
+    let big = "x".repeat(carrova_link::MAX_CLIP_TEXT + 1);
+
+    sl.send_text(&high.id, big).unwrap();
+
+    low.wait("skipped", |e| {
+        *e == Event::ClipSkipped {
+            reason: ClipSkip::TooBig,
+        }
+    });
+    assert_eq!(high.count(|e| matches!(e, Event::ClipReceived { .. })), 0);
+}
+
+#[test]
+fn shared_text_needs_the_clipboard_feature() {
+    let mut doc = PolicyDoc::phone_defaults();
+    let (low, high, _) = pair(&doc);
+    doc.features.insert(Feature::Clipboard, FeatureState::Off);
+    high.set_policy(&low.id, &doc);
+    let (sl, _sh) = start_both(&low, &high);
+    wait_remote(&sl, &high.id, Feature::Clipboard, FeatureState::Off);
+
+    assert!(matches!(
+        sl.send_text(&high.id, "no".to_owned()),
+        Err(CoreError::FeatureOff(Feature::Clipboard))
+    ));
+}
+
+#[test]
 fn sensitive_clip_skipped() {
     let (low, high, sl, _sh) = linked(&PolicyDoc::phone_defaults());
 

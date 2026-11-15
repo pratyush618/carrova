@@ -102,6 +102,15 @@ impl SupervisorHandle {
         self.done(ControlRequest::SendClipboard(*device))
     }
 
+    /// [`Supervisor::send_text`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Supervisor::send_text`], or the control socket failed.
+    pub fn send_text(&self, device: &DeviceId, text: String) -> Result<()> {
+        self.done(ControlRequest::SendText(*device, text))
+    }
+
     /// [`Supervisor::send_file`]; `path` must be absolute and name a
     /// regular file.
     ///
