@@ -33,6 +33,8 @@ export interface FakeOptions {
   stepMs?: number;
   /** How to wait (default: real timers). */
   sleep?: Sleep;
+  /** Whether this device is on a LAN (default `true`; `false`: a phone on mobile data). */
+  lan?: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -217,6 +219,8 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
         return { kind: 'updated', version: NEWER_RECIPES } as const;
       }),
     recipesReset: () => later(() => fx.recipesStatus),
+
+    lanAvailable: () => later(() => options.lan ?? true),
 
     about: () =>
       later(() =>

@@ -36,6 +36,17 @@ describe('the Tauri port', () => {
     ]);
   });
 
+  it('asks whether this device is on a LAN', async () => {
+    const calls: string[] = [];
+    mockIPC((command) => {
+      calls.push(command);
+      return command === 'lan_available' ? false : null;
+    });
+    const port = createTauriPort();
+    await expect(port.lanAvailable()).resolves.toBe(false);
+    expect(calls).toEqual(['lan_available']);
+  });
+
   it('invokes the snake_case command with named arguments', async () => {
     const calls: [string, unknown][] = [];
     mockIPC((command, args) => {

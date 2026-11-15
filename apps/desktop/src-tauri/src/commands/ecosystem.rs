@@ -65,6 +65,12 @@ pub async fn own_fingerprint(
     reply(&app, ops::ecosystem::own_fingerprint(&state).await)
 }
 
+/// `CarrovaPort.lanAvailable`.
+#[tauri::command]
+pub async fn lan_available(state: State<'_, AppState>) -> Result<bool, CommandError> {
+    ops::ecosystem::lan_available(&state).await
+}
+
 /// `CarrovaPort.setFeature`.
 #[tauri::command]
 pub async fn set_feature(
