@@ -198,6 +198,17 @@ pub struct LinkedDeviceView {
     pub features: Vec<FeatureRowView>,
 }
 
+impl LinkedDeviceView {
+    /// Whether `feature` can be used on this link now (both sides allow
+    /// it): what offers an action such as "Ring" or "Send clipboard".
+    #[must_use]
+    pub fn allows(&self, feature: Feature) -> bool {
+        self.features
+            .iter()
+            .any(|row| row.feature == feature && row.effective != FeatureState::Off)
+    }
+}
+
 /// `peers` as the devices list shows them, in the given order.
 #[must_use]
 pub fn linked_device_views(peers: &[LinkedPeer]) -> Vec<LinkedDeviceView> {

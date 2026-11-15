@@ -155,6 +155,20 @@ fn linked_device_view_shows_identity_state_and_feature_rows() {
 }
 
 #[test]
+fn linked_device_view_allows_only_what_the_gate_lets_through() {
+    let remote = doc(&[
+        (Feature::Clipboard, FeatureState::On),
+        (Feature::Ring, FeatureState::Off),
+    ]);
+    let view = &linked_device_views(&[peer(4, PeerState::Linked, Some(remote))])[0];
+    assert!(view.allows(Feature::Clipboard));
+    assert!(!view.allows(Feature::Ring), "off on the other side");
+
+    let unknown = &linked_device_views(&[peer(5, PeerState::Linked, None)])[0];
+    assert!(!unknown.allows(Feature::Clipboard), "no remote policy yet");
+}
+
+#[test]
 fn ask_view_for_a_file_has_name_and_size_only() {
     let kind = AskKind::File {
         name: "a.txt".into(),
