@@ -12,7 +12,11 @@
   grid-template-rows: auto 1fr auto;
   block-size: 100%;
   min-block-size: 0;
-  /* Keeps page z-indexes (sticky bars, popovers) below the overlays painted after it. */
-  isolation: isolate;
   animation: p-fade var(--dur-2) var(--ease);
+}
+
+/* Under an overlay: keeps page z-indexes (sticky bars, popovers) below it.
+   Not before, so a page's own menu can still open over the toast dock. */
+.p-window__base[inert] {
+  isolation: isolate;
 }
