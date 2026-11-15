@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::{DeviceId, DevicePublic};
 use carrova_crypto::pairing::KnownSecret;
-use carrova_link::{Feature, FeatureState, PolicyDoc};
+use carrova_link::{Feature, FeatureState, FileOffer, PolicyDoc};
 use carrova_platform::{OsKind, Platform};
 use carrova_transport::{Connection, KnownPeers, browse};
 
@@ -113,9 +113,9 @@ pub(super) struct Link {
     pub(super) remote: Option<PolicyDoc>,
     /// Fires when the link closes: asks on it end.
     pub(super) closed: Cancel,
-    /// Accepted handoff files whose bytes are due on a `File` lane:
-    /// `(offer id, size)`.
-    pub(super) handoff_files: Vec<(u64, u64)>,
+    /// Accepted handoff files whose bytes are due on a `File` lane (names
+    /// already safe).
+    pub(super) handoff_files: Vec<FileOffer>,
 }
 
 /// One known device.

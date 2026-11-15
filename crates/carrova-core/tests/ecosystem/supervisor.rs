@@ -459,6 +459,49 @@ fn handoff_file_saves_then_opens_without_a_second_ask() {
 }
 
 #[test]
+fn handoff_file_with_another_name_is_asked_again() {
+    use carrova_link::{FileOffer, Handoff, OfferAnswer, offer_file, send_handoff};
+    let (low, high, secret) = pair(&PolicyDoc::phone_defaults());
+    let sh = high.start(fast());
+    let conn = low.dial(&high, &sh, &secret);
+    high.wait("linked", link_up(&low.id));
+    let offer = |name: &str| FileOffer {
+        id: 7,
+        name: name.to_owned(),
+        size: 4,
+        mime: None,
+    };
+
+    thread::scope(|s| {
+        let handing = s.spawn(|| send_handoff(&conn, &Handoff::File(offer("slides.pdf"))));
+        wait_until("the handoff ask", || asks(&high).len() == 1);
+        sh.answer(asks(&high)[0].0, Answer::Accept).unwrap();
+        assert!(matches!(
+            handing.join().unwrap(),
+            Ok(OfferAnswer::Accept { .. })
+        ));
+
+        // Same id and size, another name: not the file the user accepted.
+        let sending = s.spawn(|| {
+            let mut src = std::io::Cursor::new(b"evil".to_vec());
+            offer_file(&conn, &offer("run.sh"), &mut src, &mut |_| {})
+        });
+        wait_until("a second ask", || asks(&high).len() == 2);
+        let (ask, _, kind) = asks(&high).pop().unwrap();
+        assert_eq!(
+            kind,
+            AskKind::File {
+                name: "run.sh".to_owned(),
+                size: 4
+            }
+        );
+        sh.answer(ask, Answer::Decline).unwrap();
+        assert!(matches!(sending.join().unwrap(), Err(LinkError::Declined)));
+    });
+    assert!(high.platform.done().is_empty(), "nothing opened");
+}
+
+#[test]
 fn ring_reaches_peer() {
     let (low, high, sl, _sh) = linked(&PolicyDoc::phone_defaults());
 

@@ -316,13 +316,14 @@ impl Lane {
     }
 
     /// Whether `offer` is the file of a handoff accepted on this link
-    /// (matched by id and size; each is taken once).
+    /// (the id, size and safe name the user accepted; each is taken once).
+    /// Any other file is asked about on its own.
     fn take_handoff_file(&self, offer: &FileOffer) -> bool {
         self.with_link(|l| {
             let due = l
                 .handoff_files
                 .iter()
-                .position(|&f| f == (offer.id, offer.size));
+                .position(|f| (f.id, f.size, &f.name) == (offer.id, offer.size, &offer.name));
             due.map(|i| l.handoff_files.swap_remove(i)).is_some()
         })
         .unwrap_or(false)
@@ -343,7 +344,7 @@ impl Lane {
             let answer = self.ask(kind);
             if let (OfferAnswer::Accept { .. }, ReceivedHandoff::File(offer)) = (answer, h) {
                 // Recorded before the answer goes out: the file lane follows it.
-                self.with_link(|l| l.handoff_files.push((offer.id, offer.size)));
+                self.with_link(|l| l.handoff_files.push(offer.clone()));
             }
             answer
         };
