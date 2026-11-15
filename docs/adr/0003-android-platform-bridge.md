@@ -167,7 +167,45 @@ mobile entry attribute sits on a small `mobile_main()` wrapper around
   plus one prerequisite permission on Android 14+;
   `CHANGE_WIFI_MULTICAST_STATE` (needed for the multicast lock anyway) is
   expected to serve; the spike confirms, including start from boot.
-- Lifetime spike result: pending (Task 13).
+- **Lifetime spike result (Task 13, 2026-11-15, emulator API 34 x86_64,
+  debug APK with throwaway spike code): mechanism 2.**
+  - **Mechanism 1 fails.** Tauri has no activity-less entry: its only
+    Android entry is `Rust.onFirstActivityCreate()` (wry's
+    `WryActivity`/`WryLifecycleObserver`). Called from `LinkService`
+    without an activity, it returns but `setup` never runs (no supervisor
+    for 25 s); when the activity opens later, the lifecycle observer calls
+    it again and `setup` runs **twice** in one process (two Tauri apps).
+  - **Mechanism 2 works.** `LinkService` calls `System.loadLibrary` and
+    one exported `startSupervisor(context)`; the supervisor thread runs
+    with no activity and its JNI calls work (heartbeats every 10 s, same
+    pid). Opening the activity afterwards starts Tauri normally (UI
+    renders, no crash). After `adb reboot`, a `BOOT_COMPLETED` receiver
+    starting `LinkService` (`connectedDevice`, prerequisite permission
+    `CHANGE_WIFI_MULTICAST_STATE`) brought the supervisor up with no
+    activity on API 34.
+  - **Not `ndk_context::initialize_android_context`** (amends Decision
+    §4): it asserts it was unset, and tao calls it in the activity's
+    `onCreate`, so initialising it from the service would abort the
+    process when the user opens the app. Instead `android/jni.rs` keeps
+    the service's JavaVM and context itself
+    (`carrova_platform::attach_service_context`) and falls back to
+    ndk-context (set by tao) otherwise.
+  - **Activity destroyed: Tauri exits the process unless told not to.**
+    With the stock `run()`, removing the task ends tao's event loop,
+    which calls `std::process::exit` and aborts the process (SIGABRT in
+    EGL teardown) despite the running foreground service; Android
+    restarts the sticky service in a new process. With
+    `RunEvent::ExitRequested` → `api.prevent_exit()` on mobile, the
+    supervisor thread started in `setup` kept running for 100 s+ (same
+    pid) after the activity was destroyed. Reopening the app then shows
+    a blank screen (Tauri dropped the window): Task 21 must re-create the
+    main window when a new activity arrives.
+  - **For Task 21:** the exported `startSupervisor` must live in
+    `src-tauri` (it starts core's supervisor, which `carrova-platform`
+    cannot reach), so it is a second `#[unsafe(no_mangle)]` item there
+    with `#[allow(unsafe_code)]`: needs the user's sign-off then.
+    Supervisor start must be once per process (service and `setup` both
+    try).
 
 ## Open questions for the user
 
