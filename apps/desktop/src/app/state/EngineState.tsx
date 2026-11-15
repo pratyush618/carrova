@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -31,8 +32,10 @@ interface EngineStateApi {
   readonly remembered: Remembered | null;
   /** How many `show_nearby` events arrived (each: the tray asked for the Nearby page). */
   readonly nearbyRequests: number;
-  /** The last pairing invite, and when it arrived (ms since epoch). */
+  /** The last pairing invite, and when it arrived (ms since epoch); kept only while its dialog needs it. */
   readonly invite: Invite | null;
+  /** Drop the invite (its dialog closed, or the code ran out): the code leaves memory. */
+  readonly clearInvite: () => void;
 }
 
 /** A pairing invite as it arrived. */
@@ -58,6 +61,9 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
   const [remembered, setRemembered] = useState<Remembered | null>(null);
   const [nearbyRequests, setNearbyRequests] = useState(0);
   const [invite, setInvite] = useState<Invite | null>(null);
+  const clearInvite = useCallback(() => {
+    setInvite(null);
+  }, []);
   useEffect(() => {
     let stop: (() => void) | null = null;
     let live = true;
@@ -88,8 +94,17 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
     };
   }, [port]);
   const api = useMemo(
-    () => ({ state, dispatch, sendRequests, noticeEvents, remembered, nearbyRequests, invite }),
-    [state, sendRequests, noticeEvents, remembered, nearbyRequests, invite],
+    () => ({
+      state,
+      dispatch,
+      sendRequests,
+      noticeEvents,
+      remembered,
+      nearbyRequests,
+      invite,
+      clearInvite,
+    }),
+    [state, sendRequests, noticeEvents, remembered, nearbyRequests, invite, clearInvite],
   );
   return <EngineStateContext value={api}>{children}</EngineStateContext>;
 }
@@ -136,7 +151,8 @@ export function useLink(): LinkState {
   return useEngineState().state.link;
 }
 
-/** The last pairing invite (`null` until one arrives). */
-export function useInvite(): Invite | null {
-  return useEngineState().invite;
+/** The last pairing invite (`null` until one arrives, and once cleared), and how to drop it. */
+export function useInvite(): { readonly invite: Invite | null; readonly clear: () => void } {
+  const { invite, clearInvite } = useEngineState();
+  return { invite, clear: clearInvite };
 }

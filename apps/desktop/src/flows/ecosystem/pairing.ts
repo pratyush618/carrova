@@ -1,0 +1,44 @@
+import type { Invite } from '../../app/state/EngineState';
+import type { PairInviteView } from '../../engine/types';
+import type { AddPhoneModel } from '../../screens/devices/model';
+
+/** How a pairing attempt ended. */
+export type PairEnd =
+  | { readonly state: 'linked'; readonly id: string | null; readonly name: string | null }
+  | { readonly state: 'expired' | 'failed' };
+
+/** An attempt's invite and when it stops working (ms since epoch). */
+export interface AttemptInvite {
+  readonly view: PairInviteView;
+  readonly expiresAt: number;
+}
+
+/** The invite of the attempt started at `attempt`; one from an earlier attempt is stale. */
+export function attemptInvite(invite: Invite | null, attempt: number): AttemptInvite | null {
+  if (invite === null || invite.receivedAt < attempt) return null;
+  return { view: invite.view, expiresAt: invite.receivedAt + invite.view.expires_in_s * 1000 };
+}
+
+/**
+ * The end after `next` arrives: a link always wins; an expired code stays
+ * expired when the engine then gives up on it (that is no connection failure).
+ */
+export function settle(end: PairEnd | null, next: PairEnd): PairEnd {
+  if (end?.state === 'linked' || (end?.state === 'expired' && next.state === 'failed')) return end;
+  return next;
+}
+
+/** What the Add a phone dialog shows, `secondsLeft` on the attempt's code. */
+export function addPhoneModel(
+  current: AttemptInvite | null,
+  end: PairEnd | null,
+  secondsLeft: number,
+): AddPhoneModel {
+  if (end?.state === 'linked') return end;
+  if (end?.state === 'expired' || (current !== null && secondsLeft === 0))
+    return { state: 'expired' };
+  if (end !== null) return end;
+  return current === null
+    ? { state: 'starting' }
+    : { state: 'waiting', invite: current.view, expiresAt: current.expiresAt };
+}

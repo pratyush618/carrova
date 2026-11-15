@@ -5,6 +5,12 @@ import { usePort } from '../../../engine/port';
 import { toBridgeError } from '../../../engine/errors';
 import { useClipHistory } from '../../../flows/ecosystem/useClipHistory';
 import type { Pairing } from '../../../flows/ecosystem/useLinkedDevices';
+import {
+  addPhoneModel,
+  attemptInvite,
+  settle,
+  type PairEnd,
+} from '../../../flows/ecosystem/pairing';
 import { ClipHistorySheet } from '../../../screens/clipboard/ClipHistorySheet';
 import { AddPhoneDialog } from '../../../screens/devices/AddPhoneDialog';
 import { DevicePage } from '../../../screens/devices/DevicePage';
@@ -13,7 +19,6 @@ import {
   LinkComputerDialog,
   type LinkComputerState,
 } from '../../../screens/devices/LinkComputerDialog';
-import type { AddPhoneModel } from '../../../screens/devices/model';
 import { useSecondsLeft } from '../../../screens/send/countdown';
 import { HubLayout, Toast } from '../../../ui';
 import { useControllers } from '../../controllers/Controllers';
@@ -79,33 +84,30 @@ export function DeviceRoute({ id }: { readonly id: string }) {
   );
 }
 
-/** How a pairing attempt ended (`null` while it waits). */
-type PairEnd =
-  | { readonly state: 'linked'; readonly id: string | null; readonly name: string | null }
-  | {
-      readonly state: 'failed';
-    };
-
 /**
  * Add a phone: one invite per attempt; closing the dialog or a new code
- * cancels the one waiting. An invite counts only if it arrived for this attempt.
+ * cancels the one waiting. The code leaves memory once the dialog closes or
+ * the code runs out.
  */
 export function AddPhoneOverlay() {
   const { linked } = useControllers();
   const nav = useNav();
-  const invite = useInvite();
+  const { invite, clear } = useInvite();
   const [attempt, setAttempt] = useState(() => Date.now());
   const [end, setEnd] = useState<PairEnd | null>(null);
   const { pairPhone } = linked;
   useEffect(() => {
     const pairing = pairPhone();
     let live = true;
+    const ended = (next: PairEnd) => {
+      if (live) setEnd((now) => settle(now, next));
+    };
     pairing.done.then(
       (device) => {
-        if (live) setEnd({ state: 'linked', id: device?.id ?? null, name: device?.name ?? null });
+        ended({ state: 'linked', id: device?.id ?? null, name: device?.name ?? null });
       },
       (reason: unknown) => {
-        if (live && toBridgeError(reason).code !== 'cancelled') setEnd({ state: 'failed' });
+        if (toBridgeError(reason).code !== 'cancelled') ended({ state: 'failed' });
       },
     );
     return () => {
@@ -113,20 +115,17 @@ export function AddPhoneOverlay() {
       pairing.cancel();
     };
   }, [pairPhone, attempt]);
-  const current = invite !== null && invite.receivedAt >= attempt ? invite : null;
-  const expiresAt = current === null ? 0 : current.receivedAt + current.view.expires_in_s * 1000;
-  const seconds = useSecondsLeft(expiresAt);
-  const waiting: AddPhoneModel =
-    current === null
-      ? { state: 'starting' }
-      : { state: 'waiting', invite: current.view, expiresAt };
-  // An expired code wins over a failure: the engine gives up on it once it runs out.
-  const model: AddPhoneModel =
-    end?.state === 'linked'
-      ? end
-      : current !== null && seconds === 0
-        ? { state: 'expired' }
-        : (end ?? waiting);
+  useEffect(() => clear, [clear]);
+  const current = attemptInvite(invite, attempt);
+  const seconds = useSecondsLeft(current?.expiresAt ?? 0);
+  const ranOut = current !== null && seconds === 0;
+  // Remembered here, so the code itself can leave memory.
+  if (ranOut && end?.state !== 'expired' && end?.state !== 'linked')
+    setEnd(settle(end, { state: 'expired' }));
+  useEffect(() => {
+    if (ranOut) clear();
+  }, [ranOut, clear]);
+  const model = addPhoneModel(current, end, seconds);
   const linkedId = end?.state === 'linked' ? end.id : null;
   return (
     <AddPhoneDialog
@@ -135,6 +134,7 @@ export function AddPhoneOverlay() {
         onCancel: nav.close,
         onDone: nav.close,
         onRetry: () => {
+          clear();
           setEnd(null);
           setAttempt(Date.now());
         },
