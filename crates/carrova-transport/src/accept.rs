@@ -25,8 +25,9 @@ use crate::tuning::{HANDSHAKE_TIMEOUT, MAX_PENDING_HANDSHAKES};
 /// refuses newcomers meanwhile.
 /// `on_staked` runs once, when an attempt puts the secret at stake
 /// (pairing: the receiver's PAKE message claimed the code).
-/// Resume: failed proofs are logged and the sender keeps waiting (the tag
-/// is public, so a stranger must not be able to end the wait).
+/// Resume and link: failed attempts are logged (by kind only) and the
+/// sender keeps waiting (resume tags are public and a link listener
+/// answers anyone on the LAN, so a stranger must not end the wait).
 pub(crate) async fn accept(
     endpoint: &quinn::Endpoint,
     identity: &Arc<Identity>,
