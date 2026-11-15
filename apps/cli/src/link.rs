@@ -4,6 +4,7 @@
 //! command's own duration when none runs.
 
 use std::io::Write;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::str::FromStr;
@@ -16,6 +17,7 @@ use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::ecosystem::{
     HandoffItem, PeerState, SupervisorHandle, attach_or_start, link_with_code,
 };
+use carrova_core::presence::Presence;
 use carrova_core::{Cancel, Engine, Ticket};
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{Feature, FeatureState};
@@ -219,7 +221,7 @@ pub fn features(
     device: &DeviceId,
     settings: &[FeatureSetting],
 ) -> Result<ExitCode> {
-    let handle = attach_or_start(engine(format)?)?;
+    let handle = host(&engine(format)?)?;
     for s in settings {
         handle.set_feature(device, s.feature, s.state)?;
     }
@@ -238,7 +240,7 @@ pub fn features(
 
 /// `carrova link status [--ping]`
 fn status(out: &mut impl Write, format: OutputFormat, ping: bool) -> Result<ExitCode> {
-    let handle = attach_or_start(engine(format)?)?;
+    let handle = host(&engine(format)?)?;
     let peers = handle.status()?;
     let rows = peers
         .iter()
@@ -261,8 +263,8 @@ fn status(out: &mut impl Write, format: OutputFormat, ping: bool) -> Result<Exit
 
 /// `carrova link serve`: host the supervisor until Ctrl-C.
 fn serve(out: &mut impl Write, format: OutputFormat) -> Result<ExitCode> {
-    let handle = attach_or_start(engine(format)?)?;
-    if matches!(handle, SupervisorHandle::Remote(_)) {
+    let handle = host(&engine(format)?)?;
+    if matches!(*handle, SupervisorHandle::Remote(_)) {
         bail!(
             "linked devices are already served (by the Carrova app or another `carrova link serve`)"
         );
@@ -282,15 +284,41 @@ fn serve(out: &mut impl Write, format: OutputFormat) -> Result<ExitCode> {
 
 /// The known device `to` names and the supervisor, after giving a
 /// supervisor started here [`LINK_WAIT`] to link it.
-fn linked(to: &str, format: OutputFormat) -> Result<(SupervisorHandle, DeviceRecord)> {
+fn linked(to: &str, format: OutputFormat) -> Result<(Host, DeviceRecord)> {
     let engine = engine(format)?;
     let platform = &**engine.platform();
     let device = KnownDevices::open(platform)?.resolve(platform, to)?;
-    let handle = attach_or_start(engine)?;
-    if matches!(handle, SupervisorHandle::Local(_)) {
+    let handle = host(&engine)?;
+    if matches!(*handle, SupervisorHandle::Local(_)) {
         wait_ready(&handle, &device.public)?;
     }
     Ok((handle, device))
+}
+
+/// The user's supervisor, announced on the LAN while this process hosts
+/// it (as the app does): the higher key only listens, so its peer must
+/// find it by presence.
+struct Host {
+    handle: SupervisorHandle,
+    _presence: Option<Presence>,
+}
+
+impl Deref for Host {
+    type Target = SupervisorHandle;
+
+    fn deref(&self) -> &SupervisorHandle {
+        &self.handle
+    }
+}
+
+/// [`attach_or_start`], with presence while the supervisor runs here.
+fn host(engine: &Engine) -> Result<Host> {
+    let handle = attach_or_start(engine.clone())?;
+    let presence = matches!(handle, SupervisorHandle::Local(_)).then(|| Presence::start(engine));
+    Ok(Host {
+        handle,
+        _presence: presence,
+    })
 }
 
 /// Wait until `device` is linked with its policy known, at most

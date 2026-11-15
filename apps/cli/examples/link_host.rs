@@ -2,8 +2,7 @@
 //! CLI never offers a pair-only code nor answers an ask (the app does), so
 //! this does both with the engine: it offers a code, auto-confirms the
 //! peer, serves the link supervisor, accepts the one file offered and
-//! exits. It also announces itself on the LAN like the app does (the CLI's
-//! `link serve` does not), which is how the CLI side finds it. Stdout
+//! exits. It also announces itself on the LAN like the app does. Stdout
 //! lines: the ticket, the linked device's id (hex), `ready` (files
 //! allowed), the saved file's path.
 //! Never packaged: cargo examples are not release artifacts.
