@@ -75,6 +75,7 @@ mod redact;
 mod remember;
 mod resume;
 mod send;
+pub(crate) use send::offer;
 mod session;
 pub mod sessions;
 mod transfer;

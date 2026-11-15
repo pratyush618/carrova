@@ -19,7 +19,7 @@ mod prepare;
 mod report;
 
 use ending::Ending;
-use pairing::offer;
+pub(crate) use pairing::offer;
 pub use pairing::{CodeOffer, SendPrompt};
 use report::End;
 pub use report::{SendOutcome, SendReport};

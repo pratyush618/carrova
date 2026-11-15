@@ -166,7 +166,7 @@ impl SendHandle {
 
 /// Fresh code advertised on `listener`, as a ticket with the fallback
 /// address.
-pub(super) fn offer(listener: &mut Listener) -> Result<Ticket> {
+pub(crate) fn offer(listener: &mut Listener) -> Result<Ticket> {
     let code = PairingCode::generate().map_err(TransportError::from)?;
     listener.advertise_pairing(&code)?;
     Ok(Ticket {

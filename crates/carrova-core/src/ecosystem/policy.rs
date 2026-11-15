@@ -95,6 +95,20 @@ impl PolicyStore {
         write_atomic(platform, &self.dir, &name, &bytes)
     }
 
+    /// Store `doc` as `id`'s policy unless it already has a file (a
+    /// re-pairing keeps what the user chose).
+    pub(crate) fn put_if_absent(
+        &self,
+        platform: &dyn Platform,
+        id: &DeviceId,
+        doc: &PolicyDoc,
+    ) -> Result<()> {
+        if fsx::lstat(platform, &self.dir.join(file_name(id)))?.is_some() {
+            return Ok(());
+        }
+        self.put(platform, id, doc)
+    }
+
     /// Delete `id`'s policy; nothing if there is none.
     pub fn remove(&self, platform: &dyn Platform, id: &DeviceId) -> Result<()> {
         let path = self.dir.join(file_name(id));
