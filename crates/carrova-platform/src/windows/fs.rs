@@ -337,6 +337,16 @@ pub(crate) fn lock_exclusive(path: &Path) -> Result<FileLock, PlatformError> {
     Ok(FileLock::held(file))
 }
 
+/// See [`crate::Platform::try_lock_exclusive`]: std `File::try_lock`.
+pub(crate) fn try_lock_exclusive(path: &Path) -> Result<Option<FileLock>, PlatformError> {
+    let file = open_regular(path, OpenOptions::new().read(true).write(true).create(true))?;
+    match file.try_lock() {
+        Ok(()) => Ok(Some(FileLock::held(file))),
+        Err(std::fs::TryLockError::WouldBlock) => Ok(None),
+        Err(std::fs::TryLockError::Error(e)) => Err(io_err(path)(e)),
+    }
+}
+
 /// Minimal tool environment: `USERPROFILE` = `home`, `PATH` (if known),
 /// and the system variables any Windows program needs to start
 /// (`SystemRoot`, `PATHEXT`, `TEMP`), copied from this process.

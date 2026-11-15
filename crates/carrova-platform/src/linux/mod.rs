@@ -297,6 +297,10 @@ impl Platform for LinuxPlatform {
         crate::sys::lock_exclusive(path)
     }
 
+    fn try_lock_exclusive(&self, path: &Path) -> Result<Option<crate::FileLock>, PlatformError> {
+        crate::sys::try_lock_exclusive(path)
+    }
+
     fn current_uid(&self) -> Option<u32> {
         Some(crate::netops::current_uid())
     }

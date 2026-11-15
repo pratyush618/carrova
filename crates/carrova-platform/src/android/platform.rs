@@ -179,6 +179,10 @@ impl Platform for AndroidPlatform {
         sys::lock_exclusive(path)
     }
 
+    fn try_lock_exclusive(&self, path: &Path) -> Result<Option<FileLock>, PlatformError> {
+        sys::try_lock_exclusive(path)
+    }
+
     fn current_uid(&self) -> Option<u32> {
         Some(crate::netops::current_uid())
     }

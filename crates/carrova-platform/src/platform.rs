@@ -234,6 +234,13 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         Err(PlatformError::Unsupported("lock_exclusive"))
     }
 
+    /// [`Self::lock_exclusive`] without waiting: `None` while another
+    /// holder has it.
+    fn try_lock_exclusive(&self, path: &Path) -> Result<Option<FileLock>, PlatformError> {
+        let _ = path;
+        Err(PlatformError::Unsupported("try_lock_exclusive"))
+    }
+
     /// Effective user id of this process, where the OS has one (Linux).
     /// Core uses it to refuse secrets (e.g. `resume.key`) owned by another
     /// user, compared against [`FileMeta::uid`].

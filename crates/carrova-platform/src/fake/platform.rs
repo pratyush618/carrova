@@ -164,6 +164,11 @@ impl Platform for FakePlatform {
     }
 
     #[cfg(any(unix, windows))]
+    fn try_lock_exclusive(&self, path: &Path) -> Result<Option<crate::FileLock>, PlatformError> {
+        crate::sys::try_lock_exclusive(path)
+    }
+
+    #[cfg(any(unix, windows))]
     fn open_rw_nofollow(&self, path: &Path) -> Result<std::fs::File, PlatformError> {
         crate::sys::open_rw_nofollow(path)
     }
