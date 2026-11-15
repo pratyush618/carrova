@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use carrova_core::ecosystem::AskId;
+use carrova_core::ecosystem::{AskId, ClipSettings};
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{Feature, FeatureState};
 use carrova_view::ecosystem::{ClipHistoryView, LinkedDeviceView};
@@ -114,4 +114,19 @@ pub async fn clip_history(state: State<'_, AppState>) -> Result<ClipHistoryView,
 #[tauri::command]
 pub async fn clear_clip_history(state: State<'_, AppState>) -> Result<(), CommandError> {
     ops::ecosystem::clear_clip_history(&state).await
+}
+
+/// `CarrovaPort.clipSettings`.
+#[tauri::command]
+pub async fn clip_settings(state: State<'_, AppState>) -> Result<ClipSettings, CommandError> {
+    ops::ecosystem::clip_settings(&state).await
+}
+
+/// `CarrovaPort.setClipSettings`.
+#[tauri::command]
+pub async fn set_clip_settings(
+    state: State<'_, AppState>,
+    settings: ClipSettings,
+) -> Result<(), CommandError> {
+    ops::ecosystem::set_clip_settings(&state, settings).await
 }

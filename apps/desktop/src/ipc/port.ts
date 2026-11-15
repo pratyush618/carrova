@@ -19,6 +19,7 @@ import type { BackgroundSettings } from '../bindings/BackgroundSettings';
 import type { BridgeEvent } from '../bindings/BridgeEvent';
 import type { CatalogEntry } from '../bindings/CatalogEntry';
 import type { ClipHistoryView } from '../bindings/ClipHistoryView';
+import type { ClipSettings } from '../bindings/ClipSettings';
 import type { Checklist } from '../bindings/Checklist';
 import type { ErrorReport } from '../bindings/ErrorReport';
 import type { Feature } from '../bindings/Feature';
@@ -222,6 +223,10 @@ export interface CarrovaPort {
   /** Clips received from linked devices, newest first. */
   clipHistory(): Promise<ClipHistoryView>;
   clearClipHistory(): Promise<void>;
+  /** How this computer's clipboard is shared (Settings → Clipboard). */
+  clipSettings(): Promise<ClipSettings>;
+  /** Save and apply them at once (turning the history file off deletes it). */
+  setClipSettings(settings: ClipSettings): Promise<void>;
 
   // --- Notifications ------------------------------------------------------
   /** The bell's notices (kept 30 days), newest first. */

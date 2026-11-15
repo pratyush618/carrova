@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import type { FeatureState, LinkedDeviceView } from '../../engine/types';
-import { AppGlyph, Badge, Button, Icon, LinkRow, Muted, Row } from '../../ui';
+import type { ClipSettings, FeatureState, LinkedDeviceView } from '../../engine/types';
+import { AppGlyph, Badge, Button, Icon, LinkRow, Muted, Row, Toggle } from '../../ui';
 import { deviceIcon, FEATURE_ICON, type Phase1Feature } from '../devices/model';
 import { Group } from './Group';
 import type { SettingsIntents } from './model';
@@ -99,11 +99,44 @@ export function LinkedGroup({
   );
 }
 
-/** The history (in a sheet), and the two rules that are stated, not switched. */
-export function ClipboardGroup({ on }: { readonly on: SettingsIntents }) {
+/** Each clipboard switch: its row id, setting and description key. */
+const CLIP_SWITCHES = [
+  { row: 'clipShare', key: 'share', sub: 'ecosystem.settings.shareSub' },
+  { row: 'clipNote', key: 'show_note', sub: null },
+  { row: 'clipFile', key: 'history_file', sub: 'ecosystem.settings.fileSub' },
+] as const;
+
+/**
+ * The three switches (once loaded), the history (in a sheet), and the two
+ * rules that are stated, not switched.
+ */
+export function ClipboardGroup({
+  clip,
+  on,
+}: {
+  readonly clip: ClipSettings | null;
+  readonly on: SettingsIntents;
+}) {
   const { t } = useTranslation();
   return (
     <Group title={t('ecosystem.settings.clipGroup')}>
+      {clip !== null &&
+        CLIP_SWITCHES.map(({ row, key, sub }) => (
+          <Row
+            key={row}
+            title={t(ROW_TITLE[row])}
+            sub={sub === null ? undefined : t(sub)}
+            trail={
+              <Toggle
+                on={clip[key]}
+                label={t(ROW_TITLE[row])}
+                onChange={(value) => {
+                  on.onClip({ [key]: value });
+                }}
+              />
+            }
+          />
+        ))}
       <LinkRow
         title={t(ROW_TITLE.clipHistory)}
         sub={t('ecosystem.settings.historySub')}

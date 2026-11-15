@@ -69,6 +69,7 @@ export type { UpdateStatus } from '../bindings/UpdateStatus';
 export type { AskId } from '../bindings/AskId';
 export type { AskKind } from '../bindings/AskKind';
 export type { ClipItemView } from '../bindings/ClipItemView';
+export type { ClipSettings } from '../bindings/ClipSettings';
 export type { ClipSkip } from '../bindings/ClipSkip';
 export type { Feature } from '../bindings/Feature';
 export type { FeatureRowView } from '../bindings/FeatureRowView';

@@ -38,8 +38,17 @@ describe('Asks', () => {
   });
 
   it('says a password stayed here', () => {
-    renderScreen(<ClipToast reason="sensitive" onDismiss={vi.fn()} />);
+    renderScreen(
+      <ClipToast note={{ kind: 'skipped', reason: 'sensitive' }} device="" onDismiss={vi.fn()} />,
+    );
     expect(screen.getByText('A password stayed on this computer')).toBeInTheDocument();
+  });
+
+  it('notes where a received clip came from', () => {
+    renderScreen(
+      <ClipToast note={{ kind: 'received', device: 'p8' }} device="Pixel 8" onDismiss={vi.fn()} />,
+    );
+    expect(screen.getByText('Copied from Pixel 8')).toBeInTheDocument();
   });
 
   it('shows a file arriving, then where it was saved', () => {
@@ -84,4 +93,5 @@ describe('Asks', () => {
     );
     expect(screen.getByText("Pixel 8 didn't take the file")).toBeInTheDocument();
   });
+
 });

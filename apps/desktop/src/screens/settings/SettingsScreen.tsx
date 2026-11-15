@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HubLayout, LinkRow, Marked } from '../../ui';
-import type { LinkedDeviceView } from '../../engine/types';
+import type { ClipSettings, LinkedDeviceView } from '../../engine/types';
 import { AlertsGroup } from './AlertsGroup';
 import { ClipboardGroup, FeaturesGroup, LinkedGroup } from './EcosystemGroups';
 import { BackgroundGroup } from './BackgroundGroup';
@@ -19,6 +19,8 @@ interface Props {
   readonly on: SettingsIntents;
   /** Linked devices (Settings → Linked devices). */
   readonly linked: readonly LinkedDeviceView[];
+  /** Clipboard settings (Settings → Clipboard); `null` until loaded. */
+  readonly clip: ClipSettings | null;
 }
 
 /** What each section shows. */
@@ -47,6 +49,7 @@ export function SettingsScreen({
   model,
   on,
   linked,
+  clip,
 }: Props & { readonly section: SettingsSection }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
@@ -89,7 +92,7 @@ export function SettingsScreen({
           ))}
         </Group>
       ) : (
-        BODY[section]({ model, on, linked })
+        BODY[section]({ model, on, linked, clip })
       )}
     </HubLayout>
   );

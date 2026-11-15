@@ -191,6 +191,8 @@ pub fn run() -> tauri::Result<()> {
             commands::ecosystem::ring,
             commands::ecosystem::clip_history,
             commands::ecosystem::clear_clip_history,
+            commands::ecosystem::clip_settings,
+            commands::ecosystem::set_clip_settings,
             #[cfg(desktop)]
             updater::check_update,
             #[cfg(desktop)]

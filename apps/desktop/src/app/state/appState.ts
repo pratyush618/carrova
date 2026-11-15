@@ -15,7 +15,13 @@ import {
 } from './link';
 import { applyEvent, emptySession, type NewCodePrompt, type SessionProgress } from './session';
 
-export { LINK_SESSION, type LinkState, type PendingAsk, type Transfer } from './link';
+export {
+  LINK_SESSION,
+  type ClipNote,
+  type LinkState,
+  type PendingAsk,
+  type Transfer,
+} from './link';
 
 export { emptySession, applyEvent, type LinkStatus, type SessionProgress } from './session';
 

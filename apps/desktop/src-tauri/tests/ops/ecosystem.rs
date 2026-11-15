@@ -7,7 +7,8 @@ use std::sync::{Arc, OnceLock};
 use carrova_core::NullSink;
 use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::ecosystem::{
-    AskId, PeerSource, PeerState, PolicyStore, SeenPeer, SharedSupervisor, SupervisorConfig,
+    AskId, ClipSettings, PeerSource, PeerState, PolicyStore, SeenPeer, SharedSupervisor,
+    SupervisorConfig,
 };
 use carrova_core::{CoreError, Engine};
 use carrova_crypto::identity::{DeviceKey, DevicePublic};
@@ -114,6 +115,21 @@ fn ops_linked_devices_maps_views() {
     assert_eq!(views[0].name, "Pixel 8");
     assert_eq!(views[0].os, OsKind::Android);
     assert_ne!(views[0].state, PeerState::Linked);
+}
+
+#[test]
+fn ops_clip_settings_round_trip() {
+    let machine = Machine::new();
+    let state = served(&machine);
+    let quiet = ClipSettings {
+        share: false,
+        show_note: true,
+        history_file: false,
+    };
+
+    block_on(ecosystem::set_clip_settings(&state, quiet)).unwrap();
+
+    assert_eq!(block_on(ecosystem::clip_settings(&state)).unwrap(), quiet);
 }
 
 #[test]

@@ -9,8 +9,8 @@ use std::sync::{Arc, LazyLock, Mutex, OnceLock, PoisonError};
 
 use carrova_core::devices::DeviceRecord;
 use carrova_core::ecosystem::{
-    Answer, AskId, HandoffItem, PairInvite, PeerState, SharedSupervisor, SupervisorHandle,
-    link_with_code, offer_pairing,
+    Answer, AskId, ClipSettings, HandoffItem, PairInvite, PeerState, SharedSupervisor,
+    SupervisorHandle, link_with_code, offer_pairing,
 };
 use carrova_core::lan::CODE_LIFETIME;
 use carrova_core::{Cancel, CodeOffer, CoreError, Engine, NullSink, SessionId};
@@ -331,4 +331,26 @@ pub async fn clip_history(state: &AppState) -> Result<ClipHistoryView, CommandEr
 /// The supervisor is not ready or cannot be reached.
 pub async fn clear_clip_history(state: &AppState) -> Result<(), CommandError> {
     with_link(state, SupervisorHandle::clear_clip_history).await
+}
+
+/// The user's clipboard settings.
+///
+/// # Errors
+///
+/// The supervisor is not ready or cannot be reached.
+pub async fn clip_settings(state: &AppState) -> Result<ClipSettings, CommandError> {
+    with_link(state, SupervisorHandle::clip_settings).await
+}
+
+/// Save and apply the user's clipboard settings.
+///
+/// # Errors
+///
+/// The supervisor is not ready or cannot be reached, or the settings
+/// could not be saved.
+pub async fn set_clip_settings(
+    state: &AppState,
+    settings: ClipSettings,
+) -> Result<(), CommandError> {
+    with_link(state, move |link| link.set_clip_settings(settings)).await
 }

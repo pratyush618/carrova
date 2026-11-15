@@ -179,7 +179,7 @@ describe('appReducer peer facts', () => {
         dismissed: false,
       },
     ]);
-    expect(state.link.clip?.reason).toBe('sensitive');
+    expect(state.link.clip?.note).toEqual({ kind: 'skipped', reason: 'sensitive' });
 
     const expired = link({ event: 'ask_expired', ask: 7 })(state);
     expect(expired.link.asks).toEqual([]);
@@ -220,4 +220,15 @@ describe('appReducer peer facts', () => {
     state = appReducer(state, { type: 'transfer_dismissed', device: 'p8', id: 2 });
     expect(state.link.transfers).toEqual([]);
   });
+
+  it('notes a received clip only when the user asked for a note', () => {
+    const link = (state: AppState, event: EngineEvent) =>
+      appReducer(state, { type: 'engine', session: LINK_SESSION, event });
+    const quiet = link(initialAppState, { event: 'clip_received', device: 'p8', note: false });
+    expect(quiet.link.clip).toBeNull();
+    expect(quiet.link.clips).toBe(1);
+    const noted = link(quiet, { event: 'clip_received', device: 'p8', note: true });
+    expect(noted.link.clip?.note).toEqual({ kind: 'received', device: 'p8' });
+  });
+
 });

@@ -15,7 +15,8 @@ export function EcosystemToasts() {
   const { linked } = useControllers();
   const dispatch = useEngineDispatch();
   const { clip } = useLink();
-  const { ask, answer, failed, dismissFailure } = useAsks(usePort());
+  const port = usePort();
+  const { ask, answer, failed, dismissFailure } = useAsks(port);
   const { transfer, dismiss } = useTransfers();
   const name = (id: string) =>
     linked.devices.find((d) => d.id === id)?.name ?? t('ecosystem.unknownDevice');
@@ -35,7 +36,8 @@ export function EcosystemToasts() {
       {clip !== null && (
         <ClipToast
           key={clip.n}
-          reason={clip.reason}
+          note={clip.note}
+          device={clip.note.kind === 'received' ? name(clip.note.device) : ''}
           onDismiss={() => {
             dispatch({ type: 'clip_dismissed' });
           }}

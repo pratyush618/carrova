@@ -37,3 +37,35 @@ test('add a device then send clipboard (fake port)', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Open: Pixel 8' })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('switch the clipboard settings (fake port)', async ({ page }) => {
+  const errors = consoleErrors(page);
+  await openApp(page);
+  await page
+    .getByRole('navigation', { name: 'Main' })
+    .getByRole('button', { name: 'Settings' })
+    .click();
+  await page
+    .getByRole('navigation', { name: 'Settings sections' })
+    .getByRole('button', { name: 'Clipboard' })
+    .click();
+
+  const note = page.getByRole('switch', { name: 'Show a note when something arrives' });
+  await expect(page.getByRole('switch', { name: 'Share the clipboard' })).toBeChecked();
+  await expect(note).not.toBeChecked();
+  await note.click();
+  await expect(note).toBeChecked();
+  await expectAccessible(page, 'clipboard settings');
+
+  // Saved: still on after leaving the section and coming back.
+  await page
+    .getByRole('navigation', { name: 'Settings sections' })
+    .getByRole('button', { name: 'General' })
+    .click();
+  await page
+    .getByRole('navigation', { name: 'Settings sections' })
+    .getByRole('button', { name: 'Clipboard' })
+    .click();
+  await expect(note).toBeChecked();
+  expect(errors).toEqual([]);
+});

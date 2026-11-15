@@ -10,6 +10,7 @@ import type { ForgetDevices } from '../../bindings/ForgetDevices';
 import type { LinkedDeviceView } from '../../bindings/LinkedDeviceView';
 import type { PairInviteView } from '../../bindings/PairInviteView';
 import type { ClipItemView } from '../../bindings/ClipItemView';
+import type { ClipSettings } from '../../bindings/ClipSettings';
 import type { CarrovaPort } from '../port';
 import { bridgeError, raise } from '../reject';
 import { CANCELLED, later, type Runtime } from './runtime';
@@ -100,6 +101,8 @@ type EcosystemPort = Pick<
   | 'ring'
   | 'clipHistory'
   | 'clearClipHistory'
+  | 'clipSettings'
+  | 'setClipSettings'
 >;
 
 /** The fake's linked devices, plus what `cancelConnect` and `forgetDevice` do to them. */
@@ -116,6 +119,7 @@ export function fakeEcosystem(runtime: Runtime, scenario: Scenario): FakeEcosyst
   let linked: LinkedDeviceView[] = seeded ? [phone('off'), computer()] : [];
   let clips = seeded ? seedClips(Math.floor(Date.now() / 1000)) : [];
   let pairing: { cancelled: boolean } | null = null;
+  let clipSettings: ClipSettings = { share: true, show_note: false, history_file: false };
   const find = (id: string) =>
     linked.find((d) => d.id === id) ??
     raise(bridgeError('known_device', 'no linked device matches'));
@@ -176,6 +180,11 @@ export function fakeEcosystem(runtime: Runtime, scenario: Scenario): FakeEcosyst
     clearClipHistory: () =>
       later(() => {
         clips = [];
+      }),
+    clipSettings: () => later(() => clipSettings),
+    setClipSettings: (settings) =>
+      later(() => {
+        clipSettings = settings;
       }),
     cancel: () => {
       if (pairing !== null) pairing.cancelled = true;

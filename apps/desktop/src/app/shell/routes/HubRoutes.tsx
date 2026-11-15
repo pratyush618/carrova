@@ -4,6 +4,7 @@ import { historyEntry, homeModel, sessionModel } from '../../../flows/history/hi
 import { nearbyEntries, visibilityModel, wakeFailure } from '../../../flows/nearby/nearbyViews';
 import { useNearby } from '../../../flows/nearby/useNearby';
 import { pausedUntil } from '../../../flows/settings/settingsViews';
+import { useClipSettings } from '../../../flows/ecosystem/useClipSettings';
 import { useUndoPreview } from '../../../flows/undo/useUndoPreview';
 import { current, type Remote } from '../../../flows/remote';
 import { AppsScreen } from '../../../screens/apps/AppsScreen';
@@ -14,6 +15,7 @@ import type { SettingsSection } from '../../../screens/settings/sections';
 import { SettingsScreen } from '../../../screens/settings/SettingsScreen';
 import { Glance } from '../../../screens/home/Glance';
 import { HomeScreen } from '../../../screens/start/HomeScreen';
+import { usePort } from '../../../engine/port';
 import { HubLayout } from '../../../ui';
 import { useControllers } from '../../controllers/Controllers';
 import { useNav } from '../nav';
@@ -203,6 +205,7 @@ export function AppsRoute() {
 export function SettingsRoute({ section }: { readonly section: SettingsSection }) {
   const { settings, update, report, devices, linked } = useControllers();
   const nav = useNav();
+  const { clip, setClip } = useClipSettings(usePort());
   const { model } = settings;
   if (model === null) return <HubLayout>{null}</HubLayout>;
   return (
@@ -210,7 +213,9 @@ export function SettingsRoute({ section }: { readonly section: SettingsSection }
       section={section}
       model={model}
       linked={linked.devices}
+      clip={clip}
       on={{
+        onClip: setClip,
         onOpenDevice: (id) => {
           nav.go({ type: 'openDevice', id });
         },

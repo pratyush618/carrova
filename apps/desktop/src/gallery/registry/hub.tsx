@@ -77,16 +77,31 @@ const settingsOn = noops(
   'onAddDevice',
   'onLinkComputer',
   'onClipHistory',
+  'onClip',
 );
+/** Clipboard settings as a new user has them. */
+const CLIP = { share: true, show_note: false, history_file: false } as const;
 const SETTINGS = {
   notes: settingsFileManagerNotes,
   unsupported: settingsNoFileManager,
 } as const;
 const settingsBase = (
-  <SettingsScreen section="general" model={settingsModel} on={settingsOn} linked={[pixel]} />
+  <SettingsScreen
+    section="general"
+    model={settingsModel}
+    on={settingsOn}
+    linked={[pixel]}
+    clip={CLIP}
+  />
 );
 const settingsNearby = (
-  <SettingsScreen section="nearby" model={settingsModel} on={settingsOn} linked={[pixel]} />
+  <SettingsScreen
+    section="nearby"
+    model={settingsModel}
+    on={settingsOn}
+    linked={[pixel]}
+    clip={CLIP}
+  />
 );
 const nearbyOn = noops(
   'onView',
@@ -184,7 +199,15 @@ export const hubScreens: readonly GalleryScreen[] = [
         SECTIONS.find(({ id }) => id === s)?.id ??
         (fixture === settingsModel ? 'general' : 'sending');
       return {
-        base: <SettingsScreen section={section} model={fixture} on={settingsOn} linked={[pixel]} />,
+        base: (
+          <SettingsScreen
+            section={section}
+            model={fixture}
+            on={settingsOn}
+            linked={[pixel]}
+            clip={CLIP}
+          />
+        ),
       };
     },
   },

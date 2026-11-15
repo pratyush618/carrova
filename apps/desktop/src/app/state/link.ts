@@ -24,13 +24,18 @@ export interface Transfer {
   readonly dismissed: boolean;
 }
 
+/** A clip note: this computer's clipboard kept here and why, or a device's that arrived. */
+export type ClipNote =
+  | { readonly kind: 'skipped'; readonly reason: ClipSkip }
+  | { readonly kind: 'received'; readonly device: string };
+
 /** What linked devices did that the UI shows outside any page. */
 export interface LinkState {
   readonly asks: readonly PendingAsk[];
   /** Oldest first; a finished one goes once dismissed. */
   readonly transfers: readonly Transfer[];
-  /** The clipboard this computer last kept to itself, and why. */
-  readonly clip: { readonly reason: ClipSkip; readonly n: number } | null;
+  /** The last clip note (arrivals only while the user asked for a note). */
+  readonly clip: { readonly note: ClipNote; readonly n: number } | null;
   /** Bumped when a link or its features change: the device list is stale. */
   readonly changes: number;
   /** Bumped when a clip arrives: the history is stale. */
@@ -75,6 +80,12 @@ function updateTransfer(
   return { ...link, transfers: transfers.filter((t) => !gone(t)) };
 }
 
+/** `link` showing `note` (a new one each time, even if the same). */
+const noteClip = (link: LinkState, note: ClipNote): LinkState => ({
+  ...link,
+  clip: { note, n: (link.clip?.n ?? 0) + 1 },
+});
+
 /** One linked-device event folded into `link`. */
 export function applyLinkEvent(link: LinkState, event: EngineEvent): LinkState {
   switch (event.event) {
@@ -89,10 +100,12 @@ export function applyLinkEvent(link: LinkState, event: EngineEvent): LinkState {
       };
     case 'ask_expired':
       return { ...link, asks: link.asks.filter((a) => a.id !== event.ask) };
-    case 'clip_received':
-      return { ...link, clips: link.clips + 1 };
+    case 'clip_received': {
+      const noted = event.note ? noteClip(link, { kind: 'received', device: event.device }) : link;
+      return { ...noted, clips: link.clips + 1 };
+    }
     case 'clip_skipped':
-      return { ...link, clip: { reason: event.reason, n: (link.clip?.n ?? 0) + 1 } };
+      return noteClip(link, { kind: 'skipped', reason: event.reason });
     case 'file_progress':
       return updateTransfer(link, event.device, event.id, (t) => ({
         ...t,

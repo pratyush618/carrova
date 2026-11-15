@@ -86,6 +86,7 @@ export const ecosystem = {
   clip: {
     sensitive: 'A password stayed on this computer',
     too_big: 'Too big to share',
+    received: 'Copied from {{name}}',
   },
   transfer: {
     aFile: 'A file',
@@ -128,5 +129,10 @@ export const ecosystem = {
     limits: 'Size limit',
     limitsSub: 'Text up to 1 MB, images up to 10 MB. Larger copies stay here.',
     always: 'Always',
+    share: 'Share the clipboard',
+    shareSub: 'Text, links and images with linked devices.',
+    note: 'Show a note when something arrives',
+    file: 'Keep the history in a file',
+    fileSub: 'So it outlasts a restart. Off, it stays in memory only.',
   },
 } as const;
