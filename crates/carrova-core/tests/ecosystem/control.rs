@@ -7,8 +7,8 @@ use std::sync::mpsc::Receiver;
 use std::thread;
 
 use carrova_core::ecosystem::{
-    Answer, ControlRequest, ControlResponse, MAX_CONTROL_MESSAGE, Supervisor, SupervisorHandle,
-    attach_or_start, attach_or_start_with,
+    Answer, ControlRequest, ControlResponse, MAX_CONTROL_MESSAGE, SeenPeer, SharedSupervisor,
+    Supervisor, SupervisorHandle, attach_or_start, attach_or_start_with,
 };
 use carrova_core::{Engine, Event};
 use carrova_link::{ClipItem, PolicyDoc};
@@ -288,4 +288,53 @@ fn clip_history_of_max_size_pngs_round_trips() {
 
     let expected: Vec<_> = (1..=3).rev().map(|n| ClipItem::Png(png(n))).collect();
     assert!(history == expected, "history differs");
+}
+
+/// Events into a channel.
+struct ToChannel(std::sync::Mutex<std::sync::mpsc::Sender<Event>>);
+
+impl carrova_core::EventSink for ToChannel {
+    fn emit(&self, event: Event) {
+        let _ = self.0.lock().unwrap().send(event);
+    }
+}
+
+#[test]
+fn shared_supervisor_attaches_again_when_its_host_exits() {
+    let (low, high, _) = pair(&PolicyDoc::phone_defaults());
+    let host = attach_or_start(low.engine.clone()).unwrap();
+    let shared = std::sync::Arc::new(
+        SharedSupervisor::attach_with(other_process(&low), low.source.clone(), fast()).unwrap(),
+    );
+    assert!(
+        shared
+            .call(|h| Ok(matches!(h, SupervisorHandle::Remote(_))))
+            .unwrap()
+    );
+    let (tx, events) = std::sync::mpsc::channel();
+    let forwarding = std::sync::Arc::clone(&shared);
+    thread::spawn(move || forwarding.forward(&ToChannel(std::sync::Mutex::new(tx))));
+
+    drop(host);
+
+    // Requests work again: this process hosts it now.
+    assert_eq!(shared.call(SupervisorHandle::status).unwrap().len(), 1);
+    let port = shared
+        .call(|h| match h {
+            SupervisorHandle::Local(server) => Ok(server.supervisor().port()),
+            SupervisorHandle::Remote(_) => panic!("still a client"),
+        })
+        .unwrap();
+    // And so do events: high links with the new host.
+    let sh = high.start(fast());
+    low.sees(&high, &sh);
+    high.source.set(vec![SeenPeer {
+        id: low.id,
+        addr: std::net::SocketAddrV4::new(std::net::Ipv4Addr::LOCALHOST, port),
+    }]);
+    let up = next(&events, "link up", |e| match e {
+        Event::LinkUp { device } => Some(device),
+        _ => None,
+    });
+    assert_eq!(up, high.id);
 }

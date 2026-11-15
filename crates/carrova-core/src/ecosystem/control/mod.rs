@@ -10,6 +10,7 @@
 
 mod client;
 mod server;
+mod shared;
 mod wire;
 
 use std::path::Path;
@@ -23,6 +24,7 @@ use carrova_link::{ClipItem, Feature, FeatureState};
 
 pub use client::ControlClient;
 pub use server::ControlServer;
+pub use shared::SharedSupervisor;
 pub use wire::{ControlError, ControlRequest, ControlResponse, MAX_CONTROL_MESSAGE};
 
 #[cfg(doc)]

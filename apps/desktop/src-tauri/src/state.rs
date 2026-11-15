@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use carrova_bundle::RecipeLocations;
-use carrova_core::ecosystem::SupervisorHandle;
+use carrova_core::ecosystem::SharedSupervisor;
 use carrova_core::time::now_unix;
 use carrova_core::{Engine, Inbox, KdfParams, KdfStrength, NoticeKind, SessionId};
 use carrova_platform::Platform;
@@ -69,9 +69,9 @@ pub struct AppState {
     /// This computer's advert, told of every change to visibility or known
     /// devices.
     pub presence: Arc<dyn Advertise>,
-    /// The link supervisor (or a client of another process's), set once
+    /// The link supervisor (here or in another process), set once
     /// it started ([`crate::ops::ecosystem::start_link`]).
-    pub link: Arc<OnceLock<SupervisorHandle>>,
+    pub link: Arc<OnceLock<SharedSupervisor>>,
     /// Run options.
     pub config: BridgeConfig,
 }

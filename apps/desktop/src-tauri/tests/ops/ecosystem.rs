@@ -7,7 +7,7 @@ use carrova_core::Engine;
 use carrova_core::NullSink;
 use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::ecosystem::{
-    AskId, PeerSource, PeerState, PolicyStore, SeenPeer, SupervisorConfig, attach_or_start_with,
+    AskId, PeerSource, PeerState, PolicyStore, SeenPeer, SharedSupervisor, SupervisorConfig,
 };
 use carrova_crypto::identity::{DeviceKey, DevicePublic};
 use carrova_crypto::pairing::KnownSecret;
@@ -59,9 +59,9 @@ fn served(machine: &Machine) -> AppState {
         Vec::new(),
         Arc::new(NullSink),
     );
-    let handle =
-        attach_or_start_with(engine, Arc::new(Nobody), SupervisorConfig::default()).unwrap();
-    ecosystem::serve_link(&machine.state, handle).unwrap();
+    let link = SharedSupervisor::attach_with(engine, Arc::new(Nobody), SupervisorConfig::default())
+        .unwrap();
+    ecosystem::serve_link(&machine.state, link).unwrap();
     machine.state.clone()
 }
 

@@ -5,17 +5,16 @@
 //! [`LINK_SESSION`], whether it runs here or in another process.
 
 use std::path::PathBuf;
-use std::sync::mpsc::Receiver;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 use carrova_core::devices::DeviceRecord;
 use carrova_core::ecosystem::{
-    Answer, AskId, HandoffItem, PairInvite, PeerState, SupervisorHandle, attach_or_start,
+    Answer, AskId, HandoffItem, PairInvite, PeerState, SharedSupervisor, SupervisorHandle,
     link_with_code, offer_pairing,
 };
 use carrova_core::lan::CODE_LIFETIME;
 use carrova_core::time::now_unix;
-use carrova_core::{Cancel, CodeOffer, CoreError, Engine, Event, EventSink, NullSink, SessionId};
+use carrova_core::{Cancel, CodeOffer, CoreError, Engine, NullSink, SessionId};
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{Feature, FeatureState};
 use carrova_view::ecosystem::{
@@ -38,24 +37,24 @@ fn link_engine(state: &AppState) -> Engine {
 }
 
 /// Start the link supervisor, or attach to the one another process of this
-/// user runs, and serve it to the commands. Blocking.
+/// user runs (again whenever that process exits), and serve it to the
+/// commands. Blocking.
 ///
 /// # Errors
 ///
 /// The supervisor could not start, nor be reached.
 pub fn start_link(state: &AppState) -> Result<(), CommandError> {
-    serve_link(state, attach_or_start(link_engine(state))?)
+    serve_link(state, SharedSupervisor::attach(link_engine(state))?)
 }
 
-/// Serve `handle` to the commands and forward its events to the UI. A run
-/// keeps its first handle; a later one is dropped.
+/// Serve `link` to the commands and forward its events to the UI. A run
+/// keeps its first supervisor; a later one is dropped.
 ///
 /// # Errors
 ///
-/// Its events cannot be subscribed to.
-pub fn serve_link(state: &AppState, handle: SupervisorHandle) -> Result<(), CommandError> {
-    let events = handle.subscribe()?;
-    if state.link.set(handle).is_err() {
+/// The event thread could not start.
+pub fn serve_link(state: &AppState, link: SharedSupervisor) -> Result<(), CommandError> {
+    if state.link.set(link).is_err() {
         tracing::debug!("the link supervisor is already served");
         return Ok(());
     }
@@ -63,28 +62,12 @@ pub fn serve_link(state: &AppState, handle: SupervisorHandle) -> Result<(), Comm
     let link = Arc::clone(&state.link);
     std::thread::Builder::new()
         .name("carrova-link-events".to_owned())
-        .spawn(move || forward(&link, events, &*sink))?;
+        .spawn(move || {
+            if let Some(link) = link.get() {
+                link.forward(&*sink);
+            }
+        })?;
     Ok(())
-}
-
-/// Hand every event of `events` to `sink` at once (the supervisor drops a
-/// subscriber that falls behind), subscribing again whenever the stream
-/// ends while `link` can still be reached.
-fn forward(link: &OnceLock<SupervisorHandle>, mut events: Receiver<Event>, sink: &dyn EventSink) {
-    loop {
-        events.iter().for_each(|event| sink.emit(event));
-        let Some(handle) = link.get() else { return };
-        match handle.subscribe() {
-            Ok(again) => {
-                tracing::debug!("link events ended; subscribed again");
-                events = again;
-            }
-            Err(error) => {
-                tracing::warn!(%error, "link events ended");
-                return;
-            }
-        }
-    }
 }
 
 /// The devices linked now, for the tray. Blocking; empty (logged) when the
@@ -93,7 +76,7 @@ pub fn linked_now(state: &AppState) -> Vec<LinkedDeviceView> {
     let Some(link) = state.link.get() else {
         return Vec::new();
     };
-    match link.status() {
+    match link.call(SupervisorHandle::status) {
         Ok(peers) => linked_device_views(&peers)
             .into_iter()
             .filter(|device| device.state == PeerState::Linked)
@@ -108,15 +91,15 @@ pub fn linked_now(state: &AppState) -> Vec<LinkedDeviceView> {
 /// Run `call` on the served supervisor, off the async runtime.
 async fn with_link<R: Send + 'static>(
     state: &AppState,
-    call: impl FnOnce(&SupervisorHandle) -> Result<R, CommandError> + Send + 'static,
+    call: impl Fn(&SupervisorHandle) -> Result<R, CoreError> + Send + 'static,
 ) -> Result<R, CommandError> {
-    let link: Arc<OnceLock<SupervisorHandle>> = Arc::clone(&state.link);
+    let link = Arc::clone(&state.link);
     blocking(move || {
-        let handle = link.get().ok_or_else(|| {
+        let link = link.get().ok_or_else(|| {
             CommandError::new(ErrorCode::Network, "linked devices are not ready yet")
                 .with_hint("Try again in a moment.")
         })?;
-        call(handle)
+        Ok(link.call(call)?)
     })
     .await
 }
@@ -127,7 +110,9 @@ async fn with_link<R: Send + 'static>(
 ///
 /// The supervisor is not ready or cannot be reached.
 pub async fn linked_devices(state: &AppState) -> Result<Vec<LinkedDeviceView>, CommandError> {
-    with_link(state, |link| Ok(linked_device_views(&link.status()?))).await
+    with_link(state, SupervisorHandle::status)
+        .await
+        .map(|peers| linked_device_views(&peers))
 }
 
 /// Show an invite for a phone to scan ([`BridgeEvent::PairInvite`]) and
@@ -206,7 +191,7 @@ pub async fn set_feature(
     feature_state: FeatureState,
 ) -> Result<(), CommandError> {
     with_link(state, move |link| {
-        Ok(link.set_feature(&device, feature, feature_state)?)
+        link.set_feature(&device, feature, feature_state)
     })
     .await
 }
@@ -222,7 +207,7 @@ pub async fn answer_ask(state: &AppState, ask: AskId, accept: bool) -> Result<()
     } else {
         Answer::Decline
     };
-    with_link(state, move |link| Ok(link.answer(ask, answer)?)).await
+    with_link(state, move |link| link.answer(ask, answer)).await
 }
 
 /// Send this clipboard to `device`.
@@ -231,7 +216,7 @@ pub async fn answer_ask(state: &AppState, ask: AskId, accept: bool) -> Result<()
 ///
 /// Not linked, clipboard off for it, or the link failed.
 pub async fn send_clipboard(state: &AppState, device: DeviceId) -> Result<(), CommandError> {
-    with_link(state, move |link| Ok(link.send_clipboard(&device)?)).await
+    with_link(state, move |link| link.send_clipboard(&device)).await
 }
 
 /// Offer `paths` to `device` one by one, each sent once accepted there.
@@ -247,7 +232,7 @@ pub async fn send_files(
     paths: Vec<PathBuf>,
 ) -> Result<(), CommandError> {
     with_link(state, move |link| {
-        for path in paths {
+        for path in &paths {
             link.send_file(&device, &std::fs::canonicalize(path)?)?;
         }
         Ok(())
@@ -267,7 +252,7 @@ pub async fn handoff_url(
     url: String,
 ) -> Result<(), CommandError> {
     with_link(state, move |link| {
-        Ok(link.handoff(&device, HandoffItem::Url(url))?)
+        link.handoff(&device, HandoffItem::Url(url.clone()))
     })
     .await
 }
@@ -278,7 +263,7 @@ pub async fn handoff_url(
 ///
 /// Not linked, ring off for it, or the link failed.
 pub async fn ring(state: &AppState, device: DeviceId) -> Result<(), CommandError> {
-    with_link(state, move |link| Ok(link.ring(&device)?)).await
+    with_link(state, move |link| link.ring(&device)).await
 }
 
 /// The clips received, newest first.
@@ -287,15 +272,11 @@ pub async fn ring(state: &AppState, device: DeviceId) -> Result<(), CommandError
 ///
 /// The supervisor is not ready or cannot be reached.
 pub async fn clip_history(state: &AppState) -> Result<ClipHistoryView, CommandError> {
-    with_link(state, |link| {
-        // shortcut: the supervisor keeps no arrival times, so each clip shows
-        // the time it was read; record them in core's history to fix.
-        let now = now_unix();
-        Ok(clip_history_view(
-            link.clip_history()?.iter().map(|clip| (clip, now)),
-        ))
-    })
-    .await
+    let clips = with_link(state, SupervisorHandle::clip_history).await?;
+    // shortcut: the supervisor keeps no arrival times, so each clip shows
+    // the time it was read; record them in core's history to fix.
+    let now = now_unix();
+    Ok(clip_history_view(clips.iter().map(|clip| (clip, now))))
 }
 
 /// Forget the clips received.
@@ -304,5 +285,5 @@ pub async fn clip_history(state: &AppState) -> Result<ClipHistoryView, CommandEr
 ///
 /// The supervisor is not ready or cannot be reached.
 pub async fn clear_clip_history(state: &AppState) -> Result<(), CommandError> {
-    with_link(state, |link| Ok(link.clear_clip_history()?)).await
+    with_link(state, SupervisorHandle::clear_clip_history).await
 }
