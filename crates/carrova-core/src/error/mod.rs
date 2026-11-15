@@ -253,6 +253,7 @@ impl From<carrova_transport::TransportError> for CoreError {
         match e {
             T::Cancelled => Self::Cancelled,
             T::PeerCancelled => Self::PeerCancelled,
+            T::KeyMismatch => Self::KeyMismatch,
             e => Self::Transport(e),
         }
     }
