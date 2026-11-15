@@ -99,6 +99,40 @@ fn policy_set_keeps_other_features() {
     assert_eq!(store.get(&f.platform, &id).unwrap(), doc);
 }
 
+/// A policy file this build cannot read: garbage, or from a newer version.
+fn unreadable_policy_is_set_aside_and_replaced(bytes: &[u8]) {
+    let f = Fixture::new();
+    let store = PolicyStore::open(&f.platform).unwrap();
+    let id = peer();
+    std::fs::write(f.file(&id), bytes).unwrap();
+    assert!(store.get(&f.platform, &id).is_err());
+
+    let doc = store
+        .set(&f.platform, &id, Feature::Clipboard, FeatureState::On)
+        .unwrap();
+
+    let mut want = PolicyDoc::computer_defaults();
+    want.features.insert(Feature::Clipboard, FeatureState::On);
+    assert_eq!(doc, want, "starts again from the defaults");
+    assert_eq!(store.get(&f.platform, &id).unwrap(), doc);
+    let aside: Vec<_> = std::fs::read_dir(f.file(&id).parent().unwrap())
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.contains(".corrupt-"))
+        .collect();
+    assert_eq!(aside.len(), 1, "the unreadable file is kept aside");
+}
+
+#[test]
+fn policy_set_repairs_a_corrupt_file() {
+    unreadable_policy_is_set_aside_and_replaced(b"{ not json");
+}
+
+#[test]
+fn policy_set_repairs_a_newer_version_file() {
+    unreadable_policy_is_set_aside_and_replaced(br#"{"version": 99, "features": {}}"#);
+}
+
 fn remember(f: &Fixture, devices: &KnownDevices, id: DeviceId) {
     let record = DeviceRecord {
         public: id,

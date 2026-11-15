@@ -21,6 +21,7 @@ use crate::devices::DEVICES_DIR;
 use crate::error::{CoreError, Corruption, EncodeError, Result};
 use crate::fsx;
 use crate::store::{ensure_dir, read_file, write_atomic};
+use crate::time::now_unix;
 
 /// Directory of the policy files, in [`DEVICES_DIR`].
 pub(crate) const POLICY_DIR: &str = "policy";
@@ -70,7 +71,10 @@ impl PolicyStore {
 
     /// Set one feature of `id`'s policy and return the result. The state
     /// must fit the feature ([`CoreError::Link`] otherwise, nothing
-    /// written).
+    /// written). A stored file this build cannot read (corrupt, or a newer
+    /// version) is renamed aside (`<file>.corrupt-<unix seconds>`) and the
+    /// policy starts again from [`PolicyDoc::computer_defaults`], so the
+    /// user can still repair it.
     pub fn set(
         &self,
         platform: &dyn Platform,
@@ -78,11 +82,28 @@ impl PolicyStore {
         feature: Feature,
         state: FeatureState,
     ) -> Result<PolicyDoc> {
-        let mut doc = self.get(platform, id)?;
+        let mut doc = match self.get(platform, id) {
+            Err(CoreError::CorruptFile { .. }) => {
+                self.set_aside(platform, id)?;
+                PolicyDoc::computer_defaults()
+            }
+            read => read?,
+        };
         doc.features.insert(feature, state);
         let doc = doc.validated()?;
         self.put(platform, id, &doc)?;
         Ok(doc)
+    }
+
+    /// Rename `id`'s unreadable policy file aside.
+    fn set_aside(&self, platform: &dyn Platform, id: &DeviceId) -> Result<()> {
+        let path = self.dir.join(file_name(id));
+        let aside = self
+            .dir
+            .join(format!("{}.corrupt-{}", file_name(id), now_unix()));
+        platform.rename_noreplace(&path, &aside)?;
+        tracing::warn!("device policy was unreadable and was set aside");
+        Ok(())
     }
 
     /// Store `doc` as `id`'s policy.
