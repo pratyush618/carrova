@@ -10,6 +10,11 @@ import {
   UndoConfirmOverlay,
   UpdateOverlay,
 } from './HubOverlays';
+import {
+  AddPhoneOverlay,
+  ForgetDeviceOverlay,
+  LinkComputerOverlay,
+} from './DeviceRoutes';
 import { OverrideRoute } from './OverrideRoute';
 import {
   MappingOverlay,
@@ -57,6 +62,12 @@ export function OverlayRoute({ overlay }: { readonly overlay: Overlay }) {
       return <ReportOverlay />;
     case 'about':
       return <AboutOverlay />;
+    case 'add-phone':
+      return <AddPhoneOverlay />;
+    case 'link-computer':
+      return <LinkComputerOverlay />;
+    case 'forget-device':
+      return <ForgetDeviceOverlay id={overlay.id} />;
     case 'override':
       return <OverrideRoute reason={overlay.reason} subject={overlay.subject} />;
   }

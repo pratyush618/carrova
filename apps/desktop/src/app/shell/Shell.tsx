@@ -94,7 +94,7 @@ export function Shell({ initial }: { readonly initial: Nav }) {
     [go],
   );
   const forwarded = useForwardedSends(go, nav.view);
-  useTrayNearby(nav.view.kind === 'hub', dispatch);
+  useTrayNearby(nav.view.kind !== 'flow', dispatch);
   const notice = useRememberedNotice();
   const recipes = controllers.settings.recipes;
   const bell = useBell(go);

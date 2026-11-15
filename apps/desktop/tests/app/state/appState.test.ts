@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { EngineEvent } from '@/engine/types';
-import { appReducer, bridgeAction, initialAppState, type AppState } from '@/app/state/appState';
+import {
+  appReducer,
+  bridgeAction,
+  initialAppState,
+  LINK_SESSION,
+  type AppState,
+} from '@/app/state/appState';
 
 const feed = (session: string, ...events: EngineEvent[]): AppState =>
   events.reduce<AppState>(
@@ -139,5 +145,37 @@ describe('appReducer peer facts', () => {
       free_space: 112_000_000_000,
     });
     expect(state.sessions['s1']?.peerPlan).toEqual({ items: [] });
+  });
+
+  it('folds linked-device events into the link state, never into a session', () => {
+    const link = (event: EngineEvent) => (state: AppState) =>
+      appReducer(state, { type: 'engine', session: LINK_SESSION, event });
+    const steps = [
+      link({ event: 'link_up', device: 'p8' }),
+      link({
+        event: 'ask_received',
+        ask: 7,
+        device: 'p8',
+        kind: { kind: 'file', name: 'a.pdf', size: 9 },
+      }),
+      link({ event: 'file_progress', device: 'p8', id: 1, done: 4, total: 9 }),
+      link({ event: 'file_saved', device: 'p8', id: 1, path: '/home/ana/Downloads/a.pdf' }),
+      link({ event: 'clip_skipped', reason: 'sensitive' }),
+    ];
+    const state = steps.reduce((s, step) => step(s), initialAppState);
+    expect(state.sessions).toEqual({});
+    expect(state.link.changes).toBe(1);
+    expect(state.link.asks).toEqual([
+      { id: 7, device: 'p8', kind: { kind: 'file', name: 'a.pdf', size: 9 } },
+    ]);
+    expect(state.link.transfers).toEqual([
+      { device: 'p8', id: 1, file_name: 'a.pdf', done: 9, total: 9, state: { kind: 'done' } },
+    ]);
+    expect(state.link.clip?.reason).toBe('sensitive');
+
+    const expired = link({ event: 'ask_expired', ask: 7 })(state);
+    expect(expired.link.asks).toEqual([]);
+    const answered = appReducer(state, { type: 'ask_answered', id: 7 });
+    expect(answered.link.asks).toEqual([]);
   });
 });

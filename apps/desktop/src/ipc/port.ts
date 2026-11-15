@@ -13,17 +13,22 @@
  * (never mid-apply).
  */
 import type { About } from '../bindings/About';
+import type { AskId } from '../bindings/AskId';
 import type { ArchiveSummary } from '../bindings/ArchiveSummary';
 import type { BackgroundSettings } from '../bindings/BackgroundSettings';
 import type { BridgeEvent } from '../bindings/BridgeEvent';
 import type { CatalogEntry } from '../bindings/CatalogEntry';
+import type { ClipHistoryView } from '../bindings/ClipHistoryView';
 import type { Checklist } from '../bindings/Checklist';
 import type { ErrorReport } from '../bindings/ErrorReport';
+import type { Feature } from '../bindings/Feature';
+import type { FeatureState } from '../bindings/FeatureState';
 import type { FileManagerStatus } from '../bindings/FileManagerStatus';
 import type { ForgetDevices } from '../bindings/ForgetDevices';
 import type { IssueDraft } from '../bindings/IssueDraft';
 import type { KdfStrength } from '../bindings/KdfStrength';
 import type { KnownDeviceView } from '../bindings/KnownDeviceView';
+import type { LinkedDeviceView } from '../bindings/LinkedDeviceView';
 import type { NearbyDeviceView } from '../bindings/NearbyDeviceView';
 import type { NearbyPeer } from '../bindings/NearbyPeer';
 import type { Picked } from '../bindings/Picked';
@@ -191,6 +196,32 @@ export interface CarrovaPort {
    * start, then on each `show_nearby`; a window built for it was not listening).
    */
   takeShowNearby(): Promise<boolean>;
+
+  // --- Linked devices (their events arrive on the `link` session) --------
+  /** Devices linked to this computer, with each feature's settings on both sides. */
+  linkedDevices(): Promise<LinkedDeviceView[]>;
+  /**
+   * Invite a phone: emits `pair_invite` (QR code and typed code), then
+   * resolves once a device has linked. Stop it with `cancelConnect`.
+   */
+  pairInvite(): Promise<void>;
+  /** Link with another computer by its code (or `code@ip:port` ticket). Stop it with `cancelConnect`. */
+  linkComputer(ticket: string): Promise<void>;
+  /** Change one feature on this computer's side of the link with `id`. */
+  setFeature(id: string, feature: Feature, state: FeatureState): Promise<void>;
+  /** Answer a device's offer (`ask_received`). */
+  answerAsk(askId: AskId, accept: boolean): Promise<void>;
+  /** Send this computer's clipboard to `id` now. */
+  sendClipboard(id: string): Promise<void>;
+  /** Offer files to `id`, one at a time (it asks on arrival). */
+  sendFiles(id: string, paths: string[]): Promise<void>;
+  /** Offer an `http(s)` link to open on `id` (it asks on arrival). */
+  handoffUrl(id: string, url: string): Promise<void>;
+  /** Make the phone `id` ring. */
+  ring(id: string): Promise<void>;
+  /** Clips received from linked devices, newest first. */
+  clipHistory(): Promise<ClipHistoryView>;
+  clearClipHistory(): Promise<void>;
 
   // --- Notifications ------------------------------------------------------
   /** The bell's notices (kept 30 days), newest first. */

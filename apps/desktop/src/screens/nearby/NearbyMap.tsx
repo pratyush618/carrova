@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { useTranslation } from 'react-i18next';
 import { cx } from '../../ui/cx';
 import { Icon, useReducedMotion } from '../../ui';
+import { deviceIcon } from '../devices/model';
 import type { DeviceEntry } from './model';
 import { place, type Placement } from './place';
 import { MIN_FIELD, MORE, RING_ORDER, SLOTS, spot, type Slot } from './spots';
@@ -67,7 +68,7 @@ function DeviceDot({
         onClick={onSelect}
       >
         <span className="s-near__dev-icon">
-          <Icon name="laptop" />
+          <Icon name={deviceIcon(device.os)} />
         </span>
         <span className="s-near__dev-text">
           <b>{device.name}</b>

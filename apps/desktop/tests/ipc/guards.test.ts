@@ -27,4 +27,17 @@ describe('the IPC guards', () => {
   it('turn an unknown code into an internal error', () => {
     expect(toBridgeError({ code: 'mystery', message: 'm', hint: null }).code).toBe('internal');
   });
+
+  it('accept a pairing invite, which names no session, only with its QR code', () => {
+    const code = {
+      code: '4-maple-orbit',
+      fallback: null,
+      renewed: false,
+      expired: false,
+      expires_in_secs: 180,
+    };
+    const invite = { uri: 'carrova://pair?v=1', qr_svg: '<svg/>', code, expires_in_s: 180 };
+    expect(isBridgeEvent({ kind: 'pair_invite', invite })).toBe(true);
+    expect(isBridgeEvent({ kind: 'pair_invite', invite: { uri: 'x' } })).toBe(false);
+  });
 });

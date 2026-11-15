@@ -15,6 +15,7 @@ import type { CarrovaPort } from '../port';
 import { withPatch } from '../settingsPatch';
 import { bridgeError, raise } from '../reject';
 import { fakeDevices } from './devices';
+import { fakeEcosystem } from './ecosystem';
 import * as fx from './fixtures';
 import { FakeReceiver } from './receive';
 import { later, realSleep, Runtime, type Sleep } from './runtime';
@@ -111,6 +112,8 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
   const runtime = new Runtime(options.stepMs ?? 150, options.sleep ?? realSleep);
   const sender = new FakeSender(runtime, scenario);
   const receiver = new FakeReceiver(runtime, scenario);
+  const { cancel: cancelPairing, forget: unlink, ...ecosystem } = fakeEcosystem(runtime, scenario);
+  const devices = fakeDevices(scenario);
   let settings = DEFAULT_SETTINGS;
   let consent: ReportConsent = 'unset';
   let notices = seedNotices(Math.floor(Date.now() / 1000));
@@ -150,6 +153,7 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
     cancelConnect: () =>
       later(() => {
         receiver.cancelConnect();
+        cancelPairing();
       }),
     browseNearby: () => later(() => []),
     plan: (session, options) => receiver.plan(session, options),
@@ -162,7 +166,12 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
     ignoreFreeSpace: (session) => receiver.ignoreFreeSpace(session),
     retryConnection: (session) => receiver.retryConnection(session),
 
-    ...fakeDevices(scenario),
+    ...devices,
+    forgetDevice: (which) =>
+      devices.forgetDevice(which).then(() => {
+        unlink(which);
+      }),
+    ...ecosystem,
 
     cancel: (session) =>
       later(() => {

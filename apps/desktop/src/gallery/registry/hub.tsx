@@ -14,6 +14,7 @@ import {
   nearbyEmpty,
   nearbyList,
   nearbyMap,
+  nearbyLinked,
   nearbyNoHint,
   nearbySelected,
 } from '../../screens/nearby/fixtures';
@@ -87,12 +88,16 @@ const nearbyOn = noops(
   'onWake',
   'onForget',
   'onDismissWake',
+  'onOpen',
+  'onAddPhone',
+  'onLinkComputer',
 );
 const NEARBY: Readonly<Record<string, NearbyModel>> = {
   selected: nearbySelected,
   list: nearbyList,
   empty: nearbyEmpty,
   'no-hint': nearbyNoHint,
+  linked: nearbyLinked,
 };
 
 export const hubScreens: readonly GalleryScreen[] = [
@@ -107,6 +112,7 @@ export const hubScreens: readonly GalleryScreen[] = [
       ['list', 'List'],
       ['empty', 'Nobody nearby'],
       ['no-hint', 'Wake without a saved address'],
+      ['linked', 'A phone linked'],
     ),
     render: (s) => ({ base: <NearbyScreen model={NEARBY[s] ?? nearbyMap} on={nearbyOn} /> }),
   },

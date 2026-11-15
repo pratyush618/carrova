@@ -24,7 +24,8 @@ export function buildChrome(
   bell?: BellModel,
   visible = false,
 ): Chrome {
-  const current = view.kind === 'hub' ? view.page : null;
+  // A device page sits under Nearby.
+  const current = view.kind === 'hub' ? view.page : view.kind === 'device' ? 'nearby' : null;
   const hubLinks: HubLink[] = HUB.map(({ page, icon }) => ({
     id: page,
     label: t(`nav.${page}`),

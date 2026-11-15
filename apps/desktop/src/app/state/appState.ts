@@ -5,13 +5,25 @@ import type {
   EngineEvent,
   SessionId,
 } from '../../engine/types';
+import {
+  applyLinkAction,
+  applyLinkEvent,
+  emptyLink,
+  LINK_SESSION,
+  type LinkAction,
+  type LinkState,
+} from './link';
 import { applyEvent, emptySession, type NewCodePrompt, type SessionProgress } from './session';
+
+export { LINK_SESSION, type LinkState, type PendingAsk, type Transfer } from './link';
 
 export { emptySession, applyEvent, type LinkStatus, type SessionProgress } from './session';
 
 /** App-wide state. Engine-owned facts only arrive through {@link AppAction}s. */
 export interface AppState {
   readonly sessions: Readonly<Record<SessionId, SessionProgress>>;
+  /** Linked devices' events (the `link` session is no move). */
+  readonly link: LinkState;
 }
 
 /** Everything that can change {@link AppState}. Bridge events arrive via {@link bridgeAction}. */
@@ -32,9 +44,10 @@ export type AppAction =
   /** The user answered the new-code question (the prompt closes). */
   | { readonly type: 'pairing_answered'; readonly session: SessionId }
   | { readonly type: 'task_ended'; readonly session: SessionId; readonly error: BridgeError | null }
-  | { readonly type: 'dismissed'; readonly session: SessionId };
+  | { readonly type: 'dismissed'; readonly session: SessionId }
+  | LinkAction;
 
-export const initialAppState: AppState = { sessions: {} };
+export const initialAppState: AppState = { sessions: {}, link: emptyLink };
 
 /** Bridge events about a session (everything but `send_requested`, `show_nearby` and `notice`). */
 export type SessionBridgeEvent = Exclude<
@@ -61,7 +74,7 @@ export function bridgeAction(event: SessionBridgeEvent, now: number): AppAction 
 }
 
 function fold(
-  action: Exclude<AppAction, { type: 'dismissed' }>,
+  action: Exclude<AppAction, { type: 'dismissed' } | LinkAction>,
   s: SessionProgress,
 ): SessionProgress {
   switch (action.type) {
@@ -88,10 +101,20 @@ function fold(
 
 /** The app reducer. */
 export function appReducer(state: AppState, action: AppAction): AppState {
-  if (action.type === 'dismissed') {
-    const rest = Object.entries(state.sessions).filter(([id]) => id !== action.session);
-    return { sessions: Object.fromEntries(rest) };
+  switch (action.type) {
+    case 'ask_answered':
+    case 'transfer_dismissed':
+    case 'clip_dismissed':
+      return { ...state, link: applyLinkAction(state.link, action) };
+    case 'dismissed': {
+      const rest = Object.entries(state.sessions).filter(([id]) => id !== action.session);
+      return { ...state, sessions: Object.fromEntries(rest) };
+    }
+    default: {
+      if (action.type === 'engine' && action.session === LINK_SESSION)
+        return { ...state, link: applyLinkEvent(state.link, action.event) };
+      const current = state.sessions[action.session] ?? emptySession(action.session);
+      return { ...state, sessions: { ...state.sessions, [action.session]: fold(action, current) } };
+    }
   }
-  const current = state.sessions[action.session] ?? emptySession(action.session);
-  return { sessions: { ...state.sessions, [action.session]: fold(action, current) } };
 }

@@ -12,6 +12,7 @@ import type { NearbyView, WakeNote } from '../../../screens/nearby/model';
 import { NearbyScreen } from '../../../screens/nearby/NearbyScreen';
 import type { SettingsSection } from '../../../screens/settings/sections';
 import { SettingsScreen } from '../../../screens/settings/SettingsScreen';
+import { Glance } from '../../../screens/home/Glance';
 import { HomeScreen } from '../../../screens/start/HomeScreen';
 import { HubLayout } from '../../../ui';
 import { useControllers } from '../../controllers/Controllers';
@@ -24,7 +25,7 @@ const answered = (remote: Remote<unknown>): boolean =>
 
 /** Home: the two verbs, recent moves with Undo, the one-time questions (error reports, file manager). */
 export function HomeRoute() {
-  const { history, settings } = useControllers();
+  const { history, linked, settings } = useControllers();
   const nav = useNav();
   const start = useStartFlows();
   const { reload, records, sessions } = history;
@@ -37,6 +38,16 @@ export function HomeRoute() {
         offer: settings.offerFileManager,
         failed: settings.fileManagerFailed,
       })}
+      glance={
+        linked.devices.length > 0 && (
+          <Glance
+            devices={linked.devices}
+            onOpen={(id) => {
+              nav.go({ type: 'openDevice', id });
+            }}
+          />
+        )
+      }
       on={{
         onSend: start.send,
         onReceive: start.receive,
@@ -100,7 +111,7 @@ export function HistoryRoute() {
 
 /** Nearby: looks again every few seconds while open; visibility and remembered devices are shared with Settings. */
 export function NearbyRoute() {
-  const { devices, settings } = useControllers();
+  const { devices, linked, settings } = useControllers();
   const nav = useNav();
   const start = useStartFlows();
   const [view, setView] = useState<NearbyView>('map');
@@ -111,7 +122,7 @@ export function NearbyRoute() {
     <NearbyScreen
       model={{
         view,
-        ...nearbyEntries(found, devices.known),
+        ...nearbyEntries(found, devices.known, linked.devices),
         selected,
         visibility: devices.visibility && visibilityModel(devices.visibility),
         me: settings.about?.device_name ?? null,
@@ -144,6 +155,15 @@ export function NearbyRoute() {
         },
         onDismissWake: () => {
           setWake(null);
+        },
+        onOpen: ({ id }) => {
+          if (id !== null) nav.go({ type: 'openDevice', id });
+        },
+        onAddPhone: () => {
+          nav.open({ kind: 'add-phone' });
+        },
+        onLinkComputer: () => {
+          nav.open({ kind: 'link-computer' });
         },
       }}
     />

@@ -1,5 +1,6 @@
 import { apps } from './apps';
 import { common } from './common';
+import { ecosystem } from './ecosystem';
 import { errors } from './errors';
 import { file } from './file';
 import { history } from './history';
@@ -27,4 +28,5 @@ export const en = {
   apps,
   settings,
   override,
+  ecosystem,
 } as const;

@@ -1,5 +1,10 @@
 import { toBridgeError } from '../../engine/errors';
-import type { KnownDeviceView, NearbyDeviceView, VisibilityView } from '../../engine/types';
+import type {
+  KnownDeviceView,
+  LinkedDeviceView,
+  NearbyDeviceView,
+  VisibilityView,
+} from '../../engine/types';
 import type { DeviceEntry, VisibilityModel, WakeNote } from '../../screens/nearby/model';
 import type { KnownDeviceLine } from '../../screens/settings/model';
 
@@ -43,13 +48,35 @@ function awayEntry(record: KnownDeviceView): DeviceEntry {
   };
 }
 
+/** A linked device that did not answer the browse (a phone never does), up or away. */
+const linkedEntry = (
+  device: LinkedDeviceView,
+  record: KnownDeviceView | undefined,
+): DeviceEntry => {
+  const up = device.state !== 'away';
+  return {
+    key: device.id,
+    id: device.id,
+    name: device.name,
+    os: device.os,
+    kind: up ? 'linked' : 'away',
+    ring: up ? 'inner' : 'outer',
+    fingerprint: device.fingerprint,
+    lastMove: date(record?.last_move ?? null),
+    moves: record?.moves ?? 0,
+    canWake: !up && (record?.has_wake_hint ?? false),
+  };
+};
+
 /**
- * The Nearby page's devices: those that answered (in answer order), then the
- * remembered ones that did not.
+ * The Nearby page's devices: those that answered (in answer order; linked
+ * ones marked so), the linked ones up that did not, then the remembered or
+ * linked ones not here.
  */
 export function nearbyEntries(
   found: readonly NearbyDeviceView[],
   known: readonly KnownDeviceView[],
+  linked: readonly LinkedDeviceView[] = [],
 ): { readonly here: DeviceEntry[]; readonly away: DeviceEntry[] } {
   const byId = new Map(known.map((record) => [record.id, record]));
   const answered = new Set(found.flatMap((device) => (device.id === null ? [] : [device.id])));
@@ -62,13 +89,30 @@ export function nearbyEntries(
     taken.add(key);
     return key;
   };
+  const up = new Set(linked.flatMap((d) => (d.state === 'away' ? [] : [d.id])));
+  const markLinked = (entry: DeviceEntry): DeviceEntry =>
+    entry.id !== null && up.has(entry.id) ? { ...entry, kind: 'linked' } : entry;
+  const away = known.filter((record) => !answered.has(record.id) && !up.has(record.id));
+  const remembered = new Set(known.map((record) => record.id));
   return {
-    here: found.map((device) =>
-      device.id === null
-        ? hereEntry(device, undefined, newKey(device.name))
-        : hereEntry(device, byId.get(device.id), device.id),
-    ),
-    away: known.filter((record) => !answered.has(record.id)).map(awayEntry),
+    here: [
+      ...found.map((device) =>
+        markLinked(
+          device.id === null
+            ? hereEntry(device, undefined, newKey(device.name))
+            : hereEntry(device, byId.get(device.id), device.id),
+        ),
+      ),
+      ...linked
+        .filter((d) => up.has(d.id) && !answered.has(d.id))
+        .map((d) => linkedEntry(d, byId.get(d.id))),
+    ],
+    away: [
+      ...away.map(awayEntry),
+      ...linked
+        .filter((d) => d.state === 'away' && !remembered.has(d.id))
+        .map((d) => linkedEntry(d, undefined)),
+    ],
   };
 }
 

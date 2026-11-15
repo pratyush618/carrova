@@ -4,6 +4,7 @@ import { usePort } from '../../engine/port';
 import type { MoveDefaults } from '../../engine/types';
 import { useSaveFlow, type SaveController } from '../../flows/archive/useSaveFlow';
 import { useCatalog, type CatalogController } from '../../flows/catalog/useCatalog';
+import { useLinkedDevices, type LinkedController } from '../../flows/ecosystem/useLinkedDevices';
 import { useInbox, type InboxController } from '../../flows/inbox/useInbox';
 import { useDevices, type DevicesController } from '../../flows/nearby/useDevices';
 import { useHistory, type HistoryController } from '../../flows/history/useHistory';
@@ -23,6 +24,7 @@ export interface Controllers {
   readonly inbox: InboxController;
   readonly catalog: CatalogController;
   readonly devices: DevicesController;
+  readonly linked: LinkedController;
   readonly settings: SettingsController;
   readonly update: AppUpdateController;
   readonly report: ErrorReportController;
@@ -44,6 +46,7 @@ export function ControllersProvider({ children }: { readonly children: ReactNode
   const host = useHost();
   const update = useAppUpdate(port);
   const devices = useDevices(port);
+  const linked = useLinkedDevices(port);
   const settings = useSettings(port, update.check, devices);
   const defaults = settings.settings?.move_defaults ?? DEFAULT_MOVE_DEFAULTS;
   const send = useSendFlow(port, defaults.include_caches, host);
@@ -63,12 +66,13 @@ export function ControllersProvider({ children }: { readonly children: ReactNode
       inbox,
       catalog,
       devices,
+      linked,
       settings,
       update,
       report,
       undo,
     }),
-    [send, save, receive, history, inbox, catalog, devices, settings, update, report, undo],
+    [send, save, receive, history, inbox, catalog, devices, linked, settings, update, report, undo],
   );
   return <ControllersContext value={value}>{children}</ControllersContext>;
 }

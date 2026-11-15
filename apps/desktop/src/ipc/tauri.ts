@@ -80,6 +80,19 @@ export function createTauriPort(): CarrovaPort {
     wakeDevice: (device) => call('wake_device', { device }),
     takeShowNearby: () => call('take_show_nearby'),
 
+    linkedDevices: () => call('linked_devices'),
+    pairInvite: () => call('pair_invite'),
+    linkComputer: (ticket) => call('link_computer', { ticket }),
+    // `state` is taken by Tauri's managed state on the Rust side.
+    setFeature: (id, feature, state) => call('set_feature', { id, feature, featureState: state }),
+    answerAsk: (askId, accept) => call('answer_ask', { askId, accept }),
+    sendClipboard: (id) => call('send_clipboard', { id }),
+    sendFiles: (id, paths) => call('send_files', { id, paths }),
+    handoffUrl: (id, url) => call('handoff_url', { id, url }),
+    ring: (id) => call('ring', { id }),
+    clipHistory: () => call('clip_history'),
+    clearClipHistory: () => call('clear_clip_history'),
+
     notices: () => call('notices'),
     markNoticesRead: (ids) => call('mark_notices_read', { ids: ids === 'all' ? null : ids }),
 

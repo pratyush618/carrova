@@ -25,6 +25,7 @@ export const ICONS = {
   warn: ['M12 4L2.5 20h19zM12 10v4.5M12 17.2v.3'],
   info: ['M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0', 'M12 11v5.5M12 7.8v.3'],
   laptop: ['M5 5.5h14v10H5zM2.5 19h19'],
+  phone: ['M7 2.5h10v19H7zM11 18.5h2'],
   search: ['M4.5 11a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0-13 0', 'M20 20l-4.3-4.3'],
   copy: ['M9 9h11v11H9zM5 15H4V4h11v1'],
   pause: ['M9 5v14M15 5v14'],

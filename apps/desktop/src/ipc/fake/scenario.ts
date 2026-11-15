@@ -28,6 +28,8 @@ export const SCENARIOS = [
   'nearby',
   /** 21 new devices, one with a very long name, on a computer with a long name too: more than the map has room for. */
   'nearby-crowded',
+  /** A phone (Handoff off on its side) and a computer are linked; three clips arrived. */
+  'linked',
 ] as const;
 
 export type Scenario = (typeof SCENARIOS)[number];

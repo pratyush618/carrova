@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { KnownDeviceView, NearbyDeviceView } from '@/engine/types';
+import type { KnownDeviceView, LinkedDeviceView, NearbyDeviceView } from '@/engine/types';
 import {
   knownDeviceLine,
   nearbyEntries,
@@ -81,5 +81,34 @@ describe('nearby views', () => {
     expect(wakeFailure({ code: 'known_device', message: 'no hint', hint: null })).toBe('no_hint');
     expect(wakeFailure({ code: 'network', message: 'offline', hint: null })).toBe('failed');
     expect(wakeFailure(new Error('boom'))).toBe('failed');
+  });
+
+  it('marks linked devices here, adds linked phones that never answer, and leaves away ones away', () => {
+    const linked = (
+      id: string,
+      name: string,
+      state: LinkedDeviceView['state'],
+    ): LinkedDeviceView => ({
+      id,
+      name,
+      os: id === 'p8' ? 'android' : 'linux',
+      fingerprint: 'AAAA·BBBB',
+      state,
+      features: [],
+    });
+    const { here, away } = nearbyEntries(
+      [answer({ known: true, id: 'a1', name: "Ana's laptop", fingerprint: 'A100·0000' })],
+      [record('a1', "Ana's laptop"), record('o3', 'Old ThinkPad')],
+      [
+        linked('a1', "Ana's laptop", 'linked'),
+        linked('p8', 'Pixel 8', 'linked'),
+        linked('o3', 'Old ThinkPad', 'away'),
+      ],
+    );
+    expect(here.map((d) => [d.key, d.kind])).toEqual([
+      ['a1', 'linked'],
+      ['p8', 'linked'],
+    ]);
+    expect(away.map((d) => [d.key, d.kind])).toEqual([['o3', 'away']]);
   });
 });

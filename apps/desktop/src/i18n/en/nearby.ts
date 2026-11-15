@@ -11,7 +11,7 @@ export const nearby = {
   moreAll: '+{{more}} more: show all {{total}} devices in the list',
   here: 'Here now',
   away: 'Known, not here',
-  status: { known: 'Known', new: 'New, needs a code', away: 'Away' },
+  status: { known: 'Known', new: 'New, needs a code', away: 'Away', linked: 'Linked' },
   new: 'New',
   lastMove: 'last move {{day}}',
   noMove: 'no moves yet',
@@ -22,6 +22,7 @@ export const nearby = {
     never: 'Never',
   },
   actions: {
+    open: 'Open',
     sendWithCode: 'Send with code',
     wake: 'Wake',
     forget: 'Forget',

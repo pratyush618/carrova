@@ -1,0 +1,101 @@
+import type { FeatureRowView, LinkedDeviceView } from '../../engine/types';
+import { useTranslation } from 'react-i18next';
+import { Banner, Button, Head, HubLayout, LinkButton } from '../../ui';
+import { Group } from '../settings/Group';
+import { FeatureRow } from './FeatureRow';
+import { isPhase1, type DeviceIntents, type Phase1Feature } from './model';
+import './devices.css';
+
+type Phase1Row = FeatureRowView & { readonly feature: Phase1Feature };
+
+const isPhase1Row = (row: FeatureRowView): row is Phase1Row => isPhase1(row.feature);
+
+/** What flows for `feature` now (off when the link doesn't carry it). */
+const flows = (device: LinkedDeviceView, feature: Phase1Feature): boolean =>
+  device.features.some((f) => f.feature === feature && f.effective !== 'off');
+
+/**
+ * One linked device: what it can do with this computer, in two groups
+ * (things that run quietly once on, things that ask every time), and the
+ * few actions it offers now.
+ */
+export function DevicePage({
+  device,
+  failed = false,
+  on,
+}: {
+  readonly device: LinkedDeviceView;
+  /** The engine refused the last feature change. */
+  readonly failed?: boolean;
+  readonly on: DeviceIntents;
+}) {
+  const { t } = useTranslation();
+  const here = device.state === 'linked';
+  const rows = device.features.filter(isPhase1Row);
+  const group = (kind: FeatureRowView['group']) =>
+    rows
+      .filter((row) => row.group === kind)
+      .map((row) => (
+        <FeatureRow
+          key={row.feature}
+          feature={row.feature}
+          row={row}
+          device={device.name}
+          off={!here}
+          onChange={(state) => {
+            on.onFeature(row.feature, state);
+          }}
+        />
+      ));
+  const quiet = group('quiet');
+  const ask = group('ask');
+  return (
+    <HubLayout>
+      <div className="s-device">
+        <Head
+          title={device.name}
+          lede={`${t(`ecosystem.status.${device.state}`)} · ${t(`settings.about.os.${device.os}`)}`}
+        />
+        {here && (
+          <div className="s-device__acts">
+            {device.os === 'android' && flows(device, 'ring') && (
+              <Button size="sm" icon="bell" onClick={on.onRing}>
+                {t('ecosystem.device.ring')}
+              </Button>
+            )}
+            {flows(device, 'clipboard') && (
+              <Button size="sm" icon="copy" onClick={on.onSendClipboard}>
+                {t('ecosystem.device.sendClipboard')}
+              </Button>
+            )}
+            {on.onSendFiles && flows(device, 'files') && (
+              <Button size="sm" icon="file" onClick={on.onSendFiles}>
+                {t('ecosystem.device.sendFiles')}
+              </Button>
+            )}
+          </div>
+        )}
+        {device.state === 'away' && (
+          <Banner
+            tone="accent"
+            title={t('ecosystem.device.awayTitle', { name: device.name })}
+            body={t('ecosystem.device.awayBody')}
+          />
+        )}
+        {failed && <Banner tone="warning" title={t('ecosystem.device.failed')} />}
+        {quiet.length > 0 && <Group title={t('ecosystem.groups.quiet')}>{quiet}</Group>}
+        {ask.length > 0 && (
+          <Group title={t('ecosystem.groups.ask')} sub={t('ecosystem.askFoot')}>
+            {ask}
+          </Group>
+        )}
+        <p className="s-device__foot">
+          <span className="p-mono">{t('ecosystem.device.key', { key: device.fingerprint })}</span>
+          <LinkButton onClick={on.onForget}>
+            {t('ecosystem.device.forget', { name: device.name })}
+          </LinkButton>
+        </p>
+      </div>
+    </HubLayout>
+  );
+}

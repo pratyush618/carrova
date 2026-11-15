@@ -15,6 +15,21 @@ afterEach(() => {
 const session = scan.session;
 
 describe('the Tauri port', () => {
+  it('sends a feature change as `featureState` and an answer as `askId`', async () => {
+    const calls: [string, unknown][] = [];
+    mockIPC((command, args) => {
+      calls.push([command, args]);
+      return null;
+    });
+    const port = createTauriPort();
+    await port.setFeature('p8', 'files', 'off');
+    await port.answerAsk(7, true);
+    expect(calls).toEqual([
+      ['set_feature', { id: 'p8', feature: 'files', featureState: 'off' }],
+      ['answer_ask', { askId: 7, accept: true }],
+    ]);
+  });
+
   it('invokes the snake_case command with named arguments', async () => {
     const calls: [string, unknown][] = [];
     mockIPC((command, args) => {
