@@ -32,6 +32,32 @@ android-check:
     export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CC_aarch64_linux_android"
     cargo check -p carrova-platform -p carrova-core -p carrova-desktop --target aarch64-linux-android
 
+# Run the app on a connected phone or emulator with hot reload (needs
+# ANDROID_HOME and NDK_HOME). Gradle's daemons are stopped afterwards.
+android-dev:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    trap '(cd apps/desktop/src-tauri/gen/android && ./gradlew --stop >/dev/null 2>&1) || true' EXIT
+    pnpm --filter desktop tauri android dev
+
+# Build an APK for `target` (aarch64, armv7, i686, x86_64). `debug` is signed
+# with the debug key; `release` with the keystore at CARROVA_ANDROID_KEYSTORE
+# (+ CARROVA_ANDROID_KEYSTORE_PASSWORD, CARROVA_ANDROID_KEY_ALIAS,
+# CARROVA_ANDROID_KEY_PASSWORD; keys are never committed). Gradle's daemons
+# are stopped afterwards.
+android-build profile="debug" target="aarch64":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{profile}}" in
+        debug) flags=(--debug) ;;
+        release)
+            : "${CARROVA_ANDROID_KEYSTORE:?set CARROVA_ANDROID_KEYSTORE (and its password/alias env) to sign a release}"
+            flags=() ;;
+        *) echo "profile must be debug or release" >&2; exit 1 ;;
+    esac
+    trap '(cd apps/desktop/src-tauri/gen/android && ./gradlew --stop >/dev/null 2>&1) || true' EXIT
+    pnpm --filter desktop tauri android build --apk --target {{target}} "${flags[@]}"
+
 # Build every plugin under plugins/ to plugins/<id>/plugin.wasm (+ host tests).
 plugins:
     #!/usr/bin/env bash

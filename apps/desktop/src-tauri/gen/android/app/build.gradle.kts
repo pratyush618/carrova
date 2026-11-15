@@ -25,6 +25,17 @@ android {
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
+    signingConfigs {
+        // Release keys come from the environment only (`just android-build release`).
+        System.getenv("CARROVA_ANDROID_KEYSTORE")?.let { keystore ->
+            create("release") {
+                storeFile = file(keystore)
+                storePassword = System.getenv("CARROVA_ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("CARROVA_ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("CARROVA_ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         getByName("debug") {
             manifestPlaceholders["usesCleartextTraffic"] = "true"
@@ -39,6 +50,7 @@ android {
             }
         }
         getByName("release") {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             optimization {
                enable = true
             }
