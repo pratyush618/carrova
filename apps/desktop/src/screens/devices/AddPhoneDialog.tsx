@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Button, CodeDisplay, Dialog, Note, Status } from '../../ui';
 import { clock, useSecondsLeft } from '../send/countdown';
+import { LinkedSummary } from './LinkedSummary';
 import type { AddPhoneIntents, AddPhoneModel } from './model';
 import './devices.css';
 
@@ -104,9 +105,9 @@ export function AddPhoneDialog({
         <Dialog
           icon="check"
           title={
-            model.name === null
+            model.device === null
               ? t('ecosystem.pair.linkedUnnamed')
-              : t('ecosystem.pair.linkedTitle', { name: model.name })
+              : t('ecosystem.pair.linkedTitle', { name: model.device.name })
           }
           onDismiss={on.onDone}
           foot={
@@ -118,7 +119,7 @@ export function AddPhoneDialog({
             </>
           }
         >
-          <p>{t('ecosystem.pair.linkedBody')}</p>
+          <LinkedSummary device={model.device} />
         </Dialog>
       );
   }

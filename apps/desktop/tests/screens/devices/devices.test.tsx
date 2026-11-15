@@ -69,9 +69,25 @@ describe('Add a phone', () => {
   it('names the linked phone and opens its page', async () => {
     const user = userEvent.setup();
     const on = pairOn();
-    renderScreen(<AddPhoneDialog model={{ state: 'linked', name: 'Pixel 8' }} on={on} />);
+    renderScreen(<AddPhoneDialog model={{ state: 'linked', device: pixel }} on={on} />);
     expect(screen.getByRole('heading', { name: 'Pixel 8 is linked' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Shared clipboard and Ring are on. Files and Handoff ask each time. Change any of it on its page.',
+      ),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Choose what it can do' }));
     expect(on.onOpen).toHaveBeenCalledOnce();
+  });
+
+  it('says what a device linked again kept, even when everything is off', () => {
+    const off = {
+      ...pixel,
+      features: pixel.features.map((f) => ({ ...f, local: 'off' as const })),
+    };
+    renderScreen(<AddPhoneDialog model={{ state: 'linked', device: off }} on={pairOn()} />);
+    expect(
+      screen.getByText('Everything is off for now. Change any of it on its page.'),
+    ).toBeInTheDocument();
   });
 });

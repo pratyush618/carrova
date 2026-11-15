@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHost } from '../../../engine/host';
+import type { LinkedDeviceView } from '../../../engine/types';
 import { usePort } from '../../../engine/port';
 import { toBridgeError } from '../../../engine/errors';
 import { useClipHistory } from '../../../flows/ecosystem/useClipHistory';
@@ -104,7 +105,7 @@ export function AddPhoneOverlay() {
     };
     pairing.done.then(
       (device) => {
-        ended({ state: 'linked', id: device?.id ?? null, name: device?.name ?? null });
+        ended({ state: 'linked', device });
       },
       (reason: unknown) => {
         if (toBridgeError(reason).code !== 'cancelled') ended({ state: 'failed' });
@@ -126,7 +127,7 @@ export function AddPhoneOverlay() {
     if (ranOut) clear();
   }, [ranOut, clear]);
   const model = addPhoneModel(current, end, seconds);
-  const linkedId = end?.state === 'linked' ? end.id : null;
+  const linkedId = end?.state === 'linked' ? (end.device?.id ?? null) : null;
   return (
     <AddPhoneDialog
       model={model}
@@ -153,7 +154,7 @@ export function LinkComputerOverlay() {
   const nav = useNav();
   const [code, setCode] = useState('');
   const [state, setState] = useState<LinkComputerState>('typing');
-  const [id, setId] = useState<string | null>(null);
+  const [device, setDevice] = useState<LinkedDeviceView | null>(null);
   const pairing = useRef<Pairing | null>(null);
   useEffect(
     () => () => {
@@ -165,6 +166,7 @@ export function LinkComputerOverlay() {
     <LinkComputerDialog
       code={code}
       state={state}
+      device={device}
       on={{
         onCode: setCode,
         onCancel: nav.close,
@@ -172,8 +174,8 @@ export function LinkComputerOverlay() {
           setState('linking');
           pairing.current = linked.linkComputer(code);
           pairing.current.done.then(
-            (device) => {
-              setId(device?.id ?? null);
+            (linkedDevice) => {
+              setDevice(linkedDevice);
               setState('linked');
             },
             (reason: unknown) => {
@@ -182,8 +184,8 @@ export function LinkComputerOverlay() {
           );
         },
         onOpen: () => {
-          if (id === null) nav.close();
-          else nav.go({ type: 'openDevice', id });
+          if (device === null) nav.close();
+          else nav.go({ type: 'openDevice', id: device.id });
         },
       }}
     />

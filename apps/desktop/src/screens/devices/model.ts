@@ -1,4 +1,10 @@
-import type { Feature, FeatureState, OsKind, PairInviteView } from '../../engine/types';
+import type {
+  Feature,
+  FeatureState,
+  LinkedDeviceView,
+  OsKind,
+  PairInviteView,
+} from '../../engine/types';
 import type { IconName } from '../../ui';
 
 /** A phone or a computer, by its system. */
@@ -39,7 +45,8 @@ export type AddPhoneModel =
       readonly expiresAt: number;
     }
   | { readonly state: 'expired' | 'failed' }
-  | { readonly state: 'linked'; readonly name: string | null };
+  /** `device`: the one that linked, when the list names it. */
+  | { readonly state: 'linked'; readonly device: LinkedDeviceView | null };
 
 export interface AddPhoneIntents {
   readonly onCancel: () => void;

@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
+import type { LinkedDeviceView } from '../../engine/types';
 import { Button, Dialog, Field, Input } from '../../ui';
+import { LinkedSummary } from './LinkedSummary';
 
 export type LinkComputerState = 'typing' | 'linking' | 'failed' | 'linked';
 
@@ -15,10 +17,13 @@ export interface LinkComputerIntents {
 export function LinkComputerDialog({
   code,
   state,
+  device = null,
   on,
 }: {
   readonly code: string;
   readonly state: LinkComputerState;
+  /** The computer that linked, once the list names it. */
+  readonly device?: LinkedDeviceView | null;
   readonly on: LinkComputerIntents;
 }) {
   const { t } = useTranslation();
@@ -37,7 +42,7 @@ export function LinkComputerDialog({
           </>
         }
       >
-        <p>{t('ecosystem.linkComputer.linkedBody')}</p>
+        <LinkedSummary device={device} />
       </Dialog>
     );
   const linking = state === 'linking';

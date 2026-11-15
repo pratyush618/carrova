@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addPhoneModel, attemptInvite, settle } from '@/flows/ecosystem/pairing';
-import { pixelInvite } from '@/screens/devices/fixtures';
+import { pixel, pixelInvite } from '@/screens/devices/fixtures';
 
 const T0 = 1_000_000;
 const invite = (receivedAt: number) => ({ view: pixelInvite, receivedAt });
@@ -29,7 +29,7 @@ describe('the Add a phone model', () => {
     const expired = settle(null, { state: 'expired' });
     expect(settle(expired, { state: 'failed' })).toEqual({ state: 'expired' });
     expect(addPhoneModel(null, settle(expired, { state: 'failed' }), 0).state).toBe('expired');
-    const linked = { state: 'linked', name: 'Pixel 8', id: 'p8' } as const;
+    const linked = { state: 'linked', device: pixel } as const;
     expect(settle(expired, linked)).toEqual(linked);
     expect(addPhoneModel(attemptInvite(invite(T0), T0), linked, 0)).toEqual(linked);
   });

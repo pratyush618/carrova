@@ -1,10 +1,10 @@
 import type { Invite } from '../../app/state/EngineState';
-import type { PairInviteView } from '../../engine/types';
+import type { LinkedDeviceView, PairInviteView } from '../../engine/types';
 import type { AddPhoneModel } from '../../screens/devices/model';
 
 /** How a pairing attempt ended. */
 export type PairEnd =
-  | { readonly state: 'linked'; readonly id: string | null; readonly name: string | null }
+  | { readonly state: 'linked'; readonly device: LinkedDeviceView | null }
   | { readonly state: 'expired' | 'failed' };
 
 /** An attempt's invite and when it stops working (ms since epoch). */

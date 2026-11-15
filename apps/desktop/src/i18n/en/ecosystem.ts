@@ -43,8 +43,14 @@ export const ecosystem = {
     newCode: 'New code',
     linkedTitle: '{{name}} is linked',
     linkedUnnamed: 'Your phone is linked',
-    linkedBody:
-      'Clipboard and Ring are on; files and Handoff ask each time. Change any of it on its page.',
+    summary: {
+      on_one: '{{list}} is on.',
+      on_other: '{{list}} are on.',
+      ask_one: '{{list}} asks each time.',
+      ask_other: '{{list}} ask each time.',
+      none: 'Everything is off for now.',
+      change: 'Change any of it on its page.',
+    },
     done: 'Done',
     open: 'Choose what it can do',
     failedTitle: "Couldn't reach the phone",
@@ -64,7 +70,6 @@ export const ecosystem = {
     link: 'Link',
     linking: 'Linking…',
     linkedTitle: 'Computer linked',
-    linkedBody: 'Everything starts off. Choose what it can do on its page.',
     failed: "Couldn't link. Check the code, and that both computers are on the same network.",
   },
   ask: {
