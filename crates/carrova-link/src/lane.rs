@@ -1,8 +1,9 @@
 //! Lanes: typed bidirectional streams opened with a `LaneOpen` / `LaneReply` handshake.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use carrova_transport::{Connection, Stream};
+use serde::de::IgnoredAny;
 use serde::de::value::{Error as ValueError, StrDeserializer};
 use serde::{Deserialize, Serialize};
 
@@ -12,8 +13,9 @@ use crate::LinkError;
 const LANE_VERSION: u16 = 1;
 /// How long an opener waits for the peer's verdict.
 const REPLY_TIMEOUT: Duration = Duration::from_secs(10);
-/// How long the acceptor waits for a lane's first frame once the stream exists.
-const OPEN_TIMEOUT: Duration = Duration::from_secs(10);
+/// Longest the acceptor waits for a lane's first frame (also capped by what is
+/// left of the caller's accept timeout).
+const OPEN_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// What a lane carries.
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -67,20 +69,39 @@ pub trait LaneGate {
     fn admit(&self, kind: LaneKind) -> Result<(), RefuseReason>;
 }
 
-/// A `LaneOpen` as decoded from a peer that may be newer: kind stays a string.
+/// A field of a peer that may be newer: `None` when it is not the type this
+/// version knows, so the lane can still be refused with a reply.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Lenient<T> {
+    Known(T),
+    Other(IgnoredAny),
+}
+
+impl<T> Lenient<T> {
+    fn known(self) -> Option<T> {
+        match self {
+            Self::Known(v) => Some(v),
+            Self::Other(_) => None,
+        }
+    }
+}
+
+/// A `LaneOpen` as decoded from a peer that may be newer.
 #[derive(Deserialize)]
 struct WireOpen {
-    kind: String,
-    version: u16,
+    kind: Lenient<String>,
+    version: Lenient<u64>,
 }
 
 impl WireOpen {
-    fn kind(&self) -> Option<LaneKind> {
-        if self.version != LANE_VERSION {
+    fn kind(self) -> Option<LaneKind> {
+        if self.version.known() != Some(u64::from(LANE_VERSION)) {
             return None;
         }
         // Reuses `LaneKind`'s own decoding, so the names cannot drift.
-        LaneKind::deserialize(StrDeserializer::<ValueError>::new(&self.kind)).ok()
+        let kind = self.kind.known()?;
+        LaneKind::deserialize(StrDeserializer::<ValueError>::new(&kind)).ok()
     }
 }
 
@@ -105,8 +126,10 @@ pub fn accept_lane(
     gate: &dyn LaneGate,
     timeout: Duration,
 ) -> Result<(LaneKind, Stream), LinkError> {
+    let start = Instant::now();
     let mut stream = conn.accept_stream(timeout)?;
-    let open: WireOpen = stream.recv(OPEN_TIMEOUT)?;
+    let first_frame = OPEN_TIMEOUT.min(timeout.saturating_sub(start.elapsed()));
+    let open: WireOpen = stream.recv(first_frame)?;
     let verdict = open
         .kind()
         .ok_or(RefuseReason::Unknown)
