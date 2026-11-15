@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{Feature, FeatureState};
-use carrova_platform::{FileKind, FileLock, LocalListener, LocalStream, Platform};
+use carrova_platform::{FileKind, FileLock, LocalListener, LocalStream, Platform, PlatformError};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -167,7 +167,8 @@ pub fn attach_or_start(engine: Engine) -> Result<SupervisorHandle> {
 struct Served {
     supervisor: Supervisor,
     platform: Arc<dyn Platform>,
-    socket: SocketFile,
+    /// `None` where the OS has no local sockets.
+    socket: Option<SocketFile>,
     _lock: FileLock,
 }
 
@@ -220,34 +221,43 @@ pub struct ControlServer {
 
 impl ControlServer {
     /// Serve `supervisor` while holding `lock` (replacing a socket file a
-    /// dead process left behind).
+    /// dead process left behind). Where the OS has no local sockets it is
+    /// only run here: the lock still keeps it the user's only one.
     fn serve(platform: &Arc<dyn Platform>, supervisor: Supervisor, lock: FileLock) -> Result<Self> {
         let path = platform.state_dir()?.join(SOCKET_FILE);
         fsx::remove_any(&**platform, &path)?;
-        let listener = platform.bind_local_socket(&path)?;
+        let listener = match platform.bind_local_socket(&path) {
+            Ok(listener) => Some(listener),
+            Err(PlatformError::Unsupported(_)) => None,
+            Err(e) => return Err(e.into()),
+        };
+        let socket = listener.is_some().then(|| SocketFile {
+            platform: Arc::clone(platform),
+            path,
+        });
         let served = Arc::new(Served {
             supervisor,
             platform: Arc::clone(platform),
-            socket: SocketFile {
-                platform: Arc::clone(platform),
-                path,
-            },
+            socket,
             _lock: lock,
         });
         let conns = Arc::<Conns>::default();
         let stopping = Arc::new(AtomicBool::new(false));
-        let accept = {
-            let (served, conns) = (Arc::downgrade(&served), Arc::clone(&conns));
-            let stopping = Arc::clone(&stopping);
-            spawn("carrova-control-accept", move || {
-                accept_loop(&listener, &served, &conns, &stopping);
-            })?
+        let accept = match listener {
+            Some(listener) => {
+                let (served, conns) = (Arc::downgrade(&served), Arc::clone(&conns));
+                let stopping = Arc::clone(&stopping);
+                Some(spawn("carrova-control-accept", move || {
+                    accept_loop(&listener, &served, &conns, &stopping);
+                })?)
+            }
+            None => None,
         };
         Ok(Self {
             served,
             conns,
             stopping,
-            accept: Some(accept),
+            accept,
         })
     }
 
@@ -261,17 +271,16 @@ impl ControlServer {
 impl Drop for ControlServer {
     fn drop(&mut self) {
         self.stopping.store(true, Ordering::SeqCst);
-        // Wake the blocked accept; without that it can never be joined.
-        let socket = &self.served.socket.path;
-        match self.served.platform.connect_local_socket(socket) {
-            Ok(_) => {
-                if let Some(t) = self.accept.take()
-                    && t.join().is_err()
-                {
-                    tracing::warn!("control accept thread panicked");
+        if let (Some(accept), Some(socket)) = (self.accept.take(), &self.served.socket) {
+            // Wake the blocked accept; without that it can never be joined.
+            match self.served.platform.connect_local_socket(&socket.path) {
+                Ok(_) => {
+                    if accept.join().is_err() {
+                        tracing::warn!("control accept thread panicked");
+                    }
                 }
+                Err(e) => tracing::warn!(error = %e, "control accept thread left running"),
             }
-            Err(e) => tracing::warn!(error = %e, "control accept thread left running"),
         }
         // Connection threads hold the server only while serving a request,
         // so once they are hung up `served` drops with this.

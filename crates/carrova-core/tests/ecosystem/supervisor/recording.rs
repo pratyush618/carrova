@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io;
 use std::net::UdpSocket;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
@@ -28,6 +29,8 @@ pub enum Done {
 pub struct Recording {
     pub inner: FakePlatform,
     done: Mutex<Vec<Done>>,
+    /// Plays an OS without local sockets (Windows, macOS today).
+    no_local_socket: AtomicBool,
 }
 
 impl Recording {
@@ -35,7 +38,12 @@ impl Recording {
         Self {
             inner,
             done: Mutex::default(),
+            no_local_socket: AtomicBool::new(false),
         }
+    }
+
+    pub fn refuse_local_sockets(&self) {
+        self.no_local_socket.store(true, Ordering::SeqCst);
     }
 
     pub fn done(&self) -> Vec<Done> {
@@ -131,6 +139,9 @@ impl Platform for Recording {
         self.inner.try_lock_exclusive(path)
     }
     fn bind_local_socket(&self, path: &Path) -> Result<LocalListener, PlatformError> {
+        if self.no_local_socket.load(Ordering::SeqCst) {
+            return Err(PlatformError::Unsupported("bind_local_socket"));
+        }
         self.inner.bind_local_socket(path)
     }
     fn connect_local_socket(&self, path: &Path) -> Result<LocalStream, PlatformError> {

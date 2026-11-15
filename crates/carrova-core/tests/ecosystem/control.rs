@@ -120,3 +120,17 @@ fn dropped_server_frees_the_lock_despite_an_idle_client() {
     let next = attach_or_start(other_process(&low)).unwrap();
     assert!(matches!(next, SupervisorHandle::Local(_)));
 }
+
+#[test]
+fn runs_unserved_where_local_sockets_are_unsupported() {
+    let (low, high, _) = pair(&PolicyDoc::phone_defaults());
+    low.platform.refuse_local_sockets();
+
+    let handle = attach_or_start(low.engine.clone()).unwrap();
+
+    let SupervisorHandle::Local(server) = &handle else {
+        panic!("not local")
+    };
+    assert_eq!(server.supervisor().status()[0].id, high.id);
+    assert!(!socket(&low).exists());
+}
