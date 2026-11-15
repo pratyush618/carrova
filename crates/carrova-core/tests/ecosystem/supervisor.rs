@@ -3,6 +3,7 @@
 
 mod clip_settings;
 pub(crate) mod device;
+mod gating;
 mod recording;
 mod retry;
 
