@@ -153,7 +153,9 @@ describe('Add a device', () => {
   it('shows the phone found with its key, and Confirm confirms it', async () => {
     const user = userEvent.setup();
     const on = pairOn();
-    renderScreen(<AddDeviceDialog model={{ state: 'found', peer: pixelPeer }} on={on} />);
+    renderScreen(
+      <AddDeviceDialog model={{ state: 'found', peer: pixelPeer, answered: false }} on={on} />,
+    );
     const found = screen.getByRole('dialog', { name: 'Phone found' });
     expect(within(found).getByText('Pixel 8 · Android')).toBeInTheDocument();
     expect(within(found).getByText('C4D2·7781')).toBeInTheDocument();
@@ -166,7 +168,9 @@ describe('Add a device', () => {
     const user = userEvent.setup();
     const on = pairOn();
     const desk = { ...pixelPeer, name: 'Desk PC', os: 'linux' as const };
-    renderScreen(<AddDeviceDialog model={{ state: 'found', peer: desk }} on={on} />);
+    renderScreen(
+      <AddDeviceDialog model={{ state: 'found', peer: desk, answered: false }} on={on} />,
+    );
     expect(screen.getByRole('dialog', { name: 'Computer found' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Not my computer' }));
     expect(on.onNotMine).toHaveBeenCalledOnce();
