@@ -48,3 +48,11 @@ fn history_keeps_twenty_newest() {
     h.clear();
     assert_eq!(h.items().count(), 0);
 }
+
+#[test]
+fn debug_output_never_shows_clip_contents() {
+    let text = format!("{:?}", ClipItem::Text("hunter2".into()));
+    let png = format!("{:?}", ClipItem::Png(vec![0xAB; 3]));
+    assert!(!text.contains("hunter2") && text.contains("Text") && text.contains('7'));
+    assert!(!png.contains("171") && png.contains("Png") && png.contains('3'));
+}

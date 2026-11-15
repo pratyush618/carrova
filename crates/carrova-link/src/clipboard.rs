@@ -1,6 +1,7 @@
 //! Clipboard items, their size limits and the receive-side history.
 
 use std::collections::VecDeque;
+use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
@@ -13,8 +14,8 @@ pub const MAX_CLIP_PNG: usize = 10 << 20;
 /// Clips kept in [`ClipHistory`].
 const HISTORY_CAP: usize = 20;
 
-/// One clipboard payload.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// One clipboard payload. `Debug` prints only the kind and size, never contents.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ClipItem {
     /// UTF-8 text.
     Text(String),
@@ -33,6 +34,15 @@ impl ClipItem {
             return Err(LinkError::TooBig { len, max });
         }
         Ok(())
+    }
+}
+
+impl fmt::Debug for ClipItem {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Text(t) => write!(f, "Text({} bytes)", t.len()),
+            Self::Png(p) => write!(f, "Png({} bytes)", p.len()),
+        }
     }
 }
 
