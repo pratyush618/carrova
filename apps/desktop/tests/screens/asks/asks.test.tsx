@@ -50,6 +50,7 @@ describe('Asks', () => {
       done: 512,
       total: 1024,
       state: { kind: 'active' },
+      dismissed: false,
     } as const;
     const { rerender } = renderScreen(
       <TransferToast device="Pixel 8" transfer={transfer} onDismiss={vi.fn()} />,

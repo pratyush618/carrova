@@ -20,12 +20,14 @@ export interface Transfer {
   readonly done: number;
   readonly total: number;
   readonly state: TransferState;
+  /** The user closed its note; it stays (keeping its total) until it finishes. */
+  readonly dismissed: boolean;
 }
 
 /** What linked devices did that the UI shows outside any page. */
 export interface LinkState {
   readonly asks: readonly PendingAsk[];
-  /** Oldest first. */
+  /** Oldest first; a finished one goes once dismissed. */
   readonly transfers: readonly Transfer[];
   /** The clipboard this computer last kept to itself, and why. */
   readonly clip: { readonly reason: ClipSkip; readonly n: number } | null;
@@ -45,6 +47,9 @@ export type LinkAction =
 
 const baseName = (path: string): string => path.split(/[/\\]/).pop() ?? path;
 
+/** Finished and dismissed: nothing more will show it. */
+const gone = (t: Transfer): boolean => t.dismissed && t.state.kind !== 'active';
+
 /** `link` with the transfer `(device, id)` changed by `change` (a new one starts empty). */
 function updateTransfer(
   link: LinkState,
@@ -54,12 +59,20 @@ function updateTransfer(
 ): LinkState {
   const old = link.transfers.find((t) => t.device === device && t.id === id);
   const next = change(
-    old ?? { device, id, file_name: '', done: 0, total: 0, state: { kind: 'active' } },
+    old ?? {
+      device,
+      id,
+      file_name: '',
+      done: 0,
+      total: 0,
+      state: { kind: 'active' },
+      dismissed: false,
+    },
   );
-  return {
-    ...link,
-    transfers: old ? link.transfers.map((t) => (t === old ? next : t)) : [...link.transfers, next],
-  };
+  const transfers = old
+    ? link.transfers.map((t) => (t === old ? next : t))
+    : [...link.transfers, next];
+  return { ...link, transfers: transfers.filter((t) => !gone(t)) };
 }
 
 /** One linked-device event folded into `link`. */
@@ -109,11 +122,14 @@ export function applyLinkAction(link: LinkState, action: LinkAction): LinkState 
   switch (action.type) {
     case 'ask_answered':
       return { ...link, asks: link.asks.filter((a) => a.id !== action.id) };
-    case 'transfer_dismissed':
-      return {
-        ...link,
-        transfers: link.transfers.filter((t) => t.device !== action.device || t.id !== action.id),
-      };
+    case 'transfer_dismissed': {
+      // Older finished ones were behind it: they go with it.
+      const at = link.transfers.findIndex((t) => t.device === action.device && t.id === action.id);
+      const transfers = link.transfers.map((t, i) =>
+        i === at || (i < at && t.state.kind !== 'active') ? { ...t, dismissed: true } : t,
+      );
+      return { ...link, transfers: transfers.filter((t) => !gone(t)) };
+    }
     case 'clip_dismissed':
       return { ...link, clip: null };
   }

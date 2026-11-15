@@ -169,7 +169,15 @@ describe('appReducer peer facts', () => {
       { id: 7, device: 'p8', kind: { kind: 'file', name: 'a.pdf', size: 9 } },
     ]);
     expect(state.link.transfers).toEqual([
-      { device: 'p8', id: 1, file_name: 'a.pdf', done: 9, total: 9, state: { kind: 'done' } },
+      {
+        device: 'p8',
+        id: 1,
+        file_name: 'a.pdf',
+        done: 9,
+        total: 9,
+        state: { kind: 'done' },
+        dismissed: false,
+      },
     ]);
     expect(state.link.clip?.reason).toBe('sensitive');
 
@@ -177,5 +185,39 @@ describe('appReducer peer facts', () => {
     expect(expired.link.asks).toEqual([]);
     const answered = appReducer(state, { type: 'ask_answered', id: 7 });
     expect(answered.link.asks).toEqual([]);
+  });
+
+  it('keeps a transfer dismissed while it runs on, and drops it once finished', () => {
+    const link = (state: AppState, event: EngineEvent) =>
+      appReducer(state, { type: 'engine', session: LINK_SESSION, event });
+    let state = link(initialAppState, {
+      event: 'file_progress',
+      device: 'p8',
+      id: 1,
+      done: 0,
+      total: 9,
+    });
+    state = link(state, { event: 'file_progress', device: 'p8', id: 2, done: 2, total: 8 });
+    state = appReducer(state, { type: 'transfer_dismissed', device: 'p8', id: 2 });
+    state = link(state, { event: 'file_progress', device: 'p8', id: 2, done: 4, total: 8 });
+    expect(state.link.transfers.find((t) => t.id === 2)).toMatchObject({
+      done: 4,
+      total: 8,
+      dismissed: true,
+    });
+    // The newest one still shown is the other file, not the one dismissed.
+    expect(state.link.transfers.filter((t) => !t.dismissed).map((t) => t.id)).toEqual([1]);
+
+    state = link(state, { event: 'file_saved', device: 'p8', id: 2, path: '/d/b.pdf' });
+    expect(state.link.transfers.map((t) => t.id)).toEqual([1]);
+  });
+
+  it('dismissing the newest finished transfer also lets the older finished ones go', () => {
+    const link = (state: AppState, event: EngineEvent) =>
+      appReducer(state, { type: 'engine', session: LINK_SESSION, event });
+    let state = link(initialAppState, { event: 'file_saved', device: 'p8', id: 1, path: '/d/a' });
+    state = link(state, { event: 'file_saved', device: 'p8', id: 2, path: '/d/b' });
+    state = appReducer(state, { type: 'transfer_dismissed', device: 'p8', id: 2 });
+    expect(state.link.transfers).toEqual([]);
   });
 });
