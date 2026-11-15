@@ -1,5 +1,8 @@
 //! Link errors.
 
+use carrova_transport::TransportError;
+
+use crate::lane::RefuseReason;
 use crate::policy::{Feature, FeatureState};
 
 /// Failures of the link layer.
@@ -24,4 +27,10 @@ pub enum LinkError {
     /// A handed-off URL is not an absolute http(s) URL with a host.
     #[error("only http and https URLs with a host can be handed off")]
     UnsafeUrl,
+    /// The peer refused the lane, or this side refused the peer's.
+    #[error("lane refused: {0:?}")]
+    Refused(RefuseReason),
+    /// The transport failed.
+    #[error(transparent)]
+    Transport(#[from] TransportError),
 }

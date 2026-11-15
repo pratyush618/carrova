@@ -8,12 +8,15 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+carrova-transport = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 ts-rs = { workspace = true, optional = true }
 url = { workspace = true }
 
 [dev-dependencies]
+carrova-crypto = { workspace = true }
+carrova-platform = { workspace = true }
 serde_json = { workspace = true }
 
 [features]

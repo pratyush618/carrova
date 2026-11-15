@@ -4,7 +4,9 @@ mod clipboard;
 mod error;
 mod file;
 mod handoff;
+mod lane;
 mod name;
+mod ping;
 mod policy;
 mod ring;
 
@@ -12,6 +14,8 @@ pub use clipboard::{ClipHistory, ClipItem, MAX_CLIP_PNG, MAX_CLIP_TEXT};
 pub use error::LinkError;
 pub use file::{FileOffer, OfferAnswer};
 pub use handoff::{Handoff, SafeUrl, check_url};
+pub use lane::{LaneGate, LaneKind, LaneOpen, LaneReply, RefuseReason, accept_lane, open_lane};
 pub use name::safe_file_name;
+pub use ping::{ping, serve_ping};
 pub use policy::{Feature, FeatureState, Group, PolicyDoc, allowed};
 pub use ring::{RING_SECONDS, RingMsg};
