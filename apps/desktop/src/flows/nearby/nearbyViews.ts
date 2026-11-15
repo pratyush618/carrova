@@ -47,13 +47,13 @@ function awayEntry(record: KnownDeviceView): DeviceEntry {
     canWake: record.has_wake_hint,
   };
 }
-
-/** A linked device that did not answer the browse (a phone never does), up or away. */
+/** A linked device that did not answer the browse (a phone never does); still connecting counts as away. */
+/** A linked device that did not answer the browse (a phone never does), linked now or not (connecting counts as not yet). */
 const linkedEntry = (
   device: LinkedDeviceView,
   record: KnownDeviceView | undefined,
 ): DeviceEntry => {
-  const up = device.state !== 'away';
+  const up = device.state === 'linked';
   return {
     key: device.id,
     id: device.id,
@@ -89,7 +89,7 @@ export function nearbyEntries(
     taken.add(key);
     return key;
   };
-  const up = new Set(linked.flatMap((d) => (d.state === 'away' ? [] : [d.id])));
+  const up = new Set(linked.flatMap((d) => (d.state === 'linked' ? [d.id] : [])));
   const markLinked = (entry: DeviceEntry): DeviceEntry =>
     entry.id !== null && up.has(entry.id) ? { ...entry, kind: 'linked' } : entry;
   const away = known.filter((record) => !answered.has(record.id) && !up.has(record.id));
@@ -110,7 +110,7 @@ export function nearbyEntries(
     away: [
       ...away.map(awayEntry),
       ...linked
-        .filter((d) => d.state === 'away' && !remembered.has(d.id))
+        .filter((d) => d.state !== 'linked' && !remembered.has(d.id))
         .map((d) => linkedEntry(d, undefined)),
     ],
   };

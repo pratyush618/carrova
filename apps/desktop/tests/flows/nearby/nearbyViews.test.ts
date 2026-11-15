@@ -111,4 +111,22 @@ describe('nearby views', () => {
     ]);
     expect(away.map((d) => [d.key, d.kind])).toEqual([['o3', 'away']]);
   });
+
+  it('badges only a link that is up, not one still connecting', () => {
+    const view = (id: string, name: string): LinkedDeviceView => ({
+      id,
+      name,
+      os: 'linux',
+      fingerprint: 'AAAA·BBBB',
+      state: 'connecting',
+      features: [],
+    });
+    const { here, away } = nearbyEntries(
+      [answer({ known: true, id: 'a1', name: "Ana's laptop", fingerprint: 'A100·0000' })],
+      [record('a1', "Ana's laptop")],
+      [view('a1', "Ana's laptop"), view('p8', 'Pixel 8')],
+    );
+    expect(here.map((d) => [d.key, d.kind])).toEqual([['a1', 'known']]);
+    expect(away.map((d) => [d.key, d.kind])).toEqual([['p8', 'away']]);
+  });
 });
