@@ -125,6 +125,14 @@ mobile only). No own camera code.
 condition goes in `src-tauri`; everything Android-specific stays in
 `carrova-platform` or the Kotlin glue.
 
+**Amended 2026-11-15 (user sign-off):** `src-tauri` may also use Tauri's
+own `desktop` / `mobile` cfgs to gate desktop-only or mobile-only plugins
+and window chrome (tray, single-instance, window events). They never gate
+business logic. `cfg(target_os)` stays forbidden in `src-tauri`. The
+mobile entry attribute sits on a small `mobile_main()` wrapper around
+`run()` (the macro drops `run()`'s `Result`), the one item with
+`#[allow(unsafe_code)]`; `src-tauri` sets `unsafe_code = "deny"`.
+
 ## Alternatives considered
 
 | Option | Why not |
