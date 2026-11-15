@@ -36,6 +36,9 @@ const LOCK_FILE: &str = "link.lock";
 const SOCKET_FILE: &str = "link.sock";
 /// How long a client waits for a just-started supervisor to listen.
 const CONNECT_WAIT: Duration = Duration::from_secs(5);
+/// First and longest wait before accepting again after a failed accept.
+const ACCEPT_BACKOFF_MIN: Duration = Duration::from_millis(100);
+const ACCEPT_BACKOFF_MAX: Duration = Duration::from_secs(5);
 
 /// What a client asks the supervisor (its [`Supervisor`] call of the same
 /// name). Its `Debug` leaves out paths.
@@ -230,6 +233,7 @@ impl Drop for ControlServer {
 }
 
 fn accept_loop(listener: &LocalListener, served: &Arc<Served>, stopping: &AtomicBool) {
+    let mut backoff = ACCEPT_BACKOFF_MIN;
     loop {
         let accepted = listener.accept();
         if stopping.load(Ordering::SeqCst) {
@@ -237,6 +241,7 @@ fn accept_loop(listener: &LocalListener, served: &Arc<Served>, stopping: &Atomic
         }
         match accepted {
             Ok(stream) => {
+                backoff = ACCEPT_BACKOFF_MIN;
                 let served = Arc::clone(served);
                 // Not joined: a request may block for minutes (a file ask).
                 let spawned = spawn("carrova-control-conn", move || {
@@ -254,9 +259,11 @@ fn accept_loop(listener: &LocalListener, served: &Arc<Served>, stopping: &Atomic
                         | io::ErrorKind::ConnectionAborted
                         | io::ErrorKind::Interrupted
                 ) => {}
+            // E.g. out of descriptors: retry, as the lock keeps others out.
             Err(e) => {
-                tracing::warn!(error = %e, "control socket stopped accepting");
-                return;
+                tracing::warn!(error = %e, "control socket accept failed; retrying");
+                thread::sleep(backoff);
+                backoff = (backoff * 2).min(ACCEPT_BACKOFF_MAX);
             }
         }
     }
