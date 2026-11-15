@@ -270,7 +270,8 @@ fn serve_connection(mut stream: LocalStream, served: &Served) {
             Ok(Some(request)) => served.serve(request),
             Ok(None) => return,
             Err(e) => {
-                tracing::debug!(error = %e, "bad control request");
+                // Not the error itself: a decode error echoes the input.
+                tracing::debug!("unreadable control request");
                 let _ = write_message(&mut stream, &ControlResponse::Failed(e.to_string()));
                 return;
             }
