@@ -17,5 +17,7 @@ pub use handoff::{Handoff, SafeUrl, check_url};
 pub use lane::{LaneGate, LaneKind, LaneOpen, LaneReply, RefuseReason, accept_lane, open_lane};
 pub use name::safe_file_name;
 pub use ping::{ping, serve_ping};
-pub use policy::{Feature, FeatureState, Group, PolicyDoc, allowed};
+pub use policy::{
+    Feature, FeatureState, Group, PolicyDoc, PolicyUpdate, allowed, recv_policy, send_policy,
+};
 pub use ring::{RING_SECONDS, RingMsg};

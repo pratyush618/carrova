@@ -1,5 +1,8 @@
 //! Public-API tests for the feature policy and two-sided gate.
 
+#[path = "../support/mod.rs"]
+mod support;
+
 use FeatureState::{Ask, Off, On};
 use carrova_link::{Feature, FeatureState, Group, LinkError, PolicyDoc, allowed};
 
@@ -124,4 +127,45 @@ fn invalid_group_state_reads_off() {
     assert_eq!(files_on.get(Feature::Files), Off);
     assert_eq!(allowed(&files_on, &files_on, Feature::Files), Off);
     assert_eq!(doc(Feature::Ring, Ask).get(Feature::Ring), Off);
+}
+
+#[test]
+fn policy_lane_roundtrip_drops_unknown_features() {
+    use carrova_link::{LaneKind, accept_lane, open_lane, recv_policy, send_policy};
+    use serde::Serialize;
+
+    struct Open;
+    impl carrova_link::LaneGate for Open {
+        fn admit(&self, _: LaneKind) -> Result<(), carrova_link::RefuseReason> {
+            Ok(())
+        }
+    }
+    #[derive(Serialize)]
+    struct Newer {
+        version: u32,
+        features: std::collections::BTreeMap<&'static str, &'static str>,
+    }
+
+    let (a, b) = support::linked();
+    std::thread::scope(|s| {
+        let peer = s.spawn(|| {
+            let (kind, mut stream) = accept_lane(&b, &Open, support::T).unwrap();
+            assert_eq!(kind, LaneKind::Policy);
+            let first = recv_policy(&mut stream, support::T).unwrap();
+            // A newer peer's document: unknown feature and state are tolerated.
+            stream
+                .send(&Newer {
+                    version: 2,
+                    features: [("clipboard", "on"), ("teleport", "ask")].into(),
+                })
+                .unwrap();
+            first
+        });
+        let mut stream = open_lane(&a, LaneKind::Policy).unwrap();
+        send_policy(&mut stream, &PolicyDoc::phone_defaults()).unwrap();
+        let theirs = recv_policy(&mut stream, support::T).unwrap();
+        assert_eq!(peer.join().unwrap(), PolicyDoc::phone_defaults());
+        assert_eq!(theirs.get(Feature::Clipboard), On);
+        assert_eq!(theirs.features.len(), 1);
+    });
 }

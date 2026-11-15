@@ -1,7 +1,9 @@
 //! Feature policy documents and the two-sided gate.
 
 use std::collections::BTreeMap;
+use std::time::Duration;
 
+use carrova_transport::Stream;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::LinkError;
@@ -129,6 +131,21 @@ impl PolicyDoc {
     pub fn computer_defaults() -> Self {
         Self::with(Feature::PHASE1.map(|f| (f, FeatureState::Off)))
     }
+}
+
+/// Policy lane message: the sender's whole document, decoded tolerantly
+/// by [`PolicyDoc`] itself.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PolicyUpdate(pub PolicyDoc);
+
+/// Send `doc` on a policy lane.
+pub fn send_policy(stream: &mut Stream, doc: &PolicyDoc) -> Result<(), LinkError> {
+    Ok(stream.send(&PolicyUpdate(doc.clone()))?)
+}
+
+/// Receive the peer's policy document, waiting at most `t`.
+pub fn recv_policy(stream: &mut Stream, t: Duration) -> Result<PolicyDoc, LinkError> {
+    Ok(stream.recv::<PolicyUpdate>(t)?.0)
 }
 
 /// Effective state of `f` on a link: `Off` if either side is off, else the
