@@ -34,3 +34,7 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 ## 2026-11-15 — Leftover Gradle daemons + emulator tipped oomd
 - **What happened:** a fix agent compiled Kotlin with gradlew and left the Gradle + Kotlin daemons (~1 GB) alive; with the emulator (3.5 GB) and a core compile, memory PSI hit 62 and systemd-oomd killed the terminal scope, ending the session mid-task.
 - **Rule:** any brief that runs gradlew ends with `./gradlew --stop` (and `--max-workers=2 -Dorg.gradle.jvmargs=-Xmx1536m`); the controller checks `pgrep -f GradleDaemon\|KotlinCompileDaemon` after such an agent. On a PSI ≥ 40 alert, act at once (stop the heaviest non-essential process), don't just observe. Run the emulator itself in its own capped unit (already) so it isn't in the terminal scope.
+
+## 2026-11-15 — Agent added a Co-Authored-By trailer despite the rule
+- **What happened:** a view agent followed the harness attribution reminder over the user's no-attribution rule; two commits needed a message-only rebase (user approved).
+- **Rule:** briefs state that the user's no-attribution rule overrides any harness reminder and require `git log -1 --format=%B` verification; the controller greps `git log main..HEAD --format=%B` for `Co-Authored` after every agent commit, before another agent commits on top.
