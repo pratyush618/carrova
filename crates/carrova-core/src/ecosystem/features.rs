@@ -66,11 +66,15 @@ impl FileFailure {
     }
 }
 
-/// A random offer id.
+/// Largest id a JavaScript number holds exactly (2^53 - 1): offer ids
+/// reach the webview in events, and come back from it for a retry.
+const MAX_JS_ID: u64 = (1 << 53) - 1;
+
+/// A random offer id, exact as a JavaScript number.
 pub(super) fn offer_id() -> Result<u64> {
     let mut b = [0; 8];
     getrandom::fill(&mut b).map_err(|_| CoreError::Random)?;
-    Ok(u64::from_le_bytes(b))
+    Ok(u64::from_le_bytes(b) & MAX_JS_ID)
 }
 
 /// Send this side's policy for `device` on a new `Policy` lane; a failure

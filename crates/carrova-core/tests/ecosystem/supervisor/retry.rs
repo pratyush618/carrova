@@ -34,6 +34,10 @@ fn a_file_whose_device_left_can_be_sent_again() {
         unreachable!()
     };
 
+    // The webview reads the id as a JS number (f64): it must come back exact.
+    let as_js = serde_json::to_value(id).unwrap().as_f64().unwrap();
+    assert_eq!(format!("{as_js:.0}"), id.to_string(), "the id rounds in JS");
+
     let sh = high.start(fast());
     low.sees(&high, &sh);
     high.sees(&low, &sl);
