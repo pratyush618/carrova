@@ -6,9 +6,12 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.widget.Toast
 import java.io.File
-import java.util.UUID
+import java.io.InputStream
+import java.io.OutputStream
 import org.byteveda.Carrova.MainActivity
+import org.byteveda.Carrova.R
 
 /**
  * Share target: hands what another app shares to the app as links (tao delivers them to Rust as
@@ -16,6 +19,11 @@ import org.byteveda.Carrova.MainActivity
  * first and passed as `file:` links: Rust sends paths, and the read grant is this activity's.
  */
 class ShareActivity : Activity() {
+    private companion object {
+        /** Largest share copied at once (all its files together): 2 GiB. */
+        const val MAX_SHARE_BYTES = 2L shl 30
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val streams = streams(intent)
@@ -27,7 +35,16 @@ class ShareActivity : Activity() {
         // Copying can take a while: off the main thread.
         Thread {
             val copies = copies(streams)
-            runOnUiThread { if (copies.isEmpty()) finish() else forward(filesIntent(copies)) }
+            runOnUiThread {
+                when {
+                    copies == null -> {
+                        Toast.makeText(this, R.string.too_big_to_share, Toast.LENGTH_LONG).show()
+                        finish()
+                    }
+                    copies.isEmpty() -> finish()
+                    else -> forward(filesIntent(copies))
+                }
+            }
         }.start()
     }
 
@@ -53,23 +70,43 @@ class ShareActivity : Activity() {
     }
 
     /**
-     * Each stream copied to `files/cache/shared/<share>/<n>/<name>` (unreadable ones are left
-     * out). Rust admits `file:` links only inside that dir (its cache root + `shared`).
+     * Each stream copied to `files/cache/shared/<n>/<name>` (unreadable ones are left out),
+     * after the last share's copies are deleted. Rust admits `file:` links only inside that dir
+     * (its cache root + `shared`). Null, with nothing kept, if together they pass [MAX_SHARE_BYTES].
      */
-    // shortcut: copies stay until Android clears the cache; delete them after sending if space matters.
-    private fun copies(streams: List<Uri>): List<Uri> {
-        val share = File(filesDir, "cache/shared/${UUID.randomUUID()}")
-        return streams.mapIndexedNotNull { index, uri ->
+    private fun copies(streams: List<Uri>): List<Uri>? {
+        val shared = File(filesDir, "cache/shared")
+        shared.deleteRecursively()
+        var left = MAX_SHARE_BYTES
+        val copies = streams.mapIndexedNotNull { index, uri ->
             try {
-                val dir = File(share, index.toString()).apply { mkdirs() }
+                val dir = File(shared, index.toString()).apply { mkdirs() }
                 val file = File(dir, displayName(uri))
                 val input = contentResolver.openInputStream(uri) ?: return@mapIndexedNotNull null
-                input.use { source -> file.outputStream().use { source.copyTo(it) } }
+                left -= input.use { source -> file.outputStream().use { copyUpTo(source, it, left) } }
+                if (left < 0) {
+                    shared.deleteRecursively()
+                    return null
+                }
                 Uri.fromFile(file)
-            } catch (e: Exception) {
+            } catch (e: Exception) { // unreadable or not granted: left out
                 null
             }
         }
+        return copies
+    }
+
+    /** Copy at most [limit] + 1 bytes (one past says "too big"); the count copied. */
+    private fun copyUpTo(source: InputStream, sink: OutputStream, limit: Long): Long {
+        val buffer = ByteArray(64 * 1024)
+        var copied = 0L
+        while (copied <= limit) {
+            val read = source.read(buffer)
+            if (read < 0) break
+            sink.write(buffer, 0, read)
+            copied += read
+        }
+        return copied
     }
 
     /** The stream's file name, without any path. */
