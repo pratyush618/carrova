@@ -61,6 +61,9 @@ struct TrayShown {
     visible_to: Mutex<Option<VisibilityChoice>>,
     /// Watches the saved visibility for changes made elsewhere (held only).
     _watch: Mutex<Option<DirWatch>>,
+    /// The devices linked at the last look ([`look_for_links`]): the menu
+    /// is built on the main thread, which must not wait on the supervisor.
+    linked: Mutex<Vec<LinkedDeviceView>>,
 }
 
 /// Start-up: open the window, or with `--background` do what closing it
@@ -70,15 +73,13 @@ pub fn start(app: &AppHandle, state: &AppState, in_background: bool) {
         _watch: Mutex::new(follow_visibility(app, state)),
         ..TrayShown::default()
     });
+    look_for_links(app);
     let handle = app.clone();
     app.listen_any(EVENT_CHANNEL, move |event| {
-        let link_changed = is_link_change(event.payload());
-        on_main(&handle, move |app| {
-            on_bridge_event(app);
-            if link_changed {
-                refresh_shown_tray(app);
-            }
-        });
+        if is_link_change(event.payload()) {
+            look_for_links(&handle);
+        }
+        on_main(&handle, on_bridge_event);
     });
     let action = if in_background {
         background::close_action(state)
@@ -90,6 +91,7 @@ pub fn start(app: &AppHandle, state: &AppState, in_background: bool) {
         && show_tray(app, state).is_ok()
     {
         count_nearby(app);
+        look_for_links(app);
         return;
     }
     let window = open_main(app);
@@ -155,6 +157,7 @@ pub fn on_window_event(window: &Window, event: &WindowEvent) {
         && show_tray(app, &state).is_ok();
     if tray {
         count_nearby(app);
+        look_for_links(app);
     }
     // Closed, the tray keeps the app running (`on_run_event`).
     if (tray && action == CloseAction::CloseToTray) || action == CloseAction::Exit {
@@ -260,6 +263,22 @@ fn count_nearby(app: &AppHandle) {
     });
 }
 
+/// Look up the linked devices off the main thread, then show them in the
+/// tray menu (if it still shows).
+fn look_for_links(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(state) = app.try_state::<AppState>() else {
+            return;
+        };
+        let linked = ecosystem::linked_now(&state);
+        if let Some(flags) = tray_flags(&app) {
+            *flags.linked.lock().unwrap_or_else(PoisonError::into_inner) = linked;
+        }
+        on_main(&app, refresh_shown_tray);
+    });
+}
+
 /// Run `f` on the main thread, where the window and tray icon change
 /// ([`open_main`] too): a "tray shows" check there holds until `f` is done,
 /// so a tray hidden meanwhile is not shown again.
@@ -353,9 +372,14 @@ fn set_menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<()> {
             .and_then(|f| *f.nearby.lock().unwrap_or_else(PoisonError::into_inner)),
         ..model.clone()
     };
-    let linked = app
-        .try_state::<AppState>()
-        .map(|state| ecosystem::linked_now(&state))
+    let linked = flags
+        .as_ref()
+        .map(|f| {
+            f.linked
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clone()
+        })
         .unwrap_or_default();
     let menu = menu(app, model, &linked)?;
     if let Some(flags) = flags {
