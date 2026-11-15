@@ -193,6 +193,7 @@ pub fn run() -> tauri::Result<()> {
             commands::ecosystem::send_files,
             commands::ecosystem::handoff_url,
             commands::ecosystem::ring,
+            commands::ecosystem::stop_ring,
             commands::ecosystem::clip_history,
             commands::ecosystem::clear_clip_history,
             commands::ecosystem::clip_settings,

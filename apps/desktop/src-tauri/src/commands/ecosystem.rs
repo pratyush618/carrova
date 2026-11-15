@@ -138,6 +138,16 @@ pub async fn ring(
     reply(&app, ops::ecosystem::ring(&state, id).await)
 }
 
+/// `CarrovaPort.stopRing`.
+#[tauri::command]
+pub async fn stop_ring(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: DeviceId,
+) -> Result<(), CommandError> {
+    reply(&app, ops::ecosystem::stop_ring(&state, id).await)
+}
+
 /// `CarrovaPort.clipHistory`.
 #[tauri::command]
 pub async fn clip_history(state: State<'_, AppState>) -> Result<ClipHistoryView, CommandError> {

@@ -148,6 +148,18 @@ fn ops_retry_of_an_unknown_file_errors() {
 }
 
 #[test]
+fn ops_stop_ring_reaches_the_supervisor() {
+    let machine = Machine::new();
+    remember(&machine, 1, "Pixel 8");
+    let state = served(&machine);
+
+    // Known but not linked: the supervisor's own refusal comes back.
+    let stopped = block_on(ecosystem::stop_ring(&state, public(1)));
+
+    assert!(stopped.is_err());
+}
+
+#[test]
 fn start_once_starts_one_supervisor_for_racing_starters() {
     let machine = Machine::new();
     let slot = OnceLock::new();

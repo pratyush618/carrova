@@ -375,6 +375,15 @@ pub async fn ring(state: &AppState, device: DeviceId) -> Result<(), CommandError
     with_link(state, move |link| link.ring(&device)).await
 }
 
+/// Stop `device` ringing.
+///
+/// # Errors
+///
+/// As [`ring`].
+pub async fn stop_ring(state: &AppState, device: DeviceId) -> Result<(), CommandError> {
+    with_link(state, move |link| link.stop_ring(&device)).await
+}
+
 /// The clips received, newest first.
 ///
 /// # Errors
