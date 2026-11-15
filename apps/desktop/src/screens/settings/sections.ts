@@ -1,7 +1,17 @@
 import type { IconName } from '../../ui';
 
 export type SettingsSection =
-  'general' | 'sending' | 'nearby' | 'notifications' | 'moves' | 'privacy' | 'updates' | 'about';
+  | 'general'
+  | 'features'
+  | 'linked'
+  | 'clipboard'
+  | 'sending'
+  | 'nearby'
+  | 'notifications'
+  | 'moves'
+  | 'privacy'
+  | 'updates'
+  | 'about';
 
 /** The title of every Settings row, by the id search and the sections share. */
 export const ROW_TITLE = {
@@ -10,6 +20,15 @@ export const ROW_TITLE = {
   keepRunning: 'settings.background.keepRunning',
   startAtLogin: 'settings.background.startAtLogin',
   lean: 'settings.background.lean',
+  featureClipboard: 'ecosystem.features.clipboard.title',
+  featureRing: 'ecosystem.features.ring.title',
+  featureFiles: 'ecosystem.features.files.title',
+  featureHandoff: 'ecosystem.features.handoff.title',
+  addPhone: 'ecosystem.nearby.addPhone',
+  linkComputer: 'ecosystem.nearby.linkComputer',
+  clipHistory: 'ecosystem.settings.history',
+  clipPasswords: 'ecosystem.settings.passwords',
+  clipLimits: 'ecosystem.settings.limits',
   manual: 'settings.sending.manual',
   fileManager: 'settings.sending.fileManager',
   caches: 'settings.moves.caches',
@@ -52,6 +71,13 @@ export const SECTIONS: readonly SectionDef[] = [
     icon: 'settings',
     rows: ['theme', 'motion', 'keepRunning', 'startAtLogin', 'lean'],
   },
+  {
+    id: 'features',
+    icon: 'swap',
+    rows: ['featureClipboard', 'featureRing', 'featureFiles', 'featureHandoff'],
+  },
+  { id: 'linked', icon: 'phone', rows: ['addPhone', 'linkComputer'] },
+  { id: 'clipboard', icon: 'copy', rows: ['clipHistory', 'clipPasswords', 'clipLimits'] },
   { id: 'sending', icon: 'send', rows: ['manual', 'fileManager', 'caches'] },
   {
     id: 'nearby',

@@ -11,6 +11,9 @@ export const settings = {
   },
   sections: {
     general: 'General',
+    features: 'Features',
+    linked: 'Linked devices',
+    clipboard: 'Clipboard',
     sending: 'Sending',
     nearby: 'Nearby & devices',
     notifications: 'Notifications',

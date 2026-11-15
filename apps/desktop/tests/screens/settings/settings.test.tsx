@@ -32,6 +32,10 @@ const settingsOn = (): SettingsIntents => ({
   onPause: vi.fn(),
   onSection: vi.fn(),
   onBack: vi.fn(),
+  onOpenDevice: vi.fn(),
+  onAddPhone: vi.fn(),
+  onLinkComputer: vi.fn(),
+  onClipHistory: vi.fn(),
 });
 
 /** The page opened on `section`. */
@@ -39,13 +43,15 @@ const inSection = (
   section: SettingsSection,
   on: SettingsIntents,
   model: Partial<SettingsModel> = {},
-) => <SettingsScreen section={section} model={{ ...settingsModel, ...model }} on={on} />;
+) => (
+  <SettingsScreen section={section} model={{ ...settingsModel, ...model }} on={on} linked={[]} />
+);
 
 describe('Settings', () => {
   it('swaps the sidebar for the sections, with a back button', async () => {
     const user = userEvent.setup();
     const on = settingsOn();
-    renderScreen(<SettingsScreen section="general" model={settingsModel} on={on} />);
+    renderScreen(<SettingsScreen section="general" model={settingsModel} on={on} linked={[]} />);
     const sections = screen.getByRole('navigation', { name: 'Settings sections' });
     expect(
       within(sections)
@@ -53,6 +59,9 @@ describe('Settings', () => {
         .map((b) => b.textContent),
     ).toEqual([
       'General',
+      'Features',
+      'Linked devices',
+      'Clipboard',
       'Sending',
       'Nearby & devices',
       'Notifications',
@@ -129,7 +138,7 @@ describe('Settings', () => {
   it('searches every section and opens the one a result belongs to', async () => {
     const user = userEvent.setup();
     const on = settingsOn();
-    renderScreen(<SettingsScreen section="general" model={settingsModel} on={on} />);
+    renderScreen(<SettingsScreen section="general" model={settingsModel} on={on} linked={[]} />);
     await user.type(screen.getByRole('searchbox', { name: 'Search settings' }), 'wake');
     expect(screen.getByText('2 results for “wake”')).toBeInTheDocument();
     expect(

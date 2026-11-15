@@ -124,6 +124,11 @@ export interface SettingsIntents {
   readonly onAlerts: (patch: Partial<AlertSettings>) => void;
   readonly onPause: (choice: PauseChoice) => void;
   readonly onSection: (section: SettingsSection) => void;
+  readonly onOpenDevice: (id: string) => void;
+  readonly onAddPhone: () => void;
+  readonly onLinkComputer: () => void;
+  /** Open the clipboard history sheet. */
+  readonly onClipHistory: () => void;
   /** Leave Settings for the page it was opened from. */
   readonly onBack: () => void;
 }

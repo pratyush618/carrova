@@ -9,6 +9,7 @@ import {
 import type { CatalogModel } from '../../screens/apps/model';
 import { HistoryScreen } from '../../screens/history/HistoryScreen';
 import { historyEmpty, historyTimeline, historyUndone } from '../../screens/history/fixtures';
+import { pixel } from '../../screens/devices/fixtures';
 import { NearbyScreen } from '../../screens/nearby/NearbyScreen';
 import {
   nearbyEmpty,
@@ -72,13 +73,21 @@ const settingsOn = noops(
   'onPause',
   'onSection',
   'onBack',
+  'onOpenDevice',
+  'onAddPhone',
+  'onLinkComputer',
+  'onClipHistory',
 );
 const SETTINGS = {
   notes: settingsFileManagerNotes,
   unsupported: settingsNoFileManager,
 } as const;
-const settingsBase = <SettingsScreen section="general" model={settingsModel} on={settingsOn} />;
-const settingsNearby = <SettingsScreen section="nearby" model={settingsModel} on={settingsOn} />;
+const settingsBase = (
+  <SettingsScreen section="general" model={settingsModel} on={settingsOn} linked={[pixel]} />
+);
+const settingsNearby = (
+  <SettingsScreen section="nearby" model={settingsModel} on={settingsOn} linked={[pixel]} />
+);
 const nearbyOn = noops(
   'onView',
   'onSelect',
@@ -174,7 +183,9 @@ export const hubScreens: readonly GalleryScreen[] = [
       const section =
         SECTIONS.find(({ id }) => id === s)?.id ??
         (fixture === settingsModel ? 'general' : 'sending');
-      return { base: <SettingsScreen section={section} model={fixture} on={settingsOn} /> };
+      return {
+        base: <SettingsScreen section={section} model={fixture} on={settingsOn} linked={[pixel]} />,
+      };
     },
   },
   {

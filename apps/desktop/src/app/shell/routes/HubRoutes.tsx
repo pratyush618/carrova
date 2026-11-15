@@ -201,7 +201,7 @@ export function AppsRoute() {
 }
 
 export function SettingsRoute({ section }: { readonly section: SettingsSection }) {
-  const { settings, update, report, devices } = useControllers();
+  const { settings, update, report, devices, linked } = useControllers();
   const nav = useNav();
   const { model } = settings;
   if (model === null) return <HubLayout>{null}</HubLayout>;
@@ -209,7 +209,20 @@ export function SettingsRoute({ section }: { readonly section: SettingsSection }
     <SettingsScreen
       section={section}
       model={model}
+      linked={linked.devices}
       on={{
+        onOpenDevice: (id) => {
+          nav.go({ type: 'openDevice', id });
+        },
+        onAddPhone: () => {
+          nav.open({ kind: 'add-phone' });
+        },
+        onLinkComputer: () => {
+          nav.open({ kind: 'link-computer' });
+        },
+        onClipHistory: () => {
+          nav.open({ kind: 'clip-history' });
+        },
         onSection: (next) => {
           nav.go({ type: 'openHub', page: 'settings', section: next });
         },
