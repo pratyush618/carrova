@@ -133,6 +133,22 @@ mobile entry attribute sits on a small `mobile_main()` wrapper around
 `run()` (the macro drops `run()`'s `Result`), the one item with
 `#[allow(unsafe_code)]`; `src-tauri` sets `unsafe_code = "deny"`.
 
+**Amended 2026-11-15 (user sign-off, Task 21):** the allow-list gains a
+second `src-tauri` item: `Java_org_byteveda_carrova_LinkService_startSupervisor`
+in `apps/desktop/src-tauri/src/mobile.rs`, a `#[unsafe(no_mangle)] extern
+"C"` function with one scoped `#[allow(unsafe_code, non_snake_case)]`. It
+holds no `unsafe` block: `no_mangle` is the flagged part. It calls
+`carrova_platform::attach_service_context` first (every platform call
+panics until a context exists, and a panic there aborts the process),
+then starts the supervisor on its own thread through
+`ops::ecosystem::start_process_link`. That start and the app's `setup`
+share one process-wide slot (`ops::ecosystem::process_link`) and a
+serialised `start_once`, so the supervisor starts once per process and
+`setup` serves the one the service started. On mobile the app refuses
+`RunEvent::ExitRequested` (no exit code) and re-creates the window for
+the next activity, so closing the app leaves the process and supervisor
+running under `LinkService`.
+
 ## Alternatives considered
 
 | Option | Why not |
