@@ -12,7 +12,8 @@ export interface RetryFailure {
 
 /**
  * The newest file transfer not dismissed. Retry sends it again as a new
- * transfer, which shows in its place. A retry that fails says so in `retryFailed`.
+ * transfer, which shows in its place; once that is done the old note goes.
+ * A retry that fails says so in `retryFailed`.
  */
 export function useTransfers(port: CarrovaPort): {
   readonly transfer: Transfer | null;
@@ -31,12 +32,16 @@ export function useTransfers(port: CarrovaPort): {
   const retry = useCallback(() => {
     if (transfer === null) return;
     const { device, id } = transfer;
-    // Its outcome arrives as the new transfer's events, or as `retryFailed`.
-    port.retryFile(id).catch((reason: unknown) => {
-      // `network`: the device is not linked (yet) again.
-      setRetryFailed({ device, away: toBridgeError(reason).code === 'network' });
-    });
-  }, [transfer, port]);
+    port.retryFile(id).then(
+      () => {
+        dispatch({ type: 'transfer_dismissed', device, id });
+      },
+      (reason: unknown) => {
+        // `network`: the device is not linked (yet) again.
+        setRetryFailed({ device, away: toBridgeError(reason).code === 'network' });
+      },
+    );
+  }, [transfer, port, dispatch]);
   const dismissRetryFailure = useCallback(() => {
     setRetryFailed(null);
   }, []);

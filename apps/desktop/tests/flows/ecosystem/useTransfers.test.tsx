@@ -34,6 +34,18 @@ function setup(refusal: BridgeError | null) {
 }
 
 describe('useTransfers', () => {
+  it('sends a left file again, then lets its dead note go', async () => {
+    const { hook, retryFile } = setup(null);
+    act(() => {
+      hook.result.current.transfers.retry();
+    });
+    expect(retryFile).toHaveBeenCalledWith(3);
+    await waitFor(() => {
+      expect(hook.result.current.transfers.transfer).toBeNull();
+    });
+    expect(hook.result.current.transfers.retryFailed).toBeNull();
+  });
+
   it('says the device is still away when a retry cannot reach it', async () => {
     const { hook } = setup({ code: 'network', message: 'not connected', hint: null });
     act(() => {
