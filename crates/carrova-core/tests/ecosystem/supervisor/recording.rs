@@ -12,8 +12,8 @@ use std::time::Duration;
 use carrova_platform::fake::FakePlatform;
 use carrova_platform::{
     ClipContent, ClipboardWatch, DirEntry, DirWatch, FileLock, FileMeta, LanInterface, LinkNotice,
-    LocalListener, LocalStream, OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot,
-    SnapshotCapability, SocketBuffers,
+    LocalListener, LocalStream, OsKind, PermissionModel, Platform, PlatformError, ProcessInfo,
+    SemanticRoot, SnapshotCapability, SocketBuffers,
 };
 
 /// What a [`Recording`] platform was asked to do.
@@ -65,6 +65,9 @@ impl Recording {
 impl Platform for Recording {
     fn os(&self) -> OsKind {
         self.inner.os()
+    }
+    fn permission_model(&self) -> PermissionModel {
+        self.inner.permission_model()
     }
     fn resolve_root(&self, root: SemanticRoot) -> Result<PathBuf, PlatformError> {
         self.inner.resolve_root(root)
