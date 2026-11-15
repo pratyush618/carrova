@@ -65,6 +65,15 @@ export function isBridgeEvent(value: unknown): value is BridgeEvent {
       typeof invite['code']['code'] === 'string'
     );
   }
+  if (value['kind'] === 'pair_peer_found') {
+    const peer = value['peer'];
+    return (
+      isRecord(peer) &&
+      typeof peer['name'] === 'string' &&
+      typeof peer['os'] === 'string' &&
+      typeof peer['fingerprint'] === 'string'
+    );
+  }
   if (value['kind'] === 'notice') {
     return isRecord(value['notice']) && typeof value['notice']['summary'] === 'string';
   }

@@ -1,5 +1,5 @@
-import type { Invite } from '../../app/state/EngineState';
-import type { LinkedDeviceView, PairInviteView } from '../../engine/types';
+import type { Found, Invite } from '../../app/state/EngineState';
+import type { LinkedDeviceView, PairInviteView, PairPeerView } from '../../engine/types';
 import type { AddDeviceModel } from '../../screens/devices/model';
 
 /** How a pairing attempt ended. */
@@ -19,6 +19,11 @@ export function attemptInvite(invite: Invite | null, attempt: number): AttemptIn
   return { view: invite.view, expiresAt: invite.receivedAt + invite.view.expires_in_s * 1000 };
 }
 
+/** The device found for the attempt started at `attempt`; one from an earlier attempt is stale. */
+export function attemptPeer(found: Found | null, attempt: number): PairPeerView | null {
+  return found === null || found.receivedAt < attempt ? null : found.view;
+}
+
 /**
  * The end after `next` arrives: a link always wins; an expired code stays
  * expired when the engine then gives up on it (that is no connection failure).
@@ -28,13 +33,18 @@ export function settle(end: PairEnd | null, next: PairEnd): PairEnd {
   return next;
 }
 
-/** What the Add a device dialog shows, `secondsLeft` on the attempt's code. */
+/**
+ * What the Add a device dialog shows, `secondsLeft` on the attempt's code.
+ * A device found waits for the user's answer even once the code runs out.
+ */
 export function addDeviceModel(
   current: AttemptInvite | null,
+  found: PairPeerView | null,
   end: PairEnd | null,
   secondsLeft: number,
 ): AddDeviceModel {
   if (end?.state === 'linked') return end;
+  if (end === null && found !== null) return { state: 'found', peer: found };
   if (end?.state === 'expired' || (current !== null && secondsLeft === 0))
     return { state: 'expired' };
   if (end !== null) return end;

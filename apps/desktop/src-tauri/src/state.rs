@@ -14,7 +14,7 @@ use carrova_platform::Platform;
 
 use crate::command_error::CommandError;
 use crate::events::{Emit, SessionSink};
-use crate::pairing::{ANSWER_TIMEOUT, PairingAnswers};
+use crate::pairing::{ANSWER_TIMEOUT, PairingAnswers, PeerAnswer};
 use crate::presence::Advertise;
 use crate::recipes::RecipeService;
 use crate::registry::Registry;
@@ -52,6 +52,8 @@ pub struct AppState {
     pub sessions: Arc<Registry>,
     /// Open pairing questions.
     pub answers: Arc<PairingAnswers>,
+    /// The open key-check question of a device being linked.
+    pub peer_answer: Arc<PeerAnswer>,
     /// User settings.
     pub settings: SettingsStore,
     /// The bell's notices.
@@ -116,6 +118,7 @@ impl AppState {
             recipes: Arc::new(RecipeService::new(Arc::clone(&platform), locations)),
             sessions: Arc::new(Registry::default()),
             answers: Arc::new(PairingAnswers::default()),
+            peer_answer: Arc::default(),
             settings: SettingsStore::new(Arc::clone(&platform)),
             pending_send: SendRequests::default(),
             nearby_asked: Arc::default(),

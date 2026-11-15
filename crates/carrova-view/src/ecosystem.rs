@@ -3,7 +3,9 @@
 //! every peer-provided string themselves.
 
 use carrova_core::Event;
-use carrova_core::ecosystem::{AskId, AskKind, FileFailure, LinkedPeer, PairInvite, PeerState};
+use carrova_core::ecosystem::{
+    AskId, AskKind, FileFailure, LinkedPeer, PairInvite, PeerFound, PeerState,
+};
 use carrova_crypto::identity::{DeviceId, Fingerprint};
 use carrova_link::{ClipItem, Feature, FeatureState, Group, PolicyDoc, allowed};
 use carrova_platform::OsKind;
@@ -99,6 +101,29 @@ pub fn pair_invite_view(invite: &PairInvite, code: CodeView) -> Result<PairInvit
         expires_in_s: code.expires_in_secs,
         code,
     })
+}
+
+/// The device found while pairing, for the user's key check before it is
+/// linked. The name is already clean; front-ends still escape it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct PairPeerView {
+    /// Its name.
+    pub name: String,
+    /// Its OS family (a phone or a computer).
+    pub os: OsKind,
+    /// Its fingerprint (`7F3A·19C2`), to compare with the one it shows.
+    pub fingerprint: String,
+}
+
+/// The key-check view of `peer`.
+#[must_use]
+pub fn pair_peer_view(peer: &PeerFound) -> PairPeerView {
+    PairPeerView {
+        name: peer.name().to_owned(),
+        os: peer.os(),
+        fingerprint: peer.fingerprint().to_string(),
+    }
 }
 
 /// What a clipboard item is.

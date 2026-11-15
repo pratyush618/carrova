@@ -206,6 +206,11 @@ export interface CarrovaPort {
    * resolves once a device has linked. Stop it with `cancelConnect`.
    */
   pairInvite(): Promise<void>;
+  /**
+   * Answer the key check of `pair_invite` (`pair_peer_found`): link the
+   * device found, or not (then nothing is stored on either side).
+   */
+  answerPairPeer(accept: boolean): Promise<void>;
   /** Link with another computer by its code (or `code@ip:port` ticket). Stop it with `cancelConnect`. */
   linkComputer(ticket: string): Promise<void>;
   /** Change one feature on this computer's side of the link with `id`. */

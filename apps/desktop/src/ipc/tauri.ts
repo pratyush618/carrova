@@ -82,6 +82,7 @@ export function createTauriPort(): CarrovaPort {
 
     linkedDevices: () => call('linked_devices'),
     pairInvite: () => call('pair_invite'),
+    answerPairPeer: (accept) => call('answer_pair_peer', { accept }),
     linkComputer: (ticket) => call('link_computer', { ticket }),
     // `state` is taken by Tauri's managed state on the Rust side.
     setFeature: (id, feature, state) => call('set_feature', { id, feature, featureState: state }),

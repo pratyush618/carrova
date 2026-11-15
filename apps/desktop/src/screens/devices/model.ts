@@ -4,6 +4,7 @@ import type {
   LinkedDeviceView,
   OsKind,
   PairInviteView,
+  PairPeerView,
 } from '../../engine/types';
 import type { IconName } from '../../ui';
 
@@ -35,7 +36,7 @@ export interface DeviceIntents {
   readonly onForget: () => void;
 }
 
-/** The Add a device dialog: making a code, waiting for a scan, and how it ended. */
+/** The Add a device dialog: making a code, waiting for a scan, the key check, and how it ended. */
 export type AddDeviceModel =
   | { readonly state: 'starting' }
   | {
@@ -44,6 +45,8 @@ export type AddDeviceModel =
       /** When the code stops working (ms since epoch). */
       readonly expiresAt: number;
     }
+  /** A device answered: the user checks its key before it is linked. */
+  | { readonly state: 'found'; readonly peer: PairPeerView }
   | { readonly state: 'expired' | 'failed' }
   /** `device`: the one that linked, when the list names it. */
   | { readonly state: 'linked'; readonly device: LinkedDeviceView | null };
@@ -55,4 +58,8 @@ export interface AddDeviceIntents {
   readonly onDone: () => void;
   /** Open the new device's page. */
   readonly onOpen: () => void;
+  /** The device found is the user's: link it. */
+  readonly onConfirm: () => void;
+  /** The device found is not the user's: link nothing. */
+  readonly onNotMine: () => void;
 }

@@ -1,23 +1,27 @@
 //! Linked devices over the bridge: each operation reaches the link
 //! supervisor, here a hermetic one that sees nobody on the network.
 
+use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, OnceLock, mpsc};
+use std::thread;
+use std::time::Duration;
 
 use carrova_core::NullSink;
 use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::ecosystem::{
-    AskId, ClipSettings, PeerSource, PeerState, PolicyStore, SeenPeer, SharedSupervisor,
-    SupervisorConfig,
+    AskId, ClipSettings, PairInvite, PeerSource, PeerState, PolicyStore, SeenPeer,
+    SharedSupervisor, SupervisorConfig, accept_invite,
 };
-use carrova_core::{CoreError, Engine};
-use carrova_crypto::identity::{DeviceKey, DevicePublic};
+use carrova_core::{Cancel, CoreError, Engine, Ticket};
+use carrova_crypto::identity::{DeviceKey, DevicePublic, Fingerprint};
 use carrova_crypto::pairing::KnownSecret;
 use carrova_link::{Feature, FeatureState};
 use carrova_platform::OsKind;
 use carrova_view::ipc::ErrorCode;
 use tauri::async_runtime::block_on;
 
+use crate::command_error::CommandError;
 use crate::ops::ecosystem;
 use crate::state::AppState;
 use crate::testing::Machine;
@@ -204,4 +208,99 @@ fn the_process_has_one_link_slot() {
         &ecosystem::process_link(),
         &ecosystem::process_link()
     ));
+}
+
+#[test]
+fn answer_pair_peer_without_question_errors() {
+    let machine = Machine::new();
+
+    assert!(ecosystem::answer_pair_peer(&machine.state, true).is_err());
+}
+
+/// `host` invites with `pair_invite`, answering its key check with
+/// `accept`; `guest` joins with the invite.
+/// Returns both results and what `host` was shown.
+fn pair(
+    host: &Machine,
+    guest: &Machine,
+    accept: bool,
+) -> (
+    Result<(), CommandError>,
+    Result<(), CommandError>,
+    serde_json::Value,
+) {
+    let (uri_tx, uri_rx) = mpsc::channel();
+    let answers = Arc::clone(&host.state.peer_answer);
+    host.events
+        .on_event(move |event| match event["kind"].as_str() {
+            Some("pair_invite") => {
+                let uri = event["invite"]["uri"].as_str().unwrap().to_owned();
+                uri_tx.send(uri).unwrap();
+            }
+            Some("pair_peer_found") => answers.answer(accept).unwrap(),
+            _ => {}
+        });
+    let state = host.state.clone();
+    let hosting = thread::spawn(move || block_on(ecosystem::pair_invite(&state)));
+    let shown: PairInvite = uri_rx
+        .recv_timeout(Duration::from_secs(10))
+        .unwrap()
+        .parse()
+        .unwrap();
+    let port = shown.ticket.addr.unwrap().port();
+    let local = PairInvite {
+        ticket: Ticket {
+            code: shown.ticket.code.clone(),
+            addr: Some(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)),
+        },
+        key: shown.key,
+    };
+    let guest_engine = Engine::new(
+        Arc::new(guest.platform.clone()),
+        Vec::new(),
+        Arc::new(NullSink),
+    );
+    let joined = accept_invite(&guest_engine, &local, &Cancel::default())
+        .map(drop)
+        .map_err(CommandError::from);
+    let hosted = hosting.join().unwrap();
+    let found = host.events.recorded.of_kind("pair_peer_found");
+    (hosted, joined, found.first().cloned().unwrap_or_default())
+}
+
+fn known(machine: &Machine) -> Vec<DeviceRecord> {
+    KnownDevices::open(&machine.platform)
+        .unwrap()
+        .list(&machine.platform)
+        .unwrap()
+}
+
+#[test]
+fn pair_invite_links_only_after_the_key_check() {
+    let (host, guest) = (Machine::new(), Machine::new());
+
+    let (hosted, joined, found) = pair(&host, &guest, true);
+
+    hosted.unwrap();
+    joined.unwrap();
+    let guest_key = KnownDevices::open(&guest.platform)
+        .unwrap()
+        .device_key(&guest.platform)
+        .unwrap();
+    let guest_fingerprint = Fingerprint::of(&guest_key.public()).to_string();
+    assert_eq!(found["peer"]["fingerprint"], guest_fingerprint.as_str());
+    assert_eq!(known(&host).len(), 1);
+    assert_eq!(known(&guest).len(), 1);
+}
+
+#[test]
+fn pair_invite_not_my_device_links_nothing() {
+    let (host, guest) = (Machine::new(), Machine::new());
+
+    let (hosted, joined, found) = pair(&host, &guest, false);
+
+    assert!(hosted.is_err() && joined.is_err(), "{hosted:?} {joined:?}");
+    assert!(found.is_object());
+    assert!(known(&host).is_empty());
+    assert!(known(&guest).is_empty());
 }

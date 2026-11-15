@@ -44,4 +44,13 @@ describe('the IPC guards', () => {
       false,
     );
   });
+
+  it('accept a device found while pairing only with its name, OS and fingerprint', () => {
+    const peer = { name: 'Pixel 8', os: 'android', fingerprint: 'C4D2·7781' };
+    expect(isBridgeEvent({ kind: 'pair_peer_found', peer })).toBe(true);
+    expect(isBridgeEvent({ kind: 'pair_peer_found', peer: { name: 'Pixel 8' } })).toBe(false);
+    expect(isBridgeEvent({ kind: 'pair_peer_found', peer: { ...peer, fingerprint: 7 } })).toBe(
+      false,
+    );
+  });
 });

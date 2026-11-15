@@ -62,6 +62,11 @@ export const ecosystem = {
     },
     retry: 'Try again',
     cancel: 'Cancel',
+    found: { phone: 'Phone found', computer: 'Computer found' },
+    foundLede: 'Check that it shows this same key, then confirm.',
+    peer: '{{name}} · {{os}}',
+    confirm: 'Confirm',
+    notMine: { phone: 'Not my phone', computer: 'Not my computer' },
   },
   linkComputer: {
     title: 'Link a computer',

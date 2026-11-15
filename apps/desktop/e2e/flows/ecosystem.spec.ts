@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { consoleErrors, expectAccessible, openApp } from './support';
 
-// The fake links "Pixel 8" a moment after the invite shows (nothing to scan).
+// The fake finds "Pixel 8" a moment after the invite shows (nothing to scan);
+// it links once its key is confirmed.
 test('add a device then send clipboard (fake port)', async ({ page }) => {
   const errors = consoleErrors(page);
   await openApp(page);
@@ -19,6 +20,12 @@ test('add a device then send clipboard (fake port)', async ({ page }) => {
   ).toBeVisible();
   await expectAccessible(page, 'add a device');
 
+  const found = page.getByRole('dialog', { name: 'Phone found' });
+  await expect(found.getByText('Pixel 8 · Android')).toBeVisible();
+  await expect(found.getByText('C4D2·7781')).toBeVisible();
+  await expectAccessible(page, 'phone found');
+  await found.getByRole('button', { name: 'Confirm' }).click();
+
   const linked = page.getByRole('dialog', { name: 'Pixel 8 is linked' });
   await expect(linked).toBeVisible();
   await linked.getByRole('button', { name: 'Choose what it can do' }).click();
@@ -35,6 +42,31 @@ test('add a device then send clipboard (fake port)', async ({ page }) => {
     .click();
   await page.getByRole('radio', { name: 'List' }).click();
   await expect(page.getByRole('button', { name: 'Open: Pixel 8' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('turn down a device found, then try a new code (fake port)', async ({ page }) => {
+  const errors = consoleErrors(page);
+  await openApp(page);
+  await page
+    .getByRole('navigation', { name: 'Main' })
+    .getByRole('button', { name: 'Nearby' })
+    .click();
+  await page.getByRole('button', { name: 'Add a device' }).click();
+
+  await page
+    .getByRole('dialog', { name: 'Phone found' })
+    .getByRole('button', { name: 'Not my phone' })
+    .click();
+  const failed = page.getByRole('alertdialog', { name: "Couldn't reach the device" });
+  await expect(failed).toBeVisible();
+  await failed.getByRole('button', { name: 'Try again' }).click();
+  await expect(
+    page
+      .getByRole('dialog', { name: 'Add a device' })
+      .getByRole('img', { name: 'Pairing QR code' }),
+  ).toBeVisible();
+  await page.getByRole('dialog', { name: 'Phone found' }).waitFor();
   expect(errors).toEqual([]);
 });
 

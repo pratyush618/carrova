@@ -76,6 +76,7 @@ export type { FeatureRowView } from '../bindings/FeatureRowView';
 export type { FeatureState } from '../bindings/FeatureState';
 export type { LinkedDeviceView } from '../bindings/LinkedDeviceView';
 export type { PairInviteView } from '../bindings/PairInviteView';
+export type { PairPeerView } from '../bindings/PairPeerView';
 export type { TransferState } from '../bindings/TransferState';
 export type { CarrovaPort, Unsubscribe } from '../ipc/port';
 export type { SettingsPatch } from '../ipc/settingsPatch';

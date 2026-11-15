@@ -36,7 +36,7 @@ use carrova_view::devices::{
 };
 use carrova_view::ecosystem::{
     AskTopic, AskView, ClipHistoryView, ClipItemView, ClipKind, FeatureRowView, LinkedDeviceView,
-    PairInviteView, TransferState, TransferView,
+    PairInviteView, PairPeerView, TransferState, TransferView,
 };
 use carrova_view::ipc::{
     About, AlertChannel, AlertSettings, BackgroundSettings, BridgeError, BridgeEvent, CatalogEntry,
@@ -125,6 +125,7 @@ fn export_typescript_bindings() {
         FeatureState::export_all,
         Group::export_all,
         PairInviteView::export_all,
+        PairPeerView::export_all,
         ClipHistoryView::export_all,
         ClipItemView::export_all,
         ClipKind::export_all,

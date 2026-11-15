@@ -9,8 +9,8 @@ use std::sync::{Arc, LazyLock, Mutex, OnceLock, PoisonError};
 
 use carrova_core::devices::DeviceRecord;
 use carrova_core::ecosystem::{
-    Answer, AskId, ClipSettings, HandoffItem, PairInvite, PeerState, SharedSupervisor,
-    SupervisorHandle, link_with_code, offer_pairing,
+    Answer, AskId, ClipSettings, HandoffItem, PAIR_CONFIRM_WINDOW, PairInvite, PeerState,
+    SharedSupervisor, SupervisorHandle, link_with_code, offer_pairing,
 };
 use carrova_core::lan::CODE_LIFETIME;
 use carrova_core::{Cancel, CodeOffer, CoreError, Engine, NullSink, SessionId};
@@ -19,7 +19,7 @@ use carrova_link::{Feature, FeatureState};
 use carrova_platform::Platform;
 use carrova_view::ecosystem::{
     ClipHistoryView, LinkedDeviceView, QrError, clip_history_view, linked_device_views,
-    pair_invite_view,
+    pair_invite_view, pair_peer_view,
 };
 use carrova_view::ipc::{BridgeEvent, ErrorCode, LINK_SESSION};
 use carrova_view::lan::code_view;
@@ -162,24 +162,30 @@ pub async fn linked_devices(state: &AppState) -> Result<Vec<LinkedDeviceView>, C
         .map(|peers| linked_device_views(&peers))
 }
 
-/// Show an invite for a phone to scan ([`BridgeEvent::PairInvite`]) and
-/// wait until a phone links with it. `cancel_connect` stops it.
+/// Show an invite for a phone to scan ([`BridgeEvent::PairInvite`]),
+/// show the device that answers it ([`BridgeEvent::PairPeerFound`]) and
+/// link it once `answer_pair_peer` confirms. `cancel_connect` stops it.
 ///
 /// # Errors
 ///
 /// Another pairing runs, the invite could not be drawn, it was
-/// cancelled, the invite expired, or the pairing failed.
+/// cancelled, the invite expired, the user did not confirm the device,
+/// or the pairing failed.
 pub async fn pair_invite(state: &AppState) -> Result<(), CommandError> {
     let engine = link_engine(&state.platform);
     let out = Arc::clone(&state.out);
+    let peer_answer = Arc::clone(&state.peer_answer);
     pairing(state, move |cancel| {
         let mut undrawn = None;
-        let paired = offer_pairing(&engine, cancel, |invite| {
+        let on_code = |invite: PairInvite| {
             if let Err(error) = show_invite(&*out, &invite) {
                 undrawn = Some(error);
                 cancel.cancel();
             }
-        });
+        };
+        let on_peer =
+            |found: &_| peer_answer.ask(&*out, pair_peer_view(found), cancel, PAIR_CONFIRM_WINDOW);
+        let paired = offer_pairing(&engine, cancel, on_code, on_peer);
         match undrawn {
             Some(error) => Err(error.into()),
             None => paired.map_err(|e| CommandError::when_connecting(&e)),
@@ -202,6 +208,18 @@ pub async fn link_computer(state: &AppState, code: String) -> Result<(), Command
         link_with_code(&engine, &ticket, cancel).map_err(|e| CommandError::when_connecting(&e))
     })
     .await
+}
+
+/// Answer the open "is this your device?" question of `pair_invite`.
+///
+/// # Errors
+///
+/// No question is open.
+pub fn answer_pair_peer(state: &AppState, accept: bool) -> Result<(), CommandError> {
+    state
+        .peer_answer
+        .answer(accept)
+        .map_err(|_| CommandError::no_session("no device is waiting to be confirmed"))
 }
 
 /// Run the pairing `pair` as the one pairing in progress (cancellable by

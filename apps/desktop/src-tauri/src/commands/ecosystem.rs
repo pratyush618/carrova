@@ -37,6 +37,15 @@ pub async fn link_computer(
     reply(&app, ops::ecosystem::link_computer(&state, ticket).await)
 }
 
+/// `CarrovaPort.answerPairPeer`.
+#[tauri::command]
+pub async fn answer_pair_peer(
+    state: State<'_, AppState>,
+    accept: bool,
+) -> Result<(), CommandError> {
+    ops::ecosystem::answer_pair_peer(&state, accept)
+}
+
 /// `CarrovaPort.setFeature`.
 #[tauri::command]
 pub async fn set_feature(

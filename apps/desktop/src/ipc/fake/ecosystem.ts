@@ -1,14 +1,16 @@
 /**
  * The fake's linked devices: a pairing invite that a "Pixel 8" answers a
- * few steps later, per-device features with the engine's two-sided gate,
- * and the clipboard history. Only the `linked` scenario starts with a
- * device; every other one starts with none.
+ * few steps later (linked once its key check is confirmed), per-device
+ * features with the engine's two-sided gate, and the clipboard history.
+ * Only the `linked` scenario starts with a device; every other one starts
+ * with none.
  */
 import type { FeatureRowView } from '../../bindings/FeatureRowView';
 import type { FeatureState } from '../../bindings/FeatureState';
 import type { ForgetDevices } from '../../bindings/ForgetDevices';
 import type { LinkedDeviceView } from '../../bindings/LinkedDeviceView';
 import type { PairInviteView } from '../../bindings/PairInviteView';
+import type { PairPeerView } from '../../bindings/PairPeerView';
 import type { ClipItemView } from '../../bindings/ClipItemView';
 import type { ClipSettings } from '../../bindings/ClipSettings';
 import type { CarrovaPort } from '../port';
@@ -92,6 +94,7 @@ type EcosystemPort = Pick<
   CarrovaPort,
   | 'linkedDevices'
   | 'pairInvite'
+  | 'answerPairPeer'
   | 'linkComputer'
   | 'setFeature'
   | 'answerAsk'
@@ -120,6 +123,8 @@ export function fakeEcosystem(runtime: Runtime, scenario: Scenario): FakeEcosyst
   let linked: LinkedDeviceView[] = seeded ? [phone('off'), computer()] : [];
   let clips = seeded ? seedClips(Math.floor(Date.now() / 1000)) : [];
   let pairing: { cancelled: boolean } | null = null;
+  /** Resolves the open key check (`pair_peer_found`); `null` when cancelled. */
+  let peerAnswer: ((accept: boolean | null) => void) | null = null;
   let clipSettings: ClipSettings = { share: true, show_note: false, history_file: false };
   const find = (id: string) =>
     linked.find((d) => d.id === id) ??
@@ -128,12 +133,27 @@ export function fakeEcosystem(runtime: Runtime, scenario: Scenario): FakeEcosyst
     linked = [...linked.filter((d) => d.id !== device.id), device];
     runtime.engine(LINK, { event: 'link_up', device: device.id });
   };
-  const awaitPairing = async (device: LinkedDeviceView) => {
+  /** Show `device` for the key check; resolves with the answer, `null` if cancelled. */
+  const askPeer = (device: LinkedDeviceView) =>
+    new Promise<boolean | null>((resolve) => {
+      peerAnswer = resolve;
+      const peer: PairPeerView = {
+        name: device.name,
+        os: device.os,
+        fingerprint: device.fingerprint,
+      };
+      runtime.emit({ kind: 'pair_peer_found', peer });
+    });
+  /** Wait for `device`, asking the user about it first when `check` (the inviting side). */
+  const awaitPairing = async (device: LinkedDeviceView, check: boolean) => {
     const mine = { cancelled: false };
     pairing = mine;
     for (let i = 0; i < PAIR_STEPS; i++) await runtime.pause();
     if (mine.cancelled) raise(CANCELLED);
+    const confirmed = !check || (await askPeer(device));
     pairing = null;
+    if (confirmed === null) raise(CANCELLED);
+    if (!confirmed) raise(bridgeError('pairing_failed', 'the device found was not confirmed'));
     link(device);
   };
   return {
@@ -142,14 +162,21 @@ export function fakeEcosystem(runtime: Runtime, scenario: Scenario): FakeEcosyst
       await later(() => {
         runtime.emit({ kind: 'pair_invite', invite: INVITE });
       });
-      await awaitPairing(phone());
+      await awaitPairing(phone(), true);
     },
+    answerPairPeer: (accept) =>
+      later(() => {
+        const answer =
+          peerAnswer ?? raise(bridgeError('session', 'no device is waiting to be confirmed'));
+        peerAnswer = null;
+        answer(accept);
+      }),
     linkComputer: async (ticket) => {
       await later(() => {
         if (!/^\d+-[a-z]+-[a-z]+(@\S+)?$/.test(ticket.trim()))
           raise(bridgeError('bad_code', 'that is not a pairing code'));
       });
-      await awaitPairing(computer());
+      await awaitPairing(computer(), false);
     },
     setFeature: (id, feature, state) =>
       later(() => {
@@ -192,6 +219,8 @@ export function fakeEcosystem(runtime: Runtime, scenario: Scenario): FakeEcosyst
       later(() => raise(bridgeError('known_device', 'that file is no longer waiting'))),
     cancel: () => {
       if (pairing !== null) pairing.cancelled = true;
+      peerAnswer?.(null);
+      peerAnswer = null;
     },
     forget: (which) => {
       linked = which === 'all' ? [] : linked.filter((d) => d.id !== which.device);

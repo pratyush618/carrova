@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { usePort } from '../../engine/port';
-import type { PairInviteView, SessionId } from '../../engine/types';
+import type { PairInviteView, PairPeerView, SessionId } from '../../engine/types';
 import {
   appReducer,
   bridgeAction,
@@ -34,13 +34,21 @@ interface EngineStateApi {
   readonly nearbyRequests: number;
   /** The last pairing invite, and when it arrived (ms since epoch); kept only while its dialog needs it. */
   readonly invite: Invite | null;
-  /** Drop the invite (its dialog closed, or the code ran out): the code leaves memory. */
+  /** The device that last answered an invite, waiting for the key check; kept like the invite. */
+  readonly found: Found | null;
+  /** Drop the invite and the device found (their dialog closed, or the code ran out): the code leaves memory. */
   readonly clearInvite: () => void;
 }
 
 /** A pairing invite as it arrived. */
 export interface Invite {
   readonly view: PairInviteView;
+  readonly receivedAt: number;
+}
+
+/** A device found while pairing (`pair_peer_found`), as it arrived. */
+export interface Found {
+  readonly view: PairPeerView;
   readonly receivedAt: number;
 }
 
@@ -61,8 +69,10 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
   const [remembered, setRemembered] = useState<Remembered | null>(null);
   const [nearbyRequests, setNearbyRequests] = useState(0);
   const [invite, setInvite] = useState<Invite | null>(null);
+  const [found, setFound] = useState<Found | null>(null);
   const clearInvite = useCallback(() => {
     setInvite(null);
+    setFound(null);
   }, []);
   useEffect(() => {
     let stop: (() => void) | null = null;
@@ -76,6 +86,8 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
         // A pairing invite belongs to its dialog, not to a session.
         else if (event.kind === 'pair_invite')
           setInvite({ view: event.invite, receivedAt: Date.now() });
+        else if (event.kind === 'pair_peer_found')
+          setFound({ view: event.peer, receivedAt: Date.now() });
         else {
           if (event.kind === 'engine' && event.event.event === 'device_remembered') {
             const { name, fingerprint } = event.event;
@@ -102,9 +114,10 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
       remembered,
       nearbyRequests,
       invite,
+      found,
       clearInvite,
     }),
-    [state, sendRequests, noticeEvents, remembered, nearbyRequests, invite, clearInvite],
+    [state, sendRequests, noticeEvents, remembered, nearbyRequests, invite, found, clearInvite],
   );
   return <EngineStateContext value={api}>{children}</EngineStateContext>;
 }
@@ -151,8 +164,12 @@ export function useLink(): LinkState {
   return useEngineState().state.link;
 }
 
-/** The last pairing invite (`null` until one arrives, and once cleared), and how to drop it. */
-export function useInvite(): { readonly invite: Invite | null; readonly clear: () => void } {
-  const { invite, clearInvite } = useEngineState();
-  return { invite, clear: clearInvite };
+/** The last pairing invite and device found (`null` until one arrives, and once cleared), and how to drop them. */
+export function useInvite(): {
+  readonly invite: Invite | null;
+  readonly found: Found | null;
+  readonly clear: () => void;
+} {
+  const { invite, found, clearInvite } = useEngineState();
+  return { invite, found, clear: clearInvite };
 }

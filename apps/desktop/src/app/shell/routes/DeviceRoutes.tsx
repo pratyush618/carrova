@@ -9,6 +9,7 @@ import type { Pairing } from '../../../flows/ecosystem/useLinkedDevices';
 import {
   addDeviceModel,
   attemptInvite,
+  attemptPeer,
   settle,
   type PairEnd,
 } from '../../../flows/ecosystem/pairing';
@@ -88,12 +89,13 @@ export function DeviceRoute({ id }: { readonly id: string }) {
 /**
  * Add a device: one invite per attempt; closing the dialog or a new code
  * cancels the one waiting. The code leaves memory once the dialog closes or
- * the code runs out.
+ * the code runs out (a device found keeps it until answered: it is used up).
  */
 export function AddDeviceOverlay() {
   const { linked } = useControllers();
+  const port = usePort();
   const nav = useNav();
-  const { invite, clear } = useInvite();
+  const { invite, found, clear } = useInvite();
   const [attempt, setAttempt] = useState(() => Date.now());
   const [end, setEnd] = useState<PairEnd | null>(null);
   const { pairDevice } = linked;
@@ -118,15 +120,19 @@ export function AddDeviceOverlay() {
   }, [pairDevice, attempt]);
   useEffect(() => clear, [clear]);
   const current = attemptInvite(invite, attempt);
+  const peer = attemptPeer(found, attempt);
   const seconds = useSecondsLeft(current?.expiresAt ?? 0);
-  const ranOut = current !== null && seconds === 0;
+  // A device found beats the code running out.
+  const ranOut = peer === null && current !== null && seconds === 0;
   // Remembered here, so the code itself can leave memory.
   if (ranOut && end?.state !== 'expired' && end?.state !== 'linked')
     setEnd(settle(end, { state: 'expired' }));
   useEffect(() => {
     if (ranOut) clear();
   }, [ranOut, clear]);
-  const model = addDeviceModel(current, end, seconds);
+  const model = addDeviceModel(current, peer, end, seconds);
+  // A lost answer is the engine's no: the pairing then ends failed.
+  const answer = (accept: boolean) => port.answerPairPeer(accept).catch(() => undefined);
   const linkedId = end?.state === 'linked' ? (end.device?.id ?? null) : null;
   return (
     <AddDeviceDialog
@@ -142,6 +148,13 @@ export function AddDeviceOverlay() {
         onOpen: () => {
           if (linkedId === null) nav.close();
           else nav.go({ type: 'openDevice', id: linkedId });
+        },
+        onConfirm: () => {
+          void answer(true);
+        },
+        onNotMine: () => {
+          void answer(false);
+          setEnd(settle(end, { state: 'failed' }));
         },
       }}
     />

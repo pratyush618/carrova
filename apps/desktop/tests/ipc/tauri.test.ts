@@ -24,9 +24,11 @@ describe('the Tauri port', () => {
     const port = createTauriPort();
     await port.setFeature('p8', 'files', 'off');
     await port.answerAsk(7, true);
+    await port.answerPairPeer(false);
     expect(calls).toEqual([
       ['set_feature', { id: 'p8', feature: 'files', featureState: 'off' }],
       ['answer_ask', { askId: 7, accept: true }],
+      ['answer_pair_peer', { accept: false }],
     ]);
   });
 

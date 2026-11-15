@@ -4,6 +4,7 @@ import type { CodeView } from "./CodeView";
 import type { Event } from "./Event";
 import type { Notice } from "./Notice";
 import type { PairInviteView } from "./PairInviteView";
+import type { PairPeerView } from "./PairPeerView";
 import type { SessionId } from "./SessionId";
 
 /**
@@ -29,7 +30,11 @@ code: CodeView, } | { "kind": "pair_invite",
 /**
  * QR code, link text and typed fallback.
  */
-invite: PairInviteView, } | { "kind": "confirm_new_code", 
+invite: PairInviteView, } | { "kind": "pair_peer_found", 
+/**
+ * Name, OS and fingerprint of the device found.
+ */
+peer: PairPeerView, } | { "kind": "confirm_new_code", 
 /**
  * Sending session.
  */

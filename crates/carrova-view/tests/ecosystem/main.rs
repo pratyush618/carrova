@@ -5,14 +5,16 @@ use std::time::Duration;
 
 use carrova_core::Event;
 use carrova_core::Ticket;
-use carrova_core::ecosystem::{AskId, AskKind, FileFailure, LinkedPeer, PairInvite, PeerState};
-use carrova_crypto::identity::DeviceKey;
+use carrova_core::ecosystem::{
+    AskId, AskKind, FileFailure, LinkedPeer, PairInvite, PeerFound, PeerState,
+};
+use carrova_crypto::identity::{DeviceKey, Fingerprint};
 use carrova_crypto::pairing::PairingCode;
 use carrova_link::{ClipItem, Feature, FeatureState, Group, PolicyDoc, allowed};
 use carrova_platform::OsKind;
 use carrova_view::ecosystem::{
     AskTopic, ClipKind, PREVIEW_CHARS, TransferState, Transfers, ask_view, clip_history_view,
-    feature_rows, linked_device_views, pair_invite_view,
+    feature_rows, linked_device_views, pair_invite_view, pair_peer_view,
 };
 use carrova_view::lan::code_view;
 
@@ -278,4 +280,17 @@ fn debug_output_hides_the_pairing_code_and_uri() {
 /// `AskId` has no public constructor: it arrives in events, i.e. as JSON.
 fn ask_id() -> AskId {
     serde_json::from_value(serde_json::json!(1)).unwrap()
+}
+
+#[test]
+fn pair_peer_view_cleans_name_and_formats_fingerprint() {
+    let public = DeviceKey::from_bytes(&[7; 32]).public();
+    let found = PeerFound::new("\u{202e}Pixel\n 8", OsKind::Android, public);
+
+    let view = pair_peer_view(&found);
+
+    assert_eq!(view.name, "Pixel 8");
+    assert_eq!(view.os, OsKind::Android);
+    assert_eq!(view.fingerprint, Fingerprint::of(&public).to_string());
+    assert!(view.fingerprint.contains('·'), "{}", view.fingerprint);
 }

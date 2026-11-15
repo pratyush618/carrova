@@ -1,4 +1,4 @@
-import type { LinkedDeviceView, PairInviteView } from '../../engine/types';
+import type { LinkedDeviceView, PairInviteView, PairPeerView } from '../../engine/types';
 
 /** Pixel 8, linked; Handoff is off on the phone's side. */
 export const pixel: LinkedDeviceView = {
@@ -27,4 +27,11 @@ export const pixelInvite: PairInviteView = {
     expires_in_secs: 160,
   },
   expires_in_s: 160,
+};
+
+/** Pixel 8 as the key check shows it, before it is linked. */
+export const pixelPeer: PairPeerView = {
+  name: 'Pixel 8',
+  os: 'android',
+  fingerprint: 'C4D2·7781',
 };

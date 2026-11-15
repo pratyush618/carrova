@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '../../support/render';
 import { AddDeviceDialog } from '@/screens/devices/AddDeviceDialog';
 import { DevicePage } from '@/screens/devices/DevicePage';
-import { pixel, pixelInvite } from '@/screens/devices/fixtures';
+import { pixel, pixelInvite, pixelPeer } from '@/screens/devices/fixtures';
 import type { DeviceIntents } from '@/screens/devices/model';
 
 const deviceOn = (): DeviceIntents => ({
@@ -15,7 +15,14 @@ const deviceOn = (): DeviceIntents => ({
   onForget: vi.fn(),
 });
 
-const pairOn = () => ({ onCancel: vi.fn(), onRetry: vi.fn(), onDone: vi.fn(), onOpen: vi.fn() });
+const pairOn = () => ({
+  onCancel: vi.fn(),
+  onRetry: vi.fn(),
+  onDone: vi.fn(),
+  onOpen: vi.fn(),
+  onConfirm: vi.fn(),
+  onNotMine: vi.fn(),
+});
 
 describe('Device page', () => {
   it('DevicePage shows "Off on Pixel 8" when remote off', () => {
@@ -103,5 +110,28 @@ describe('Add a device', () => {
     expect(
       screen.getByText('Everything is off for now. Change any of it on its page.'),
     ).toBeInTheDocument();
+  });
+
+  it('shows the phone found with its key, and Confirm confirms it', async () => {
+    const user = userEvent.setup();
+    const on = pairOn();
+    renderScreen(<AddDeviceDialog model={{ state: 'found', peer: pixelPeer }} on={on} />);
+    const found = screen.getByRole('dialog', { name: 'Phone found' });
+    expect(within(found).getByText('Pixel 8 · Android')).toBeInTheDocument();
+    expect(within(found).getByText('C4D2·7781')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Confirm' }));
+    expect(on.onConfirm).toHaveBeenCalledOnce();
+    expect(on.onNotMine).not.toHaveBeenCalled();
+  });
+
+  it("turns down a computer that is not the user's", async () => {
+    const user = userEvent.setup();
+    const on = pairOn();
+    const desk = { ...pixelPeer, name: 'Desk PC', os: 'linux' as const };
+    renderScreen(<AddDeviceDialog model={{ state: 'found', peer: desk }} on={on} />);
+    expect(screen.getByRole('dialog', { name: 'Computer found' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Not my computer' }));
+    expect(on.onNotMine).toHaveBeenCalledOnce();
+    expect(on.onConfirm).not.toHaveBeenCalled();
   });
 });

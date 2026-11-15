@@ -12,7 +12,7 @@
 use carrova_core::{ErrorKind, Event, Notice, SessionId};
 use serde::{Deserialize, Serialize};
 
-use crate::ecosystem::PairInviteView;
+use crate::ecosystem::{PairInviteView, PairPeerView};
 use crate::lan::CodeView;
 
 mod about;
@@ -63,6 +63,12 @@ pub enum BridgeEvent {
     PairInvite {
         /// QR code, link text and typed fallback.
         invite: PairInviteView,
+    },
+    /// A device answered the invite: show it for the user's key check and
+    /// answer with the `answer_pair_peer` command (no answer is a no).
+    PairPeerFound {
+        /// Name, OS and fingerprint of the device found.
+        peer: PairPeerView,
     },
     /// A pairing attempt failed; the user decides whether to offer a new
     /// code. Answer with the `answer_pairing` command.

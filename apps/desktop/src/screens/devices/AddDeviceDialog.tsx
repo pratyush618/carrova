@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Button, CodeDisplay, Dialog, Note, Status } from '../../ui';
 import { clock, useSecondsLeft } from '../send/countdown';
 import { LinkedSummary } from './LinkedSummary';
-import type { AddDeviceIntents, AddDeviceModel } from './model';
+import { deviceIcon, type AddDeviceIntents, type AddDeviceModel } from './model';
 import './devices.css';
 
 /** What to check when the device couldn't connect. */
@@ -16,7 +16,9 @@ function Expiry({ at }: { readonly at: number }) {
 
 /**
  * Add a device: a QR code that carries the one-time code and this computer's
- * address, the three words as the fallback, then linked, expired or failed.
+ * address, the three words as the fallback, then the device found (its key
+ * to check: nothing links before the user confirms), then linked, expired
+ * or failed.
  */
 export function AddDeviceDialog({
   model,
@@ -58,6 +60,36 @@ export function AddDeviceDialog({
           )}
         </Dialog>
       );
+    case 'found': {
+      const { peer } = model;
+      const kind = peer.os === 'android' ? 'phone' : 'computer';
+      return (
+        <Dialog
+          icon={deviceIcon(peer.os)}
+          title={t(`ecosystem.pair.found.${kind}`)}
+          onDismiss={on.onCancel}
+          foot={
+            <>
+              <Button data-initial-focus onClick={on.onNotMine}>
+                {t(`ecosystem.pair.notMine.${kind}`)}
+              </Button>
+              <Button kind="primary" onClick={on.onConfirm}>
+                {t('ecosystem.pair.confirm')}
+              </Button>
+            </>
+          }
+        >
+          <p>{t('ecosystem.pair.foundLede')}</p>
+          <p>
+            {t('ecosystem.pair.peer', {
+              name: peer.name,
+              os: t(`settings.about.os.${peer.os}`),
+            })}
+          </p>
+          <p className="p-mono">{peer.fingerprint}</p>
+        </Dialog>
+      );
+    }
     case 'expired':
       return (
         <Dialog
