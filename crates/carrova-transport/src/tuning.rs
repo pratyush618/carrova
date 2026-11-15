@@ -58,6 +58,10 @@ pub(crate) const TLS_SERVER_NAME: &str = "carrova.invalid";
 /// Longest one pairing / resume handshake may take once a connection is
 /// up (bounded further by the caller's timeout).
 pub(crate) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+/// Pair-only receiver: longest it waits for the sender's `Linked` after
+/// the `PeerInfo` exchange, while the sender's user checks the peer's key
+/// (ADR 0002 §1). Within the session idle timeout's keep-alive reach.
+pub const PAIR_CONFIRM_TIMEOUT: Duration = Duration::from_secs(60);
 /// Sender: longest an incoming connection may take to put the secret at
 /// stake (QUIC/TLS handshake, `Hello`, and for pairing the receiver's PAKE
 /// message). Keeps stalled or idle connections from holding a handshake

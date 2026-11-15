@@ -126,6 +126,14 @@ both   close Normal
 - Storing: the sender stores the `KnownSecret` and the record (full public
   key, name, OS) before sending `Linked`; the receiver stores them on
   `Linked`. A side that fails before its store keeps nothing.
+- Amended 2026-11-15 (user sign-off, key-check step): between the
+  `PeerInfo` exchange and `Linked` the sender's user checks the peer
+  (name, OS, key fingerprint) and confirms or rejects. The receiver bounds
+  the exchange by `HANDSHAKE_TIMEOUT` (10 s) as before, then waits for
+  `Linked` up to `PAIR_CONFIRM_TIMEOUT` (60 s; the session keep-alive,
+  5 s, keeps the 30 s idle timeout from firing). A reject or no answer
+  closes `PairingFailed`: nothing is stored on either side. No frame,
+  field or close code changes.
 
 ### 2. QR payload and key pin
 

@@ -5,14 +5,16 @@
 
 use std::sync::Arc;
 use std::thread;
+use std::time::Duration;
 
 use carrova_crypto::identity::{DeviceKey, DevicePublic};
 use carrova_crypto::pairing::PairingCode;
 use carrova_manifest::MAX_DEVICE_NAME;
 use carrova_platform::OsKind;
 use carrova_transport::{
-    ConnectOptions, ListenOptions, Listener, PairedPeer, PeerInfo, PendingPair, ProtocolViolation,
-    Result, SetupFailure, Target, TransportError, connect, pair_only,
+    ConnectOptions, ListenOptions, Listener, PAIR_CONFIRM_TIMEOUT, PairedPeer, PeerInfo,
+    PendingPair, ProtocolViolation, Result, SetupFailure, Target, TransportError, connect,
+    pair_only,
 };
 
 #[expect(dead_code, reason = "shared test helpers; this test uses a subset")]
@@ -166,6 +168,53 @@ fn dropping_pending_pair_fails_receiver() {
         matches!(receiver, Err(TransportError::PairingFailed)),
         "{receiver:?}"
     );
+}
+
+/// Past the 10 s exchange bound: the host is asking its user.
+const USER_DELAY: Duration = Duration::from_secs(11);
+
+#[test]
+fn pair_only_receiver_waits_past_handshake_timeout_for_linked() {
+    let (s_key, r_key) = (device(), device());
+    let (sender, receiver) = pair_with(
+        &s_key,
+        info("laptop", OsKind::Linux),
+        &r_key,
+        &info("phone", OsKind::Android),
+        None,
+        |pending| {
+            thread::sleep(USER_DELAY);
+            pending.confirm()
+        },
+    );
+    sender.unwrap().unwrap();
+    assert_eq!(receiver.unwrap().identity.public, s_key.public());
+}
+
+#[test]
+fn pair_only_drop_after_delay_fails_receiver_stores_nothing() {
+    let (s_key, r_key) = (device(), device());
+    let (sender, receiver) = pair_with(
+        &s_key,
+        info("laptop", OsKind::Linux),
+        &r_key,
+        &info("phone", OsKind::Android),
+        None,
+        |pending| {
+            thread::sleep(USER_DELAY);
+            drop(pending);
+        },
+    );
+    sender.unwrap();
+    assert!(
+        matches!(receiver, Err(TransportError::PairingFailed)),
+        "{receiver:?}"
+    );
+}
+
+#[test]
+fn pair_only_confirm_timeout_is_a_minute() {
+    assert_eq!(PAIR_CONFIRM_TIMEOUT, Duration::from_secs(60));
 }
 
 #[test]

@@ -178,9 +178,10 @@ impl Listener {
     /// 0002 §1): as [`Self::accept_pairing`] (one guess per code), but
     /// only receivers asking for pair-only and proving their device
     /// identity are admitted, and both sides swap [`PeerInfo`]. Store the
-    /// returned peer, then [`PendingPair::confirm`] at once (no user
-    /// prompt in between: the receiver waits at most 10 s); the receiver
-    /// remembers us only then.
+    /// returned peer, then [`PendingPair::confirm`] (the user may check the
+    /// peer's key first: the receiver waits at most
+    /// [`PAIR_CONFIRM_TIMEOUT`](crate::PAIR_CONFIRM_TIMEOUT)); the
+    /// receiver remembers us only then.
     ///
     /// Needs [`ListenOptions::device`]; without it fails with
     /// [`SetupFailure::NoDeviceKey`].

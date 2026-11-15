@@ -74,6 +74,7 @@ pub use handshake::{PairedPeer, PeerIdentity, PeerInfo, PendingPair};
 pub use listener::{KnownPeers, ListenOptions, Listener};
 pub use stream::Stream;
 pub use ticket::Ticket;
+pub use tuning::PAIR_CONFIRM_TIMEOUT;
 
 /// QUIC/TLS application protocol identifier.
 pub const ALPN: &[u8] = b"carrova/1";

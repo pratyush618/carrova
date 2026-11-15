@@ -1,6 +1,9 @@
 //! Pair-only (ADR 0002 §1): after `Established` both sides exchange
-//! `PeerInfo`; the sender confirms with `Linked` once it stored the peer,
-//! the receiver returns on `Linked`, and both close.
+//! `PeerInfo`; the sender confirms with `Linked` once its user accepted
+//! and it stored the peer, the receiver returns on `Linked` (waiting up to
+//! [`PAIR_CONFIRM_TIMEOUT`]), and both close.
+
+use std::time::Duration;
 
 use carrova_manifest::MAX_DEVICE_NAME;
 use carrova_platform::OsKind;
@@ -12,7 +15,7 @@ use super::{Authenticated, PeerIdentity};
 use crate::connection::flush;
 use crate::error::{ProtocolViolation, Result, SetupFailure, TransportError};
 use crate::runtime::runtime;
-use crate::tuning::HANDSHAKE_TIMEOUT;
+use crate::tuning::{HANDSHAKE_TIMEOUT, PAIR_CONFIRM_TIMEOUT};
 use crate::wire::{CloseCode, Handshake};
 
 /// What this side tells its pair-only peer about itself.
@@ -42,9 +45,9 @@ pub struct PairedPeer {
 /// [`Self::peer`], then [`Self::confirm`]. Dropping it unconfirmed fails
 /// the pairing on both sides (the receiver stores nothing).
 ///
-/// Confirm promptly, with no user prompt in between: the receiver waits
-/// for `Linked` at most `HANDSHAKE_TIMEOUT` (10 s) after the exchange,
-/// then gives up, and a late confirm leaves only this side linked.
+/// The user may check the peer's key in between, but confirm within
+/// [`PAIR_CONFIRM_TIMEOUT`] (60 s) of the exchange: then the receiver
+/// gives up, and [`Self::confirm`] fails (do not keep the stored peer).
 #[must_use = "the receiver learns of the pairing only on confirm"]
 #[derive(Debug)]
 pub struct PendingPair {
@@ -96,7 +99,7 @@ pub(crate) async fn offer(
     mut auth: Authenticated,
     me: &PeerInfo,
 ) -> Result<PendingPair> {
-    match bounded(exchange(&mut auth, me)).await {
+    match bounded(HANDSHAKE_TIMEOUT, exchange(&mut auth, me)).await {
         Ok(peer) => Ok(PendingPair {
             peer,
             _endpoint: endpoint,
@@ -111,16 +114,17 @@ pub(crate) async fn offer(
     }
 }
 
-/// Receiver, after `Established`: exchange `PeerInfo`, wait for the
-/// sender's `Linked`, then close.
+/// Receiver, after `Established`: exchange `PeerInfo` (within
+/// `HANDSHAKE_TIMEOUT`), wait up to [`PAIR_CONFIRM_TIMEOUT`] for the
+/// sender's `Linked` (its user is checking our key), then close.
 pub(crate) async fn receive(mut auth: Authenticated, me: &PeerInfo) -> Result<PairedPeer> {
-    let result = bounded(async {
-        let peer = exchange(&mut auth, me).await?;
-        match auth.recv.expect_frame().await? {
+    let result = async {
+        let peer = bounded(HANDSHAKE_TIMEOUT, exchange(&mut auth, me)).await?;
+        match bounded(PAIR_CONFIRM_TIMEOUT, auth.recv.expect_frame()).await? {
             Handshake::Linked => Ok(peer),
             _ => Err(unexpected("linked")),
         }
-    })
+    }
     .await;
     match &result {
         Ok(_) => CloseCode::Normal,
@@ -130,8 +134,8 @@ pub(crate) async fn receive(mut auth: Authenticated, me: &PeerInfo) -> Result<Pa
     result
 }
 
-async fn bounded<T>(fut: impl Future<Output = Result<T>>) -> Result<T> {
-    timeout(HANDSHAKE_TIMEOUT, fut)
+async fn bounded<T>(limit: Duration, fut: impl Future<Output = Result<T>>) -> Result<T> {
+    timeout(limit, fut)
         .await
         .unwrap_or(Err(TransportError::Timeout))
 }

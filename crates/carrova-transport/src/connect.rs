@@ -133,7 +133,8 @@ pub fn connect(target: Target<'_>, timeout: Duration, opts: &ConnectOptions) -> 
 
 /// Receiver side of pairing without a transfer (ADR 0002 §1): pair with
 /// `ticket` as [`connect`] does, always proving device identities, swap
-/// [`PeerInfo`] and return once the sender confirmed it stored us.
+/// [`PeerInfo`] and return once the sender confirmed it stored us (its
+/// user may check our key first: waits up to [`PAIR_CONFIRM_TIMEOUT`]).
 ///
 /// `pin` (the key from a scanned QR code) must equal the sender's proven
 /// key, else [`TransportError::KeyMismatch`] and this device's identity
@@ -141,6 +142,7 @@ pub fn connect(target: Target<'_>, timeout: Duration, opts: &ConnectOptions) -> 
 /// [`SetupFailure::NoDeviceKey`] before connecting.
 ///
 /// [`TransportError::KeyMismatch`]: crate::TransportError::KeyMismatch
+/// [`PAIR_CONFIRM_TIMEOUT`]: crate::PAIR_CONFIRM_TIMEOUT
 pub fn pair_only(
     ticket: &Ticket,
     pin: Option<&DevicePublic>,
