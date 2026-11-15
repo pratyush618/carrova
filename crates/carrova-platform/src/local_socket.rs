@@ -44,7 +44,6 @@ impl LocalListener {
         Ok(Self { inner, owner })
     }
 
-
     /// Wait for a peer. A peer of another uid is refused with
     /// [`io::ErrorKind::PermissionDenied`]: call again for the next one.
     #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -73,7 +72,6 @@ impl LocalStream {
             .map(Self)
             .map_err(|e| PlatformError::io(path, e))
     }
-
 
     /// A second handle on the same connection (e.g. to
     /// [`Self::shutdown`] it from another thread).

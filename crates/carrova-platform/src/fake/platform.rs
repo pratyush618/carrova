@@ -4,12 +4,12 @@ use std::path::{Path, PathBuf};
 
 use super::{EntriesWrite, FakePlatform};
 use crate::{ClipContent, ClipboardWatch, LinkNotice};
-#[cfg(any(target_os = "linux", target_os = "android"))]
-use crate::{LocalListener, LocalStream};
 use crate::{
     DiskInfo, FileManagerStatus, FileMeta, FsId, OsKind, PermissionModel, Platform, PlatformError,
     ProcessInfo, SemanticRoot, SnapshotCapability,
 };
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use crate::{LocalListener, LocalStream};
 
 impl Platform for FakePlatform {
     fn os(&self) -> OsKind {
