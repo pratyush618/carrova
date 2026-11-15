@@ -2,8 +2,11 @@
 //! types of [`crate::Platform::bind_local_socket`].
 
 use std::io::{self, Read, Write};
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
 use std::path::Path;
 
+#[cfg(any(target_os = "linux", target_os = "android"))]
 use crate::PlatformError;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -41,10 +44,6 @@ impl LocalListener {
         Ok(Self { inner, owner })
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
-    pub(crate) fn bind(_: &Path, _: u32) -> Result<Self, PlatformError> {
-        Err(PlatformError::Unsupported("bind_local_socket"))
-    }
 
     /// Wait for a peer. A peer of another uid is refused with
     /// [`io::ErrorKind::PermissionDenied`]: call again for the next one.
@@ -75,10 +74,6 @@ impl LocalStream {
             .map_err(|e| PlatformError::io(path, e))
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
-    pub(crate) fn connect(_: &Path) -> Result<Self, PlatformError> {
-        Err(PlatformError::Unsupported("connect_local_socket"))
-    }
 
     /// A second handle on the same connection (e.g. to
     /// [`Self::shutdown`] it from another thread).

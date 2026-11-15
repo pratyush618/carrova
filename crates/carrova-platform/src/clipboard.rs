@@ -3,6 +3,7 @@
 use crate::watch::StopGuard;
 
 /// A clipboard owner could stream without end: refuse more than this.
+#[cfg(any(test, target_os = "linux", target_os = "android"))]
 pub(crate) const MAX_BYTES: u64 = 64 << 20;
 
 /// What a [`ClipContent`] holds.

@@ -3,7 +3,9 @@
 use std::path::{Path, PathBuf};
 
 use super::{EntriesWrite, FakePlatform};
-use crate::{ClipContent, ClipboardWatch, LinkNotice, LocalListener, LocalStream};
+use crate::{ClipContent, ClipboardWatch, LinkNotice};
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use crate::{LocalListener, LocalStream};
 use crate::{
     DiskInfo, FileManagerStatus, FileMeta, FsId, OsKind, PermissionModel, Platform, PlatformError,
     ProcessInfo, SemanticRoot, SnapshotCapability,
@@ -363,7 +365,7 @@ impl Platform for FakePlatform {
 
     /// Real sockets, owned by [`Platform::current_uid`] (so
     /// [`Hooks::uid`](super::Hooks::uid) plays another user).
-    #[cfg(unix)]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     fn bind_local_socket(&self, path: &Path) -> Result<LocalListener, PlatformError> {
         let owner = self
             .current_uid()
@@ -371,7 +373,7 @@ impl Platform for FakePlatform {
         LocalListener::bind(path, owner)
     }
 
-    #[cfg(unix)]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     fn connect_local_socket(&self, path: &Path) -> Result<LocalStream, PlatformError> {
         LocalStream::connect(path)
     }
