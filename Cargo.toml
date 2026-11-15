@@ -22,6 +22,7 @@ carrova-platform = { path = "crates/carrova-platform" }
 carrova-plugin = { path = "crates/carrova-plugin" }
 carrova-view = { path = "crates/carrova-view" }
 carrova-bundle = { path = "crates/carrova-bundle" }
+carrova-link = { path = "crates/carrova-link" }
 carrova-report = { path = "crates/carrova-report" }
 
 aead-stream = "0.6"

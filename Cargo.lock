@@ -778,6 +778,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "carrova-link"
+version = "0.2.3"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "carrova-manifest"
 version = "0.2.3"
 dependencies = [
