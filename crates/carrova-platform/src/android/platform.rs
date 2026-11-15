@@ -195,6 +195,11 @@ impl Platform for AndroidPlatform {
         crate::netops::lan_ipv4_interfaces()
     }
 
+    /// Only Wi-Fi or Ethernet: mobile data has LAN-looking addresses too.
+    fn on_local_network(&self) -> Result<bool, PlatformError> {
+        net::on_local_network()
+    }
+
     fn bind_broadcast_udp(&self, port: u16) -> io::Result<UdpSocket> {
         crate::netops::bind_broadcast_udp(port)
     }

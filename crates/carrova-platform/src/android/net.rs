@@ -1,5 +1,6 @@
-//! The Wi-Fi multicast lock through `Net.kt`: Android drops multicast
-//! (mDNS) unless an app holds one.
+//! Network glue through `Net.kt`: the Wi-Fi multicast lock (Android
+//! drops multicast, so mDNS, unless an app holds one) and whether the
+//! active network is a local one.
 
 use super::jni;
 use crate::{MulticastGuard, PlatformError};
@@ -24,4 +25,19 @@ pub(super) fn multicast_lock() -> Result<MulticastGuard, PlatformError> {
             env.call_method(&lock, "release", "()V", &[])?.v()
         });
     }))
+}
+
+/// Whether the active network is Wi-Fi or Ethernet (not mobile data, not none).
+pub(super) fn on_local_network() -> Result<bool, PlatformError> {
+    jni::call("Net.onLocalNetwork", |env, context| {
+        jni::call_static(
+            env,
+            context,
+            "Net",
+            "onLocalNetwork",
+            "(Landroid/content/Context;)Z",
+            &[context.into()],
+        )?
+        .z()
+    })
 }

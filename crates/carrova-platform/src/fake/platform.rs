@@ -228,6 +228,15 @@ impl Platform for FakePlatform {
         crate::netops::lan_ipv4_interfaces()
     }
 
+    /// Off when [`Hooks::off_local_network`](super::Hooks::off_local_network)
+    /// says so, else the default: any LAN address.
+    fn on_local_network(&self) -> Result<bool, PlatformError> {
+        if self.hooks.hooks.off_local_network {
+            return Ok(false);
+        }
+        Ok(!self.lan_ipv4_interfaces()?.is_empty())
+    }
+
     fn neighbour_mac(&self, _addr: std::net::IpAddr) -> Option<[u8; 6]> {
         self.hooks.hooks.neighbour_mac
     }

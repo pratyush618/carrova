@@ -283,6 +283,15 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         Err(PlatformError::Unsupported("lan_ipv4_interfaces"))
     }
 
+    /// Whether this device is on a local network other devices can share
+    /// now (the phone's "not on Wi-Fi" check before pairing). By default,
+    /// any usable LAN address; Android asks the system for the active
+    /// network and counts only Wi-Fi or Ethernet (mobile data has private
+    /// addresses too).
+    fn on_local_network(&self) -> Result<bool, PlatformError> {
+        Ok(!self.lan_ipv4_interfaces()?.is_empty())
+    }
+
     /// Bind a broadcast-capable UDP socket on `port` of every IPv4
     /// interface that other processes on this host can bind as well (so
     /// several senders share a well-known discovery port and each receives

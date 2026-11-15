@@ -381,3 +381,23 @@ fn adapters_without_a_display_to_wake_say_so_and_never_report_a_lock() {
     ));
     assert_eq!(Bare.screen_lock(), ScreenLock::Unknown);
 }
+
+#[test]
+fn fake_is_on_the_local_network_while_it_has_a_lan_address() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let p = FakePlatform::with_home(tmp.path());
+    assert_eq!(
+        p.on_local_network().unwrap(),
+        !p.lan_ipv4_interfaces().unwrap().is_empty()
+    );
+}
+
+#[test]
+fn fake_off_the_local_network_says_so() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let p = FakePlatform::with_home(tmp.path()).with_hooks(Hooks {
+        off_local_network: true,
+        ..Hooks::default()
+    });
+    assert!(!p.on_local_network().unwrap());
+}

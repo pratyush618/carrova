@@ -256,15 +256,15 @@ pub async fn own_fingerprint(state: &AppState) -> Result<String, CommandError> {
     .await
 }
 
-/// Whether this device has a LAN address now: `false` with no usable
-/// network (the phone shows "not on Wi-Fi" before pairing).
+/// Whether this device is on a local network now (on a phone: Wi-Fi or
+/// Ethernet); `false` shows "not on Wi-Fi" before pairing.
 ///
 /// # Errors
 ///
-/// The network interfaces could not be listed.
+/// The network could not be asked about.
 pub async fn lan_available(state: &AppState) -> Result<bool, CommandError> {
     let platform = Arc::clone(&state.platform);
-    blocking(move || Ok(!platform.lan_ipv4_interfaces()?.is_empty())).await
+    blocking(move || Ok(platform.on_local_network()?)).await
 }
 
 /// Run the pairing `pair` as the one pairing in progress (cancellable by
