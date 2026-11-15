@@ -52,7 +52,32 @@ fake = []
 ts = ["dep:ts-rs"]
 
 [dev-dependencies]
+serde_json = { workspace = true }
 tempfile = { workspace = true }
 
-[lints]
-workspace = true
+# ADR 0003: `deny` (not the workspace `forbid`) so `src/android/jni.rs` alone
+# can allow `unsafe`; `[lints]` cannot be combined with `workspace = true`, so
+# the other workspace lints are repeated.
+[lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+unused_must_use = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+# pedantic-lite
+cast_lossless = "warn"
+cloned_instead_of_copied = "warn"
+explicit_iter_loop = "warn"
+implicit_clone = "warn"
+inefficient_to_string = "warn"
+manual_let_else = "warn"
+needless_pass_by_value = "warn"
+redundant_closure_for_method_calls = "warn"
+semicolon_if_nothing_returned = "warn"
+uninlined_format_args = "warn"
+unnested_or_patterns = "warn"

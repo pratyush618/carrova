@@ -194,7 +194,7 @@ export const settings = {
     engine: 'Engine',
     device: 'This computer',
     system: 'System',
-    os: { linux: 'Linux', mac_os: 'macOS', windows: 'Windows' },
+    os: { linux: 'Linux', mac_os: 'macOS', windows: 'Windows', android: 'Android' },
     licence: 'Licence',
     source: 'Source code',
     credits:

@@ -3,4 +3,4 @@
 /**
  * Operating-system family.
  */
-export type OsKind = "linux" | "mac_os" | "windows";
+export type OsKind = "linux" | "mac_os" | "windows" | "android";

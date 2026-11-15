@@ -120,7 +120,8 @@ impl FakePlatform {
     /// A `os` machine whose roots sit under `home` where that OS puts
     /// them: Linux as [`Self::with_home`]; macOS `Library/Application
     /// Support` (config and data) and `Library/Caches`; Windows
-    /// `AppData/Roaming` (config) and `AppData/Local` (data and cache).
+    /// `AppData/Roaming` (config) and `AppData/Local` (data and cache);
+    /// Android `config`, `data` and `cache`.
     #[must_use]
     pub fn with_os_layout(home: impl AsRef<Path>, os: OsKind) -> Self {
         let home = home.as_ref();
@@ -133,6 +134,7 @@ impl FakePlatform {
                 "Library/Caches",
             ),
             OsKind::Windows => ("AppData/Roaming", "AppData/Local", "AppData/Local"),
+            OsKind::Android => ("config", "data", "cache"),
         };
         p.root(SemanticRoot::UserConfig, home.join(config))
             .root(SemanticRoot::UserData, home.join(data))

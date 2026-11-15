@@ -78,6 +78,8 @@ impl Detect {
             OsKind::Linux => &self.linux,
             OsKind::MacOs => &self.macos,
             OsKind::Windows => &self.windows,
+            // No Android detection: recipes describe desktop apps.
+            OsKind::Android => &[],
         }
     }
 }

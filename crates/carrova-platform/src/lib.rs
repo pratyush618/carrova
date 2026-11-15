@@ -22,6 +22,8 @@ mod tool;
 mod types;
 mod watch;
 
+#[cfg(target_os = "android")]
+mod android;
 #[cfg(feature = "fake")]
 pub mod fake;
 #[cfg(unix)]
@@ -68,5 +70,9 @@ pub fn current() -> Box<dyn Platform> {
     #[cfg(target_os = "windows")]
     {
         Box::new(windows::WindowsPlatform)
+    }
+    #[cfg(target_os = "android")]
+    {
+        Box::new(android::AndroidPlatform::from_env())
     }
 }

@@ -20,6 +20,18 @@ build:
 test:
     cargo test --workspace --all-features --no-fail-fast
 
+# Cross-check the Android-compatible crates (not in `ci`; needs the NDK:
+# export ANDROID_NDK_HOME, e.g. ~/Android/Sdk/ndk/27.1.12297006).
+android-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${ANDROID_NDK_HOME:?set ANDROID_NDK_HOME to the Android NDK root (r27 or newer)}"
+    bin="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+    export CC_aarch64_linux_android="$bin/aarch64-linux-android29-clang"
+    export AR_aarch64_linux_android="$bin/llvm-ar"
+    export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CC_aarch64_linux_android"
+    cargo check -p carrova-platform -p carrova-core --target aarch64-linux-android
+
 # Build every plugin under plugins/ to plugins/<id>/plugin.wasm (+ host tests).
 plugins:
     #!/usr/bin/env bash

@@ -38,6 +38,8 @@ impl OsOverrides {
             OsKind::Linux => self.linux.as_ref(),
             OsKind::MacOs => self.macos.as_ref(),
             OsKind::Windows => self.windows.as_ref(),
+            // Recipes carry no Android paths: apps are not migrated to a phone.
+            OsKind::Android => None,
         }
     }
 

@@ -88,7 +88,7 @@ impl OsRules {
     pub(super) const fn of(os: OsKind) -> &'static Self {
         match os {
             OsKind::Windows => &WINDOWS,
-            OsKind::Linux | OsKind::MacOs => &POSIX,
+            OsKind::Linux | OsKind::MacOs | OsKind::Android => &POSIX,
         }
     }
 
