@@ -16,10 +16,12 @@ use std::time::Duration;
 
 use carrova_core::time::now_unix;
 use carrova_crypto::identity::DeviceId;
+use carrova_link::Feature;
 use carrova_platform::DirWatch;
 use carrova_view::devices::VisibilityChoice;
 use carrova_view::ecosystem::LinkedDeviceView;
 use carrova_view::ipc::EVENT_CHANNEL;
+use carrova_view::notice::POPUP_TITLE;
 use carrova_view::tray::{
     CloseAction, TrayItem, TrayModel, tray_menu, tray_tooltip, tray_visibility,
 };
@@ -432,29 +434,29 @@ fn menu(
     Ok(menu)
 }
 
-/// After "Send files…": "Send clipboard to…" each linked device, and
-/// "Ring <device>" for each.
+/// After "Send files…": "Send clipboard to…" each linked device that takes
+/// the clipboard, and "Ring <device>" for each that may be rung.
 fn append_link_items(
     app: &AppHandle,
     menu: &Menu<tauri::Wry>,
     linked: &[LinkedDeviceView],
 ) -> tauri::Result<()> {
-    if linked.is_empty() {
-        return Ok(());
+    let allowing = |feature| linked.iter().filter(move |d| d.allows(feature));
+    if allowing(Feature::Clipboard).next().is_some() {
+        let clip = Submenu::with_id(app, "send_clipboard", "Send clipboard to…", true)?;
+        for device in allowing(Feature::Clipboard) {
+            let id = format!("{CLIP_ITEM}{}", device.id);
+            clip.append(&MenuItem::with_id(
+                app,
+                id,
+                escaped(&device.name),
+                true,
+                None::<&str>,
+            )?)?;
+        }
+        menu.append(&clip)?;
     }
-    let clip = Submenu::with_id(app, "send_clipboard", "Send clipboard to…", true)?;
-    for device in linked {
-        let id = format!("{CLIP_ITEM}{}", device.id);
-        clip.append(&MenuItem::with_id(
-            app,
-            id,
-            escaped(&device.name),
-            true,
-            None::<&str>,
-        )?)?;
-    }
-    menu.append(&clip)?;
-    for device in linked {
+    for device in allowing(Feature::Ring) {
         let id = format!("{RING_ITEM}{}", device.id);
         let label = escaped(&format!("Ring {}", device.name));
         menu.append(&MenuItem::with_id(app, id, label, true, None::<&str>)?)?;
@@ -554,6 +556,7 @@ fn on_link_item(app: &AppHandle, id: &str) -> bool {
         };
         if let Err(error) = done {
             tracing::warn!(%error, "a tray link action failed");
+            state.out.popup(POPUP_TITLE, &error.bridge().message);
         }
     });
     true
