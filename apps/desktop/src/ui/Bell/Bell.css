@@ -4,17 +4,10 @@
 
 .p-bell__btn {
   position: relative;
-  display: grid;
-  place-items: center;
-  inline-size: 32px;
-  block-size: 32px;
-  border-radius: 8px;
-  color: var(--text-secondary);
 }
 
-.p-bell__btn:hover,
 .p-bell__btn[aria-expanded='true'] {
-  background: var(--surface-2);
+  background: var(--surface-0);
   color: var(--text-primary);
 }
 
