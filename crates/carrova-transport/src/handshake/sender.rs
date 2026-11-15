@@ -202,7 +202,7 @@ async fn prove(
         send,
         recv,
         peer_cert,
-        resume: keys.resume_secret()?,
+        resume: keys.resume_secret(),
         peer_identity,
     })
 }

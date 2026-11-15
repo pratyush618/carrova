@@ -2,8 +2,8 @@
 
 use carrova_crypto::identity::DevicePublic;
 use carrova_crypto::pairing::{
-    CertHash, ChannelBinding, Confirmation, EXPORTER_LABEL, EXPORTER_LEN, KnownSecret,
-    PairingError, PakeRole, RESUME_SECRET_LEN, ResumeSecret, SessionKeys,
+    CertHash, ChannelBinding, Confirmation, EXPORTER_LABEL, EXPORTER_LEN, KnownSecret, PakeRole,
+    ResumeSecret, SessionKeys,
 };
 
 use super::PeerIdentity;
@@ -61,18 +61,14 @@ impl Keys<'_> {
         }
     }
 
-    pub(super) fn resume_secret(&self) -> Result<ResumeSecret> {
-        Ok(match self {
-            Self::Pake(keys) => keys.resume_secret(),
-            Self::Resume(secret) => (*secret).clone(),
-            // A link is redialled, never resumed: a random secret no peer
-            // shares, so a resume with it can only fail.
-            Self::Link(_) => {
-                let mut bytes = [0u8; RESUME_SECRET_LEN];
-                getrandom::fill(&mut bytes).map_err(|_| PairingError::Rng)?;
-                ResumeSecret::from_bytes(bytes)
-            }
-        })
+    /// The session's resume secret; none for a link (redialled, never
+    /// resumed).
+    pub(super) fn resume_secret(&self) -> Option<ResumeSecret> {
+        match self {
+            Self::Pake(keys) => Some(keys.resume_secret()),
+            Self::Resume(secret) => Some((*secret).clone()),
+            Self::Link(_) => None,
+        }
     }
 }
 

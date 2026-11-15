@@ -37,7 +37,7 @@ pub struct Connection {
     control_send: SendStream,
     control_recv: StreamReader,
     peer_cert: CertHash,
-    resume: ResumeSecret,
+    resume: Option<ResumeSecret>,
     peer_identity: Option<PeerIdentity>,
     /// Chunk bytes the peer requested from us so far (L1 ceiling).
     requested: Arc<AtomicU64>,
@@ -77,11 +77,10 @@ impl Connection {
     }
 
     /// The session's resume secret (from pairing, or the one used to
-    /// resume). A link has none to share: its secret is random and resumes
-    /// nothing (redial instead).
+    /// resume); `None` on a link, which is redialled, never resumed.
     #[must_use]
-    pub fn resume_secret(&self) -> &ResumeSecret {
-        &self.resume
+    pub fn resume_secret(&self) -> Option<&ResumeSecret> {
+        self.resume.as_ref()
     }
 
     /// The peer's device identity and the secret shared with it: on a link

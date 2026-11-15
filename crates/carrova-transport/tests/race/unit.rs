@@ -261,8 +261,8 @@ mod real_sender {
         let mut receiver = Connection::new(endpoint, receiver, Watch::default());
         assert_eq!(sender.peer_cert_hash(), CertHash::of(identity.cert_der()));
         assert_eq!(
-            sender.resume_secret().expose_bytes(),
-            receiver.resume_secret().expose_bytes()
+            sender.resume_secret().unwrap().expose_bytes(),
+            receiver.resume_secret().unwrap().expose_bytes()
         );
         sender.send(&Ping(7)).unwrap();
         assert_eq!(receiver.recv::<Ping>(T).unwrap(), Ping(7));

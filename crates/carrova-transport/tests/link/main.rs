@@ -114,6 +114,8 @@ fn link_after_pair_only_connects() {
 
     assert_eq!(dialed.peer_identity().unwrap().public, a.public());
     assert_eq!(accepted.peer_identity().unwrap().public, b.public());
+    assert!(dialed.resume_secret().is_none(), "a link is never resumed");
+    assert!(accepted.resume_secret().is_none());
     dialed.send(&"ping".to_owned()).unwrap();
     assert_eq!(accepted.recv::<String>(T).unwrap(), "ping");
 }

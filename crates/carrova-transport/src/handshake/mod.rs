@@ -68,7 +68,8 @@ pub(crate) struct Authenticated {
     pub(crate) send: SendStream,
     pub(crate) recv: StreamReader,
     pub(crate) peer_cert: CertHash,
-    pub(crate) resume: ResumeSecret,
+    /// The session's resume secret (none on a link).
+    pub(crate) resume: Option<ResumeSecret>,
     /// Code pairing where both sides proved their device identity.
     pub(crate) peer_identity: Option<PeerIdentity>,
 }

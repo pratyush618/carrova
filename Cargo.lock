@@ -879,7 +879,6 @@ dependencies = [
  "carrova-manifest",
  "carrova-platform",
  "ciborium",
- "getrandom 0.4.3",
  "mdns-sd",
  "quinn",
  "rcgen",

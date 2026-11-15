@@ -36,8 +36,8 @@ mod tuning;
 fn pairing_succeeds_and_control_messages_round_trip() {
     let (mut sender, mut receiver) = pair();
     assert_eq!(
-        sender.resume_secret().expose_bytes(),
-        receiver.resume_secret().expose_bytes()
+        sender.resume_secret().unwrap().expose_bytes(),
+        receiver.resume_secret().unwrap().expose_bytes()
     );
     assert_ne!(sender.peer_cert_hash(), receiver.peer_cert_hash());
     assert_eq!(receiver.peer_addr().ip(), LOOPBACK);
@@ -376,8 +376,8 @@ fn resume_reconnects_with_the_session_secret() {
         return;
     }
     let (sender, receiver, mut listener) = pair_on(discoverable_listener());
-    let secret = sender.resume_secret().clone();
-    let receiver_secret = receiver.resume_secret().clone();
+    let secret = sender.resume_secret().unwrap().clone();
+    let receiver_secret = receiver.resume_secret().unwrap().clone();
     drop((sender, receiver));
 
     listener.advertise_resume(&secret).unwrap();
@@ -390,7 +390,7 @@ fn resume_reconnects_with_the_session_secret() {
     .unwrap();
     let mut sender = sender.join().unwrap().unwrap();
     assert_eq!(
-        sender.resume_secret().expose_bytes(),
+        sender.resume_secret().unwrap().expose_bytes(),
         receiver_secret.expose_bytes()
     );
     control_round_trip(&mut sender, &mut receiver);

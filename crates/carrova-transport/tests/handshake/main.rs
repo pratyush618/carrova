@@ -63,7 +63,7 @@ fn code_paired_devices_learn_each_other() {
     );
     assert_ne!(
         seen_by_sender.secret.expose_bytes(),
-        sender.resume_secret().expose_bytes()
+        sender.resume_secret().unwrap().expose_bytes()
     );
 }
 
