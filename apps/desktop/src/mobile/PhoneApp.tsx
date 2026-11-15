@@ -6,7 +6,7 @@ import type { LinkedDeviceView } from '../engine/types';
 import { Toast, Window } from '../ui';
 import { PhoneDevice } from './home/PhoneDevice';
 import { PhoneHome } from './home/PhoneHome';
-import { shareChanges } from './model';
+import { shareChanges, type OpenedIntent } from './model';
 import { ChooseShare } from './pairing/ChooseShare';
 import { PhonePairing } from './pairing/PhonePairing';
 import { Welcome } from './pairing/Welcome';
@@ -34,20 +34,33 @@ export function PhoneApp() {
   const { t } = useTranslation();
   const { linked } = useControllers();
   const [view, setView] = useState<PhoneView>({ kind: 'home' });
+  // What the user opened here (a send, Forget), then the links the app was
+  // opened with, in turn: one never replaces another.
   const [overlay, setOverlay] = useState<PhoneOverlayModel | null>(null);
+  const [opened, setOpened] = useState<readonly OpenedIntent[]>([]);
+  // How many opened links were dismissed: keys each one's sheet afresh.
+  const [taken, setTaken] = useState(0);
   const { note, sendTo, dismiss } = useSendNote();
   // Welcome or Home only once the list is known, so neither flashes.
   const [loaded, setLoaded] = useState(false);
   const { reload, setFeature, sendClipboard } = linked;
-  useOpened(setOverlay);
+  useOpened((intent) => {
+    setOpened((queue) => [...queue, intent]);
+  });
   useEffect(() => {
     void reload().then(() => {
       setLoaded(true);
     });
   }, [reload]);
 
+  const shown = overlay ?? opened[0] ?? null;
   const close = () => {
-    setOverlay(null);
+    if (overlay !== null) {
+      setOverlay(null);
+    } else {
+      setOpened((queue) => queue.slice(1));
+      setTaken((n) => n + 1);
+    }
   };
   const pair = () => {
     setView({ kind: 'pair' });
@@ -144,12 +157,12 @@ export function PhoneApp() {
     <div className="m-app">
       <Window
         overlays={
-          overlay === null
+          shown === null
             ? []
             : [
                 <PhoneOverlay
-                  key={overlay.kind}
-                  overlay={overlay}
+                  key={overlay === null ? `opened-${String(taken)}` : overlay.kind}
+                  overlay={shown}
                   sendTo={sendTo}
                   onClose={close}
                   onForgotten={() => {

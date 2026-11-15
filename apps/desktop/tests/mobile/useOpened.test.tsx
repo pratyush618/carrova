@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { renderPhone } from '../support/phone';
@@ -34,5 +34,37 @@ describe('links the phone app is opened with', () => {
     await user.click(within(sheet).getByRole('button', { name: 'Send' }));
     expect(handoff).toHaveBeenCalledWith('d2', url);
     expect(await screen.findByText('Sent to Desk PC')).toBeInTheDocument();
+  });
+
+  it('shows each link of one opening in turn', async () => {
+    const user = userEvent.setup();
+    await renderPhone({
+      scenario: 'linked',
+      opened: ['file:///shared/1/a.jpg', 'https://carrova.org/docs'],
+    });
+    const files = await screen.findByRole('dialog', { name: 'Send 1 file' });
+    await user.click(within(files).getByRole('button', { name: 'Cancel' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Open on a computer' })).toBeInTheDocument();
+  });
+
+  it('keeps an open Forget dialog and shows the link after it', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderPhone({ scenario: 'linked' });
+    await user.click(await screen.findByRole('button', { name: /Desk PC/ }));
+    await user.click(await screen.findByRole('button', { name: 'Forget Desk PC' }));
+    const forget = await screen.findByRole('alertdialog', { name: 'Forget Desk PC?' });
+
+    const take = vi.spyOn(port, 'takeOpened').mockResolvedValueOnce(['carrova://send-clipboard']);
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await waitFor(() => {
+      expect(take).toHaveBeenCalled();
+    });
+    expect(screen.getByRole('alertdialog', { name: 'Forget Desk PC?' })).toBe(forget);
+
+    await user.click(within(forget).getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByRole('dialog', { name: 'Send clipboard' })).toBeInTheDocument();
   });
 });
