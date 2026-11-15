@@ -156,7 +156,18 @@ fn serve_until_ping(conn: &Connection) -> bool {
 #[test]
 fn duplicate_dial_keeps_one_connection() {
     let (low, high, secret) = pair(&PolicyDoc::phone_defaults());
-    let (_sl, sh) = start_both(&low, &high);
+    // Low redials its superseded link after `backoff_min`: long enough here
+    // for the test's own connection to serve a ping first.
+    let (sl, sh) = (
+        low.start(SupervisorConfig {
+            backoff_min: std::time::Duration::from_secs(1),
+            backoff_max: std::time::Duration::from_secs(60),
+            ..fast()
+        }),
+        high.start(fast()),
+    );
+    low.sees(&high, &sh);
+    high.sees(&low, &sl);
     high.wait("high linked", link_up(&low.id));
 
     // The dialer's newer connection replaces the live one.
@@ -173,6 +184,13 @@ fn duplicate_dial_keeps_one_connection() {
     assert_eq!(status.len(), 1);
     assert_eq!(status[0].state, PeerState::Linked);
     assert_eq!(high.count(link_up(&low.id)), 1);
+
+    // Low's own link comes back once (it replaces the test's), then stays.
+    wait_until("low relinked", || low.count(link_up(&high.id)) == 2);
+    low.source.wait_rounds(20);
+    assert_eq!(low.count(link_up(&high.id)), 2, "no redial loop");
+    assert_eq!(high.count(link_up(&low.id)), 1);
+    sl.ping(&high.id).unwrap();
 }
 
 #[test]

@@ -291,8 +291,9 @@ fn register(shared: &Arc<Shared>, conn: Connection) {
 
 /// The link `generation` of `device` ended with `why`: unless something
 /// here closed or replaced it already, it is down, and redialled at once
-/// by the dialling side (after the longest backoff when superseded: a
-/// newer link from this device lives elsewhere).
+/// by the dialling side (after the first backoff when superseded: a newer
+/// link from this device lives elsewhere, which this one then replaces
+/// once, not in a loop).
 fn ended_link(shared: &Shared, device: DeviceId, generation: u64, why: &LinkError) {
     let retrying = {
         let mut peers = shared.peers();
@@ -309,7 +310,7 @@ fn ended_link(shared: &Shared, device: DeviceId, generation: u64, why: &LinkErro
             close(&link);
         }
         if matches!(why, LinkError::Transport(TransportError::Superseded)) {
-            peer.backoff = shared.config.backoff_max;
+            peer.backoff = shared.config.backoff_min;
             peer.next_dial = Instant::now() + peer.backoff;
         }
         dials(&shared.me, &device) && peer.wanted()
