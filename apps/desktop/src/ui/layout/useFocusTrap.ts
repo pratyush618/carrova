@@ -40,7 +40,8 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, onEscape: () =>
     const onKeyDown = (event: KeyboardEvent) => {
       // An overlay under the top one keeps its listener on the shared dock.
       if (root.closest('[inert]')) return;
-      if (event.key === 'Escape') {
+      // Escape in a toast is no answer to the overlay under it.
+      if (event.key === 'Escape' && event.target instanceof Node && root.contains(event.target)) {
         event.stopPropagation();
         escape();
         return;

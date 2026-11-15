@@ -120,6 +120,22 @@ describe('Toasts over an overlay', () => {
     await user.keyboard('{Enter}');
     expect(onDecline).toHaveBeenCalledOnce();
   });
+
+  it('leaves the sheet open on Escape in a toast', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(
+      <WithSheet
+        onClose={onClose}
+        toast={<Toast onDismiss={vi.fn()}>Clipboard sent to Pixel 8</Toast>}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'See every change' }));
+    screen.getByRole('button', { name: 'Dismiss' }).focus();
+    await user.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Every change' })).toBeInTheDocument();
+  });
 });
 
 describe('Dialog', () => {
