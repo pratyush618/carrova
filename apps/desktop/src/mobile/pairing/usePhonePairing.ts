@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useControllers } from '../../app/controllers/Controllers';
 import { toBridgeError } from '../../engine/errors';
+import { useHost } from '../../engine/host';
 import { usePort } from '../../engine/port';
 import type { LinkedDeviceView } from '../../engine/types';
 import type { Pairing } from '../../flows/ecosystem/useLinkedDevices';
@@ -22,10 +23,12 @@ export type PhonePairStep =
 /**
  * Adding a computer from the phone: checks the LAN on entering and on each
  * retry, scans (or takes a typed code) and links through the shared
- * linked-devices controller. Leaving cancels a link still under way.
+ * linked-devices controller; once linked, asks to show notifications.
+ * Leaving cancels a link still under way.
  */
 export function usePhonePairing() {
   const port = usePort();
+  const host = useHost();
   const { linked } = useControllers();
   const [step, setStep] = useState<PhonePairStep>({ kind: 'checking' });
   const [ownFingerprint, setOwnFingerprint] = useState<string | null>(null);
@@ -62,13 +65,15 @@ export function usePhonePairing() {
       current.done.then(
         (device) => {
           setStep({ kind: 'linked', device });
+          // The link notification needs it; refused, everything else still works.
+          host.askNotifications?.().catch(() => undefined);
         },
         (reason: unknown) => {
           if (toBridgeError(reason).code !== 'cancelled') setStep({ kind: 'failed' });
         },
       );
     },
-    [linkComputer],
+    [linkComputer, host],
   );
   const scan = useCallback(() => {
     port.scanQr().then(

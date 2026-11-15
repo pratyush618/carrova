@@ -19,6 +19,8 @@ export interface DesktopHost {
   readonly openUrl?: (url: string) => Promise<void>;
   /** Show a file or folder in the file manager. */
   readonly revealPath?: (path: string) => Promise<void>;
+  /** Ask to show notifications (Android 13+) unless already allowed; a refusal changes nothing else. */
+  readonly askNotifications?: () => Promise<void>;
 }
 
 const HostContext = createContext<DesktopHost>({});

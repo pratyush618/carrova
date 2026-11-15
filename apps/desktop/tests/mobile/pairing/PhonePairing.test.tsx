@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { renderPhone, scanToLinked } from '../../support/phone';
 
 describe('adding a computer from the phone', () => {
@@ -64,5 +64,23 @@ describe('adding a computer from the phone', () => {
       await screen.findByRole('heading', { level: 1, name: 'Join the same Wi-Fi' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Scan the code' })).not.toBeInTheDocument();
+  });
+
+  it('asks for notification permission once a computer is linked', async () => {
+    const user = userEvent.setup();
+    const askNotifications = vi.fn(() => Promise.resolve());
+    await renderPhone({}, { askNotifications });
+    await screen.findByRole('button', { name: 'Add a computer' });
+    expect(askNotifications).not.toHaveBeenCalled();
+
+    await scanToLinked(user);
+    expect(askNotifications).toHaveBeenCalledTimes(1);
+  });
+
+  it('still links when notifications are refused', async () => {
+    const user = userEvent.setup();
+    await renderPhone({}, { askNotifications: () => Promise.reject(new Error('denied')) });
+    await scanToLinked(user);
+    expect(screen.getByRole('button', { name: 'Choose what to share' })).toBeInTheDocument();
   });
 });
