@@ -23,8 +23,8 @@ pub const CONFLICTS_SHOWN: usize = 5;
 ///
 /// Holds the code: only ever written to the terminal (or, with `--json`,
 /// to stdout as an explicit `pairing_code` record), never to events or
-/// logs.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+/// logs (its `Debug` redacts the code and the fallback address).
+#[derive(Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct CodeView {
     /// The code the receiver types (`7-acid-lemon`).
@@ -38,6 +38,16 @@ pub struct CodeView {
     pub expired: bool,
     /// Seconds until the code stops working (a fresh one replaces it).
     pub expires_in_secs: u32,
+}
+
+impl std::fmt::Debug for CodeView {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CodeView")
+            .field("renewed", &self.renewed)
+            .field("expired", &self.expired)
+            .field("expires_in_secs", &self.expires_in_secs)
+            .finish_non_exhaustive()
+    }
 }
 
 /// The view of `ticket`, offered as `offer`, valid for `expires_in`.

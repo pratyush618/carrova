@@ -5,7 +5,7 @@
  *
  * Holds the code: only ever written to the terminal (or, with `--json`,
  * to stdout as an explicit `pairing_code` record), never to events or
- * logs.
+ * logs (its `Debug` redacts the code and the fallback address).
  */
 export type CodeView = { 
 /**
