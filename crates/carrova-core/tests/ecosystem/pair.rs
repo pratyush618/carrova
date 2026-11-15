@@ -7,30 +7,41 @@ use std::thread;
 
 use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::ecosystem::{
-    PairInvite, PolicyStore, accept_invite, link_with_code, offer_pairing,
+    PAIR_CONFIRM_WINDOW, PairInvite, PeerFound, PolicyStore, accept_invite, link_with_code,
+    offer_pairing,
 };
 use carrova_core::{Cancel, CoreError, Engine, NullSink};
-use carrova_crypto::identity::DeviceKey;
+use carrova_crypto::identity::{DeviceKey, Fingerprint};
 use carrova_link::{Feature, FeatureState, PolicyDoc};
 use carrova_platform::OsKind;
 use carrova_platform::fake::FakePlatform;
+use carrova_transport::TransportError;
 
 use crate::lan_support::{Side, loopback};
 
-/// `host` offers a pairing; returns its invite (pointed at loopback) and
-/// the thread that ends with its result.
-fn offer(
+type HostResult = thread::JoinHandle<carrova_core::Result<DeviceRecord>>;
+
+/// `host` offers a pairing and confirms whoever is found.
+fn offer(host: &Side) -> (PairInvite, HostResult) {
+    offer_asking(host, |_| true)
+}
+
+/// `host` offers a pairing, answering the key check with `on_peer`;
+/// returns its invite (pointed at loopback) and the thread that ends with
+/// its result.
+fn offer_asking(
     host: &Side,
-) -> (
-    PairInvite,
-    thread::JoinHandle<carrova_core::Result<DeviceRecord>>,
-) {
+    on_peer: impl FnOnce(&PeerFound) -> bool + Send + 'static,
+) -> (PairInvite, HostResult) {
     let (tx, rx) = mpsc::channel();
     let engine = host.engine.clone();
     let join = thread::spawn(move || {
-        offer_pairing(&engine, &Cancel::default(), |invite| {
-            tx.send(invite).unwrap();
-        })
+        offer_pairing(
+            &engine,
+            &Cancel::default(),
+            |invite| tx.send(invite).unwrap(),
+            on_peer,
+        )
     });
     let mut invite = rx.recv().unwrap();
     let port = invite.ticket.addr.unwrap().port();
@@ -159,7 +170,7 @@ fn cancel_ends_offer_pairing_promptly() {
     let cancel = Cancel::default();
     let (tx, rx) = mpsc::channel();
     let (engine, c) = (host.engine.clone(), cancel.clone());
-    let join = thread::spawn(move || offer_pairing(&engine, &c, |i| tx.send(i).unwrap()));
+    let join = thread::spawn(move || offer_pairing(&engine, &c, |i| tx.send(i).unwrap(), |_| true));
     rx.recv().unwrap();
 
     cancel.cancel();
@@ -167,4 +178,86 @@ fn cancel_ends_offer_pairing_promptly() {
     let started = std::time::Instant::now();
     assert!(matches!(join.join().unwrap(), Err(CoreError::Cancelled)));
     assert!(started.elapsed() < std::time::Duration::from_secs(5));
+}
+
+fn device_key(side: &Side) -> carrova_crypto::identity::DevicePublic {
+    let known = KnownDevices::open(&*side.platform).unwrap();
+    known.device_key(&*side.platform).unwrap().public()
+}
+
+fn assert_nothing_stored(sides: [&Side; 2]) {
+    for side in sides {
+        let known = KnownDevices::open(&*side.platform).unwrap();
+        assert!(known.list(&*side.platform).unwrap().is_empty());
+    }
+}
+
+#[test]
+fn offer_pairing_asks_before_storing() {
+    let (host, guest) = (
+        Side::named(Some("Host")),
+        Side::named(Some("Guest\u{202e}")),
+    );
+    let (found_tx, found_rx) = mpsc::channel();
+    let host_platform = Arc::clone(&host.platform);
+    let (invite, join) = offer_asking(&host, move |found| {
+        let known = KnownDevices::open(&*host_platform).unwrap();
+        let stored_yet = !known.list(&*host_platform).unwrap().is_empty();
+        found_tx.send((found.clone(), stored_yet)).unwrap();
+        true
+    });
+
+    accept_invite(&guest.engine, &invite, &Cancel::default()).unwrap();
+    let on_host = join.join().unwrap().unwrap();
+
+    let (found, stored_yet) = found_rx.recv().unwrap();
+    assert!(!stored_yet, "asked only before storing");
+    assert_eq!(found.name(), "Guest");
+    assert_eq!(found.os(), OsKind::Linux);
+    assert_eq!(found.public(), device_key(&guest));
+    assert_eq!(found.fingerprint(), Fingerprint::of(&found.public()));
+    assert_eq!(on_host.public, found.public());
+}
+
+#[test]
+fn offer_pairing_rejected_peer_stores_nothing_and_joiner_fails() {
+    let (host, guest) = (Side::new(), Side::new());
+    let (invite, join) = offer_asking(&host, |_| false);
+
+    let joined = accept_invite(&guest.engine, &invite, &Cancel::default());
+    let hosted = join.join().unwrap();
+
+    assert!(matches!(hosted, Err(CoreError::PairRejected)), "{hosted:?}");
+    assert!(
+        matches!(
+            joined,
+            Err(CoreError::Transport(TransportError::PairingFailed))
+        ),
+        "{joined:?}"
+    );
+    assert_nothing_stored([&host, &guest]);
+}
+
+#[test]
+fn offer_pairing_unanswered_times_out_as_reject() {
+    let (host, guest) = (Side::new(), Side::new());
+    let (invite, join) = offer_asking(&host, |_| {
+        thread::sleep(PAIR_CONFIRM_WINDOW + std::time::Duration::from_secs(1));
+        true
+    });
+
+    let joined = accept_invite(&guest.engine, &invite, &Cancel::default());
+    let hosted = join.join().unwrap();
+
+    assert!(matches!(hosted, Err(CoreError::PairRejected)), "{hosted:?}");
+    assert!(joined.is_err(), "{joined:?}");
+    assert_nothing_stored([&host, &guest]);
+}
+
+#[test]
+fn pair_confirm_window_leaves_a_margin_before_the_joiner_gives_up() {
+    assert_eq!(
+        PAIR_CONFIRM_WINDOW + std::time::Duration::from_secs(10),
+        carrova_transport::PAIR_CONFIRM_TIMEOUT
+    );
 }

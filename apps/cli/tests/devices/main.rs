@@ -197,9 +197,12 @@ fn devices_link_with_ticket_remembers() {
     let engine = Engine::new(platform.clone(), Vec::new(), Arc::new(NullSink));
     let (tx, rx) = mpsc::channel();
     let offer = thread::spawn(move || {
-        offer_pairing(&engine, &Cancel::default(), |invite| {
-            tx.send(invite.ticket).unwrap();
-        })
+        offer_pairing(
+            &engine,
+            &Cancel::default(),
+            |invite| tx.send(invite.ticket).unwrap(),
+            |_| true,
+        )
     });
     let offered = rx.recv_timeout(Duration::from_secs(10)).unwrap();
     let port = offered.addr.unwrap().port();

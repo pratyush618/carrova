@@ -1,16 +1,19 @@
 //! Linking two devices without moving anything (ADR 0002 §1–2): one side
 //! offers a code, the other joins with the scanned invite (key pinned) or
-//! the typed code (unpinned). Both remember the other and start it on its
-//! default policy.
+//! the typed code (unpinned). The offering side's user checks the device
+//! found before anything is stored. Both remember the other and start it
+//! on its default policy.
 
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::{DevicePublic, Fingerprint};
 use carrova_crypto::pairing::KnownSecret;
 use carrova_link::PolicyDoc;
 use carrova_platform::{OsKind, Platform};
 use carrova_transport::{
-    ConnectOptions, ListenOptions, Listener, PairedPeer, PeerInfo, Ticket, pair_only,
+    ConnectOptions, ListenOptions, Listener, PAIR_CONFIRM_TIMEOUT, PairedPeer, PeerInfo, Ticket,
+    pair_only,
 };
 
 use super::{PairInvite, PolicyStore};
@@ -23,18 +26,71 @@ use crate::lan::{CODE_LIFETIME, PAIR_TIMEOUT, clean_device_name};
 use crate::presence::announced_name;
 use crate::time;
 
+/// How long the user has to confirm a found device: the joiner's wait
+/// ([`PAIR_CONFIRM_TIMEOUT`]) less a margin for confirming over the wire.
+pub const PAIR_CONFIRM_WINDOW: Duration =
+    PAIR_CONFIRM_TIMEOUT.saturating_sub(Duration::from_secs(10));
+
+/// The device that answered a pairing offer, shown for the user's key
+/// check before it is stored.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PeerFound {
+    name: String,
+    os: OsKind,
+    public: DevicePublic,
+}
+
+impl PeerFound {
+    /// The device called `name` (cleaned for display; its fingerprint if
+    /// nothing visible is left) on `os`, proven to hold `public`.
+    #[must_use]
+    pub fn new(name: &str, os: OsKind, public: DevicePublic) -> Self {
+        Self {
+            name: display_name(name, &public),
+            os,
+            public,
+        }
+    }
+
+    /// Its cleaned name (untrusted: for display only).
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Its OS family (untrusted: for display only).
+    #[must_use]
+    pub fn os(&self) -> OsKind {
+        self.os
+    }
+
+    /// Its proven device key.
+    #[must_use]
+    pub fn public(&self) -> DevicePublic {
+        self.public
+    }
+
+    /// Its key's fingerprint, to compare with the one the device shows.
+    #[must_use]
+    pub fn fingerprint(&self) -> Fingerprint {
+        Fingerprint::of(&self.public)
+    }
+}
+
 /// Wait for a device to link: show `on_code` the invite (QR and typed
-/// code), then pair with whoever answers it. Remembers the peer even when
-/// "remember devices" is off (linking is an explicit choice).
+/// code), then pair with whoever answers it and ask `on_peer` whether it
+/// is the device the user meant. Remembers it, even when "remember
+/// devices" is off (linking is an explicit choice), only on a yes given
+/// within [`PAIR_CONFIRM_WINDOW`]; a no or a late answer fails with
+/// [`CoreError::PairRejected`] and nothing is stored on either side.
 ///
-/// Blocks up to [`CODE_LIFETIME`] or until `cancel` fires
-/// ([`CoreError::Cancelled`](crate::CoreError::Cancelled)). The peer is
-/// told only after it is stored here, and that confirmation must follow
-/// the pairing at once, so nothing slow runs between the two.
+/// Blocks up to [`CODE_LIFETIME`] plus the answer, or until `cancel`
+/// fires ([`CoreError::Cancelled`](crate::CoreError::Cancelled)).
 pub fn offer_pairing(
     engine: &Engine,
     cancel: &Cancel,
     on_code: impl FnOnce(PairInvite),
+    on_peer: impl FnOnce(&PeerFound) -> bool,
 ) -> Result<DeviceRecord> {
     let platform = &**engine.platform();
     let key = Arc::new(KnownDevices::open(platform)?.device_key(platform)?);
@@ -52,8 +108,15 @@ pub fn offer_pairing(
         key: key.public(),
     });
     let pending = listener.accept_pair_only(&code, &me(platform), CODE_LIFETIME, || {})?;
-    // Stored before the peer is told; if it fails, the drop fails the peer too.
-    let stored = store(platform, &pending.peer)?;
+    // Dropping `pending` unconfirmed fails the pairing on the peer too.
+    let peer = &pending.peer;
+    let asked = Instant::now();
+    let yes = on_peer(&PeerFound::new(&peer.name, peer.os, peer.identity.public));
+    cancel.check()?;
+    if !yes || asked.elapsed() > PAIR_CONFIRM_WINDOW {
+        return Err(CoreError::PairRejected);
+    }
+    let stored = store(platform, peer)?;
     if let Err(e) = pending.confirm() {
         stored.undo(platform);
         return Err(e.into());
@@ -108,6 +171,11 @@ fn me(platform: &dyn Platform) -> PeerInfo {
     }
 }
 
+/// `name` cleaned for display, or `public`'s fingerprint if nothing is left.
+fn display_name(name: &str, public: &DevicePublic) -> String {
+    clean_device_name(name).unwrap_or_else(|| Fingerprint::of(public).to_string())
+}
+
 /// A stored peer, and what it replaced.
 struct Stored {
     record: DeviceRecord,
@@ -146,7 +214,7 @@ fn store(platform: &dyn Platform, peer: &PairedPeer) -> Result<Stored> {
     };
     let record = DeviceRecord {
         public,
-        name: clean_device_name(&peer.name).unwrap_or_else(|| Fingerprint::of(&public).to_string()),
+        name: display_name(&peer.name, &public),
         os: peer.os,
         first_seen: time::now_unix(),
         last_move: None,

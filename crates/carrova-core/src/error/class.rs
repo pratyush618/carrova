@@ -162,7 +162,7 @@ impl CoreError {
             | Self::NothingToRetry
             | Self::InvalidInvite(_)
             | Self::NoWakeHint => C::new(K::KnownDevice),
-            Self::KeyMismatch => C::new(K::PairingFailed),
+            Self::KeyMismatch | Self::PairRejected => C::new(K::PairingFailed),
             Self::DeviceKey { .. } => C::new(K::DeviceKey),
             other if out_of_space(other) => C::new(K::NoSpace),
             _ => C::new(K::Internal),

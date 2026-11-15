@@ -162,6 +162,10 @@ pub enum CoreError {
     /// The computer reached is not the one whose QR code was scanned.
     #[error("this is not the computer you scanned")]
     KeyMismatch,
+    /// The user did not confirm the device found while pairing (said no,
+    /// or did not answer in time); nothing was stored.
+    #[error("pairing: the device found was not confirmed")]
+    PairRejected,
     /// No known device matches (forget, rename or a typed fingerprint).
     #[error("known devices: no known device matches")]
     UnknownDevice,
