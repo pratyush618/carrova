@@ -81,6 +81,7 @@ export const ecosystem = {
     decline: 'Decline',
     open: 'Open',
     notNow: 'Not now',
+    failed: "Your answer didn't reach {{name}}. It asks again if it still wants to.",
   },
   clip: {
     sensitive: 'A password stayed on this computer',

@@ -5,6 +5,7 @@ import { useTransfers } from '../../flows/ecosystem/useTransfers';
 import { AskToast } from '../../screens/asks/AskToast';
 import { ClipToast } from '../../screens/asks/ClipToast';
 import { TransferToast } from '../../screens/asks/TransferToast';
+import { Toast } from '../../ui';
 import { useControllers } from '../controllers/Controllers';
 import { useEngineDispatch, useLink } from '../state/EngineState';
 
@@ -14,7 +15,7 @@ export function EcosystemToasts() {
   const { linked } = useControllers();
   const dispatch = useEngineDispatch();
   const { clip } = useLink();
-  const { ask, answer } = useAsks(usePort());
+  const { ask, answer, failed, dismissFailure } = useAsks(usePort());
   const { transfer, dismiss } = useTransfers();
   const name = (id: string) =>
     linked.devices.find((d) => d.id === id)?.name ?? t('ecosystem.unknownDevice');
@@ -22,6 +23,11 @@ export function EcosystemToasts() {
     <>
       {ask !== null && (
         <AskToast key={ask.id} device={name(ask.device)} kind={ask.kind} onAnswer={answer} />
+      )}
+      {failed !== null && (
+        <Toast icon="warn" onDismiss={dismissFailure}>
+          {t('ecosystem.ask.failed', { name: name(failed) })}
+        </Toast>
       )}
       {transfer !== null && (
         <TransferToast device={name(transfer.device)} transfer={transfer} onDismiss={dismiss} />
