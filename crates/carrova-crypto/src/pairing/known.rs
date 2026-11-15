@@ -1,4 +1,5 @@
-//! Known-device secret and its discovery tags (ADR 0001 §4–5).
+//! Known-device secret, its discovery tags (ADR 0001 §4–5) and its link
+//! tags and proofs (ADR 0002 §3).
 
 use std::fmt;
 use std::str::FromStr;
@@ -8,8 +9,9 @@ use zeroize::Zeroizing;
 
 use super::keys::MacKey;
 use super::{
-    HmacSha256, KNOWN_SECRET_LEN, KNOWN_TAG_DISCOVERY, KNOWN_TAG_LEN, PairingError, Result,
-    TagNonce, hex_decode, hex_encode,
+    ChannelBinding, Confirmation, HmacSha256, KNOWN_SECRET_LEN, KNOWN_TAG_DISCOVERY, KNOWN_TAG_LEN,
+    KNOWN_TAG_LINK, LINK_CONFIRM, LINK_TAG_LEN, PairingError, PakeRole, Result, TagNonce,
+    hex_decode, hex_encode,
 };
 use crate::identity::DevicePublic;
 
@@ -70,13 +72,53 @@ impl KnownSecret {
             .is_ok_and(|mac| mac.verify_truncated_left(&tag.0).is_ok())
     }
 
+    /// Tag the `dialer` puts in a link `Hello`:
+    /// `HMAC(secret, "carrova/1/known-link" ‖ nonce ‖ dialer)[..16]`.
+    pub fn link_tag(&self, nonce: &TagNonce, dialer: &DevicePublic) -> Result<LinkTag> {
+        let full = self
+            .tag_mac(KnownPurpose::Link, nonce, dialer)?
+            .finalize()
+            .into_bytes();
+        let mut tag = [0u8; LINK_TAG_LEN];
+        tag.copy_from_slice(&full[..LINK_TAG_LEN]);
+        Ok(LinkTag(tag))
+    }
+
+    /// Whether `tag` is this secret's link tag for `nonce`, made by
+    /// `dialer` (constant time).
+    #[must_use]
+    pub fn recognises_link(&self, nonce: &TagNonce, dialer: &DevicePublic, tag: &LinkTag) -> bool {
+        self.tag_mac(KnownPurpose::Link, nonce, dialer)
+            .is_ok_and(|mac| mac.verify_truncated_left(&tag.0).is_ok())
+    }
+
+    /// This side's link proof over a fresh connection's binding:
+    /// `HMAC(secret, "carrova/1/link-confirm" ‖ role ‖ binding)`.
+    pub fn prove(&self, role: PakeRole, binding: &ChannelBinding) -> Result<Confirmation> {
+        self.key().prove(LINK_CONFIRM, role, binding)
+    }
+
+    /// Check the peer's link proof in constant time.
+    pub fn verify(
+        &self,
+        peer_role: PakeRole,
+        binding: &ChannelBinding,
+        proof: &Confirmation,
+    ) -> Result<()> {
+        self.key().verify(LINK_CONFIRM, peer_role, binding, proof)
+    }
+
+    fn key(&self) -> MacKey {
+        MacKey::new(&self.0)
+    }
+
     fn tag_mac(
         &self,
         purpose: KnownPurpose,
         nonce: &TagNonce,
         advertiser: &DevicePublic,
     ) -> Result<HmacSha256> {
-        let mut mac = MacKey::new(&self.0).tag_mac(purpose.label(), nonce)?;
+        let mut mac = self.key().tag_mac(purpose.label(), nonce)?;
         mac.update(advertiser.as_bytes());
         Ok(mac)
     }
@@ -94,12 +136,15 @@ impl fmt::Debug for KnownSecret {
 pub enum KnownPurpose {
     /// Presence adverts on the LAN (public).
     Discovery,
+    /// A linked device's `Hello` ([`KnownSecret::link_tag`]).
+    Link,
 }
 
 impl KnownPurpose {
     const fn label(self) -> &'static [u8] {
         match self {
             Self::Discovery => KNOWN_TAG_DISCOVERY,
+            Self::Link => KNOWN_TAG_LINK,
         }
     }
 }
@@ -127,6 +172,17 @@ impl FromStr for KnownTag {
 
     fn from_str(s: &str) -> Result<Self> {
         hex_decode(s, "known tag").map(Self)
+    }
+}
+
+/// Tag naming a known pair in a link `Hello` (ADR 0002 §3). Its own type
+/// so it is never mixed up with a [`KnownTag`]; `Debug` hides the bytes.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct LinkTag(pub [u8; LINK_TAG_LEN]);
+
+impl fmt::Debug for LinkTag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("LinkTag(<redacted>)")
     }
 }
 

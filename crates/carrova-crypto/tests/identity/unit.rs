@@ -147,3 +147,73 @@ fn debug_output_has_no_key_bytes() {
         "{shown}"
     );
 }
+
+// ------------------------------------------------------------------ link
+
+#[test]
+fn link_signature_verifies_for_the_signers_role_and_binding() {
+    let (me, peer) = (key(1), key(2));
+    let sig = peer.sign_link(PakeRole::Sender, &binding(7));
+    assert_eq!(
+        me.verify_link_peer(&peer.public(), PakeRole::Sender, &binding(7), &sig),
+        Ok(())
+    );
+    assert_eq!(
+        me.verify_link_peer(&peer.public(), PakeRole::Receiver, &binding(7), &sig),
+        Err(IdentityError::BadSignature)
+    );
+    assert_eq!(
+        me.verify_link_peer(&peer.public(), PakeRole::Sender, &binding(8), &sig),
+        Err(IdentityError::BadSignature)
+    );
+}
+
+#[test]
+fn link_signature_not_identity_signature() {
+    let (me, peer) = (key(1), key(2));
+    let identity = peer.sign_binding(PakeRole::Sender, &binding(7));
+    let link = peer.sign_link(PakeRole::Sender, &binding(7));
+    assert_eq!(
+        me.verify_link_peer(&peer.public(), PakeRole::Sender, &binding(7), &identity),
+        Err(IdentityError::BadSignature)
+    );
+    assert_eq!(
+        me.verify_peer(&peer.public(), PakeRole::Sender, &binding(7), &link),
+        Err(IdentityError::BadSignature)
+    );
+}
+
+#[test]
+fn link_peer_claiming_our_own_key_is_rejected() {
+    let me = key(1);
+    let sig = me.sign_link(PakeRole::Sender, &binding(7));
+    assert_eq!(
+        me.verify_link_peer(&me.public(), PakeRole::Sender, &binding(7), &sig),
+        Err(IdentityError::OwnKey)
+    );
+}
+
+#[test]
+fn link_signed_bytes_are_tag_role_binding_and_own_key() {
+    let me = key(1);
+    let b = binding(7);
+    let mut payload = PakeRole::Receiver.identity().to_vec();
+    payload.extend_from_slice(b.as_bytes());
+    payload.extend_from_slice(me.public().as_bytes());
+    let sig = crate::sign::Signature::from_bytes(&me.sign_link(PakeRole::Receiver, &b));
+    assert_eq!(
+        me.0.verifying_key()
+            .verify(SignContext::DeviceLink, &payload, &sig),
+        Ok(())
+    );
+}
+
+#[test]
+fn device_link_tag_value() {
+    assert_eq!(SignContext::DeviceLink.tag(), b"carrova/device-link/v1\0");
+}
+
+#[test]
+fn bundle_signer_cannot_sign_device_link() {
+    assert!(!KeyRole::BundleSigner.permits(SignContext::DeviceLink));
+}
