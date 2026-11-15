@@ -15,6 +15,7 @@ use carrova_crypto::identity::{DeviceKey, DevicePublic};
 use carrova_crypto::pairing::KnownSecret;
 use carrova_link::{Feature, FeatureState};
 use carrova_platform::OsKind;
+use carrova_view::ipc::ErrorCode;
 use tauri::async_runtime::block_on;
 
 use crate::ops::ecosystem;
@@ -130,6 +131,16 @@ fn ops_clip_settings_round_trip() {
     block_on(ecosystem::set_clip_settings(&state, quiet)).unwrap();
 
     assert_eq!(block_on(ecosystem::clip_settings(&state)).unwrap(), quiet);
+}
+
+#[test]
+fn ops_retry_of_an_unknown_file_errors() {
+    let machine = Machine::new();
+    let state = served(&machine);
+
+    let retried = block_on(ecosystem::retry_file(&state, 42));
+
+    assert_eq!(retried.unwrap_err().bridge().code, ErrorCode::KnownDevice);
 }
 
 #[test]

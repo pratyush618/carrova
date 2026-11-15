@@ -354,3 +354,12 @@ pub async fn set_clip_settings(
 ) -> Result<(), CommandError> {
     with_link(state, move |link| link.set_clip_settings(settings)).await
 }
+
+/// Send file `id` again: one whose device left mid-send.
+///
+/// # Errors
+///
+/// No such file waits to be sent again, or as [`send_files`].
+pub async fn retry_file(state: &AppState, id: u64) -> Result<(), CommandError> {
+    with_link(state, move |link| link.retry_file(id)).await
+}

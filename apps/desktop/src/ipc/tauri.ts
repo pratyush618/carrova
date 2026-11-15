@@ -94,6 +94,7 @@ export function createTauriPort(): CarrovaPort {
     clearClipHistory: () => call('clear_clip_history'),
     clipSettings: () => call('clip_settings'),
     setClipSettings: (settings) => call('set_clip_settings', { settings }),
+    retryFile: (id) => call('retry_file', { id }),
 
     notices: () => call('notices'),
     markNoticesRead: (ids) => call('mark_notices_read', { ids: ids === 'all' ? null : ids }),

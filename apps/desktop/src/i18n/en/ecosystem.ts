@@ -96,6 +96,7 @@ export const ecosystem = {
     device_left: '{{name}} went away. The file stopped.',
     refused: "{{name}} didn't take the file",
     failed: "{{file}} didn't arrive",
+    retry: 'Retry',
   },
   history: {
     title: 'Clipboard',

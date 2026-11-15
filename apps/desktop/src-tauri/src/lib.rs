@@ -193,6 +193,7 @@ pub fn run() -> tauri::Result<()> {
             commands::ecosystem::clear_clip_history,
             commands::ecosystem::clip_settings,
             commands::ecosystem::set_clip_settings,
+            commands::ecosystem::retry_file,
             #[cfg(desktop)]
             updater::check_update,
             #[cfg(desktop)]

@@ -103,6 +103,7 @@ type EcosystemPort = Pick<
   | 'clearClipHistory'
   | 'clipSettings'
   | 'setClipSettings'
+  | 'retryFile'
 >;
 
 /** The fake's linked devices, plus what `cancelConnect` and `forgetDevice` do to them. */
@@ -186,6 +187,9 @@ export function fakeEcosystem(runtime: Runtime, scenario: Scenario): FakeEcosyst
       later(() => {
         clipSettings = settings;
       }),
+    // The fake never sends files, so no file waits to be sent again.
+    retryFile: () =>
+      later(() => raise(bridgeError('known_device', 'that file is no longer waiting'))),
     cancel: () => {
       if (pairing !== null) pairing.cancelled = true;
     },

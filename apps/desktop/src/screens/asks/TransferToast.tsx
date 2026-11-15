@@ -1,18 +1,21 @@
 import { useTranslation } from 'react-i18next';
 import type { Transfer } from '../../app/state/appState';
 import { useFormat } from '../../i18n/useFormat';
-import { Progress, Toast } from '../../ui';
+import { Button, Progress, Toast } from '../../ui';
 
 /** A file moving with a linked device: progress, then saved or why it stopped. */
 export function TransferToast({
   device,
   transfer,
   onDismiss,
+  onRetry,
 }: {
   /** The other device's name. */
   readonly device: string;
   readonly transfer: Transfer;
   readonly onDismiss: () => void;
+  /** Send it again; offered only for a file that can be (its device left mid-send). */
+  readonly onRetry: () => void;
 }) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -38,7 +41,17 @@ export function TransferToast({
       return <Toast onDismiss={onDismiss}>{t('ecosystem.transfer.saved', { file })}</Toast>;
     case 'failed':
       return (
-        <Toast icon="warn" onDismiss={onDismiss}>
+        <Toast
+          icon="warn"
+          onDismiss={onDismiss}
+          action={
+            state.retry && (
+              <Button kind="primary" size="sm" icon="refresh" onClick={onRetry}>
+                {t('ecosystem.transfer.retry')}
+              </Button>
+            )
+          }
+        >
           {t(`ecosystem.transfer.${state.reason}`, { name: device, file })}
         </Toast>
       );

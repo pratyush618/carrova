@@ -231,4 +231,16 @@ describe('appReducer peer facts', () => {
     expect(noted.link.clip?.note).toEqual({ kind: 'received', device: 'p8' });
   });
 
+  it('keeps whether a failed file can be sent again', () => {
+    const state = appReducer(initialAppState, {
+      type: 'engine',
+      session: LINK_SESSION,
+      event: { event: 'file_failed', device: 'p8', id: 3, reason: 'device_left', retry: true },
+    });
+    expect(state.link.transfers[0]?.state).toEqual({
+      kind: 'failed',
+      reason: 'device_left',
+      retry: true,
+    });
+  });
 });

@@ -227,6 +227,8 @@ export interface CarrovaPort {
   clipSettings(): Promise<ClipSettings>;
   /** Save and apply them at once (turning the history file off deletes it). */
   setClipSettings(settings: ClipSettings): Promise<void>;
+  /** Send file `id` again, from the start: one whose device left (`file_failed` with `retry`). */
+  retryFile(id: number): Promise<void>;
 
   // --- Notifications ------------------------------------------------------
   /** The bell's notices (kept 30 days), newest first. */

@@ -62,7 +62,7 @@ describe('Asks', () => {
       dismissed: false,
     } as const;
     const { rerender } = renderScreen(
-      <TransferToast device="Pixel 8" transfer={transfer} onDismiss={vi.fn()} />,
+      <TransferToast device="Pixel 8" transfer={transfer} onDismiss={vi.fn()} onRetry={vi.fn()} />,
     );
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
     rerender(
@@ -70,6 +70,7 @@ describe('Asks', () => {
         device="Pixel 8"
         transfer={{ ...transfer, file_name: 'report.pdf', done: 1024, state: { kind: 'done' } }}
         onDismiss={vi.fn()}
+        onRetry={vi.fn()}
       />,
     );
     expect(screen.getByText('report.pdf saved to Downloads')).toBeInTheDocument();
@@ -89,9 +90,48 @@ describe('Asks', () => {
           dismissed: false,
         }}
         onDismiss={vi.fn()}
+        onRetry={vi.fn()}
       />,
     );
     expect(screen.getByText("Pixel 8 didn't take the file")).toBeInTheDocument();
   });
 
+  const left = (retry: boolean) =>
+    ({
+      device: 'p8',
+      id: 3,
+      file_name: '',
+      done: 4,
+      total: 9,
+      state: { kind: 'failed', reason: 'device_left', retry },
+      dismissed: false,
+    }) as const;
+
+  it('offers Retry for a file whose device left, and sends it again', async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    renderScreen(
+      <TransferToast
+        device="Pixel 8"
+        transfer={left(true)}
+        onDismiss={vi.fn()}
+        onRetry={onRetry}
+      />,
+    );
+    expect(screen.getByText('Pixel 8 went away. The file stopped.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
+
+  it('offers no Retry for a file that cannot be sent again (one coming in)', () => {
+    renderScreen(
+      <TransferToast
+        device="Pixel 8"
+        transfer={left(false)}
+        onDismiss={vi.fn()}
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
 });

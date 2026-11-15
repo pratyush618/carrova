@@ -17,7 +17,7 @@ export function EcosystemToasts() {
   const { clip } = useLink();
   const port = usePort();
   const { ask, answer, failed, dismissFailure } = useAsks(port);
-  const { transfer, dismiss } = useTransfers();
+  const { transfer, dismiss, retry } = useTransfers(port);
   const name = (id: string) =>
     linked.devices.find((d) => d.id === id)?.name ?? t('ecosystem.unknownDevice');
   return (
@@ -31,7 +31,12 @@ export function EcosystemToasts() {
         </Toast>
       )}
       {transfer !== null && (
-        <TransferToast device={name(transfer.device)} transfer={transfer} onDismiss={dismiss} />
+        <TransferToast
+          device={name(transfer.device)}
+          transfer={transfer}
+          onDismiss={dismiss}
+          onRetry={retry}
+        />
       )}
       {clip !== null && (
         <ClipToast

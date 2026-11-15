@@ -130,3 +130,13 @@ pub async fn set_clip_settings(
 ) -> Result<(), CommandError> {
     ops::ecosystem::set_clip_settings(&state, settings).await
 }
+
+/// `CarrovaPort.retryFile`.
+#[tauri::command]
+pub async fn retry_file(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: u64,
+) -> Result<(), CommandError> {
+    reply(&app, ops::ecosystem::retry_file(&state, id).await)
+}
