@@ -11,23 +11,14 @@ use std::path::PathBuf;
 use std::thread;
 
 use carrova_link::{
-    FileOffer, LaneGate, LaneKind, LinkError, OfferAnswer, RefuseReason, accept_lane, offer_file,
-    open_lane, receive_file,
+    FileOffer, LaneKind, LinkError, OfferAnswer, accept_lane, offer_file, open_lane, receive_file,
 };
 use carrova_transport::Connection;
 use serde::Serialize;
 use sink::mem_sink;
-use support::{T, linked};
+use support::{Open, T, linked};
 
 const MIB: usize = 1 << 20;
-
-struct Open;
-
-impl LaneGate for Open {
-    fn admit(&self, _: LaneKind) -> Result<(), RefuseReason> {
-        Ok(())
-    }
-}
 
 /// Deterministic, non-repeating-per-chunk test bytes.
 fn bytes(len: usize) -> Vec<u8> {

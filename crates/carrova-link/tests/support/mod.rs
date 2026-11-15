@@ -8,11 +8,21 @@ use std::time::Duration;
 
 use carrova_crypto::identity::{DeviceKey, DevicePublic};
 use carrova_crypto::pairing::{KnownSecret, PairingCode};
+use carrova_link::{LaneGate, LaneKind, RefuseReason};
 use carrova_platform::OsKind;
 use carrova_transport::{
     ConnectOptions, Connection, KnownPeers, ListenOptions, Listener, PeerInfo, Target, Ticket,
     connect, pair_only,
 };
+
+/// Lane gate that admits every lane.
+pub struct Open;
+
+impl LaneGate for Open {
+    fn admit(&self, _: LaneKind) -> Result<(), RefuseReason> {
+        Ok(())
+    }
+}
 
 /// Generous bound for loopback operations.
 pub const T: Duration = Duration::from_secs(10);

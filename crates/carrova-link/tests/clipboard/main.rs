@@ -8,19 +8,11 @@ mod support;
 use std::thread;
 
 use carrova_link::{
-    ClipHistory, ClipItem, LaneGate, LaneKind, LinkError, MAX_CLIP_PNG, MAX_CLIP_TEXT,
-    RefuseReason, accept_lane, open_lane, recv_clip, send_clip,
+    ClipHistory, ClipItem, LaneKind, LinkError, MAX_CLIP_PNG, MAX_CLIP_TEXT, accept_lane,
+    open_lane, recv_clip, send_clip,
 };
 use serde::Serialize;
-use support::{T, linked};
-
-struct Open;
-
-impl LaneGate for Open {
-    fn admit(&self, _: LaneKind) -> Result<(), RefuseReason> {
-        Ok(())
-    }
-}
+use support::{Open, T, linked};
 
 /// The clipboard header as any peer may put it on the wire.
 #[derive(Serialize)]

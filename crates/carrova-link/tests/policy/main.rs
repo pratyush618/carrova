@@ -134,12 +134,6 @@ fn policy_lane_roundtrip_drops_unknown_features() {
     use carrova_link::{LaneKind, accept_lane, open_lane, recv_policy, send_policy};
     use serde::Serialize;
 
-    struct Open;
-    impl carrova_link::LaneGate for Open {
-        fn admit(&self, _: LaneKind) -> Result<(), carrova_link::RefuseReason> {
-            Ok(())
-        }
-    }
     #[derive(Serialize)]
     struct Newer {
         version: u32,
@@ -149,7 +143,7 @@ fn policy_lane_roundtrip_drops_unknown_features() {
     let (a, b) = support::linked();
     std::thread::scope(|s| {
         let peer = s.spawn(|| {
-            let (kind, mut stream) = accept_lane(&b, &Open, support::T).unwrap();
+            let (kind, mut stream) = accept_lane(&b, &support::Open, support::T).unwrap();
             assert_eq!(kind, LaneKind::Policy);
             let first = recv_policy(&mut stream, support::T).unwrap();
             // A newer peer's document: unknown feature and state are tolerated.

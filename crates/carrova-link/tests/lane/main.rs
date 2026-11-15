@@ -12,7 +12,7 @@ use carrova_link::{
     serve_ping,
 };
 use serde::Serialize;
-use support::{T, linked};
+use support::{Open, T, linked};
 
 struct Gate(Result<(), RefuseReason>);
 
@@ -21,8 +21,6 @@ impl LaneGate for Gate {
         self.0
     }
 }
-
-const OPEN: Gate = Gate(Ok(()));
 
 /// A `LaneOpen` as a newer peer might send it: any kind, any version.
 #[derive(Serialize)]
@@ -51,7 +49,7 @@ fn ping_roundtrip() {
     let (a, b) = linked();
     thread::scope(|s| {
         let server = s.spawn(|| {
-            let (kind, stream) = accept_lane(&b, &OPEN, T).unwrap();
+            let (kind, stream) = accept_lane(&b, &Open, T).unwrap();
             assert_eq!(kind, LaneKind::Ping);
             serve_ping(stream).unwrap();
         });
@@ -73,13 +71,13 @@ fn unknown_lane_refused_connection_survives() {
     thread::scope(|s| {
         let server = s.spawn(|| {
             for _ in 0..5 {
-                let refused = accept_lane(&b, &OPEN, T).map(|(k, _)| k);
+                let refused = accept_lane(&b, &Open, T).map(|(k, _)| k);
                 assert!(matches!(
                     refused,
                     Err(LinkError::Refused(RefuseReason::Unknown))
                 ));
             }
-            serve_ping(accept_lane(&b, &OPEN, T).unwrap().1).unwrap();
+            serve_ping(accept_lane(&b, &Open, T).unwrap().1).unwrap();
         });
         let unknown = LaneReply::Refused(RefuseReason::Unknown);
         assert_eq!(
@@ -143,7 +141,7 @@ fn silent_opener_is_dropped_within_the_accept_timeout() {
     let (a, b) = linked();
     let _silent = a.open_stream().unwrap();
     let start = std::time::Instant::now();
-    let got = accept_lane(&b, &OPEN, std::time::Duration::from_millis(500)).map(|(k, _)| k);
+    let got = accept_lane(&b, &Open, std::time::Duration::from_millis(500)).map(|(k, _)| k);
     assert!(matches!(got, Err(LinkError::Transport(_))));
     assert!(start.elapsed() < std::time::Duration::from_secs(2));
 }

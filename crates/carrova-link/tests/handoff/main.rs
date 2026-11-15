@@ -8,18 +8,10 @@ mod support;
 use std::thread;
 
 use carrova_link::{
-    FileOffer, Handoff, LaneGate, LaneKind, LinkError, OfferAnswer, ReceivedHandoff, RefuseReason,
-    accept_lane, check_url, recv_handoff, send_handoff,
+    FileOffer, Handoff, LaneKind, LinkError, OfferAnswer, ReceivedHandoff, accept_lane, check_url,
+    recv_handoff, send_handoff,
 };
-use support::{T, linked};
-
-struct Open;
-
-impl LaneGate for Open {
-    fn admit(&self, _: LaneKind) -> Result<(), RefuseReason> {
-        Ok(())
-    }
-}
+use support::{Open, T, linked};
 
 /// Send `handoff`; the receiver answers with `answer`. Returns both sides' results.
 fn exchange(

@@ -17,6 +17,9 @@ const REPLY_TIMEOUT: Duration = Duration::from_secs(10);
 /// left of the caller's accept timeout).
 const OPEN_TIMEOUT: Duration = Duration::from_secs(3);
 
+/// How long a lane protocol waits for the peer's next frame or bytes.
+pub(crate) const FRAME_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// What a lane carries.
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum LaneKind {

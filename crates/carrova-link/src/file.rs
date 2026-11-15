@@ -17,15 +17,13 @@ use carrova_transport::{Connection, Stream};
 use serde::{Deserialize, Serialize};
 
 use crate::LinkError;
-use crate::lane::{LaneKind, open_lane};
+use crate::lane::{FRAME_TIMEOUT, LaneKind, open_lane};
 use crate::name::safe_file_name;
 
 /// Largest chunk on the wire.
 const CHUNK: usize = 1 << 20;
 /// How long the sender waits for an answer: the receiver's 60 s ask plus margin.
 pub const ANSWER_TIMEOUT: Duration = Duration::from_secs(75);
-/// How long either side waits for the next frame or chunk mid-transfer.
-const FRAME_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// A file one device offers another.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

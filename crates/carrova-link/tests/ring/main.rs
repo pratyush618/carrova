@@ -7,18 +7,8 @@ mod support;
 
 use std::thread;
 
-use carrova_link::{
-    LaneGate, LaneKind, RING_SECONDS, RefuseReason, RingMsg, accept_lane, recv_ring, send_ring,
-};
-use support::{T, linked};
-
-struct Open;
-
-impl LaneGate for Open {
-    fn admit(&self, _: LaneKind) -> Result<(), RefuseReason> {
-        Ok(())
-    }
-}
+use carrova_link::{LaneKind, RING_SECONDS, RingMsg, accept_lane, recv_ring, send_ring};
+use support::{Open, T, linked};
 
 /// Send `msg` and return what the receiver got.
 fn ring(msg: RingMsg) -> RingMsg {

@@ -7,13 +7,12 @@
 
 use std::collections::VecDeque;
 use std::fmt;
-use std::time::Duration;
 
 use carrova_transport::{Connection, Stream};
 use serde::{Deserialize, Serialize};
 
 use crate::LinkError;
-use crate::lane::{LaneKind, open_lane};
+use crate::lane::{FRAME_TIMEOUT, LaneKind, open_lane};
 
 /// Largest text clip accepted, in bytes.
 pub const MAX_CLIP_TEXT: usize = 1 << 20;
@@ -23,8 +22,6 @@ pub const MAX_CLIP_PNG: usize = 10 << 20;
 const HISTORY_CAP: usize = 20;
 /// Payload bytes read or written per call, so a stalled peer is noticed between slices.
 const SLICE: usize = 1 << 20;
-/// How long either side waits for the next frame or slice.
-const CLIP_TIMEOUT: Duration = Duration::from_secs(30);
 /// First eight bytes of every PNG file.
 const PNG_SIGNATURE: [u8; 8] = *b"\x89PNG\r\n\x1a\n";
 
@@ -89,9 +86,9 @@ pub fn send_clip(conn: &Connection, item: &ClipItem) -> Result<(), LinkError> {
     })?;
     // Slices, so each wait is bounded per MiB rather than for the whole clip.
     for slice in bytes.chunks(SLICE) {
-        stream.write_all(slice, CLIP_TIMEOUT)?;
+        stream.write_all(slice, FRAME_TIMEOUT)?;
     }
-    stream.recv::<()>(CLIP_TIMEOUT)?;
+    stream.recv::<()>(FRAME_TIMEOUT)?;
     Ok(())
 }
 
@@ -99,7 +96,7 @@ pub fn send_clip(conn: &Connection, item: &ClipItem) -> Result<(), LinkError> {
 /// checked against the cap before any payload is read; text must be UTF-8 and
 /// images must carry the PNG signature.
 pub fn recv_clip(mut stream: Stream) -> Result<ClipItem, LinkError> {
-    let ClipHeader { kind, len } = stream.recv(CLIP_TIMEOUT)?;
+    let ClipHeader { kind, len } = stream.recv(FRAME_TIMEOUT)?;
     let max = kind.max();
     let len = usize::try_from(len)
         .ok()
@@ -110,7 +107,7 @@ pub fn recv_clip(mut stream: Stream) -> Result<ClipItem, LinkError> {
         })?;
     let mut bytes = vec![0; len];
     for slice in bytes.chunks_mut(SLICE) {
-        stream.read_exact(slice, CLIP_TIMEOUT)?;
+        stream.read_exact(slice, FRAME_TIMEOUT)?;
     }
     let item = match kind {
         ClipKind::Text => ClipItem::Text(

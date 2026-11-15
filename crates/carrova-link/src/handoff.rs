@@ -5,18 +5,14 @@
 //! A `File` handoff only announces the file: the bytes follow on a `File` lane.
 
 use std::fmt;
-use std::time::Duration;
 
 use carrova_transport::{Connection, Stream};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::lane::{LaneKind, open_lane};
+use crate::lane::{FRAME_TIMEOUT, LaneKind, open_lane};
 use crate::name::safe_file_name;
 use crate::{ANSWER_TIMEOUT, FileOffer, LinkError, OfferAnswer};
-
-/// How long the receiver waits for the sender's frame.
-const FRAME_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Longest URL accepted, in bytes.
 const MAX_URL: usize = 8 << 10;
