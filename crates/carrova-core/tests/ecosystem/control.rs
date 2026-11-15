@@ -7,8 +7,8 @@ use std::sync::mpsc::Receiver;
 use std::thread;
 
 use carrova_core::ecosystem::{
-    Answer, ControlRequest, ControlResponse, MAX_CONTROL_MESSAGE, SeenPeer, SharedSupervisor,
-    Supervisor, SupervisorHandle, attach_or_start, attach_or_start_with,
+    Answer, ClipSettings, ControlRequest, ControlResponse, MAX_CONTROL_MESSAGE, SeenPeer,
+    SharedSupervisor, Supervisor, SupervisorHandle, attach_or_start, attach_or_start_with,
 };
 use carrova_core::{Engine, Event};
 use carrova_link::{ClipItem, PolicyDoc};
@@ -344,4 +344,22 @@ fn shared_supervisor_attaches_again_when_its_host_exits() {
         _ => None,
     });
     assert_eq!(up, high.id);
+}
+
+#[test]
+fn clip_settings_round_trip_through_a_client() {
+    let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    let server = attach_or_start(low.engine.clone()).unwrap();
+    let client = attach_or_start(other_process(&low)).unwrap();
+    assert_eq!(client.clip_settings().unwrap(), ClipSettings::default());
+
+    let changed = ClipSettings {
+        share: false,
+        show_note: true,
+        history_file: false,
+    };
+    client.set_clip_settings(changed).unwrap();
+
+    assert_eq!(server.clip_settings().unwrap(), changed);
+    assert_eq!(client.clip_settings().unwrap(), changed);
 }

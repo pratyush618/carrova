@@ -138,10 +138,12 @@ pub enum Event {
     AskExpired {
         ask: AskId,
     },
-    /// A device's clipboard arrived and replaced this one's.
+    /// A device's clipboard arrived and replaced this one's; `note` if the
+    /// user wants to be told ([`crate::ecosystem::ClipSettings::show_note`]).
     ClipReceived {
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         device: DeviceId,
+        note: bool,
     },
     /// This clipboard reached a device.
     ClipSent {

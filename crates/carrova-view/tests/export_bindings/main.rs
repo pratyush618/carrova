@@ -19,6 +19,7 @@
 
 use std::path::{Path, PathBuf};
 
+use carrova_core::ecosystem::ClipSettings;
 use carrova_core::lan::{Inventory, PlanSummary};
 use carrova_core::plan::SpaceNeed;
 use carrova_core::{
@@ -132,6 +133,7 @@ fn export_typescript_bindings() {
         AskTopic::export_all,
         TransferView::export_all,
         TransferState::export_all,
+        ClipSettings::export_all,
         // Desktop IPC contract.
         BridgeEvent::export_all,
         BridgeError::export_all,

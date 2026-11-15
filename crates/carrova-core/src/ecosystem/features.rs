@@ -252,13 +252,16 @@ impl Lane {
             bytes: content.1,
             sensitive: false,
         };
-        {
+        let note = {
             // Before the write, so the watch does not send it back.
-            lock_clips(&self.shared).received(content.clone(), item);
-        }
+            let mut clips = lock_clips(&self.shared);
+            clips.received(content.clone(), item);
+            clips.settings().show_note
+        };
         self.shared.platform().clipboard_write(&content)?;
         self.emit(Event::ClipReceived {
             device: self.device,
+            note,
         });
         Ok(())
     }

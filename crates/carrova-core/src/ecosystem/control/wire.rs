@@ -9,7 +9,7 @@ use carrova_link::{Feature, FeatureState};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::ecosystem::{Answer, AskId, HandoffItem, LinkedPeer};
+use crate::ecosystem::{Answer, AskId, ClipSettings, HandoffItem, LinkedPeer};
 use crate::error::Result;
 
 /// Largest message the supervisor reads (a request), in bytes.
@@ -45,6 +45,10 @@ pub enum ControlRequest {
     ClipHistory,
     /// [`crate::ecosystem::Supervisor::clear_clip_history`].
     ClearClipHistory,
+    /// [`crate::ecosystem::Supervisor::clip_settings`].
+    ClipSettings,
+    /// [`crate::ecosystem::Supervisor::set_clip_settings`].
+    SetClipSettings(ClipSettings),
     /// Stream the supervisor's events: answered [`ControlResponse::Done`],
     /// then the connection carries only [`crate::Event`] messages until
     /// either side closes it.
@@ -57,6 +61,8 @@ impl std::fmt::Debug for ControlRequest {
             Self::Status => f.write_str("Status"),
             Self::ClipHistory => f.write_str("ClipHistory"),
             Self::ClearClipHistory => f.write_str("ClearClipHistory"),
+            Self::ClipSettings => f.write_str("ClipSettings"),
+            Self::SetClipSettings(s) => f.debug_tuple("SetClipSettings").field(s).finish(),
             Self::Subscribe => f.write_str("Subscribe"),
             Self::Ping(d) => f.debug_tuple("Ping").field(d).finish(),
             Self::SendClipboard(d) => f.debug_tuple("SendClipboard").field(d).finish(),
@@ -86,6 +92,8 @@ pub enum ControlResponse {
     /// [`carrova_link::ClipItem`] messages follow, newest first (one clip
     /// per message keeps each under the size limit).
     ClipHistory(u32),
+    /// To [`ControlRequest::ClipSettings`].
+    ClipSettings(ClipSettings),
     /// The request succeeded.
     Done,
     /// The request failed; the error's message.

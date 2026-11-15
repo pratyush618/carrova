@@ -10,10 +10,11 @@ use carrova_crypto::identity::DeviceId;
 use carrova_link::{
     ClipHistory, ClipItem, Feature, FeatureState, ReceivedClip, allowed, send_clip,
 };
-use carrova_platform::{ClipContent, ClipKind, ClipboardWatch, PlatformError};
+use carrova_platform::{ClipContent, ClipKind, ClipboardWatch, Platform, PlatformError};
 use carrova_transport::Connection;
 use serde::{Deserialize, Serialize};
 
+use super::clip_settings::{self, ClipSettings};
 use super::supervisor::{Shared, spawn};
 use crate::error::Result;
 use crate::session::Event;
@@ -29,28 +30,82 @@ pub enum ClipSkip {
     TooBig,
 }
 
-/// Clipboard state: received history, and the content last sent or
-/// written here (a change to it is not sent back).
-#[derive(Debug, Default)]
+/// Clipboard state: the user's settings, received history, and the
+/// content last sent or written here (a change to it is not sent back).
+#[derive(Debug)]
 pub(super) struct Clips {
+    /// Where the settings and history files are written.
+    platform: Arc<dyn Platform>,
+    settings: ClipSettings,
     history: ClipHistory,
     last: Option<ClipContent>,
 }
 
 impl Clips {
+    /// The saved settings and, if kept in a file, the history. Unreadable
+    /// ones read as the defaults (and an empty history).
+    pub(super) fn load(platform: Arc<dyn Platform>) -> Self {
+        let settings = clip_settings::load_settings(&*platform).unwrap_or_else(|e| {
+            tracing::warn!(error = %e, "clipboard settings unreadable; using the defaults");
+            ClipSettings::default()
+        });
+        let history = if settings.history_file {
+            clip_settings::load_history(&*platform).unwrap_or_else(|_| {
+                // Not the error: it may quote a clip.
+                tracing::warn!("clipboard history file unreadable; starting empty");
+                ClipHistory::default()
+            })
+        } else {
+            ClipHistory::default()
+        };
+        Self {
+            platform,
+            settings,
+            history,
+            last: None,
+        }
+    }
+
+    pub(super) fn settings(&self) -> ClipSettings {
+        self.settings
+    }
+
+    /// Save `settings` and apply them: the history file is written when
+    /// turned on and deleted when off.
+    pub(super) fn set_settings(&mut self, settings: ClipSettings) -> Result<()> {
+        let platform = &*self.platform;
+        clip_settings::save_settings(platform, &settings)?;
+        self.settings = settings;
+        if settings.history_file {
+            clip_settings::save_history(platform, &self.history)
+        } else {
+            clip_settings::remove_history(platform)
+        }
+    }
+
     pub(super) fn history(&self) -> Vec<ReceivedClip> {
         self.history.items().cloned().collect()
     }
 
     /// Note a received clip, before it is written here (so the watch
-    /// does not send it back).
+    /// does not send it back). A history file that cannot be written is
+    /// logged: the clip still arrives.
     pub(super) fn received(&mut self, content: ClipContent, item: ClipItem) {
         self.last = Some(content);
         self.history.push(item, crate::time::now_unix());
+        if self.settings.history_file
+            && let Err(e) = clip_settings::save_history(&*self.platform, &self.history)
+        {
+            tracing::warn!(error = %e, "clipboard history file not written");
+        }
     }
 
+    /// Forget the received clips, in memory and in the file.
     pub(super) fn clear(&mut self) {
         self.history.clear();
+        if let Err(e) = clip_settings::remove_history(&*self.platform) {
+            tracing::warn!(error = %e, "clipboard history file not deleted");
+        }
     }
 }
 
@@ -90,8 +145,8 @@ pub(super) fn send_clip_to(
     Ok(())
 }
 
-/// Watch the clipboard and send each change to every linked device that
-/// takes it. `None` where the platform cannot watch (Android sends by
+/// Watch the clipboard and, while [`ClipSettings::share`] is on, send each
+/// change to every linked device that takes it. `None` where the platform cannot watch (Android sends by
 /// user action only). The thread ends when the watch drops.
 pub(super) fn watch_clipboard(
     shared: &Arc<Shared>,
@@ -126,7 +181,7 @@ fn clipboard_changed(shared: &Shared) {
     };
     {
         let mut clips = lock_clips(shared);
-        if clips.last.as_ref() == Some(&content) {
+        if !clips.settings.share || clips.last.as_ref() == Some(&content) {
             return;
         }
         clips.last = Some(content.clone());

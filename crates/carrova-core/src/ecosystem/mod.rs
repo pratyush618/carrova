@@ -4,6 +4,7 @@
 
 mod asks;
 mod clip;
+mod clip_settings;
 mod control;
 mod dial;
 mod features;
@@ -16,6 +17,7 @@ mod supervisor;
 
 pub use asks::{Answer, AskId, AskKind};
 pub use clip::ClipSkip;
+pub use clip_settings::ClipSettings;
 pub use control::{
     ControlClient, ControlError, ControlRequest, ControlResponse, ControlServer,
     MAX_CONTROL_MESSAGE, SharedSupervisor, SupervisorHandle, attach_or_start, attach_or_start_with,

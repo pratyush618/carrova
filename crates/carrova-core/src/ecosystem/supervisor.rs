@@ -18,6 +18,7 @@ use carrova_transport::Connection;
 
 use super::asks::{Answer, AskId, Asks};
 use super::clip::{self, Clips};
+use super::clip_settings::ClipSettings;
 use super::features::{self, FileFailure};
 use super::peer::{LinkedPeer, Peer, PeerSource};
 use super::{PolicyStore, dial};
@@ -194,7 +195,7 @@ impl Supervisor {
             key,
             peers: Mutex::default(),
             asks: Asks::default(),
-            clips: Mutex::default(),
+            clips: Mutex::new(Clips::load(Arc::clone(&platform))),
             stop: Cancel::default(),
             threads: Mutex::default(),
         });
@@ -247,9 +248,25 @@ impl Supervisor {
         clip::lock_clips(&self.shared).history()
     }
 
-    /// Forget the clips received.
+    /// Forget the clips received (and their file, if kept).
     pub fn clear_clip_history(&self) {
         clip::lock_clips(&self.shared).clear();
+    }
+
+    /// The user's clipboard settings.
+    #[must_use]
+    pub fn clip_settings(&self) -> ClipSettings {
+        clip::lock_clips(&self.shared).settings()
+    }
+
+    /// Save `settings` and apply them from now on (the history file is
+    /// written or deleted at once).
+    ///
+    /// # Errors
+    ///
+    /// The settings or the history file could not be written or deleted.
+    pub fn set_clip_settings(&self, settings: ClipSettings) -> Result<()> {
+        clip::lock_clips(&self.shared).set_settings(settings)
     }
 
     /// Round-trip time to `device`.

@@ -29,7 +29,10 @@ pub use wire::{ControlError, ControlRequest, ControlResponse, MAX_CONTROL_MESSAG
 
 #[cfg(doc)]
 use super::Supervisor;
-use super::{Answer, AskId, HandoffItem, LinkedPeer, PeerSource, PresenceSource, SupervisorConfig};
+use super::{
+    Answer, AskId, ClipSettings, HandoffItem, LinkedPeer, PeerSource, PresenceSource,
+    SupervisorConfig,
+};
 use crate::engine::Engine;
 use crate::error::Result;
 use crate::session::Event;
@@ -179,6 +182,27 @@ impl SupervisorHandle {
     /// The control socket failed.
     pub fn clear_clip_history(&self) -> Result<()> {
         self.done(ControlRequest::ClearClipHistory)
+    }
+
+    /// [`Supervisor::clip_settings`].
+    ///
+    /// # Errors
+    ///
+    /// The control socket failed.
+    pub fn clip_settings(&self) -> Result<ClipSettings> {
+        match self.call(ControlRequest::ClipSettings)? {
+            ControlResponse::ClipSettings(settings) => Ok(settings),
+            _ => Err(ControlError::Unexpected.into()),
+        }
+    }
+
+    /// [`Supervisor::set_clip_settings`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Supervisor::set_clip_settings`], or the control socket failed.
+    pub fn set_clip_settings(&self, settings: ClipSettings) -> Result<()> {
+        self.done(ControlRequest::SetClipSettings(settings))
     }
 
     /// The supervisor's events from now on (besides the engine's sink of

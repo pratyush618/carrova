@@ -1,6 +1,7 @@
 //! The link supervisor: two devices in one process over loopback, presence
 //! replaced by a fake source, the platform recording what it opens.
 
+mod clip_settings;
 pub(crate) mod device;
 mod recording;
 
