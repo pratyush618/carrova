@@ -66,6 +66,7 @@ serde = { version = "1", features = ["derive"] }
 serde_bytes = "0.11.19"
 serde_json = "1"
 serde_yaml_ng = "0.10"
+url = "2"
 sha2 = "0.10.9"
 # Process listing on macOS/Windows (carrova-platform only; Linux reads /proc).
 sysinfo = { version = "0.40.1", default-features = false, features = ["system"] }
