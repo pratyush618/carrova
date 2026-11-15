@@ -254,6 +254,8 @@ pub enum TransferState {
     Failed {
         /// Why.
         reason: FileFailure,
+        /// It can be sent again (an outgoing file whose device left).
+        retry: bool,
     },
 }
 
@@ -308,9 +310,16 @@ impl Transfers {
                     view.file_name = name.to_string_lossy().into_owned();
                 }
             }
-            Event::FileFailed { device, id, reason } => {
-                self.entry(*device, *id, device_name).state =
-                    TransferState::Failed { reason: *reason };
+            Event::FileFailed {
+                device,
+                id,
+                reason,
+                retry,
+            } => {
+                self.entry(*device, *id, device_name).state = TransferState::Failed {
+                    reason: *reason,
+                    retry: *retry,
+                };
             }
             _ => {}
         }

@@ -7,10 +7,11 @@ use std::sync::mpsc::Receiver;
 use std::thread;
 
 use carrova_core::ecosystem::{
-    Answer, ClipSettings, ControlRequest, ControlResponse, MAX_CONTROL_MESSAGE, SeenPeer,
-    SharedSupervisor, Supervisor, SupervisorHandle, attach_or_start, attach_or_start_with,
+    Answer, ClipSettings, ControlError, ControlRequest, ControlResponse, MAX_CONTROL_MESSAGE,
+    SeenPeer, SharedSupervisor, Supervisor, SupervisorHandle, attach_or_start,
+    attach_or_start_with,
 };
-use carrova_core::{Engine, Event};
+use carrova_core::{CoreError, Engine, Event};
 use carrova_link::{ClipItem, PolicyDoc};
 use carrova_platform::{ClipContent, ClipKind, Platform};
 
@@ -362,4 +363,18 @@ fn clip_settings_round_trip_through_a_client() {
 
     assert_eq!(server.clip_settings().unwrap(), changed);
     assert_eq!(client.clip_settings().unwrap(), changed);
+}
+
+#[test]
+fn retrying_an_unknown_file_is_refused_through_a_client() {
+    let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    let _server = attach_or_start(low.engine.clone()).unwrap();
+    let client = attach_or_start(other_process(&low)).unwrap();
+
+    let refused = client.retry_file(42);
+
+    assert!(
+        matches!(refused, Err(CoreError::Control(ControlError::Failed(_)))),
+        "{refused:?}"
+    );
 }

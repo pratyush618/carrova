@@ -122,6 +122,15 @@ impl SupervisorHandle {
         self.done(ControlRequest::Handoff(*device, item))
     }
 
+    /// [`Supervisor::retry_file`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Supervisor::retry_file`], or the control socket failed.
+    pub fn retry_file(&self, id: u64) -> Result<()> {
+        self.done(ControlRequest::RetryFile(id))
+    }
+
     /// [`Supervisor::ring`].
     ///
     /// # Errors

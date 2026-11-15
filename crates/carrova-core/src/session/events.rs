@@ -169,12 +169,14 @@ pub enum Event {
         id: u64,
         path: PathBuf,
     },
-    /// File `id` to or from a device did not arrive.
+    /// File `id` to or from a device did not arrive; `retry` if it can be
+    /// sent again ([`crate::ecosystem::Supervisor::retry_file`]).
     FileFailed {
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         device: DeviceId,
         id: u64,
         reason: FileFailure,
+        retry: bool,
     },
     /// A device's handed-off link or file was opened here.
     HandoffOpened {

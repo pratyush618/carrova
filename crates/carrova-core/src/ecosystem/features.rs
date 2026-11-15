@@ -313,7 +313,12 @@ impl Lane {
             Err(e) => {
                 let reason = FileFailure::of_link(&e);
                 tracing::debug!(?reason, "file not received");
-                self.emit(Event::FileFailed { device, id, reason });
+                self.emit(Event::FileFailed {
+                    device,
+                    id,
+                    reason,
+                    retry: false,
+                });
             }
         }
     }

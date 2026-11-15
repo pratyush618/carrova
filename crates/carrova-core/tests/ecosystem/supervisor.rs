@@ -4,6 +4,7 @@
 mod clip_settings;
 pub(crate) mod device;
 mod recording;
+mod retry;
 
 use std::thread;
 

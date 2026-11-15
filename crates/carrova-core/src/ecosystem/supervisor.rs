@@ -21,6 +21,7 @@ use super::clip::{self, Clips};
 use super::clip_settings::ClipSettings;
 use super::features::{self, FileFailure};
 use super::peer::{LinkedPeer, Peer, PeerSource};
+use super::retry::Retries;
 use super::{PolicyStore, dial};
 use crate::cancel::Cancel;
 use crate::devices::KnownDevices;
@@ -153,6 +154,8 @@ pub struct Supervisor {
     port: u16,
     /// In a mutex only to make the supervisor `Sync` (the watch is not).
     watch: Mutex<Option<ClipboardWatch>>,
+    /// Files whose device left mid-send ([`Self::retry_file`]).
+    retries: Mutex<Retries>,
     threads: Vec<JoinHandle<()>>,
 }
 
@@ -205,6 +208,7 @@ impl Supervisor {
             port: listener.port(),
             shared,
             watch: Mutex::default(),
+            retries: Mutex::default(),
             threads: Vec::new(),
         };
         // From here a failure drops `sup`, which stops what already runs.
@@ -306,7 +310,32 @@ impl Supervisor {
     /// ([`Event::FileFailed`]).
     pub fn send_file(&self, device: &DeviceId, path: &Path) -> Result<()> {
         let conn = self.shared.conn(device, Some(Feature::Files))?;
-        self.offer(device, &conn, path, |_| Ok(()))
+        self.offer(device, &conn, path, true, |_| Ok(()))
+    }
+
+    /// Send file `id` again, from the start (as a new offer, with a new
+    /// id): one whose device left mid-send ([`Event::FileFailed`] with
+    /// `retry`).
+    ///
+    /// # Errors
+    ///
+    /// [`CoreError::NothingToRetry`] if `id` is not such a file (or was
+    /// already sent again), else as [`Self::send_file`]. While the device
+    /// is not linked the file stays ready to retry.
+    pub fn retry_file(&self, id: u64) -> Result<()> {
+        let (device, path) = self.retries().take(id).ok_or(CoreError::NothingToRetry)?;
+        let conn = match self.shared.conn(&device, Some(Feature::Files)) {
+            Ok(conn) => conn,
+            Err(e) => {
+                self.retries().keep(id, device, path);
+                return Err(e);
+            }
+        };
+        self.offer(&device, &conn, &path, true, |_| Ok(()))
+    }
+
+    fn retries(&self) -> MutexGuard<'_, Retries> {
+        self.retries.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Hand `item` to `device`: its user is asked, then the link opens there
@@ -320,7 +349,7 @@ impl Supervisor {
         let conn = self.shared.conn(device, Some(Feature::Handoff))?;
         match item {
             HandoffItem::Url(url) => accepted(send_handoff(&conn, &Handoff::Url(url))?),
-            HandoffItem::File(path) => self.offer(device, &conn, &path, |offer| {
+            HandoffItem::File(path) => self.offer(device, &conn, &path, false, |offer| {
                 accepted(send_handoff(&conn, &Handoff::File(offer.clone()))?)
             }),
         }
@@ -389,12 +418,14 @@ impl Supervisor {
     }
 
     /// Offer `path` to `device` (after `announce` succeeds with the
-    /// offer), reporting progress and failure.
+    /// offer), reporting progress and failure. If `retryable` and the
+    /// device left, it is kept for [`Self::retry_file`].
     fn offer(
         &self,
         device: &DeviceId,
         conn: &Connection,
         path: &Path,
+        retryable: bool,
         announce: impl FnOnce(&FileOffer) -> Result<()>,
     ) -> Result<()> {
         let platform = &**self.shared.platform();
@@ -422,10 +453,15 @@ impl Supervisor {
         });
         if let Err(e) = &sent {
             let reason = FileFailure::of(e);
+            let retry = retryable && reason == FileFailure::DeviceLeft;
+            if retry {
+                self.retries().keep(id, *device, path.to_path_buf());
+            }
             self.shared.emit(Event::FileFailed {
                 device: *device,
                 id,
                 reason,
+                retry,
             });
         }
         sent

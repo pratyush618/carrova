@@ -12,6 +12,7 @@ mod invite;
 mod pair;
 mod peer;
 mod policy;
+mod retry;
 mod sink;
 mod supervisor;
 

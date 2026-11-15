@@ -156,6 +156,9 @@ pub enum CoreError {
     /// The ask was already answered, or it expired.
     #[error("linked devices: the request is no longer waiting for an answer")]
     AskGone,
+    /// No file with that id is waiting to be sent again.
+    #[error("linked devices: that file is no longer waiting to be sent again")]
+    NothingToRetry,
     /// The computer reached is not the one whose QR code was scanned.
     #[error("this is not the computer you scanned")]
     KeyMismatch,

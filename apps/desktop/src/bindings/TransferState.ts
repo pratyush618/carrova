@@ -8,4 +8,8 @@ export type TransferState = { "kind": "active" } | { "kind": "done" } | { "kind"
 /**
  * Why.
  */
-reason: FileFailure, };
+reason: FileFailure, 
+/**
+ * It can be sent again (an outgoing file whose device left).
+ */
+retry: boolean, };

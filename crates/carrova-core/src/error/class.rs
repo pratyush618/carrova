@@ -159,6 +159,7 @@ impl CoreError {
             | Self::Link(_)
             | Self::FeatureOff(_)
             | Self::AskGone
+            | Self::NothingToRetry
             | Self::InvalidInvite(_)
             | Self::NoWakeHint => C::new(K::KnownDevice),
             Self::KeyMismatch => C::new(K::PairingFailed),

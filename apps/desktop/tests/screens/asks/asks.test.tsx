@@ -76,7 +76,7 @@ describe('Asks', () => {
           file_name: '',
           done: 0,
           total: 9,
-          state: { kind: 'failed', reason: 'refused' },
+          state: { kind: 'failed', reason: 'refused', retry: false },
           dismissed: false,
         }}
         onDismiss={vi.fn()}

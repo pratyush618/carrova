@@ -177,6 +177,7 @@ impl Served {
             }
             ControlRequest::ClipSettings => ControlResponse::ClipSettings(sup.clip_settings()),
             ControlRequest::SetClipSettings(s) => sup.set_clip_settings(s).map(done)?,
+            ControlRequest::RetryFile(id) => sup.retry_file(id).map(done)?,
             // Answered with more than one message ([`serve_connection`]).
             ControlRequest::ClipHistory | ControlRequest::Subscribe => {
                 return Err(ControlError::Unexpected.into());

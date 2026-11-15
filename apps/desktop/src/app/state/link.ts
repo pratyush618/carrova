@@ -109,7 +109,7 @@ export function applyLinkEvent(link: LinkState, event: EngineEvent): LinkState {
     case 'file_failed':
       return updateTransfer(link, event.device, event.id, (t) => ({
         ...t,
-        state: { kind: 'failed', reason: event.reason },
+        state: { kind: 'failed', reason: event.reason, retry: event.retry },
       }));
     default:
       // Sent clips, Handoff and Ring need no note: the user just did them.

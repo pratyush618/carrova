@@ -49,6 +49,8 @@ pub enum ControlRequest {
     ClipSettings,
     /// [`crate::ecosystem::Supervisor::set_clip_settings`].
     SetClipSettings(ClipSettings),
+    /// [`crate::ecosystem::Supervisor::retry_file`].
+    RetryFile(u64),
     /// Stream the supervisor's events: answered [`ControlResponse::Done`],
     /// then the connection carries only [`crate::Event`] messages until
     /// either side closes it.
@@ -63,6 +65,7 @@ impl std::fmt::Debug for ControlRequest {
             Self::ClearClipHistory => f.write_str("ClearClipHistory"),
             Self::ClipSettings => f.write_str("ClipSettings"),
             Self::SetClipSettings(s) => f.debug_tuple("SetClipSettings").field(s).finish(),
+            Self::RetryFile(id) => f.debug_tuple("RetryFile").field(id).finish(),
             Self::Subscribe => f.write_str("Subscribe"),
             Self::Ping(d) => f.debug_tuple("Ping").field(d).finish(),
             Self::SendClipboard(d) => f.debug_tuple("SendClipboard").field(d).finish(),

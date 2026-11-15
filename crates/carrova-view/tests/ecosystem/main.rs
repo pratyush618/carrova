@@ -216,7 +216,7 @@ fn transfer_progress_then_saved_completes_it() {
 }
 
 #[test]
-fn transfer_failure_keeps_progress_and_reason() {
+fn transfer_failure_keeps_progress_reason_and_retry() {
     let mut t = Transfers::default();
     t.apply(
         &Event::FileProgress {
@@ -231,14 +231,16 @@ fn transfer_failure_keeps_progress_and_reason() {
         &Event::FileFailed {
             device: dev(),
             id: 4,
-            reason: FileFailure::Refused,
+            reason: FileFailure::DeviceLeft,
+            retry: true,
         },
         "Pixel",
     );
     assert_eq!(
         t.views()[0].state,
         TransferState::Failed {
-            reason: FileFailure::Refused
+            reason: FileFailure::DeviceLeft,
+            retry: true,
         }
     );
     assert_eq!(t.views()[0].done, 10);
