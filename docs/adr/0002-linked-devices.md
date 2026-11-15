@@ -1,6 +1,7 @@
 # ADR 0002: Linked devices (pair-only, QR pin, code-less link)
 
-- Status: Proposed
+- Status: Accepted
+- Signed off: 2026-11-15 by the user (all open questions accepted as proposed; stolen phone: Forget is enough for Phase 1)
 - Date: 2026-11-15
 - Scope: Ecosystem Phase 1, "Gate 0"
   (`docs/superpowers/specs/2026-11-15-ecosystem-phase1-design.md`), plan
@@ -308,4 +309,4 @@ link logs the failure kind only (no peer key, no candidate index).
 5. **Stolen phone**: is "Forget from the computer" enough for Phase 1, or
    do you want an explicit "Pause all links" on the computer too?
 
-Signed off: pending.
+Signed off: 2026-11-15 by the user. Open questions accepted as proposed; stolen phone: Forget is enough, no "Pause all links" in Phase 1.

@@ -1,6 +1,7 @@
 # ADR 0003: Android platform bridge
 
-- Status: Proposed
+- Status: Accepted
+- Signed off: 2026-11-15 by the user (open questions accepted; if `mobile_entry_point` trips `forbid`, src-tauri may use `deny` with one justified `#[allow(unsafe_code)]` on the mobile entry wrapper only)
 - Date: 2026-11-15
 - Scope: Ecosystem Phase 1, "Android shell"
   (`docs/superpowers/specs/2026-11-15-ecosystem-phase1-design.md`), plan
@@ -171,4 +172,4 @@ condition goes in `src-tauri`; everything Android-specific stays in
    to live there), or generate it in CI and keep only the glue in a
    separate directory?
 
-Signed off: pending.
+Signed off: 2026-11-15 by the user. Open questions accepted as proposed, including the scoped src-tauri allowance for the mobile entry point if needed.
