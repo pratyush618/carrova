@@ -1,5 +1,5 @@
-//! `carrova devices list | rename | wake | forget | reset` and `carrova
-//! visibility`: the known-device store and who may find this computer,
+//! `carrova devices list | rename | wake | forget | reset | link |
+//! features` and `carrova visibility`: the known-device store and who may find this computer,
 //! the same values the desktop app shows (state dir).
 
 use std::io::Write;
@@ -17,6 +17,7 @@ use carrova_view::devices::{
 use clap::{Args, Subcommand, ValueEnum};
 use serde_json::json;
 
+use crate::link::{self, FeatureSetting};
 use crate::output::{OutputFormat, print_json};
 use crate::prompt::{confirm, ensure_can_confirm};
 use crate::recipes::seams::platform;
@@ -61,6 +62,20 @@ enum DevicesCommand {
         /// Don't ask for confirmation.
         #[arg(short, long)]
         yes: bool,
+    },
+    /// Link with another computer by the code it shows (`code` or
+    /// `code@ip:port`): pair only, nothing moves.
+    Link {
+        /// The code or ticket.
+        target: String,
+    },
+    /// Show a linked device's features, or set some first
+    /// (`clipboard=on files=ask`).
+    Features {
+        /// Its fingerprint (`7F3A·19C2`, separator optional).
+        device: String,
+        /// `<feature>=<on|off|ask>` settings, applied in order.
+        set: Vec<FeatureSetting>,
     },
     /// Forget every device and give this computer a new identity.
     /// Irreversible.
@@ -152,6 +167,11 @@ pub fn devices(out: &mut impl Write, a: DevicesArgs) -> Result<ExitCode> {
             let text = "Forgot every known device.";
             finish(out, format, &json!({ "forgot": "all" }), text)
         }
+        DevicesCommand::Link { target } => link::pair(out, format, &target),
+        DevicesCommand::Features { device, set } => {
+            let id = store.resolve_id(platform, &device)?;
+            link::features(out, format, &id, &set)
+        }
         DevicesCommand::Reset { yes } => {
             let question = "Forget every known device and give this computer a new identity?";
             if !confirmed(yes, "resetting this computer's identity", question)? {
@@ -177,7 +197,7 @@ fn confirmed(yes: bool, what: &str, question: &str) -> Result<bool> {
 }
 
 /// A change's result: `json` or the `text` line.
-fn finish(
+pub fn finish(
     out: &mut impl Write,
     format: OutputFormat,
     json: &serde_json::Value,

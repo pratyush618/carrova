@@ -684,6 +684,7 @@ dependencies = [
  "carrova-bundle",
  "carrova-core",
  "carrova-crypto",
+ "carrova-link",
  "carrova-manifest",
  "carrova-platform",
  "carrova-recipe",
