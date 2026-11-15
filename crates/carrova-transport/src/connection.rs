@@ -182,16 +182,20 @@ impl Connection {
 
 impl Drop for Connection {
     fn drop(&mut self) {
-        // quinn abandons unacknowledged stream data on close (and does not
-        // even send the close frame while data is pending), so finish the
-        // control stream and let the peer acknowledge it first.
-        if self.control_send.finish().is_ok()
-            && let Ok(rt) = runtime()
-        {
-            let stopped = self.control_send.stopped();
-            let _ = rt.block_on(async { timeout(CLOSE_LINGER, stopped).await });
-        }
+        flush(&mut self.control_send);
         self.close.close(&self.conn);
+    }
+}
+
+/// Finish `send` and wait (at most [`CLOSE_LINGER`]) for the peer to take
+/// it: quinn abandons unacknowledged stream data on close (and does not
+/// even send the close frame while data is pending).
+pub(crate) fn flush(send: &mut SendStream) {
+    if send.finish().is_ok()
+        && let Ok(rt) = runtime()
+    {
+        let stopped = send.stopped();
+        let _ = rt.block_on(async { timeout(CLOSE_LINGER, stopped).await });
     }
 }
 

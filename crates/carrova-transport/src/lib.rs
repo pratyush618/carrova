@@ -57,14 +57,14 @@ mod tuning;
 mod wire;
 
 pub use cancel::CancelSignal;
-pub use connect::{ConnectOptions, Target, connect};
+pub use connect::{ConnectOptions, Target, connect, pair_only};
 pub use connection::{
     AllowedChunks, ChunkFailure, Connection, FailedChunk, FetchAbort, FetchReport, OnChunk,
     ServeEnd,
 };
 pub use discovery::{KnownTags, MAX_KNOWN_TAGS, Nearby, PresenceAdvert, PresenceBeacon, browse};
 pub use error::{ProtocolViolation, Result, SetupFailure, TransportError};
-pub use handshake::PeerIdentity;
+pub use handshake::{PairedPeer, PeerIdentity, PeerInfo, PendingPair};
 pub use listener::{ListenOptions, Listener};
 pub use ticket::Ticket;
 

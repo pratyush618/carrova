@@ -11,7 +11,13 @@
 //! pair, both remembering devices (`Hello.identify`, sender has a key):
 //!         S → R  Identify(sender)  R → S  Identify(receiver)
 //! S → R  Established            (only after the receiver's verified)
+//! pair-only (`Hello.purpose`, always identifying; ADR 0002 §1):
+//!         S → R  PeerInfo  R → S  PeerInfo
+//!         S → R  Linked    (once the sender stored the peer)
 //! ```
+//!
+//! A pair-only receiver holding a pinned key (scanned QR code) checks the
+//! sender's `Identify` against it before revealing its own.
 //!
 //! Identity proofs ([`PeerIdentity`]) are signed over the channel binding
 //! below; a bad one fails the pairing. Older peers neither ask nor answer,
@@ -38,12 +44,15 @@ use crate::wire::StreamReader;
 mod identify;
 mod io;
 mod keys;
+mod pair_only;
 mod receiver;
 mod secret;
 mod sender;
 
 pub use identify::PeerIdentity;
 pub(crate) use keys::binding;
+pub use pair_only::{PairedPeer, PeerInfo, PendingPair};
+pub(crate) use pair_only::{offer, receive};
 pub(crate) use receiver::connect;
 pub(crate) use secret::{Expected, Secret};
 pub(crate) use sender::{AttemptFailure, sender_attempt};

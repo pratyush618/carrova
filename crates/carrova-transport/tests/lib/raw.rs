@@ -127,11 +127,22 @@ impl RawPeer {
         intent: Intent,
         identify: bool,
     ) -> crate::Result<Handshake> {
+        self.hello_for(intent, identify, PairPurpose::default())
+    }
+
+    /// Send `Hello{intent, identify, purpose}` and return the sender's
+    /// answer.
+    pub(super) fn hello_for(
+        &mut self,
+        intent: Intent,
+        identify: bool,
+        purpose: PairPurpose,
+    ) -> crate::Result<Handshake> {
         self.send(&Handshake::Hello {
             proto: PROTOCOL_VERSION,
             intent,
             identify,
-            purpose: PairPurpose::default(),
+            purpose,
         });
         self.recv()
     }

@@ -1,7 +1,7 @@
 //! Transport error type and the mapping from quinn's errors.
 
 use carrova_crypto::pairing::PairingError;
-use carrova_manifest::{ChunkHash, MAX_CHUNK_LEN};
+use carrova_manifest::{ChunkHash, MAX_CHUNK_LEN, MAX_DEVICE_NAME};
 use quinn::{ConnectionError, ReadError, ReadExactError, WriteError};
 
 use crate::connection::FetchAbort;
@@ -130,6 +130,10 @@ pub enum ProtocolViolation {
     /// The receiver requested a chunk outside the manifest.
     #[error("receiver requested chunk {0}, which is not in the manifest")]
     NotInManifest(ChunkHash),
+    /// A pair-only peer's device name is longer than
+    /// [`MAX_DEVICE_NAME`] characters.
+    #[error("peer's device name exceeds {MAX_DEVICE_NAME} characters")]
+    DeviceNameTooLong,
     /// The receiver requested more than the served-bytes ceiling.
     #[error("receiver requested more than {SERVED_BYTES_FACTOR}× the manifest's chunk bytes")]
     OverRequested,
@@ -162,6 +166,10 @@ pub enum SetupFailure {
     /// Serving was stopped locally.
     #[error("serving was stopped")]
     ServingStopped,
+    /// Pairing without a transfer needs this device's key
+    /// ([`crate::ConnectOptions::device`], [`crate::ListenOptions::device`]).
+    #[error("pair-only pairing needs this device's key")]
+    NoDeviceKey,
     /// The connection driver task was joined twice.
     #[error("driver already joined")]
     DriverJoined,

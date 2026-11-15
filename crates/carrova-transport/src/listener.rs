@@ -15,11 +15,12 @@ use crate::claim::CodeBook;
 use crate::connection::Connection;
 use crate::discovery::{Advertiser, Offer, Subject, primary_lan_ipv4};
 use crate::endpoint;
-use crate::error::{Result, TransportError};
-use crate::handshake::Expected;
+use crate::error::{Result, SetupFailure, TransportError};
+use crate::handshake::{self, Authenticated, Expected, PeerInfo, PendingPair};
 use crate::replay::ResumeNonces;
 use crate::tls::Identity;
 use crate::tuning::RESUME_NONCE_MEMORY;
+use crate::wire::PairPurpose;
 
 /// How the sender listens.
 #[derive(Debug, Clone)]
@@ -152,19 +153,51 @@ impl Listener {
         timeout: Duration,
         mut on_pake: impl FnMut(),
     ) -> Result<Connection> {
+        let expected = self.offer(code, self.device.clone(), PairPurpose::Move)?;
+        let auth = self.authenticate(&expected, timeout, &mut on_pake)?;
+        Ok(self.connection(auth))
+    }
+
+    /// Wait for a receiver and pair with `code` without a transfer (ADR
+    /// 0002 §1): as [`Self::accept_pairing`] (one guess per code), but
+    /// only receivers asking for pair-only and proving their device
+    /// identity are admitted, and both sides swap [`PeerInfo`]. Store the
+    /// returned peer, then [`PendingPair::confirm`]; the receiver
+    /// remembers us only then.
+    ///
+    /// Needs [`ListenOptions::device`]; without it fails with
+    /// [`SetupFailure::NoDeviceKey`].
+    pub fn accept_pair_only(
+        &mut self,
+        code: &PairingCode,
+        me: &PeerInfo,
+        timeout: Duration,
+        mut on_pake: impl FnMut(),
+    ) -> Result<PendingPair> {
+        let device = self.device.clone().ok_or(SetupFailure::NoDeviceKey)?;
+        let expected = self.offer(code, Some(device), PairPurpose::PairOnly)?;
+        let auth = self.authenticate(&expected, timeout, &mut on_pake)?;
+        self.cancel
+            .block_on(handshake::offer(self.endpoint.clone(), auth, me))
+    }
+
+    /// `code` offered for `purpose`; a code that was used already fails.
+    fn offer(
+        &mut self,
+        code: &PairingCode,
+        device: Option<Arc<DeviceKey>>,
+        purpose: PairPurpose,
+    ) -> Result<Expected> {
         let claim = self.codes.claim(code);
         if claim.is_taken() {
             return Err(TransportError::PairingFailed);
         }
-        self.accept(
-            &Expected::Pair {
-                code: code.clone(),
-                claim,
-                device: self.device.clone(),
-            },
-            timeout,
-            &mut on_pake,
-        )
+        Ok(Expected::Pair {
+            code: code.clone(),
+            claim,
+            device,
+            purpose,
+        })
     }
 
     /// Wait for the session's receiver to reconnect, proven with `secret`.
@@ -173,36 +206,36 @@ impl Listener {
         secret: &ResumeSecret,
         timeout: Duration,
     ) -> Result<Connection> {
-        self.accept(
+        let auth = self.authenticate(
             &Expected::Resume {
                 secret: secret.clone(),
                 nonces: Arc::clone(&self.nonces),
             },
             timeout,
             &mut || {},
-        )
+        )?;
+        Ok(self.connection(auth))
     }
 
     /// Handshakes still running when the caller cancels are dropped.
-    fn accept(
+    fn authenticate(
         &self,
         expected: &Expected,
         timeout: Duration,
         on_staked: &mut dyn FnMut(),
-    ) -> Result<Connection> {
+    ) -> Result<Authenticated> {
         let deadline = Instant::now() + timeout;
-        let auth = self.cancel.block_on(accept::accept(
+        self.cancel.block_on(accept::accept(
             &self.endpoint,
             &self.identity,
             expected,
             deadline,
             on_staked,
-        ))?;
-        Ok(Connection::new(
-            self.endpoint.clone(),
-            auth,
-            self.cancel.clone(),
         ))
+    }
+
+    fn connection(&self, auth: Authenticated) -> Connection {
+        Connection::new(self.endpoint.clone(), auth, self.cancel.clone())
     }
 
     /// UDP port of the QUIC endpoint (all IPv4 interfaces).

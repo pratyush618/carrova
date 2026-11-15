@@ -4,7 +4,7 @@ use carrova_crypto::pairing::Confirmation;
 use quinn::SendStream;
 
 use crate::error::{ProtocolViolation, Result, TransportError};
-use crate::wire::{Handshake, StreamReader, encode_frame};
+use crate::wire::{CloseCode, Handshake, StreamReader, encode_frame};
 
 pub(super) async fn write(send: &mut SendStream, msgs: &[Handshake]) -> Result<()> {
     let mut buf = Vec::new();
@@ -24,5 +24,14 @@ pub(super) async fn read_confirm(recv: &mut StreamReader) -> Result<Confirmation
     match recv.expect_frame().await? {
         Handshake::Confirm(c) => Ok(Confirmation(c)),
         _ => Err(unexpected("confirmation")),
+    }
+}
+
+/// How a side that failed the handshake closes the connection.
+pub(super) fn failure_code(e: &TransportError) -> CloseCode {
+    match e {
+        TransportError::PairingFailed | TransportError::KeyMismatch => CloseCode::PairingFailed,
+        e if e.is_violation() => CloseCode::Protocol,
+        _ => CloseCode::Normal,
     }
 }

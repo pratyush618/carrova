@@ -3,6 +3,7 @@
 mod admission;
 mod deadline;
 mod identify;
+mod pair_only;
 mod raw;
 
 use std::net::{Ipv4Addr, SocketAddrV4};

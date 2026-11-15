@@ -130,6 +130,8 @@ mod one_sender {
         let secret = Secret::Pair {
             code: PairingCode::generate().unwrap(),
             device: None,
+            purpose: crate::wire::PairPurpose::Move,
+            pin: None,
         };
         assert_eq!(hellos_from_a_dual_address_race(secret), 1);
     }
@@ -192,6 +194,8 @@ mod real_sender {
                 Self::Pair(code) => Secret::Pair {
                     code: code.clone(),
                     device: None,
+                    purpose: crate::wire::PairPurpose::Move,
+                    pin: None,
                 },
                 Self::Resume(secret) => Secret::Resume(secret.clone()),
             }
@@ -355,6 +359,8 @@ mod real_sender {
         let secret = Secret::Pair {
             code: PairingCode::generate().unwrap(),
             device: None,
+            purpose: crate::wire::PairPurpose::Move,
+            pin: None,
         };
         let (dialer, _) = dialer(secret, Duration::from_secs(2));
         let result = race(dialer, &[at(port, 1), at(port, 2)]);

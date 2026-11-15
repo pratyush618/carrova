@@ -91,14 +91,14 @@ async fn stake(conn: &quinn::Connection, expected: &Expected) -> Result<Staked, 
         proto,
         intent,
         identify,
-        ..
+        purpose,
     } = recv.expect_frame().await.map_err(Retry)?
     else {
         return Err(Retry(unexpected("hello")));
     };
     let reject = if proto != PROTOCOL_VERSION {
         Some(RejectReason::Version)
-    } else if !expected.admit(&intent) {
+    } else if !expected.admit(&intent, identify, purpose) {
         Some(RejectReason::NotOffered)
     } else {
         None

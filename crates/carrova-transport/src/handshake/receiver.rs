@@ -6,7 +6,7 @@ use quinn::SendStream;
 use tokio::time::{Instant, timeout_at};
 
 use super::identify::{self, PeerIdentity};
-use super::io::{read_confirm, unexpected, write};
+use super::io::{failure_code, read_confirm, unexpected, write};
 use super::keys::Keys;
 use super::{Authenticated, Secret, binding};
 use crate::PROTOCOL_VERSION;
@@ -30,12 +30,7 @@ pub(crate) async fn connect(
         .await
         .unwrap_or(Err(TransportError::Timeout));
     if let Err(e) = &result {
-        let code = match e {
-            TransportError::PairingFailed => CloseCode::PairingFailed,
-            e if e.is_violation() => CloseCode::Protocol,
-            _ => CloseCode::Normal,
-        };
-        code.close(&conn);
+        failure_code(e).close(&conn);
     }
     result
 }
@@ -80,7 +75,7 @@ async fn open_control(
         proto: PROTOCOL_VERSION,
         intent: secret.intent()?,
         identify: secret.device().is_some(),
-        purpose: PairPurpose::default(),
+        purpose: secret.purpose(),
     };
     write(&mut send, &[hello]).await.map_err(rejected)?;
     match recv.expect_frame().await.map_err(rejected)? {
@@ -139,13 +134,19 @@ async fn confirm(
     let ours = keys.confirm(PakeRole::Receiver, &binding)?;
     write(&mut send, &[Handshake::Confirm(ours.0)]).await?;
     let peer_identity = match recv.expect_frame().await? {
-        Handshake::Established => None,
+        // Pair-only always identifies (and checks the pin).
+        Handshake::Established if secret.purpose() == PairPurpose::Move => None,
         // Sent only if our `Hello` asked for it (code pairing, device key).
         frame @ Handshake::Identify { .. } => {
             let (Some(device), Some(known)) = (secret.device(), keys.known_secret()) else {
                 return Err(unexpected("established"));
             };
             let public = identify::check(device, PakeRole::Sender, &binding, &frame)?;
+            // A pinned sender's key is checked before ours is revealed.
+            if secret.pin().is_some_and(|pin| *pin != public) {
+                tracing::warn!("sender's key differs from the scanned one");
+                return Err(TransportError::KeyMismatch);
+            }
             write(
                 &mut send,
                 &[identify::proof(device, PakeRole::Receiver, &binding)],
@@ -159,7 +160,7 @@ async fn confirm(
                 secret: known,
             })
         }
-        _ => return Err(unexpected("established")),
+        _ => return Err(unexpected("identify or established")),
     };
     Ok(Authenticated {
         conn: conn.clone(),

@@ -3,23 +3,27 @@
 
 use std::sync::Arc;
 
-use carrova_crypto::identity::DeviceKey;
+use carrova_crypto::identity::{DeviceKey, DevicePublic};
 use carrova_crypto::pairing::{PairingCode, ResumeSecret, ResumeTag, TagNonce, TagPurpose};
 
 use crate::claim::CodeClaim;
 use crate::discovery::{Subject, TagProof};
 use crate::error::Result;
 use crate::replay::ResumeNonces;
-use crate::wire::Intent;
+use crate::wire::{Intent, PairPurpose};
 
 /// What the receiver brings to the handshake.
 #[derive(Debug, Clone)]
 pub(crate) enum Secret {
     /// First contact: the pairing code, and this device's key if it
-    /// remembers devices.
+    /// remembers devices (always, for pair-only).
     Pair {
         code: PairingCode,
         device: Option<Arc<DeviceKey>>,
+        purpose: PairPurpose,
+        /// The sender's key from a scanned QR code: its `Identify` must
+        /// carry exactly this key.
+        pin: Option<DevicePublic>,
     },
     /// Reconnect: the session's resume secret.
     Resume(ResumeSecret),
@@ -58,18 +62,36 @@ impl Secret {
             Self::Resume(_) => None,
         }
     }
+
+    /// What the pairing is for (a resume always continues a move).
+    pub(super) fn purpose(&self) -> PairPurpose {
+        match self {
+            Self::Pair { purpose, .. } => *purpose,
+            Self::Resume(_) => PairPurpose::Move,
+        }
+    }
+
+    /// The sender key pinned by a scanned QR code, if any.
+    pub(super) fn pin(&self) -> Option<&DevicePublic> {
+        match self {
+            Self::Pair { pin, .. } => pin.as_ref(),
+            Self::Resume(_) => None,
+        }
+    }
 }
 
 /// What the sender offers, with the listener-wide state that keeps each
 /// secret's use single (cheap to clone).
 #[derive(Debug, Clone)]
 pub(crate) enum Expected {
-    /// A pairing code and its single-use claim, and this device's key if
-    /// it remembers devices.
+    /// A pairing code and its single-use claim, this device's key if it
+    /// remembers devices (always, for pair-only), and what the code is
+    /// offered for.
     Pair {
         code: PairingCode,
         claim: Arc<CodeClaim>,
         device: Option<Arc<DeviceKey>>,
+        purpose: PairPurpose,
     },
     /// A resumable session and the `Hello` nonces already used for it.
     Resume {
@@ -79,12 +101,16 @@ pub(crate) enum Expected {
 }
 
 impl Expected {
-    /// Does a receiver's `Hello` ask for what we offer? A recognised
-    /// resume `Hello` is admitted once: its nonce is recorded.
-    pub(super) fn admit(&self, intent: &Intent) -> bool {
+    /// Does a receiver's `Hello` ask for what we offer? A pairing `Hello`
+    /// must name our nameplate and purpose, and a pair-only one must ask
+    /// for identities. A recognised resume `Hello` is admitted once: its
+    /// nonce is recorded.
+    pub(super) fn admit(&self, intent: &Intent, identify: bool, asked: PairPurpose) -> bool {
         match (self, intent) {
-            (Self::Pair { code, .. }, Intent::Pair { nameplate }) => {
+            (Self::Pair { code, purpose, .. }, Intent::Pair { nameplate }) => {
                 code.nameplate().get() == *nameplate
+                    && *purpose == asked
+                    && (identify || asked == PairPurpose::Move)
             }
             (Self::Resume { secret, nonces }, Intent::Resume { nonce, tag }) => {
                 let proof = TagProof {
