@@ -32,6 +32,10 @@ use carrova_report::{ErrorReport, IssueDraft, ReportConsent, ReportId, ReportSum
 use carrova_view::devices::{
     ForgetDevices, KnownDeviceView, NearbyDeviceView, Ring, VisibilityChoice, VisibilityView,
 };
+use carrova_view::ecosystem::{
+    ClipHistoryView, ClipItemView, ClipKind, FeatureGroup, FeatureId, FeatureRowView,
+    FeatureStateView, PairInviteView,
+};
 use carrova_view::ipc::{
     About, AlertChannel, AlertSettings, BackgroundSettings, BridgeError, BridgeEvent, CatalogEntry,
     EngineDefaults, NearbySettings, Picked, PlanReview, RecipesCheck, RecipesStatus, RecipesUpdate,
@@ -114,6 +118,14 @@ fn export_typescript_bindings() {
         KnownDeviceView::export_all,
         VisibilityView::export_all,
         VisibilityChoice::export_all,
+        FeatureRowView::export_all,
+        FeatureId::export_all,
+        FeatureGroup::export_all,
+        FeatureStateView::export_all,
+        PairInviteView::export_all,
+        ClipHistoryView::export_all,
+        ClipItemView::export_all,
+        ClipKind::export_all,
         // Desktop IPC contract.
         BridgeEvent::export_all,
         BridgeError::export_all,
