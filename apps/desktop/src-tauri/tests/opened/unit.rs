@@ -81,3 +81,33 @@ fn other_links_are_refused() {
     assert!(!admits("javascript:alert(1)"));
     assert!(!admits("file://otherhost/share/x"));
 }
+
+/// What queuing `link` leaves for the UI.
+fn queued(link: &str) -> Vec<String> {
+    let opened = Opened::default();
+    opened.push_admitted(&[Url::parse(link).unwrap()], None);
+    opened.take()
+}
+
+#[test]
+fn shared_text_is_queued_in_one_plain_form() {
+    let plain = "data:text/plain,a%20b%23c%E2%82%AC";
+    for link in [
+        "data:text/plain,a%20b%23c%E2%82%AC",
+        "data:text/plain;charset=UTF-8,a%20b%23c%E2%82%AC",
+        "data:TEXT/PLAIN;charset=utf-8;base64,YSBiI2Pigqw=",
+        "data:text/plain;base64,YSBiI2Pigqw%3D",
+        "data:text/plain,a b#c€",
+    ] {
+        assert_eq!(queued(link), [plain], "{link}");
+    }
+}
+
+#[test]
+fn shared_text_in_another_charset_or_not_utf8_is_refused() {
+    assert!(!admits("data:text/plain;charset=iso-8859-1,caf%E9"));
+    assert!(!admits("data:text/plain,caf%E9"));
+    assert!(!admits("data:text/plain;base64,not base64!"));
+    assert!(!admits("data:text/plain;name=x,hi"));
+    assert!(queued("data:text/plain;base64,%FF").is_empty());
+}

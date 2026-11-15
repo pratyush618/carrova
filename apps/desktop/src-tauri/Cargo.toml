@@ -31,6 +31,8 @@ carrova-platform = { workspace = true }
 carrova-recipe = { workspace = true }
 carrova-report = { workspace = true }
 carrova-view = { workspace = true }
+data-encoding = { workspace = true }
+percent-encoding = "2"
 serde = { workspace = true }
 # `generate_context!` embeds plugin config (`plugins.updater`) as `serde_json` values.
 serde_json = { workspace = true }
