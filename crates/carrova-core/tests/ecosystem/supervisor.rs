@@ -81,6 +81,25 @@ fn link_up_when_feature_on() {
 }
 
 #[test]
+fn presence_advertises_the_link_port_while_running() {
+    use carrova_core::presence::{Visibility, advert};
+    let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    let lp = || {
+        advert(&*low.platform, Visibility::Known, 0)
+            .unwrap()
+            .unwrap()
+            .link_port
+    };
+    assert_eq!(lp(), None);
+
+    let sl = low.start(fast());
+    assert_eq!(lp(), Some(sl.port()));
+
+    sl.stop();
+    assert_eq!(lp(), None);
+}
+
+#[test]
 fn no_dial_when_all_off() {
     let (low, high, _) = pair(&PolicyDoc::computer_defaults());
     // Only the side that does not dial wants a feature.

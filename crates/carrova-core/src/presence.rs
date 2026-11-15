@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::devices::{DEVICES_DIR, DeviceRecord, KnownDevices};
 use crate::engine::Engine;
 use crate::error::{CoreError, EncodeError, Result};
+use crate::fsx;
 use crate::lan::{clean_device_name, known_by_recent_use};
 use crate::store::{ensure_dir, read_file, write_atomic};
 use crate::time::now_unix;
@@ -41,6 +42,11 @@ pub const EVERYONE_FOR: Duration = Duration::from_secs(10 * 60);
 
 /// The user's [`Visibility`], in the state dir.
 pub const VISIBILITY_FILE: &str = "presence.json";
+
+/// The running link supervisor's port, in the state dir: advertised as
+/// `lp` beside the tags. A crashed supervisor's stale port only makes
+/// peers' dials fail until the next one writes its own.
+const LINK_PORT_FILE: &str = "link.port";
 
 /// Who may find this device nearby.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -112,9 +118,38 @@ pub fn save_visibility(platform: &dyn Platform, visibility: Visibility) -> Resul
     write_atomic(platform, &dir, VISIBILITY_FILE, &bytes)
 }
 
+/// Save the running link supervisor's port, or remove it (`None`), for
+/// the presence advert.
+///
+/// # Errors
+///
+/// The state dir or the file cannot be written.
+pub(crate) fn save_link_port(platform: &dyn Platform, port: Option<u16>) -> Result<()> {
+    let dir = platform.state_dir()?;
+    match port {
+        Some(port) => {
+            ensure_dir(platform, &dir, 0o700)?;
+            write_atomic(platform, &dir, LINK_PORT_FILE, port.to_string().as_bytes())
+        }
+        None => fsx::remove_any(platform, &dir.join(LINK_PORT_FILE)).map(drop),
+    }
+}
+
+/// The saved link port; `None` when none runs (or the file is unreadable).
+fn load_link_port(platform: &dyn Platform) -> Option<u16> {
+    let path = platform.state_dir().ok()?.join(LINK_PORT_FILE);
+    let bytes = read_file(platform, &path).ok()??;
+    std::str::from_utf8(&bytes)
+        .ok()?
+        .parse()
+        .ok()
+        .filter(|&p| p != 0)
+}
+
 /// What this device announces under `visibility` at `now`: tags (fresh
 /// nonce) for the [`MAX_KNOWN_TAGS`] known devices most recently moved
-/// with, plus its sanitised name and OS when shown to everyone. `None`
+/// with, plus its sanitised name and OS when shown to everyone, and the
+/// running link supervisor's port beside either. `None`
 /// for [`Visibility::NoOne`], or when it would announce nothing (known
 /// devices only, but none known).
 ///
@@ -142,6 +177,7 @@ pub fn advert(
     if !everyone {
         return Ok(known.map(|known| PresenceAdvert {
             known: Some(known),
+            link_port: load_link_port(platform),
             ..PresenceAdvert::default()
         }));
     }
@@ -149,7 +185,7 @@ pub fn advert(
         known,
         name: Some(announced_name(platform)),
         os: Some(platform.os()),
-        ..PresenceAdvert::default()
+        link_port: load_link_port(platform),
     }))
 }
 
@@ -337,6 +373,8 @@ struct Saved {
     /// The known devices tagged, each with a digest of its secret (the
     /// secret itself is not kept).
     known: Vec<(DeviceRecord, blake3::Hash)>,
+    /// The link supervisor's port.
+    link_port: Option<u16>,
 }
 
 impl Saved {
@@ -349,6 +387,7 @@ impl Saved {
                     .into_iter()
                     .map(|(record, secret)| (record, blake3::hash(secret.expose_bytes())))
                     .collect(),
+                link_port: load_link_port(platform),
             })
         };
         read()

@@ -25,6 +25,7 @@ use crate::cancel::Cancel;
 use crate::devices::KnownDevices;
 use crate::engine::Engine;
 use crate::error::{CoreError, Result};
+use crate::presence::save_link_port;
 use crate::session::Event;
 
 /// How the supervisor paces itself. [`Default`] holds the spec's values.
@@ -218,6 +219,7 @@ impl Supervisor {
             sup.watch = Mutex::new(Some(watch));
             sup.threads.push(thread);
         }
+        save_link_port(&*platform, Some(sup.port))?;
         Ok(sup)
     }
 
@@ -410,6 +412,9 @@ impl Supervisor {
 
 impl Drop for Supervisor {
     fn drop(&mut self) {
+        if let Err(e) = save_link_port(&**self.shared.platform(), None) {
+            tracing::warn!(error = %e, "stale link port left for presence");
+        }
         self.shared.stop.cancel();
         // Ends the clipboard thread (its channel closes).
         self.watch
