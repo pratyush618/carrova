@@ -52,10 +52,13 @@ class ShareActivity : Activity() {
         }
     }
 
-    /** Each stream copied to `cache/shared/<share>/<n>/<name>` (unreadable ones are left out). */
+    /**
+     * Each stream copied to `files/cache/shared/<share>/<n>/<name>` (unreadable ones are left
+     * out). Rust admits `file:` links only inside that dir (its cache root + `shared`).
+     */
     // shortcut: copies stay until Android clears the cache; delete them after sending if space matters.
     private fun copies(streams: List<Uri>): List<Uri> {
-        val share = File(cacheDir, "shared/${UUID.randomUUID()}")
+        val share = File(filesDir, "cache/shared/${UUID.randomUUID()}")
         return streams.mapIndexedNotNull { index, uri ->
             try {
                 val dir = File(share, index.toString()).apply { mkdirs() }

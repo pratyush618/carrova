@@ -6,13 +6,14 @@
 
 use std::sync::Arc;
 
-use carrova_platform::Platform;
+use carrova_platform::{Platform, SemanticRoot};
 use tauri::utils::config::WindowConfig;
 use tauri::wry::prelude::{JNIEnv, JObject};
-use tauri::{AppHandle, Emitter, Manager, RunEvent, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, Url, WebviewWindowBuilder};
 
-use crate::opened::{OPENED_EVENT, Opened};
+use crate::opened::{OPENED_EVENT, Opened, SHARED_DIR};
 use crate::ops;
+use crate::state::AppState;
 
 /// Open the window from the config (at start-up, and for the new activity
 /// of an app reopened after its window was closed).
@@ -34,15 +35,26 @@ pub fn on_run_event(app: &AppHandle, event: &RunEvent) {
             code: None, api, ..
         } => api.prevent_exit(),
         RunEvent::MainEventsCleared => reopen(app),
-        RunEvent::Opened { urls } => {
-            tracing::info!(links = urls.len(), "the app was opened with links");
-            app.state::<Opened>()
-                .push(urls.iter().map(ToString::to_string));
-            if let Err(error) = app.emit(OPENED_EVENT, ()) {
-                tracing::warn!(%error, "could not tell the UI of opened links");
-            }
-        }
+        RunEvent::Opened { urls } => opened(app, urls),
         _ => {}
+    }
+}
+
+/// Queue the admitted `urls` for the UI and tell it; count the refused.
+fn opened(app: &AppHandle, urls: &[Url]) {
+    let cache = app.try_state::<AppState>().and_then(|state| {
+        let cache = state.platform.resolve_root(SemanticRoot::Cache);
+        cache
+            .inspect_err(|error| tracing::warn!(%error, "no cache root: no shared files"))
+            .ok()
+    });
+    let shared = cache.map(|cache| cache.join(SHARED_DIR));
+    let refused = app.state::<Opened>().push_admitted(urls, shared.as_deref());
+    tracing::info!(links = urls.len(), refused, "the app was opened with links");
+    if refused < urls.len()
+        && let Err(error) = app.emit(OPENED_EVENT, ())
+    {
+        tracing::warn!(%error, "could not tell the UI of opened links");
     }
 }
 
