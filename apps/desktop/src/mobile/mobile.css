@@ -81,6 +81,15 @@
   color: var(--accent);
 }
 
+.m-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .m-url {
   overflow-wrap: anywhere;
   font-size: var(--t-sm);

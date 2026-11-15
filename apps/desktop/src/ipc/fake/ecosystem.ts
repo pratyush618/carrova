@@ -110,6 +110,7 @@ type EcosystemPort = Pick<
   | 'handoffUrl'
   | 'ring'
   | 'stopRing'
+  | 'sendText'
   | 'clipHistory'
   | 'clearClipHistory'
   | 'clipSettings'
@@ -227,6 +228,10 @@ export function fakeEcosystem(runtime: Runtime, scenario: Scenario, os: OsKind):
     ring: (id) =>
       later(() => {
         runtime.engine(LINK, { event: 'ring_started', device: find(id).id });
+      }),
+    sendText: (id) =>
+      later(() => {
+        runtime.engine(LINK, { event: 'clip_sent', device: find(id).id });
       }),
     stopRing: (id) =>
       later(() => {

@@ -56,6 +56,7 @@ export const mobile = {
     files_one: 'Send {{count}} file',
     files_other: 'Send {{count}} files',
     link: 'Open on a computer',
+    text: 'Send text',
     linkSent: 'Sent to {{name}}',
     to: 'To',
     send: 'Send',

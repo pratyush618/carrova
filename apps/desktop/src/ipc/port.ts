@@ -241,6 +241,8 @@ export interface CarrovaPort {
   handoffUrl(id: string, url: string): Promise<void>;
   /** Make the phone `id` ring. */
   ring(id: string): Promise<void>;
+  /** Send `text` to `id` as a clip (this device's clipboard stays as it is). */
+  sendText(id: string, text: string): Promise<void>;
   /** Stop the ring this computer started on `id`. */
   stopRing(id: string): Promise<void>;
   /** Clips received from linked devices, newest first. */

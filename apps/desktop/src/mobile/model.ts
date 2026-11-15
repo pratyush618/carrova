@@ -57,17 +57,23 @@ export const readyFor = (
 export type OpenedIntent =
   | { readonly kind: 'clipboard' }
   | { readonly kind: 'files'; readonly paths: readonly string[] }
-  | { readonly kind: 'handoff'; readonly url: string };
+  | { readonly kind: 'handoff'; readonly url: string }
+  | { readonly kind: 'text'; readonly text: string };
+
+/** How shared text arrives: the rest is the text, percent-encoded UTF-8. */
+const SHARED_TEXT = 'data:text/plain,';
 
 /**
  * What `link` asks for: send the clipboard (tile, notification), send a
- * shared file (its path), hand a web link off; `null` for shared text and
- * anything else (no Phase 1 feature takes them).
+ * shared file (its path), hand a web link off, send shared text as a clip;
+ * `null` for anything else.
  */
 export function openedIntent(link: string): OpenedIntent | null {
   if (link === 'carrova://send-clipboard') return { kind: 'clipboard' };
   if (link.startsWith('http://') || link.startsWith('https://'))
     return { kind: 'handoff', url: link };
+  if (link.startsWith(SHARED_TEXT))
+    return { kind: 'text', text: decodeURIComponent(link.slice(SHARED_TEXT.length)) };
   if (link.startsWith('file:///'))
     return { kind: 'files', paths: [decodeURIComponent(new URL(link).pathname)] };
   return null;

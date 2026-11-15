@@ -78,6 +78,19 @@ export function PhoneOverlay({
         </PickComputerSheet>
       );
     }
+    case 'text': {
+      const { text } = overlay;
+      return (
+        <PickComputerSheet
+          title={t('mobile.pick.text')}
+          devices={readyFor(linked.devices, 'clipboard')}
+          onClose={onClose}
+          onSend={sendPicked((id) => port.sendText(id, text), 'clipSent')}
+        >
+          <p className="m-text">{text}</p>
+        </PickComputerSheet>
+      );
+    }
     case 'forget': {
       const { id, name } = overlay;
       return (

@@ -22,8 +22,14 @@ describe('a link the phone app was opened with', () => {
     });
   });
 
-  it('ignores shared text and anything else', () => {
-    expect(openedIntent('data:text/plain,hello')).toBeNull();
+  it('decodes shared text, any script', () => {
+    expect(openedIntent('data:text/plain,caf%C3%A9%20%E2%9C%93%0Anext%20line')).toEqual({
+      kind: 'text',
+      text: 'café ✓\nnext line',
+    });
+  });
+
+  it('ignores anything else', () => {
     expect(openedIntent('carrova://pair?v=1')).toBeNull();
   });
 });
@@ -39,6 +45,7 @@ describe('the links one opening brought', () => {
       ]),
     ).toEqual([
       { kind: 'files', paths: ['/shared/1/a.jpg', '/shared/1/b.jpg'] },
+      { kind: 'text', text: 'hi' },
       { kind: 'clipboard' },
     ]);
   });

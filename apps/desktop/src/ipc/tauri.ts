@@ -104,6 +104,7 @@ export function createTauriPort(): CarrovaPort {
     handoffUrl: (id, url) => call('handoff_url', { id, url }),
     ring: (id) => call('ring', { id }),
     stopRing: (id) => call('stop_ring', { id }),
+    sendText: (id, text) => call('send_text', { id, text }),
     clipHistory: () => call('clip_history'),
     clearClipHistory: () => call('clear_clip_history'),
     clipSettings: () => call('clip_settings'),
