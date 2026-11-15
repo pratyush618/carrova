@@ -46,6 +46,15 @@ pub async fn answer_pair_peer(
     ops::ecosystem::answer_pair_peer(&state, accept)
 }
 
+/// `CarrovaPort.ownFingerprint`.
+#[tauri::command]
+pub async fn own_fingerprint(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<String, CommandError> {
+    reply(&app, ops::ecosystem::own_fingerprint(&state).await)
+}
+
 /// `CarrovaPort.setFeature`.
 #[tauri::command]
 pub async fn set_feature(

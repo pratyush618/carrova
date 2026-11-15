@@ -7,14 +7,14 @@
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock, Mutex, OnceLock, PoisonError};
 
-use carrova_core::devices::DeviceRecord;
+use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::ecosystem::{
     Answer, AskId, ClipSettings, HandoffItem, PAIR_CONFIRM_WINDOW, PairInvite, PeerState,
     SharedSupervisor, SupervisorHandle, link_with_code, offer_pairing,
 };
 use carrova_core::lan::CODE_LIFETIME;
 use carrova_core::{Cancel, CodeOffer, CoreError, Engine, NullSink, SessionId};
-use carrova_crypto::identity::DeviceId;
+use carrova_crypto::identity::{DeviceId, Fingerprint};
 use carrova_link::{Feature, FeatureState};
 use carrova_platform::Platform;
 use carrova_view::ecosystem::{
@@ -220,6 +220,21 @@ pub fn answer_pair_peer(state: &AppState, accept: bool) -> Result<(), CommandErr
         .peer_answer
         .answer(accept)
         .map_err(|_| CommandError::no_session("no device is waiting to be confirmed"))
+}
+
+/// This device's own fingerprint, shown while it links so the user can
+/// compare it with the one the other device shows.
+///
+/// # Errors
+///
+/// The device key could not be read or made.
+pub async fn own_fingerprint(state: &AppState) -> Result<String, CommandError> {
+    let platform = Arc::clone(&state.platform);
+    blocking(move || {
+        let key = KnownDevices::open(&*platform)?.device_key(&*platform)?;
+        Ok(Fingerprint::of(&key.public()).to_string())
+    })
+    .await
 }
 
 /// Run the pairing `pair` as the one pairing in progress (cancellable by

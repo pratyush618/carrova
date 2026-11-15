@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '../../support/render';
 import { AddDeviceDialog } from '@/screens/devices/AddDeviceDialog';
 import { DevicePage } from '@/screens/devices/DevicePage';
+import { LinkComputerDialog } from '@/screens/devices/LinkComputerDialog';
 import { pixel, pixelInvite, pixelPeer } from '@/screens/devices/fixtures';
 import type { DeviceIntents } from '@/screens/devices/model';
 
@@ -133,5 +134,29 @@ describe('Add a device', () => {
     await user.click(screen.getByRole('button', { name: 'Not my computer' }));
     expect(on.onNotMine).toHaveBeenCalledOnce();
     expect(on.onConfirm).not.toHaveBeenCalled();
+  });
+});
+
+describe('Link a computer', () => {
+  const linkOn = () => ({ onCode: vi.fn(), onLink: vi.fn(), onCancel: vi.fn(), onOpen: vi.fn() });
+
+  it("shows this computer's own key while it links", () => {
+    renderScreen(
+      <LinkComputerDialog
+        code="4-maple-orbit"
+        state="linking"
+        ownFingerprint="A1B2·C3D4"
+        on={linkOn()}
+      />,
+    );
+    expect(screen.getByText('This computer: A1B2·C3D4')).toBeInTheDocument();
+    expect(screen.getByText('Confirm on your computer')).toBeInTheDocument();
+  });
+
+  it('shows no key before linking starts', () => {
+    renderScreen(
+      <LinkComputerDialog code="" state="typing" ownFingerprint="A1B2·C3D4" on={linkOn()} />,
+    );
+    expect(screen.queryByText(/This computer:/)).not.toBeInTheDocument();
   });
 });

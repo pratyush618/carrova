@@ -168,7 +168,21 @@ export function LinkComputerOverlay() {
   const [code, setCode] = useState('');
   const [state, setState] = useState<LinkComputerState>('typing');
   const [device, setDevice] = useState<LinkedDeviceView | null>(null);
+  const [ownFingerprint, setOwnFingerprint] = useState<string | null>(null);
   const pairing = useRef<Pairing | null>(null);
+  const port = usePort();
+  useEffect(() => {
+    let live = true;
+    port.ownFingerprint().then(
+      (fingerprint) => {
+        if (live) setOwnFingerprint(fingerprint);
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [port]);
   useEffect(
     () => () => {
       pairing.current?.cancel();
@@ -180,6 +194,7 @@ export function LinkComputerOverlay() {
       code={code}
       state={state}
       device={device}
+      ownFingerprint={ownFingerprint}
       on={{
         onCode: setCode,
         onCancel: nav.close,

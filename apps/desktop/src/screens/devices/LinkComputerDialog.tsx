@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { LinkedDeviceView } from '../../engine/types';
-import { Button, Dialog, Field, Input } from '../../ui';
+import { Button, Dialog, Field, Input, Note } from '../../ui';
 import { LinkedSummary } from './LinkedSummary';
 
 export type LinkComputerState = 'typing' | 'linking' | 'failed' | 'linked';
@@ -13,17 +13,24 @@ export interface LinkComputerIntents {
   readonly onOpen: () => void;
 }
 
-/** Link a computer: type the code the other one shows; linking needs no review (nothing moves yet). */
+/**
+ * Link a computer: type the code the other one shows; linking needs no
+ * review (nothing moves yet). While it links, this computer's own key shows
+ * for the other one's key check.
+ */
 export function LinkComputerDialog({
   code,
   state,
   device = null,
+  ownFingerprint = null,
   on,
 }: {
   readonly code: string;
   readonly state: LinkComputerState;
   /** The computer that linked, once the list names it. */
   readonly device?: LinkedDeviceView | null;
+  /** This computer's key fingerprint (`null` until known). */
+  readonly ownFingerprint?: string | null;
   readonly on: LinkComputerIntents;
 }) {
   const { t } = useTranslation();
@@ -88,6 +95,16 @@ export function LinkComputerDialog({
           />
         )}
       </Field>
+      {linking && ownFingerprint !== null && (
+        <>
+          <Note center>
+            <span className="p-mono">
+              {t('ecosystem.linkComputer.thisComputer', { fingerprint: ownFingerprint })}
+            </span>
+          </Note>
+          <Note center>{t('ecosystem.linkComputer.confirmThere')}</Note>
+        </>
+      )}
     </Dialog>
   );
 }

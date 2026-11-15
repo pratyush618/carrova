@@ -74,6 +74,8 @@ export const ecosystem = {
     field: 'Code',
     link: 'Link',
     linking: 'Linking…',
+    thisComputer: 'This computer: {{fingerprint}}',
+    confirmThere: 'Confirm on your computer',
     linkedTitle: 'Computer linked',
     failed: "Couldn't link. Check the code, and that both computers are on the same network.",
   },

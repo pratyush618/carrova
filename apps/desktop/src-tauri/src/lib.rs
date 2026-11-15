@@ -184,6 +184,7 @@ pub fn run() -> tauri::Result<()> {
             commands::ecosystem::pair_invite,
             commands::ecosystem::link_computer,
             commands::ecosystem::answer_pair_peer,
+            commands::ecosystem::own_fingerprint,
             commands::ecosystem::set_feature,
             commands::ecosystem::answer_ask,
             commands::ecosystem::send_clipboard,

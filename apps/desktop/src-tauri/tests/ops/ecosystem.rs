@@ -283,11 +283,7 @@ fn pair_invite_links_only_after_the_key_check() {
 
     hosted.unwrap();
     joined.unwrap();
-    let guest_key = KnownDevices::open(&guest.platform)
-        .unwrap()
-        .device_key(&guest.platform)
-        .unwrap();
-    let guest_fingerprint = Fingerprint::of(&guest_key.public()).to_string();
+    let guest_fingerprint = block_on(ecosystem::own_fingerprint(&guest.state)).unwrap();
     assert_eq!(found["peer"]["fingerprint"], guest_fingerprint.as_str());
     assert_eq!(known(&host).len(), 1);
     assert_eq!(known(&guest).len(), 1);
@@ -303,4 +299,17 @@ fn pair_invite_not_my_device_links_nothing() {
     assert!(found.is_object());
     assert!(known(&host).is_empty());
     assert!(known(&guest).is_empty());
+}
+
+#[test]
+fn own_fingerprint_is_this_devices_key() {
+    let machine = Machine::new();
+
+    let shown = block_on(ecosystem::own_fingerprint(&machine.state)).unwrap();
+
+    let key = KnownDevices::open(&machine.platform)
+        .unwrap()
+        .device_key(&machine.platform)
+        .unwrap();
+    assert_eq!(shown, Fingerprint::of(&key.public()).to_string());
 }

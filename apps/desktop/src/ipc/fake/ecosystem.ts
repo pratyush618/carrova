@@ -96,6 +96,7 @@ type EcosystemPort = Pick<
   | 'pairInvite'
   | 'answerPairPeer'
   | 'linkComputer'
+  | 'ownFingerprint'
   | 'setFeature'
   | 'answerAsk'
   | 'sendClipboard'
@@ -178,6 +179,7 @@ export function fakeEcosystem(runtime: Runtime, scenario: Scenario): FakeEcosyst
       });
       await awaitPairing(computer(), false);
     },
+    ownFingerprint: () => later(() => 'A1B2·C3D4'),
     setFeature: (id, feature, state) =>
       later(() => {
         const device = find(id);
