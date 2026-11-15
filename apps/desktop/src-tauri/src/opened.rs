@@ -42,9 +42,12 @@ pub fn admitted(link: &Url, shared: Option<&Path>) -> bool {
         "carrova" => link.as_str() == SEND_CLIPBOARD,
         "file" => shared.is_some_and(|shared| {
             link.to_file_path().is_ok_and(|path| {
-                path.components()
-                    .all(|c| matches!(c, Component::RootDir | Component::Normal(_)))
-                    && path.starts_with(shared)
+                path.components().all(|c| {
+                    matches!(
+                        c,
+                        Component::Prefix(_) | Component::RootDir | Component::Normal(_)
+                    )
+                }) && path.starts_with(shared)
                     && path != shared
             })
         }),

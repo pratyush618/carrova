@@ -1,15 +1,23 @@
 //! The queue of links the app was opened with, and which links may join it.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use tauri::Url;
 
 use super::{Opened, admitted};
 
-const SHARED: &str = "/data/user/0/org.byteveda.Carrova/files/cache/shared";
+/// An absolute share dir on any host (a Unix path has no drive on Windows).
+fn shared() -> PathBuf {
+    std::env::temp_dir().join("org.byteveda.Carrova/files/cache/shared")
+}
+
+/// `dir` as a `file:` link ending in `/`.
+fn dir_link(dir: &Path) -> String {
+    Url::from_directory_path(dir).unwrap().to_string()
+}
 
 fn admits(link: &str) -> bool {
-    admitted(&Url::parse(link).unwrap(), Some(Path::new(SHARED)))
+    admitted(&Url::parse(link).unwrap(), Some(&shared()))
 }
 
 #[test]
@@ -33,7 +41,7 @@ fn pushing_drops_and_counts_refused_links() {
     let opened = Opened::default();
     let links = ["file:///etc/passwd", "https://example.org/"].map(|l| Url::parse(l).unwrap());
 
-    assert_eq!(opened.push_admitted(&links, Some(Path::new(SHARED))), 1);
+    assert_eq!(opened.push_admitted(&links, Some(&shared())), 1);
 
     assert_eq!(opened.take(), ["https://example.org/"]);
 }
@@ -48,25 +56,29 @@ fn the_clipboard_request_and_shared_text_are_admitted() {
 
 #[test]
 fn share_copies_are_admitted() {
-    assert!(admits(&format!("file://{SHARED}/0/holiday%20photo.jpg")));
+    assert!(admits(&format!(
+        "{}0/holiday%20photo.jpg",
+        dir_link(&shared())
+    )));
 }
 
 #[test]
 fn private_app_files_are_refused() {
-    let files = "/data/user/0/org.byteveda.Carrova/files";
-    assert!(!admits(&format!("file://{files}/state/devices/key")));
-    assert!(!admits(&format!("file://{SHARED}/../../state/devices/key")));
-    assert!(!admits(&format!(
-        "file://{SHARED}/0/..%2F..%2F..%2Fstate%2Fkey"
-    )));
-    assert!(!admits(&format!("file://{SHARED}")));
-    assert!(!admits(&format!("file://{SHARED}-evil/key")));
+    let dir = shared();
+    let files = dir_link(dir.parent().unwrap().parent().unwrap());
+    let link = dir_link(&dir);
+    assert!(!admits(&format!("{files}state/devices/key")));
+    assert!(!admits(&format!("{link}../../state/devices/key")));
+    assert!(!admits(&format!("{link}0/..%2F..%2F..%2Fstate%2Fkey")));
+    let link = link.trim_end_matches('/');
+    assert!(!admits(link));
+    assert!(!admits(&format!("{link}-evil/key")));
     assert!(!admits("file:///etc/passwd"));
 }
 
 #[test]
 fn file_links_are_refused_without_a_share_dir() {
-    let link = Url::parse(&format!("file://{SHARED}/0/a.txt")).unwrap();
+    let link = Url::parse(&format!("{}0/a.txt", dir_link(&shared()))).unwrap();
     assert!(!admitted(&link, None));
 }
 
