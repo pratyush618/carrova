@@ -60,11 +60,11 @@ ndk-context = "0.1.1"
 # Directory watch on macOS (FSEvents) and Windows (ReadDirectoryChangesW); carrova-platform only.
 notify = { version = "8.2.2", default-features = false, features = ["macos_fsevent"] }
 # QUIC/TLS: ring backend only (no aws-lc anywhere).
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 quinn = { version = "0.11.12", default-features = false, features = ["runtime-tokio", "rustls-ring"] }
 rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "ring"] }
 rpassword = "7"
 rustix = { version = "1", features = ["fs", "process", "system"] }
-qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std"] }
 secrecy = "0.10"
 serde = { version = "1", features = ["derive"] }
