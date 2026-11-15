@@ -44,7 +44,9 @@ export type Overlay =
   /** Link another computer by typing its code. */
   | { readonly kind: 'link-computer' }
   /** Confirm forgetting a linked device. */
-  | { readonly kind: 'forget-device'; readonly id: string };
+  | { readonly kind: 'forget-device'; readonly id: string }
+  /** Clips received from linked devices. */
+  | { readonly kind: 'clip-history' };
 
 /** Navigation state: one view, the hub page a flow returns to, and a stack of overlays (top last). */
 export interface Nav {

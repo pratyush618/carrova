@@ -8,6 +8,7 @@ import type { FlowId } from '../nav/flows';
 import { navigate, type Nav, type NavEvent } from '../nav/navMachine';
 import { useNearbyRequests, useSession } from '../state/EngineState';
 import { buildChrome } from './chrome';
+import { EcosystemToasts } from './EcosystemToasts';
 import { useForwardedSends } from './forward';
 import { useBell } from './useBell';
 import { liveView, viewKey } from './liveView';
@@ -122,6 +123,7 @@ export function Shell({ initial }: { readonly initial: Nav }) {
             {forwarded.refused && (
               <Toast onDismiss={forwarded.dismiss}>{t('start.forwarded.busy')}</Toast>
             )}
+            <EcosystemToasts />
             {notice.remembered && (
               // Keyed: a device remembered next gets a notice (and Forget) of its own.
               <RememberedToast

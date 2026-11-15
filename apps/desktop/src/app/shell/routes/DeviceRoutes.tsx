@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHost } from '../../../engine/host';
+import { usePort } from '../../../engine/port';
 import { toBridgeError } from '../../../engine/errors';
+import { useClipHistory } from '../../../flows/ecosystem/useClipHistory';
+import { ClipHistorySheet } from '../../../screens/clipboard/ClipHistorySheet';
 import { AddPhoneDialog } from '../../../screens/devices/AddPhoneDialog';
 import { DevicePage } from '../../../screens/devices/DevicePage';
 import { ForgetDialog } from '../../../screens/devices/ForgetDialog';
@@ -215,3 +218,9 @@ export function ForgetDeviceOverlay({ id }: { readonly id: string }) {
   );
 }
 
+/** The clipboard history sheet. */
+export function ClipHistoryOverlay() {
+  const nav = useNav();
+  const { items, clear } = useClipHistory(usePort());
+  return <ClipHistorySheet items={items ?? []} on={{ onClear: clear, onClose: nav.close }} />;
+}

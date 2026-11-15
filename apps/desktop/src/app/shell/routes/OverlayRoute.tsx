@@ -12,6 +12,7 @@ import {
 } from './HubOverlays';
 import {
   AddPhoneOverlay,
+  ClipHistoryOverlay,
   ForgetDeviceOverlay,
   LinkComputerOverlay,
 } from './DeviceRoutes';
@@ -68,6 +69,8 @@ export function OverlayRoute({ overlay }: { readonly overlay: Overlay }) {
       return <LinkComputerOverlay />;
     case 'forget-device':
       return <ForgetDeviceOverlay id={overlay.id} />;
+    case 'clip-history':
+      return <ClipHistoryOverlay />;
     case 'override':
       return <OverrideRoute reason={overlay.reason} subject={overlay.subject} />;
   }
