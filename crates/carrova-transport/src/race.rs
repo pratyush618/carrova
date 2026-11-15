@@ -236,6 +236,9 @@ async fn race_found(
                     Ok(Ok(Some(auth))) => return Ok(auth),
                     Ok(Ok(None)) => {}
                     Ok(Err(TransportError::PairingFailed)) => auth_failed = true,
+                    // Only after the PAKE verified: this is the real sender,
+                    // and not the one the user scanned.
+                    Ok(Err(TransportError::KeyMismatch)) => return Err(TransportError::KeyMismatch),
                     Ok(Err(e)) => last_error = Some(e),
                     Err(e) => last_error = Some(TransportError::internal("handshake task", e)),
                 }

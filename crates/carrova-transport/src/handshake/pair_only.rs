@@ -41,6 +41,10 @@ pub struct PairedPeer {
 /// The sender's pair-only result before the receiver is told: store
 /// [`Self::peer`], then [`Self::confirm`]. Dropping it unconfirmed fails
 /// the pairing on both sides (the receiver stores nothing).
+///
+/// Confirm promptly, with no user prompt in between: the receiver waits
+/// for `Linked` at most `HANDSHAKE_TIMEOUT` (10 s) after the exchange,
+/// then gives up, and a late confirm leaves only this side linked.
 #[must_use = "the receiver learns of the pairing only on confirm"]
 #[derive(Debug)]
 pub struct PendingPair {
@@ -56,8 +60,21 @@ pub struct PendingPair {
 impl PendingPair {
     /// Tell the receiver the pairing stands (`Linked`) and close the
     /// connection normally. Call only after [`Self::peer`] is stored.
+    ///
+    /// Fails if the receiver had already given up (it closes with a
+    /// failure code, not normally): then do not keep the stored peer.
     pub fn confirm(mut self) -> Result<()> {
         runtime()?.block_on(write(&mut self.send, &[Handshake::Linked]))?;
+        flush(&mut self.send);
+        match self
+            .conn
+            .close_reason()
+            .map(|r| TransportError::connection(&r))
+        {
+            // Closed normally (or lost after `Linked` went out): linked.
+            None | Some(TransportError::PeerLost) => {}
+            Some(e) => return Err(e),
+        }
         self.close = CloseCode::Normal;
         Ok(())
     }

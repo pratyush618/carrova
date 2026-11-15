@@ -30,7 +30,10 @@ pub(super) async fn read_confirm(recv: &mut StreamReader) -> Result<Confirmation
 /// How a side that failed the handshake closes the connection.
 pub(super) fn failure_code(e: &TransportError) -> CloseCode {
     match e {
-        TransportError::PairingFailed | TransportError::KeyMismatch => CloseCode::PairingFailed,
+        // A timeout too: the peer must not read our giving up as success.
+        TransportError::PairingFailed | TransportError::KeyMismatch | TransportError::Timeout => {
+            CloseCode::PairingFailed
+        }
         e if e.is_violation() => CloseCode::Protocol,
         _ => CloseCode::Normal,
     }
