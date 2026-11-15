@@ -24,6 +24,8 @@
 //! - [`tray`]: the window in background mode (closed to the tray,
 //!   minimised or quit) and the tray menu.
 //! - [`presence`]: this computer's advert on the LAN while the app runs.
+//! - [`ops::ecosystem`]: the link supervisor of linked devices, started
+//!   with the app; its events go out as engine events of the link session.
 //! - [`recipes`], [`settings`], [`error_report`], [`updater`]: services.
 //! - [`command_error`]: the one mapping of every failure to `BridgeError`.
 
@@ -100,6 +102,7 @@ pub fn run() -> tauri::Result<()> {
             let state = app_state(app.handle(), platform, pending_send, presence.clone())?;
             refresh_launchers(state.clone());
             start_presence(&presence);
+            start_link(state.clone());
             app.manage(presence);
             send_request::forward(&state, &launch_send_paths());
             app.manage(state.clone());
@@ -163,6 +166,17 @@ pub fn run() -> tauri::Result<()> {
             commands::devices::set_visibility,
             commands::devices::wake_device,
             commands::devices::take_show_nearby,
+            commands::ecosystem::linked_devices,
+            commands::ecosystem::pair_invite,
+            commands::ecosystem::link_computer,
+            commands::ecosystem::set_feature,
+            commands::ecosystem::answer_ask,
+            commands::ecosystem::send_clipboard,
+            commands::ecosystem::send_files,
+            commands::ecosystem::handoff_url,
+            commands::ecosystem::ring,
+            commands::ecosystem::clip_history,
+            commands::ecosystem::clear_clip_history,
             updater::check_update,
             updater::install_update,
             updater::restart_app,
@@ -231,6 +245,16 @@ fn launched_in_background() -> bool {
 fn start_presence(presence: &Arc<BackgroundPresence>) {
     let presence = Arc::clone(presence);
     tauri::async_runtime::spawn_blocking(move || presence.start());
+}
+
+/// Start the link supervisor (or attach to another process's), off the
+/// start-up path. The one place it starts.
+fn start_link(state: AppState) {
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(error) = ops::ecosystem::start_link(&state) {
+            tracing::warn!(%error, "linked devices are unavailable");
+        }
+    });
 }
 
 /// Point the file-manager and autostart entries at this app's launcher,

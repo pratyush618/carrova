@@ -57,7 +57,8 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
         if (event.kind === 'send_requested') setSendRequests((n) => n + 1);
         else if (event.kind === 'notice') setNoticeEvents((n) => n + 1);
         else if (event.kind === 'show_nearby') setNearbyRequests((n) => n + 1);
-        else {
+        // A pairing invite belongs to its dialog, not to a session.
+        else if (event.kind !== 'pair_invite') {
           if (event.kind === 'engine' && event.event.event === 'device_remembered') {
             const { name, fingerprint } = event.event;
             setRemembered({ name, fingerprint });

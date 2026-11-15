@@ -67,7 +67,7 @@ pub async fn open_archive(
 
 /// Parse the code (or `code@ip:port` ticket) the user typed. The input is
 /// wiped afterwards and never echoed in the error.
-fn ticket(code: String) -> Result<Ticket, CommandError> {
+pub(crate) fn ticket(code: String) -> Result<Ticket, CommandError> {
     let code = Zeroizing::new(code);
     code.trim().parse().map_err(|_| {
         CommandError::new(ErrorCode::BadCode, "that is not a pairing code").with_hint(

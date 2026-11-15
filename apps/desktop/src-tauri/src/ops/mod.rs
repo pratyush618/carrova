@@ -10,6 +10,7 @@
 pub mod about;
 pub mod background;
 pub mod devices;
+pub mod ecosystem;
 pub mod inbox;
 pub mod integration;
 pub mod receive;

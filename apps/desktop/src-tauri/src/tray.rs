@@ -15,8 +15,10 @@ use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
 use carrova_core::time::now_unix;
+use carrova_crypto::identity::DeviceId;
 use carrova_platform::DirWatch;
 use carrova_view::devices::VisibilityChoice;
+use carrova_view::ecosystem::LinkedDeviceView;
 use carrova_view::ipc::EVENT_CHANNEL;
 use carrova_view::tray::{
     CloseAction, TrayItem, TrayModel, tray_menu, tray_tooltip, tray_visibility,
@@ -29,7 +31,7 @@ use tauri::{
 };
 use tauri_plugin_dialog::DialogExt;
 
-use crate::ops::{background, devices};
+use crate::ops::{background, devices, ecosystem};
 use crate::send_request;
 use crate::state::AppState;
 
@@ -38,6 +40,12 @@ pub const BACKGROUND_FLAG: &str = "--background";
 
 /// The label of the app's one window (also the tray icon's id).
 const MAIN_WINDOW: &str = "main";
+
+/// Id prefix of a "Send clipboard to…" item, before the device's id.
+const CLIP_ITEM: &str = "clip:";
+
+/// Id prefix of a "Ring <device>" item, before the device's id.
+const RING_ITEM: &str = "ring:";
 
 /// Whether the tray icon shows, whether its menu says a move runs, and how
 /// many devices it last found nearby. It is built once, then only hidden:
@@ -63,7 +71,15 @@ pub fn start(app: &AppHandle, state: &AppState, in_background: bool) {
         ..TrayShown::default()
     });
     let handle = app.clone();
-    app.listen_any(EVENT_CHANNEL, move |_| on_main(&handle, on_bridge_event));
+    app.listen_any(EVENT_CHANNEL, move |event| {
+        let link_changed = is_link_change(event.payload());
+        on_main(&handle, move |app| {
+            on_bridge_event(app);
+            if link_changed {
+                refresh_shown_tray(app);
+            }
+        });
+    });
     let action = if in_background {
         background::close_action(state)
     } else {
@@ -179,6 +195,17 @@ fn on_bridge_event(app: &AppHandle) {
     {
         tracing::warn!(%error, "could not close the hidden window");
     }
+}
+
+/// Whether the bridge event `payload` is a link going up or down (the
+/// tray's link items change).
+fn is_link_change(payload: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(payload).is_ok_and(|event| {
+        matches!(
+            event["event"]["event"].as_str(),
+            Some("link_up" | "link_down")
+        )
+    })
 }
 
 /// The last window closed: keep running while the tray icon is up. Quit
@@ -326,7 +353,11 @@ fn set_menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<()> {
             .and_then(|f| *f.nearby.lock().unwrap_or_else(PoisonError::into_inner)),
         ..model.clone()
     };
-    let menu = menu(app, model)?;
+    let linked = app
+        .try_state::<AppState>()
+        .map(|state| ecosystem::linked_now(&state))
+        .unwrap_or_default();
+    let menu = menu(app, model, &linked)?;
     if let Some(flags) = flags {
         flags.moving.store(model.moving, Ordering::SeqCst);
         *flags
@@ -351,7 +382,11 @@ fn set_menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<()> {
     tray.build(app).map(drop)
 }
 
-fn menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<Menu<tauri::Wry>> {
+fn menu(
+    app: &AppHandle,
+    model: &TrayModel,
+    linked: &[LinkedDeviceView],
+) -> tauri::Result<Menu<tauri::Wry>> {
     let menu = Menu::new(app)?;
     for item in tray_menu(model) {
         if item.separated {
@@ -359,6 +394,9 @@ fn menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<Menu<tauri::Wry>> {
         }
         if item.children.is_empty() {
             menu.append(&*entry(app, &item)?)?;
+            if item.id == "send" {
+                append_link_items(app, &menu, linked)?;
+            }
             continue;
         }
         let submenu = Submenu::with_id(app, item.id, label(&item), item.enabled)?;
@@ -368,6 +406,36 @@ fn menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<Menu<tauri::Wry>> {
         menu.append(&submenu)?;
     }
     Ok(menu)
+}
+
+/// After "Send files…": "Send clipboard to…" each linked device, and
+/// "Ring <device>" for each.
+fn append_link_items(
+    app: &AppHandle,
+    menu: &Menu<tauri::Wry>,
+    linked: &[LinkedDeviceView],
+) -> tauri::Result<()> {
+    if linked.is_empty() {
+        return Ok(());
+    }
+    let clip = Submenu::with_id(app, "send_clipboard", "Send clipboard to…", true)?;
+    for device in linked {
+        let id = format!("{CLIP_ITEM}{}", device.id);
+        clip.append(&MenuItem::with_id(
+            app,
+            id,
+            escaped(&device.name),
+            true,
+            None::<&str>,
+        )?)?;
+    }
+    menu.append(&clip)?;
+    for device in linked {
+        let id = format!("{RING_ITEM}{}", device.id);
+        let label = escaped(&format!("Ring {}", device.name));
+        menu.append(&MenuItem::with_id(app, id, label, true, None::<&str>)?)?;
+    }
+    Ok(())
 }
 
 /// A plain or check menu item for `item`.
@@ -391,13 +459,21 @@ fn entry(app: &AppHandle, item: &TrayItem) -> tauri::Result<Box<dyn IsMenuItem<t
     })
 }
 
-/// `item`'s label for a native menu: `&` marks a keyboard mnemonic there;
-/// `&&` is a literal one.
+/// `item`'s label for a native menu.
 fn label(item: &TrayItem) -> String {
-    item.label.replace('&', "&&")
+    escaped(&item.label)
+}
+
+/// `text` for a native menu label: `&` marks a keyboard mnemonic there;
+/// `&&` is a literal one.
+fn escaped(text: &str) -> String {
+    text.replace('&', "&&")
 }
 
 fn on_menu(app: &AppHandle, id: &str) {
+    if on_link_item(app, id) {
+        return;
+    }
     if let Some(choice) = tray_visibility(id) {
         set_visibility(app, choice);
         return;
@@ -431,6 +507,32 @@ fn on_menu(app: &AppHandle, id: &str) {
         // `moving` is a status line; `review` and `decline` come with requests.
         _ => {}
     }
+}
+
+/// A "Send clipboard to" or "Ring" item: do it off the main thread.
+/// Returns whether `id` was one.
+fn on_link_item(app: &AppHandle, id: &str) -> bool {
+    let (ring, device) = match (id.strip_prefix(CLIP_ITEM), id.strip_prefix(RING_ITEM)) {
+        (Some(device), _) => (false, device),
+        (_, Some(device)) => (true, device),
+        _ => return false,
+    };
+    let (Some(state), Ok(device)) = (app.try_state::<AppState>(), device.parse::<DeviceId>())
+    else {
+        return true;
+    };
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        let done = if ring {
+            ecosystem::ring(&state, device).await
+        } else {
+            ecosystem::send_clipboard(&state, device).await
+        };
+        if let Err(error) = done {
+            tracing::warn!(%error, "a tray link action failed");
+        }
+    });
+    true
 }
 
 /// A "Visible to" choice: save it (the advert follows), then tick it.

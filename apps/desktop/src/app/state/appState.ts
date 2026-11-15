@@ -39,7 +39,7 @@ export const initialAppState: AppState = { sessions: {} };
 /** Bridge events about a session (everything but `send_requested`, `show_nearby` and `notice`). */
 export type SessionBridgeEvent = Exclude<
   BridgeEvent,
-  { kind: 'send_requested' | 'show_nearby' | 'notice' }
+  { kind: 'send_requested' | 'show_nearby' | 'notice' | 'pair_invite' }
 >;
 
 /** The app action for one session bridge event, received at `now` (ms since epoch). */
