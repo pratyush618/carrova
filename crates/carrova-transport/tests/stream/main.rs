@@ -1,7 +1,9 @@
 //! Lane streams on a connection (public API): both sides open them,
 //! frames and raw bytes share one, move-session chunk streams never
-//! surface as lanes, and a link's keep-alive holds an idle connection.
+//! surface as lanes, and a link's keep-alive holds an idle connection
+//! while its idle timeout (3× keep-alive) drops a vanished peer.
 
+// Tests fail by panicking (same as the sibling test crates).
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::io;
@@ -9,7 +11,7 @@ use std::net::{Ipv4Addr, SocketAddrV4, UdpSocket};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::{DeviceKey, DevicePublic};
 use carrova_crypto::pairing::KnownSecret;
@@ -26,6 +28,9 @@ use carrova_transport::{
 #[path = "../support/mod.rs"]
 mod support;
 use support::*;
+
+mod relay;
+use relay::Relay;
 
 const SHORT: Duration = Duration::from_millis(300);
 
@@ -203,9 +208,14 @@ impl KnownPeers for Known {
     }
 }
 
-/// Link two fresh devices over loopback on `platform`: (listener side,
-/// dialler side).
-fn link(platform: &Arc<dyn Platform>) -> (Connection, Connection) {
+/// The real platform (link keep-alive 15 s on desktop).
+fn default_platform() -> Arc<dyn Platform> {
+    Arc::from(carrova_platform::current())
+}
+
+/// Link two fresh devices through a loopback [`Relay`], the listener on
+/// `listen`, the dialler on `dial`: (listener side, dialler side, relay).
+fn link(listen: &Arc<dyn Platform>, dial: &Arc<dyn Platform>) -> (Connection, Connection, Relay) {
     let (a, b) = (
         Arc::new(DeviceKey::generate().unwrap()),
         Arc::new(DeviceKey::generate().unwrap()),
@@ -214,33 +224,34 @@ fn link(platform: &Arc<dyn Platform>) -> (Connection, Connection) {
     let mut listener = Listener::bind(ListenOptions {
         discovery: false,
         device: Some(Arc::clone(&a)),
-        platform: Arc::clone(platform),
+        platform: Arc::clone(listen),
         ..ListenOptions::default()
     })
     .unwrap();
-    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, listener.port());
+    let relay = Relay::start(SocketAddrV4::new(Ipv4Addr::LOCALHOST, listener.port()));
     let known = Arc::new(Known(b.public(), secret.clone()));
     let accepted = thread::spawn(move || listener.accept_link(known, T).unwrap());
     let dialled = connect(
         Target::Link {
             peer: &a.public(),
             secret: &secret,
-            addr,
+            addr: relay.addr(),
         },
         T,
         &ConnectOptions {
-            platform: Arc::clone(platform),
+            platform: Arc::clone(dial),
             device: Some(b),
             cancel: None,
         },
     )
     .unwrap();
-    (accepted.join().unwrap(), dialled)
+    (accepted.join().unwrap(), dialled, relay)
 }
 
 #[test]
 fn keepalive_keeps_idle_link() {
-    let (listening, dialled) = link(&FastKeepalive::shared());
+    let fast = FastKeepalive::shared();
+    let (listening, dialled, _relay) = link(&fast, &fast);
 
     // Idle for 10× the keep-alive, over 3× the idle timeout.
     thread::sleep(FastKeepalive::INTERVAL * 10);
@@ -248,4 +259,31 @@ fn keepalive_keeps_idle_link() {
     let (mut a, mut b) = lane(&dialled, &listening);
     a.send(&"still here".to_owned()).unwrap();
     assert_eq!(b.recv::<String>(T).unwrap(), "still here");
+}
+
+/// Cut `relay` and expect the listener side to see the peer lost within
+/// 2 s: the idle timeout is 3× the 200 ms keep-alive (600 ms), far below
+/// a session's 30 s or a desktop link's 45 s.
+fn assert_vanished_peer_dropped_fast(listening: &Connection, relay: &Relay) {
+    relay.cut();
+    let start = Instant::now();
+    let accepted = listening.accept_stream(T);
+    let waited = start.elapsed();
+    assert!(
+        matches!(accepted, Err(TransportError::PeerLost)),
+        "{accepted:?}"
+    );
+    assert!(waited < Duration::from_secs(2), "took {waited:?}");
+}
+
+#[test]
+fn dialler_keepalive_sets_link_idle_timeout() {
+    let (listening, _dialled, relay) = link(&default_platform(), &FastKeepalive::shared());
+    assert_vanished_peer_dropped_fast(&listening, &relay);
+}
+
+#[test]
+fn listener_keepalive_sets_link_idle_timeout() {
+    let (listening, _dialled, relay) = link(&FastKeepalive::shared(), &default_platform());
+    assert_vanished_peer_dropped_fast(&listening, &relay);
 }
