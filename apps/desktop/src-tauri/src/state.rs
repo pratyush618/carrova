@@ -70,7 +70,8 @@ pub struct AppState {
     /// devices.
     pub presence: Arc<dyn Advertise>,
     /// The link supervisor (here or in another process), set once
-    /// it started ([`crate::ops::ecosystem::start_link`]).
+    /// it started ([`crate::ops::ecosystem::start_link`]); the app uses the
+    /// process-wide one ([`crate::ops::ecosystem::process_link`]).
     pub link: Arc<OnceLock<SharedSupervisor>>,
     /// Run options.
     pub config: BridgeConfig,

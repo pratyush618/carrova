@@ -1,14 +1,15 @@
 //! Linked devices over the bridge: each operation reaches the link
 //! supervisor, here a hermetic one that sees nobody on the network.
 
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock};
 
-use carrova_core::Engine;
 use carrova_core::NullSink;
 use carrova_core::devices::{DeviceRecord, KnownDevices};
 use carrova_core::ecosystem::{
     AskId, PeerSource, PeerState, PolicyStore, SeenPeer, SharedSupervisor, SupervisorConfig,
 };
+use carrova_core::{CoreError, Engine};
 use carrova_crypto::identity::{DeviceKey, DevicePublic};
 use carrova_crypto::pairing::KnownSecret;
 use carrova_link::{Feature, FeatureState};
@@ -52,16 +53,19 @@ fn remember(machine: &Machine, seed: u8, name: &str) {
         .unwrap();
 }
 
-/// `machine`'s state with its link supervisor serving it.
-fn served(machine: &Machine) -> AppState {
+/// A link supervisor on `machine` that sees nobody on the network.
+fn hermetic(machine: &Machine) -> Result<SharedSupervisor, CoreError> {
     let engine = Engine::new(
         Arc::new(machine.platform.clone()),
         Vec::new(),
         Arc::new(NullSink),
     );
-    let link = SharedSupervisor::attach_with(engine, Arc::new(Nobody), SupervisorConfig::default())
-        .unwrap();
-    ecosystem::serve_link(&machine.state, link).unwrap();
+    SharedSupervisor::attach_with(engine, Arc::new(Nobody), SupervisorConfig::default())
+}
+
+/// `machine`'s state with its link supervisor serving it.
+fn served(machine: &Machine) -> AppState {
+    ecosystem::serve_link(&machine.state, || hermetic(machine)).unwrap();
     machine.state.clone()
 }
 
@@ -110,4 +114,67 @@ fn ops_linked_devices_maps_views() {
     assert_eq!(views[0].name, "Pixel 8");
     assert_eq!(views[0].os, OsKind::Android);
     assert_ne!(views[0].state, PeerState::Linked);
+}
+
+#[test]
+fn start_once_starts_one_supervisor_for_racing_starters() {
+    let machine = Machine::new();
+    let slot = OnceLock::new();
+    let starts = AtomicUsize::new(0);
+    let start = || {
+        starts.fetch_add(1, Ordering::SeqCst);
+        hermetic(&machine)
+    };
+
+    std::thread::scope(|s| {
+        let racers: Vec<_> = (0..4)
+            .map(|_| s.spawn(|| ecosystem::start_once(&slot, start).map(drop)))
+            .collect();
+        for racer in racers {
+            racer.join().unwrap().unwrap();
+        }
+    });
+
+    assert_eq!(starts.load(Ordering::SeqCst), 1);
+    assert!(slot.get().is_some());
+}
+
+#[test]
+fn start_once_tries_again_after_a_failed_start() {
+    let machine = Machine::new();
+    let slot = OnceLock::new();
+
+    let failed = ecosystem::start_once(&slot, || Err(CoreError::NotLinked));
+    assert!(failed.is_err());
+    assert!(slot.get().is_none());
+
+    ecosystem::start_once(&slot, || hermetic(&machine)).unwrap();
+    assert!(slot.get().is_some());
+}
+
+#[test]
+fn serving_keeps_the_supervisor_the_link_service_started() {
+    let machine = Machine::new();
+    remember(&machine, 1, "Pixel 8");
+    // The phone's link service started it before the app's window existed.
+    ecosystem::start_once(&machine.state.link, || hermetic(&machine)).unwrap();
+
+    let mut started_again = false;
+    ecosystem::serve_link(&machine.state, || {
+        started_again = true;
+        hermetic(&machine)
+    })
+    .unwrap();
+
+    assert!(!started_again);
+    let views = block_on(ecosystem::linked_devices(&machine.state)).unwrap();
+    assert_eq!(views.len(), 1);
+}
+
+#[test]
+fn the_process_has_one_link_slot() {
+    assert!(Arc::ptr_eq(
+        &ecosystem::process_link(),
+        &ecosystem::process_link()
+    ));
 }

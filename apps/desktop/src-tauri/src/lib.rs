@@ -26,13 +26,21 @@
 //! - [`presence`]: this computer's advert on the LAN while the app runs.
 //! - [`ops::ecosystem`]: the link supervisor of linked devices, started
 //!   with the app; its events go out as engine events of the link session.
-//! - [`recipes`], [`settings`], [`error_report`], [`updater`]: services.
+//! - [`opened`]: links the app was opened with (a phone's share sheet,
+//!   quick-settings tile or notification action), queued for the UI.
+//! - `mobile` (phones only): one window, a process that outlives it, and
+//!   the entry of the link service that keeps it alive.
+//! - [`recipes`], [`settings`], [`error_report`], [`updater`] (desktop):
+//!   services.
 //! - [`command_error`]: the one mapping of every failure to `BridgeError`.
 
 pub mod command_error;
 pub mod commands;
 pub mod error_report;
 pub mod events;
+#[cfg(mobile)]
+pub mod mobile;
+pub mod opened;
 pub mod ops;
 pub mod pairing;
 pub mod presence;
@@ -43,6 +51,7 @@ pub mod settings;
 pub mod state;
 #[cfg(desktop)]
 pub mod tray;
+#[cfg(desktop)]
 pub mod updater;
 pub mod worker;
 
@@ -54,10 +63,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use error_report::Reports;
+use opened::Opened;
 use presence::BackgroundPresence;
 use state::{AppState, BridgeConfig};
 use tauri::{AppHandle, Manager, RunEvent};
-use updater::PendingUpdate;
 
 /// Builds the Tauri application and runs it until the last window closes
 /// with no tray icon up, or Quit.
@@ -86,12 +95,16 @@ pub fn run() -> tauri::Result<()> {
         .plugin(tauri_plugin_single_instance::init(move |app, argv, cwd| {
             send_request::on_second_instance(app, &early_sends, argv, &cwd);
         }))
-        .on_window_event(tray::on_window_event);
+        .on_window_event(tray::on_window_event)
+        // Phones update through their store or a new APK, not the updater.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(updater::PendingUpdate::default());
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_barcode_scanner::init());
     builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(move |app| {
             let platform: Arc<dyn carrova_platform::Platform> =
                 Arc::from(carrova_platform::current());
@@ -109,16 +122,17 @@ pub fn run() -> tauri::Result<()> {
             #[cfg(desktop)]
             tray::start(app.handle(), &state, launched_in_background());
             #[cfg(mobile)]
-            open_main_window(app.handle())?;
+            mobile::open_main_window(app.handle())?;
             Ok(())
         })
-        .manage(PendingUpdate::default())
+        .manage(Opened::default())
         .invoke_handler(tauri::generate_handler![
             commands::send::scan,
             commands::send::start_manual,
             commands::send::scan_apps,
             commands::send::pick,
             commands::send::take_send_request,
+            commands::send::take_opened,
             commands::send::suggest,
             commands::send::select,
             commands::send::passphrase_strength,
@@ -177,8 +191,11 @@ pub fn run() -> tauri::Result<()> {
             commands::ecosystem::ring,
             commands::ecosystem::clip_history,
             commands::ecosystem::clear_clip_history,
+            #[cfg(desktop)]
             updater::check_update,
+            #[cfg(desktop)]
             updater::install_update,
+            #[cfg(desktop)]
             updater::restart_app,
             commands::reports::error_report_consent,
             commands::reports::set_error_report_consent,
@@ -197,6 +214,8 @@ pub fn run() -> tauri::Result<()> {
             }
             #[cfg(desktop)]
             tray::on_run_event(app, &event);
+            #[cfg(mobile)]
+            mobile::on_run_event(app, &event);
         });
     Ok(())
 }
@@ -222,19 +241,6 @@ fn mobile_main() {
     }
 }
 
-/// Phones have no tray: open the one window from the config at start-up.
-#[cfg(mobile)]
-fn open_main_window(app: &AppHandle) -> tauri::Result<()> {
-    let config = app
-        .config()
-        .app
-        .windows
-        .first()
-        .ok_or(tauri::Error::WindowNotFound)?;
-    tauri::WebviewWindowBuilder::from_config(app, config)?.build()?;
-    Ok(())
-}
-
 /// Whether this launch is a start at sign-in.
 #[cfg(desktop)]
 fn launched_in_background() -> bool {
@@ -248,7 +254,8 @@ fn start_presence(presence: &Arc<BackgroundPresence>) {
 }
 
 /// Start the link supervisor (or attach to another process's), off the
-/// start-up path. The one place it starts.
+/// start-up path; on a phone the link service may have started it already
+/// ([`ops::ecosystem::start_once`]).
 fn start_link(state: AppState) {
     tauri::async_runtime::spawn_blocking(move || {
         if let Err(error) = ops::ecosystem::start_link(&state) {
@@ -282,6 +289,7 @@ fn app_state(
         .ok();
     Ok(AppState {
         pending_send,
+        link: ops::ecosystem::process_link(),
         ..AppState::new(
             platform,
             recipes::app_locations(resources.as_deref()),

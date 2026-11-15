@@ -5,7 +5,7 @@
 //! [`LINK_SESSION`], whether it runs here or in another process.
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex, OnceLock, PoisonError};
 
 use carrova_core::devices::DeviceRecord;
 use carrova_core::ecosystem::{
@@ -16,6 +16,7 @@ use carrova_core::lan::CODE_LIFETIME;
 use carrova_core::{Cancel, CodeOffer, CoreError, Engine, NullSink, SessionId};
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{Feature, FeatureState};
+use carrova_platform::Platform;
 use carrova_view::ecosystem::{
     ClipHistoryView, LinkedDeviceView, QrError, clip_history_view, linked_device_views,
     pair_invite_view,
@@ -32,32 +33,78 @@ use crate::worker::blocking;
 /// An engine for linked-device calls: they use no recipes, and the
 /// supervisor's events arrive through [`serve_link`]'s subscription, so the
 /// engine's own sink would only repeat them.
-fn link_engine(state: &AppState) -> Engine {
-    Engine::new(Arc::clone(&state.platform), Vec::new(), Arc::new(NullSink))
+fn link_engine(platform: &Arc<dyn Platform>) -> Engine {
+    Engine::new(Arc::clone(platform), Vec::new(), Arc::new(NullSink))
 }
 
-/// Start the link supervisor, or attach to the one another process of this
-/// user runs (again whenever that process exits), and serve it to the
-/// commands. Blocking.
+/// This process's one link supervisor slot, shared by every start point:
+/// the app's `setup` and, on a phone, the link service, which may start
+/// first (no window yet) or alone (after boot).
+static PROCESS_LINK: LazyLock<Arc<OnceLock<SharedSupervisor>>> = LazyLock::new(Arc::default);
+
+/// The process's link supervisor slot ([`AppState::link`] of the app).
+#[must_use]
+pub fn process_link() -> Arc<OnceLock<SharedSupervisor>> {
+    Arc::clone(&PROCESS_LINK)
+}
+
+/// Fill `link` with `start`'s supervisor unless it holds one already, and
+/// return it. Starts are serialised, so racing starters start one; a failed
+/// start leaves `link` empty for the next try. Blocking.
+///
+/// # Errors
+///
+/// `start`'s error.
+pub fn start_once(
+    link: &OnceLock<SharedSupervisor>,
+    start: impl FnOnce() -> Result<SharedSupervisor, CoreError>,
+) -> Result<&SharedSupervisor, CoreError> {
+    static STARTING: Mutex<()> = Mutex::new(());
+    let _one = STARTING.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(running) = link.get() {
+        return Ok(running);
+    }
+    let started = start()?;
+    Ok(link.get_or_init(|| started))
+}
+
+/// Start this process's supervisor, or attach to the one another process
+/// of this user runs, with no app around it (a phone's link service).
+/// Blocking.
+///
+/// # Errors
+///
+/// The supervisor could not start, nor be reached.
+pub fn start_process_link(platform: &Arc<dyn Platform>) -> Result<(), CoreError> {
+    start_once(&PROCESS_LINK, || {
+        SharedSupervisor::attach(link_engine(platform))
+    })
+    .map(drop)
+}
+
+/// Start the link supervisor (attaching again whenever its host process
+/// exits), unless it already runs, and serve it to the commands. Blocking.
 ///
 /// # Errors
 ///
 /// The supervisor could not start, nor be reached.
 pub fn start_link(state: &AppState) -> Result<(), CommandError> {
-    serve_link(state, SharedSupervisor::attach(link_engine(state))?)
+    serve_link(state, || {
+        SharedSupervisor::attach(link_engine(&state.platform))
+    })
 }
 
-/// Serve `link` to the commands and forward its events to the UI. A run
-/// keeps its first supervisor; a later one is dropped.
+/// Serve [`AppState::link`] to the commands, started with `start` unless
+/// it runs already, and forward its events to the UI. Once per state.
 ///
 /// # Errors
 ///
-/// The event thread could not start.
-pub fn serve_link(state: &AppState, link: SharedSupervisor) -> Result<(), CommandError> {
-    if state.link.set(link).is_err() {
-        tracing::debug!("the link supervisor is already served");
-        return Ok(());
-    }
+/// `start` failed, or the event thread could not start.
+pub fn serve_link(
+    state: &AppState,
+    start: impl FnOnce() -> Result<SharedSupervisor, CoreError>,
+) -> Result<(), CommandError> {
+    start_once(&state.link, start)?;
     let sink = state.sink_for(&SessionId(LINK_SESSION.to_owned()));
     let link = Arc::clone(&state.link);
     std::thread::Builder::new()
@@ -123,7 +170,7 @@ pub async fn linked_devices(state: &AppState) -> Result<Vec<LinkedDeviceView>, C
 /// Another pairing runs, the invite could not be drawn, it was
 /// cancelled, the invite expired, or the pairing failed.
 pub async fn pair_invite(state: &AppState) -> Result<(), CommandError> {
-    let engine = link_engine(state);
+    let engine = link_engine(&state.platform);
     let out = Arc::clone(&state.out);
     pairing(state, move |cancel| {
         let mut undrawn = None;
@@ -150,7 +197,7 @@ pub async fn pair_invite(state: &AppState) -> Result<(), CommandError> {
 /// pairing failed.
 pub async fn link_computer(state: &AppState, code: String) -> Result<(), CommandError> {
     let ticket = ticket(code)?;
-    let engine = link_engine(state);
+    let engine = link_engine(&state.platform);
     pairing(state, move |cancel| {
         link_with_code(&engine, &ticket, cancel).map_err(|e| CommandError::when_connecting(&e))
     })

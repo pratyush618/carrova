@@ -21,3 +21,5 @@
 #-renamesourcefileattribute SourceFile
 # Kotlin glue called only from Rust over JNI (carrova-platform).
 -keep class org.byteveda.carrova.platform.** { *; }
+# LinkService.startSupervisor is implemented in Rust (JNI name must survive).
+-keepclasseswithmembernames class org.byteveda.carrova.** { native <methods>; }

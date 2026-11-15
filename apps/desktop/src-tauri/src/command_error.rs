@@ -203,6 +203,7 @@ internal_errors!(
     tauri::Error,
 );
 
+#[cfg(desktop)]
 impl From<tauri_plugin_updater::Error> for CommandError {
     fn from(error: tauri_plugin_updater::Error) -> Self {
         Self::chained(ErrorCode::Network, &error)

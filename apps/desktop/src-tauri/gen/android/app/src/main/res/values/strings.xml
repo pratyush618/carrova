@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">"Carrova"</string>
     <string name="main_activity_title">"Carrova"</string>
+    <string name="link_channel">Linked devices</string>
+    <string name="link_running">Keeping your linked devices connected</string>
+    <string name="send_clipboard">Send clipboard</string>
 </resources>
