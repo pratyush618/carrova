@@ -13,4 +13,15 @@ pub enum LinkError {
         /// State it was given.
         state: FeatureState,
     },
+    /// A payload exceeds its size limit.
+    #[error("{len} bytes exceeds the {max} byte limit")]
+    TooBig {
+        /// Offending size in bytes.
+        len: usize,
+        /// Limit it broke.
+        max: usize,
+    },
+    /// A handed-off URL is not an absolute http(s) URL with a host.
+    #[error("only http and https URLs with a host can be handed off")]
+    UnsafeUrl,
 }
