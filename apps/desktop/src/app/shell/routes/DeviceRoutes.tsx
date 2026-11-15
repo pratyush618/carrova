@@ -98,6 +98,8 @@ export function AddDeviceOverlay() {
   const { invite, found, clear } = useInvite();
   const [attempt, setAttempt] = useState(() => Date.now());
   const [end, setEnd] = useState<PairEnd | null>(null);
+  // The user answered the device found; the engine finishes the pairing.
+  const [answered, setAnswered] = useState(false);
   const { pairDevice } = linked;
   useEffect(() => {
     const pairing = pairDevice();
@@ -130,7 +132,7 @@ export function AddDeviceOverlay() {
   useEffect(() => {
     if (ranOut) clear();
   }, [ranOut, clear]);
-  const model = addDeviceModel(current, peer, end, seconds);
+  const model = addDeviceModel(current, peer, end, seconds, answered);
   // A lost answer is the engine's no: the pairing then ends failed.
   const answer = (accept: boolean) => port.answerPairPeer(accept).catch(() => undefined);
   const linkedId = end?.state === 'linked' ? (end.device?.id ?? null) : null;
@@ -143,6 +145,7 @@ export function AddDeviceOverlay() {
         onRetry: () => {
           clear();
           setEnd(null);
+          setAnswered(false);
           setAttempt(Date.now());
         },
         onOpen: () => {
@@ -150,9 +153,13 @@ export function AddDeviceOverlay() {
           else nav.go({ type: 'openDevice', id: linkedId });
         },
         onConfirm: () => {
+          if (answered) return;
+          setAnswered(true);
           void answer(true);
         },
         onNotMine: () => {
+          if (answered) return;
+          setAnswered(true);
           void answer(false);
           setEnd(settle(end, { state: 'failed' }));
         },

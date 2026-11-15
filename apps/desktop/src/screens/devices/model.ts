@@ -45,8 +45,8 @@ export type AddDeviceModel =
       /** When the code stops working (ms since epoch). */
       readonly expiresAt: number;
     }
-  /** A device answered: the user checks its key before it is linked. */
-  | { readonly state: 'found'; readonly peer: PairPeerView }
+  /** A device answered: the user checks its key before it is linked; `answered` once they chose. */
+  | { readonly state: 'found'; readonly peer: PairPeerView; readonly answered: boolean }
   | { readonly state: 'expired' | 'failed' }
   /** `device`: the one that linked, when the list names it. */
   | { readonly state: 'linked'; readonly device: LinkedDeviceView | null };

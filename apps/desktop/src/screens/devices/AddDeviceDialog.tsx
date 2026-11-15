@@ -61,7 +61,7 @@ export function AddDeviceDialog({
         </Dialog>
       );
     case 'found': {
-      const { peer } = model;
+      const { peer, answered } = model;
       const kind = peer.os === 'android' ? 'phone' : 'computer';
       return (
         <Dialog
@@ -70,10 +70,10 @@ export function AddDeviceDialog({
           onDismiss={on.onCancel}
           foot={
             <>
-              <Button data-initial-focus onClick={on.onNotMine}>
+              <Button data-initial-focus disabled={answered} onClick={on.onNotMine}>
                 {t(`ecosystem.pair.notMine.${kind}`)}
               </Button>
-              <Button kind="primary" onClick={on.onConfirm}>
+              <Button kind="primary" busy={answered} disabled={answered} onClick={on.onConfirm}>
                 {t('ecosystem.pair.confirm')}
               </Button>
             </>

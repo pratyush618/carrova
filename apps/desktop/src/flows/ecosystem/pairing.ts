@@ -35,16 +35,18 @@ export function settle(end: PairEnd | null, next: PairEnd): PairEnd {
 
 /**
  * What the Add a device dialog shows, `secondsLeft` on the attempt's code.
- * A device found waits for the user's answer even once the code runs out.
+ * A device found waits for the user's answer even once the code runs out;
+ * `answered` once the user chose, while the engine finishes.
  */
 export function addDeviceModel(
   current: AttemptInvite | null,
   found: PairPeerView | null,
   end: PairEnd | null,
   secondsLeft: number,
+  answered = false,
 ): AddDeviceModel {
   if (end?.state === 'linked') return end;
-  if (end === null && found !== null) return { state: 'found', peer: found };
+  if (end === null && found !== null) return { state: 'found', peer: found, answered };
   if (end?.state === 'expired' || (current !== null && secondsLeft === 0))
     return { state: 'expired' };
   if (end !== null) return end;

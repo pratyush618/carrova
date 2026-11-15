@@ -172,6 +172,16 @@ describe('Add a device', () => {
     expect(on.onNotMine).toHaveBeenCalledOnce();
     expect(on.onConfirm).not.toHaveBeenCalled();
   });
+
+  it('holds both answers once the user confirmed, and shows Confirm working', () => {
+    renderScreen(
+      <AddDeviceDialog model={{ state: 'found', peer: pixelPeer, answered: true }} on={pairOn()} />,
+    );
+    const confirm = screen.getByRole('button', { name: 'Confirm' });
+    expect(confirm).toBeDisabled();
+    expect(confirm).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('button', { name: 'Not my phone' })).toBeDisabled();
+  });
 });
 
 describe('Link a computer', () => {

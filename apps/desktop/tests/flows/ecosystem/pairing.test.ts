@@ -47,6 +47,7 @@ describe('the Add a device model', () => {
     expect(addDeviceModel(current, pixelPeer, null, 30)).toEqual({
       state: 'found',
       peer: pixelPeer,
+      answered: false,
     });
   });
 
@@ -56,6 +57,14 @@ describe('the Add a device model', () => {
     expect(addDeviceModel(null, pixelPeer, null, 0).state).toBe('found');
     // How the attempt ends still wins.
     expect(addDeviceModel(null, pixelPeer, { state: 'failed' }, 0).state).toBe('failed');
+  });
+
+  it('marks the device found answered once the user chose', () => {
+    expect(addDeviceModel(null, pixelPeer, null, 30, true)).toEqual({
+      state: 'found',
+      peer: pixelPeer,
+      answered: true,
+    });
   });
 
   it('counts only the device found for this attempt', () => {
