@@ -100,4 +100,14 @@ describe('navigate', () => {
     expect(moves.view).toEqual({ kind: 'hub', page: 'settings', section: 'moves' });
     expect(navigate(moves, { type: 'back' }).view).toEqual({ kind: 'hub', page: 'history' });
   });
+
+  it('opens a device page over any hub page', () => {
+    const device = run(
+      atHome,
+      { type: 'openHub', page: 'nearby' },
+      { type: 'openDevice', id: 'p8' },
+    );
+    expect(device.view).toEqual({ kind: 'device', id: 'p8' });
+    expect(device.origin).toBe('nearby');
+  });
 });

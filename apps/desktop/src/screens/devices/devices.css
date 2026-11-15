@@ -1,0 +1,37 @@
+.s-device {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.s-device__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+.s-device__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--t-sm);
+  color: var(--text-muted);
+}
+
+/* The engine's QR brings its own light quiet zone, so it scans in either theme. */
+.s-pair__qr {
+  display: block;
+  inline-size: 168px;
+  block-size: 168px;
+  margin-inline: auto;
+  border-radius: 8px;
+}
+
+.s-pair__reasons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding-inline-start: var(--sp-3);
+  font-size: var(--t-sm);
+}

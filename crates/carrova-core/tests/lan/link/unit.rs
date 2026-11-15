@@ -69,7 +69,7 @@ fn paired() -> (Connection, Connection) {
 #[test]
 fn dial_errors_before_authentication_are_retried_until_the_sender_answers() {
     let (mut sender, receiver) = paired();
-    let secret = receiver.resume_secret().clone();
+    let secret = receiver.resume_secret().cloned().unwrap();
     let dials = Arc::new(Mutex::new(0));
     let flaky = Flaky {
         failures: vec![
@@ -115,7 +115,7 @@ fn a_sender_never_reached_is_unreachable_not_a_session_failure() {
         dials: Arc::default(),
     };
     let mut link = Link::detached(
-        receiver.resume_secret().clone(),
+        receiver.resume_secret().cloned().unwrap(),
         Box::new(flaky),
         Cancel::default(),
         TransferControl::default(),
@@ -140,7 +140,7 @@ fn a_cancel_stops_reconnecting_at_once() {
     };
     let cancel = Cancel::default();
     let mut link = Link::detached(
-        receiver.resume_secret().clone(),
+        receiver.resume_secret().cloned().unwrap(),
         Box::new(flaky),
         cancel.clone(),
         TransferControl::default(),
@@ -161,7 +161,7 @@ fn a_cancel_stops_reconnecting_at_once() {
 #[test]
 fn try_now_ends_the_reconnect_back_off_at_once() {
     let (_sender, receiver) = paired();
-    let secret = receiver.resume_secret().clone();
+    let secret = receiver.resume_secret().cloned().unwrap();
     let flaky = Flaky {
         failures: vec![TransportError::NotFound],
         then: Some(receiver),

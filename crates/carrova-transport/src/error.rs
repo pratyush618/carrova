@@ -1,7 +1,7 @@
 //! Transport error type and the mapping from quinn's errors.
 
 use carrova_crypto::pairing::PairingError;
-use carrova_manifest::{ChunkHash, MAX_CHUNK_LEN};
+use carrova_manifest::{ChunkHash, MAX_CHUNK_LEN, MAX_DEVICE_NAME};
 use quinn::{ConnectionError, ReadError, ReadExactError, WriteError};
 
 use crate::connection::FetchAbort;
@@ -15,12 +15,25 @@ pub enum TransportError {
     /// its code after this.
     #[error("pairing failed: wrong code or tampered connection")]
     PairingFailed,
+    /// The peer's device key differs from the one remembered for it.
+    #[error("the other machine's key changed")]
+    KeyMismatch,
+    /// The link proof failed (unknown device, revoked link or tampering).
+    #[error("link failed")]
+    LinkFailed,
+    /// A newer link from the same device replaced this connection.
+    #[error("a newer connection to the other device replaced this one")]
+    Superseded,
     /// No answer within the caller's timeout.
     #[error("timed out")]
     Timeout,
     /// The peer disconnected or became unreachable.
     #[error("connection to peer lost")]
     PeerLost,
+    /// The peer finished the [`crate::Stream`] being read (the connection
+    /// may still be up).
+    #[error("the other machine closed the stream")]
+    StreamFinished,
     /// The caller's [`crate::CancelSignal`] stopped the call.
     #[error("cancelled")]
     Cancelled,
@@ -124,6 +137,10 @@ pub enum ProtocolViolation {
     /// The receiver requested a chunk outside the manifest.
     #[error("receiver requested chunk {0}, which is not in the manifest")]
     NotInManifest(ChunkHash),
+    /// A pair-only peer's device name is longer than
+    /// [`MAX_DEVICE_NAME`] characters.
+    #[error("peer's device name exceeds {MAX_DEVICE_NAME} characters")]
+    DeviceNameTooLong,
     /// The receiver requested more than the served-bytes ceiling.
     #[error("receiver requested more than {SERVED_BYTES_FACTOR}× the manifest's chunk bytes")]
     OverRequested,
@@ -156,6 +173,10 @@ pub enum SetupFailure {
     /// Serving was stopped locally.
     #[error("serving was stopped")]
     ServingStopped,
+    /// Pairing without a transfer needs this device's key
+    /// ([`crate::ConnectOptions::device`], [`crate::ListenOptions::device`]).
+    #[error("pair-only pairing needs this device's key")]
+    NoDeviceKey,
     /// The connection driver task was joined twice.
     #[error("driver already joined")]
     DriverJoined,
@@ -188,6 +209,8 @@ impl TransportError {
             Some(CloseCode::PairingFailed) => Self::PairingFailed,
             Some(CloseCode::Protocol) => ProtocolViolation::PeerClosed.into(),
             Some(CloseCode::Cancelled) => Self::PeerCancelled,
+            Some(CloseCode::LinkFailed) => Self::LinkFailed,
+            Some(CloseCode::Superseded) => Self::Superseded,
             Some(CloseCode::Normal | CloseCode::Rejected) | None => Self::PeerLost,
         }
     }

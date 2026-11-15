@@ -13,11 +13,11 @@ use carrova_platform::{OsKind, Platform};
 
 use super::advertise::{Advertiser, cut};
 use crate::error::Result;
-use crate::{BROADCAST_PORT, TXT_DEVICE_NAME, TXT_KNOWN_TAGS, TXT_OS};
+use crate::{BROADCAST_PORT, TXT_DEVICE_NAME, TXT_KNOWN_TAGS, TXT_LINK_PORT, TXT_OS};
 
-/// Longest device name in a presence advert, in bytes: with the most tags
-/// and the longest OS, a broadcast reply stays within one 512-byte
-/// discovery datagram (fixed parts take at most 274 bytes).
+/// Longest device name in a presence advert, in bytes: with the most tags,
+/// the longest OS and a link port, a broadcast reply stays within one
+/// 512-byte discovery datagram (fixed parts take at most 283 bytes).
 const MAX_NAME_BYTES: usize = 200;
 
 /// Most tags in one advert: a nonce and 13 tags in hex fill one 255-byte
@@ -111,11 +111,14 @@ pub struct PresenceAdvert {
     pub name: Option<String>,
     /// Its OS family ([`TXT_OS`]).
     pub os: Option<OsKind>,
+    /// Its link listener's QUIC port ([`TXT_LINK_PORT`]); set only while
+    /// one runs. `None` from older devices.
+    pub link_port: Option<u16>,
 }
 
 impl PresenceAdvert {
-    /// The TXT entries, in key order `kt`, `dn`, `os`, absent fields left
-    /// out (the name cut to [`MAX_NAME_BYTES`]).
+    /// The TXT entries, in key order `kt`, `dn`, `os`, `lp`, absent fields
+    /// left out (the name cut to [`MAX_NAME_BYTES`]).
     pub(crate) fn txt(&self) -> Vec<(&'static str, String)> {
         [
             self.known.as_ref().map(|k| (TXT_KNOWN_TAGS, k.encode())),
@@ -123,6 +126,7 @@ impl PresenceAdvert {
                 .as_deref()
                 .map(|n| (TXT_DEVICE_NAME, cut(n, MAX_NAME_BYTES).to_owned())),
             self.os.map(|os| (TXT_OS, os.as_str().to_owned())),
+            self.link_port.map(|port| (TXT_LINK_PORT, port.to_string())),
         ]
         .into_iter()
         .flatten()
@@ -136,8 +140,19 @@ impl PresenceAdvert {
             known: get(TXT_KNOWN_TAGS).and_then(KnownTags::parse),
             name: get(TXT_DEVICE_NAME).map(str::to_owned),
             os: get(TXT_OS).and_then(|os| os.parse().ok()),
+            link_port: get(TXT_LINK_PORT).and_then(parse_port),
         }
     }
+}
+
+/// A port in plain decimal (no sign), not 0.
+fn parse_port(value: &str) -> Option<u16> {
+    value
+        .bytes()
+        .all(|b| b.is_ascii_digit())
+        .then(|| value.parse().ok())
+        .flatten()
+        .filter(|&port| port != 0)
 }
 
 /// This device's presence on the LAN (mDNS and broadcast responder) until
@@ -158,8 +173,8 @@ impl PresenceBeacon {
     pub fn start(platform: &dyn Platform, advert: PresenceAdvert) -> Result<Self> {
         // A random instance: nothing ties it to the device's identity.
         let instance = format!("carrova-{}", &TagNonce::random()?.to_string()[..12]);
-        // shortcut: no request listener yet, so the advert names the
-        // broadcast responder's port; the request listener (Phase 3) passes its own.
+        // Browse replies and `Nearby` expose TXT entries, not this port: the
+        // link port travels in `lp`, so the service names the responder.
         let mut advertiser = Advertiser::start(platform, BROADCAST_PORT, instance, None)?;
         advertiser.set_presence(advert);
         Ok(Self {

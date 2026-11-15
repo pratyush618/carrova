@@ -11,12 +11,13 @@ use carrova_manifest::{ChunkHash, ChunkRef, ChunkSource, Manifest};
 use quinn::SendStream;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use tokio::time::timeout;
+use tokio::time::{Instant, timeout};
 
 use crate::cancel::Watch;
 use crate::error::{Result, TransportError};
 use crate::handshake::{Authenticated, PeerIdentity};
 use crate::runtime::runtime;
+use crate::stream::{self, Stream};
 use crate::tuning::CLOSE_LINGER;
 use crate::wire::{CloseCode, StreamReader, encode_frame};
 use crate::{fetch, serve};
@@ -37,7 +38,7 @@ pub struct Connection {
     control_send: SendStream,
     control_recv: StreamReader,
     peer_cert: CertHash,
-    resume: ResumeSecret,
+    resume: Option<ResumeSecret>,
     peer_identity: Option<PeerIdentity>,
     /// Chunk bytes the peer requested from us so far (L1 ceiling).
     requested: Arc<AtomicU64>,
@@ -76,15 +77,17 @@ impl Connection {
         self.peer_cert
     }
 
-    /// The session's resume secret (from pairing, or the one used to resume).
+    /// The session's resume secret (from pairing, or the one used to
+    /// resume); `None` on a link, which is redialled, never resumed.
     #[must_use]
-    pub fn resume_secret(&self) -> &ResumeSecret {
-        &self.resume
+    pub fn resume_secret(&self) -> Option<&ResumeSecret> {
+        self.resume.as_ref()
     }
 
-    /// The peer's device identity and the secret now shared with it: only
-    /// on a code pairing where both sides passed a device key
-    /// ([`crate::ListenOptions::device`], [`crate::ConnectOptions::device`]).
+    /// The peer's device identity and the secret shared with it: on a link
+    /// (the verified peer), and on a code pairing where both sides passed
+    /// a device key ([`crate::ListenOptions::device`],
+    /// [`crate::ConnectOptions::device`]).
     #[must_use]
     pub fn peer_identity(&self) -> Option<&PeerIdentity> {
         self.peer_identity.as_ref()
@@ -124,6 +127,22 @@ impl Connection {
                 Some(msg) => Ok(msg),
                 None => Err(TransportError::closed_by_peer(conn).await),
             }
+        })
+    }
+
+    /// Open a lane to the peer (either side may). Lanes and a move
+    /// session's chunk streams never mix: only [`Self::accept_stream`]
+    /// takes lanes. Takes `&self`, so threads can share the connection.
+    pub fn open_stream(&self) -> Result<Stream> {
+        self.cancel.block_on(stream::open(&self.conn, &self.cancel))
+    }
+
+    /// Accept the next lane the peer opens, waiting at most
+    /// `timeout_after` ([`TransportError::Timeout`]). Other streams on the
+    /// connection are refused, never returned.
+    pub fn accept_stream(&self, timeout_after: Duration) -> Result<Stream> {
+        self.cancel.block_on(async {
+            stream::accept(&self.conn, &self.cancel, Instant::now() + timeout_after).await
         })
     }
 
@@ -178,20 +197,39 @@ impl Connection {
     pub fn close_cancelled(mut self) {
         self.close = CloseCode::Cancelled;
     }
+
+    /// Close at once, though other threads share the connection (a
+    /// link): pending and later calls on both sides end, here with
+    /// [`TransportError::PeerLost`]; the peer reads it as a normal close.
+    /// Nothing still unsent is delivered.
+    pub fn close_now(&self) {
+        CloseCode::Normal.close(&self.conn);
+    }
+
+    /// Like [`Self::close_now`], telling the peer a newer link between
+    /// the same two devices replaced this one: its pending and later calls
+    /// end with [`TransportError::Superseded`].
+    pub fn close_superseded(&self) {
+        CloseCode::Superseded.close(&self.conn);
+    }
 }
 
 impl Drop for Connection {
     fn drop(&mut self) {
-        // quinn abandons unacknowledged stream data on close (and does not
-        // even send the close frame while data is pending), so finish the
-        // control stream and let the peer acknowledge it first.
-        if self.control_send.finish().is_ok()
-            && let Ok(rt) = runtime()
-        {
-            let stopped = self.control_send.stopped();
-            let _ = rt.block_on(async { timeout(CLOSE_LINGER, stopped).await });
-        }
+        flush(&mut self.control_send);
         self.close.close(&self.conn);
+    }
+}
+
+/// Finish `send` and wait (at most [`CLOSE_LINGER`]) for the peer to take
+/// it: quinn abandons unacknowledged stream data on close (and does not
+/// even send the close frame while data is pending).
+pub(crate) fn flush(send: &mut SendStream) {
+    if send.finish().is_ok()
+        && let Ok(rt) = runtime()
+    {
+        let stopped = send.stopped();
+        let _ = rt.block_on(async { timeout(CLOSE_LINGER, stopped).await });
     }
 }
 

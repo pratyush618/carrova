@@ -15,6 +15,40 @@ afterEach(() => {
 const session = scan.session;
 
 describe('the Tauri port', () => {
+  it('sends a feature change as `featureState` and an answer as `askId`', async () => {
+    const calls: [string, unknown][] = [];
+    mockIPC((command, args) => {
+      calls.push([command, args]);
+      return null;
+    });
+    const port = createTauriPort();
+    await port.setFeature('p8', 'files', 'off');
+    await port.answerAsk(7, true);
+    await port.answerPairPeer(false);
+    await port.linkInvite('carrova://pair?v=1&t=4-maple-orbit&k=KEY');
+    await port.ownFingerprint();
+    expect(calls).toEqual([
+      ['set_feature', { id: 'p8', feature: 'files', featureState: 'off' }],
+      ['answer_ask', { askId: 7, accept: true }],
+      ['answer_pair_peer', { accept: false }],
+      ['link_invite', { uri: 'carrova://pair?v=1&t=4-maple-orbit&k=KEY' }],
+      ['own_fingerprint', {}],
+    ]);
+  });
+
+  it('asks the phone commands by name: LAN, QR scan and opened links', async () => {
+    const calls: string[] = [];
+    mockIPC((command) => {
+      calls.push(command);
+      return command === 'lan_available' ? false : null;
+    });
+    const port = createTauriPort();
+    await expect(port.lanAvailable()).resolves.toBe(false);
+    await port.scanQr();
+    await port.takeOpened();
+    expect(calls).toEqual(['lan_available', 'scan_qr', 'take_opened']);
+  });
+
   it('invokes the snake_case command with named arguments', async () => {
     const calls: [string, unknown][] = [];
     mockIPC((command, args) => {

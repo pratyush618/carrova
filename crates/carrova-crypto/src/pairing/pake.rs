@@ -3,7 +3,6 @@
 use std::fmt;
 
 use hkdf::Hkdf;
-use hmac::Mac;
 use sha2::Sha256;
 use spake2::{Ed25519Group, Identity, Spake2};
 use zeroize::Zeroizing;
@@ -145,13 +144,7 @@ pub struct SessionKeys {
 impl SessionKeys {
     /// This side's key confirmation over `binding`.
     pub fn confirm(&self, role: PakeRole, binding: &ChannelBinding) -> Result<Confirmation> {
-        Ok(Confirmation(
-            self.confirm
-                .role_mac(role, binding)?
-                .finalize()
-                .into_bytes()
-                .into(),
-        ))
+        self.confirm.prove(&[], role, binding)
     }
 
     /// Check the peer's confirmation in constant time.
@@ -161,10 +154,7 @@ impl SessionKeys {
         binding: &ChannelBinding,
         confirmation: &Confirmation,
     ) -> Result<()> {
-        self.confirm
-            .role_mac(peer_role, binding)?
-            .verify_slice(&confirmation.0)
-            .map_err(|_| PairingError::ConfirmationFailed)
+        self.confirm.verify(&[], peer_role, binding, confirmation)
     }
 
     /// Per-session resume secret (persist `0600`, delete when the session

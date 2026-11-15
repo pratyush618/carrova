@@ -11,7 +11,7 @@ interface Device {
 }
 
 const KINDS: readonly DeviceKind[] = ['known', 'new', 'away'];
-const RANK: Readonly<Record<DeviceKind, number>> = { known: 0, new: 1, away: 2 };
+const RANK: Readonly<Record<DeviceKind, number>> = { linked: 0, known: 0, new: 1, away: 2 };
 const WIDTHS = [MIN_FIELD, 888, 1228];
 
 /** `count` devices, a third on the inner ring, kinds mixed. */

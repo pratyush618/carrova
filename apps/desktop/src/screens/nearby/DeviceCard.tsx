@@ -2,10 +2,12 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFormat } from '../../i18n/useFormat';
 import { AppGlyph, Badge, Button, IconButton } from '../../ui';
+import { deviceIcon } from '../devices/model';
 import { deviceActions, type DeviceAction, type DeviceEntry, type NearbyIntents } from './model';
 
 /** How each action looks: Send leads, Wake is the way back for an away device, Forget stays quiet. */
 const LOOK: Readonly<Record<DeviceAction, 'primary' | 'secondary' | 'quiet'>> = {
+  open: 'secondary',
   sendWithCode: 'secondary',
   wake: 'secondary',
   forget: 'quiet',
@@ -21,6 +23,9 @@ export function DeviceActions({
 }) {
   const { t } = useTranslation();
   const run: Readonly<Record<DeviceAction, () => void>> = {
+    open: () => {
+      on.onOpen(device);
+    },
     sendWithCode: on.onSendWithCode,
     wake: () => {
       on.onWake(device);
@@ -49,6 +54,18 @@ export function DeviceActions({
   );
 }
 
+/** Known and linked devices are lit; new and away ones are not. */
+export const glyphTone = (device: DeviceEntry): 'accent' | 'neutral' =>
+  device.kind === 'known' || device.kind === 'linked' ? 'accent' : 'neutral';
+
+/** "New" or "Linked" beside a device's name. */
+export function KindBadge({ kind }: { readonly kind: DeviceEntry['kind'] }) {
+  const { t } = useTranslation();
+  if (kind === 'new') return <Badge tone="warning">{t('nearby.new')}</Badge>;
+  if (kind === 'linked') return <Badge tone="success">{t('ecosystem.nearby.linked')}</Badge>;
+  return null;
+}
+
 /** "Linux, last move yesterday": the device's system and when you last moved with it (a new one has its badge). */
 export function useDeviceSub(): (device: DeviceEntry, now: Date) => string {
   const { t } = useTranslation();
@@ -56,7 +73,7 @@ export function useDeviceSub(): (device: DeviceEntry, now: Date) => string {
   return (device, now) =>
     [
       device.os === null ? null : t(`settings.about.os.${device.os}`),
-      device.kind === 'new'
+      device.kind === 'new' || (device.kind === 'linked' && device.lastMove === null)
         ? null
         : device.lastMove === null
           ? t('nearby.noMove')
@@ -86,14 +103,11 @@ export function DeviceCard({
   return (
     <section className="s-near__card" aria-label={device.name}>
       <header className="s-near__card-head">
-        <AppGlyph
-          glyph={{ icon: 'laptop' }}
-          tone={device.kind === 'known' ? 'accent' : 'neutral'}
-        />
+        <AppGlyph glyph={{ icon: deviceIcon(device.os) }} tone={glyphTone(device)} />
         <div>
           <h2 ref={heading} tabIndex={-1}>
             {device.name}
-            {device.kind === 'new' && <Badge tone="warning">{t('nearby.new')}</Badge>}
+            <KindBadge kind={device.kind} />
           </h2>
           {device.os !== null && <span>{t(`settings.about.os.${device.os}`)}</span>}
         </div>

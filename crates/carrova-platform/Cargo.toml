@@ -18,12 +18,22 @@ ts-rs = { workspace = true, optional = true }
 # Safe syscalls for the Linux and macOS adapters (fsops, netops); `event`:
 # poll, for the Linux directory watch.
 [target.'cfg(unix)'.dependencies]
-rustix = { workspace = true, features = ["event"] }
+rustix = { workspace = true, features = ["event", "net"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Session bus: tray-host detection (`org.kde.StatusNotifierWatcher`), screen
 # wake and lock query (`org.freedesktop.ScreenSaver`).
 zbus = { workspace = true }
+# Clipboard: X11 text, Wayland data-control, content hash for the change poll.
+arboard = { workspace = true }
+blake3 = { workspace = true }
+x11rb = { workspace = true }
+wl-clipboard-rs = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+# Clipboard, Downloads, ring, multicast lock through Kotlin glue (ADR 0003).
+jni = { workspace = true }
+ndk-context = { workspace = true }
 
 # Directory watch (FSEvents, ReadDirectoryChangesW).
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]
@@ -47,7 +57,32 @@ fake = []
 ts = ["dep:ts-rs"]
 
 [dev-dependencies]
+serde_json = { workspace = true }
 tempfile = { workspace = true }
 
-[lints]
-workspace = true
+# ADR 0003: `deny` (not the workspace `forbid`) so `src/android/jni.rs` alone
+# can allow `unsafe`; `[lints]` cannot be combined with `workspace = true`, so
+# the other workspace lints are repeated.
+[lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+unused_must_use = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+# pedantic-lite
+cast_lossless = "warn"
+cloned_instead_of_copied = "warn"
+explicit_iter_loop = "warn"
+implicit_clone = "warn"
+inefficient_to_string = "warn"
+manual_let_else = "warn"
+needless_pass_by_value = "warn"
+redundant_closure_for_method_calls = "warn"
+semicolon_if_nothing_returned = "warn"
+uninlined_format_args = "warn"
+unnested_or_patterns = "warn"

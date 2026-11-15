@@ -15,13 +15,15 @@ pub enum OsKind {
     MacOs,
     /// Microsoft Windows.
     Windows,
+    /// Android (the app's sandbox).
+    Android,
 }
 
 impl OsKind {
     /// Every OS family, in stable order.
-    pub const ALL: [Self; 3] = [Self::Linux, Self::MacOs, Self::Windows];
+    pub const ALL: [Self; 4] = [Self::Linux, Self::MacOs, Self::Windows, Self::Android];
 
-    /// Stable lowercase identifier (`linux`, `macos`, `windows`), e.g. the
+    /// Stable lowercase identifier (`linux`, `macos`, `windows`, `android`), e.g. the
     /// source OS recorded in a manifest. [`FromStr`] parses it back. Not
     /// the serde form (`mac_os`), which the desktop IPC bindings use.
     #[must_use]
@@ -30,16 +32,18 @@ impl OsKind {
             Self::Linux => "linux",
             Self::MacOs => "macos",
             Self::Windows => "windows",
+            Self::Android => "android",
         }
     }
 
-    /// Name shown to users (`Linux`, `macOS`, `Windows`).
+    /// Name shown to users (`Linux`, `macOS`, `Windows`, `Android`).
     #[must_use]
     pub const fn display_name(self) -> &'static str {
         match self {
             Self::Linux => "Linux",
             Self::MacOs => "macOS",
             Self::Windows => "Windows",
+            Self::Android => "Android",
         }
     }
 
@@ -47,7 +51,7 @@ impl OsKind {
     #[must_use]
     pub const fn permission_model(self) -> PermissionModel {
         match self {
-            Self::Linux | Self::MacOs => PermissionModel::Unix,
+            Self::Linux | Self::MacOs | Self::Android => PermissionModel::Unix,
             Self::Windows => PermissionModel::Acl,
         }
     }
@@ -74,7 +78,7 @@ impl FromStr for OsKind {
 
 /// A string that is not an [`OsKind::as_str`] id.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("unknown OS `{0}` (expected `linux`, `macos` or `windows`)")]
+#[error("unknown OS `{0}` (expected `linux`, `macos`, `windows` or `android`)")]
 pub struct UnknownOsKind(pub String);
 
 /// How an OS protects a user's files from other local users.

@@ -16,15 +16,21 @@ pub(crate) enum CloseCode {
     Rejected,
     /// The user on this side cancelled the session.
     Cancelled,
+    /// A link proof failed.
+    LinkFailed,
+    /// A newer connection from the same linked device replaced this one.
+    Superseded,
 }
 
 impl CloseCode {
-    const ALL: [Self; 5] = [
+    const ALL: [Self; 7] = [
         Self::Normal,
         Self::PairingFailed,
         Self::Protocol,
         Self::Rejected,
         Self::Cancelled,
+        Self::LinkFailed,
+        Self::Superseded,
     ];
 
     pub(crate) const fn to_wire(self) -> VarInt {
@@ -34,6 +40,8 @@ impl CloseCode {
             Self::Protocol => 2,
             Self::Rejected => 3,
             Self::Cancelled => 4,
+            Self::LinkFailed => 5,
+            Self::Superseded => 6,
         })
     }
 

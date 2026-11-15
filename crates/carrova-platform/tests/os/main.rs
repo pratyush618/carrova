@@ -8,11 +8,26 @@ fn os_kind_ids_and_display_names_are_stable() {
         (OsKind::Linux, "linux", "Linux"),
         (OsKind::MacOs, "macos", "macOS"),
         (OsKind::Windows, "windows", "Windows"),
+        (OsKind::Android, "android", "Android"),
     ];
     for (os, id, name) in cases {
         assert_eq!(os.as_str(), id);
         assert_eq!(os.to_string(), name);
     }
+}
+
+#[test]
+fn android_os_kind_roundtrip() {
+    assert_eq!(OsKind::Android.permission_model(), PermissionModel::Unix);
+    assert_eq!("android".parse::<OsKind>(), Ok(OsKind::Android));
+    assert_eq!(
+        serde_json::to_string(&OsKind::Android).unwrap(),
+        "\"android\""
+    );
+    assert_eq!(
+        serde_json::from_str::<OsKind>("\"android\"").unwrap(),
+        OsKind::Android
+    );
 }
 
 #[test]

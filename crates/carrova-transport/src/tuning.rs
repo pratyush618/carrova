@@ -31,7 +31,7 @@ pub(crate) const CONNECTION_RECEIVE_WINDOW: u32 = 32 * MIB as u32;
 /// Bytes in flight across all streams.
 pub(crate) const SEND_WINDOW: u64 = 32 * MIB as u64;
 /// Bidirectional streams a peer may have open at once: control stream +
-/// chunk streams + the fetch-done stream.
+/// chunk streams + the fetch-done stream, or a link's lanes.
 pub(crate) const MAX_CONCURRENT_BIDI_STREAMS: u32 = 16;
 /// Initial RTT estimate (LAN; the default 333 ms slows early recovery).
 pub(crate) const INITIAL_RTT: Duration = Duration::from_millis(10);
@@ -39,6 +39,15 @@ pub(crate) const INITIAL_RTT: Duration = Duration::from_millis(10);
 pub(crate) const IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 /// Keep-alive interval (keeps Wi-Fi pauses from killing the session).
 pub(crate) const KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(5);
+/// A link's idle timeout as a multiple of its keep-alive interval
+/// ([`carrova_platform::Platform::link_keepalive`]).
+pub(crate) const LINK_IDLE_FACTOR: u32 = 3;
+/// Accepting a lane: longest wait for its opening tag (sent with the
+/// open, so this only bounds a misbehaving peer).
+pub(crate) const STREAM_OPEN_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Longest a lane frame write waits for a peer that stopped reading.
+pub(crate) const FRAME_WRITE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// TLS server name the receiver presents (certificates are self-signed and
 /// authenticated by the PAKE, so the name only has to be well-formed).
@@ -49,6 +58,10 @@ pub(crate) const TLS_SERVER_NAME: &str = "carrova.invalid";
 /// Longest one pairing / resume handshake may take once a connection is
 /// up (bounded further by the caller's timeout).
 pub(crate) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+/// Pair-only receiver: longest it waits for the sender's `Linked` after
+/// the `PeerInfo` exchange, while the sender's user checks the peer's key
+/// (ADR 0002 §1). Within the session idle timeout's keep-alive reach.
+pub const PAIR_CONFIRM_TIMEOUT: Duration = Duration::from_secs(60);
 /// Sender: longest an incoming connection may take to put the secret at
 /// stake (QUIC/TLS handshake, `Hello`, and for pairing the receiver's PAKE
 /// message). Keeps stalled or idle connections from holding a handshake
@@ -59,9 +72,13 @@ pub(crate) const PRE_PAKE_TIMEOUT: Duration = Duration::from_secs(2);
 pub(crate) const MAX_PENDING_HANDSHAKES: usize = 4;
 /// Sender: pending handshakes one source IP address may hold at once.
 pub(crate) const MAX_PENDING_PER_ADDRESS: usize = 1;
-/// Sender: resume-`Hello` nonces remembered (oldest forgotten first) so a
-/// `Hello` cannot be replayed during the listener's lifetime.
+/// Sender: resume- and link-`Hello` nonces remembered (oldest forgotten
+/// first) so a `Hello` cannot be replayed during the listener's lifetime.
 pub(crate) const RESUME_NONCE_MEMORY: usize = 1024;
+/// Link listener: known peers whose secrets a link `Hello` is checked
+/// against (most recently used first); bounds the HMACs one
+/// unauthenticated `Hello` costs (ADR 0002 §3).
+pub(crate) const MAX_LINK_CANDIDATES: usize = 64;
 /// Receiver: code guesses (PAKE messages sent) one connect call may spend
 /// across all candidates; more would let impostors answering discovery
 /// collect guesses at the code.

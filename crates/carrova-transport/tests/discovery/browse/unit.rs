@@ -17,6 +17,7 @@ fn everyone(name: &str, known: Option<KnownTags>) -> Announced {
             known,
             name: Some(name.into()),
             os: Some(OsKind::Linux),
+            ..PresenceAdvert::default()
         },
         offers_code: false,
     }

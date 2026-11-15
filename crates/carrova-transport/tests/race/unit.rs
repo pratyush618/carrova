@@ -55,7 +55,9 @@ mod one_sender {
         fn start() -> Self {
             let platform = carrova_platform::current();
             let identity = Identity::generate().unwrap();
-            let ep = endpoint::server(platform.as_ref(), &identity, 0).unwrap();
+            let config =
+                endpoint::server_config(&identity, endpoint::session_transport().unwrap()).unwrap();
+            let ep = endpoint::server(platform.as_ref(), config, 0).unwrap();
             let port = endpoint::local_v4(&ep).unwrap().port();
             let hellos = Arc::new(AtomicUsize::new(0));
             let (accepting, counter) = (ep.clone(), Arc::clone(&hellos));
@@ -130,6 +132,8 @@ mod one_sender {
         let secret = Secret::Pair {
             code: PairingCode::generate().unwrap(),
             device: None,
+            purpose: crate::wire::PairPurpose::Move,
+            pin: None,
         };
         assert_eq!(hellos_from_a_dual_address_race(secret), 1);
     }
@@ -192,6 +196,8 @@ mod real_sender {
                 Self::Pair(code) => Secret::Pair {
                     code: code.clone(),
                     device: None,
+                    purpose: crate::wire::PairPurpose::Move,
+                    pin: None,
                 },
                 Self::Resume(secret) => Secret::Resume(secret.clone()),
             }
@@ -257,8 +263,8 @@ mod real_sender {
         let mut receiver = Connection::new(endpoint, receiver, Watch::default());
         assert_eq!(sender.peer_cert_hash(), CertHash::of(identity.cert_der()));
         assert_eq!(
-            sender.resume_secret().expose_bytes(),
-            receiver.resume_secret().expose_bytes()
+            sender.resume_secret().unwrap().expose_bytes(),
+            receiver.resume_secret().unwrap().expose_bytes()
         );
         sender.send(&Ping(7)).unwrap();
         assert_eq!(receiver.recv::<Ping>(T).unwrap(), Ping(7));
@@ -331,7 +337,9 @@ mod real_sender {
     fn closing_sender() -> (quinn::Endpoint, u16) {
         let platform = carrova_platform::current();
         let identity = Identity::generate().unwrap();
-        let ep = endpoint::server(platform.as_ref(), &identity, 0).unwrap();
+        let config =
+            endpoint::server_config(&identity, endpoint::session_transport().unwrap()).unwrap();
+        let ep = endpoint::server(platform.as_ref(), config, 0).unwrap();
         let port = endpoint::local_v4(&ep).unwrap().port();
         let accepting = ep.clone();
         runtime().unwrap().spawn(async move {
@@ -355,10 +363,61 @@ mod real_sender {
         let secret = Secret::Pair {
             code: PairingCode::generate().unwrap(),
             device: None,
+            purpose: crate::wire::PairPurpose::Move,
+            pin: None,
         };
         let (dialer, _) = dialer(secret, Duration::from_secs(2));
         let result = race(dialer, &[at(port, 1), at(port, 2)]);
         // `is_lost`: `PeerLost` or `Timeout`, never `PairingFailed`.
         assert!(matches!(&result, Err(e) if e.is_lost()), "{result:?}");
+    }
+
+    /// A pinned sender with the wrong key ends the race at once, even with
+    /// another candidate still pending (it never answers), and is not
+    /// masked as a timeout.
+    #[test]
+    fn pinned_key_mismatch_ends_the_race_at_once() {
+        use carrova_crypto::identity::DeviceKey;
+        use carrova_platform::OsKind;
+
+        use crate::PeerInfo;
+        use crate::error::TransportError;
+        use crate::wire::PairPurpose;
+
+        let code = PairingCode::generate().unwrap();
+        let mut listener = Listener::bind(ListenOptions {
+            discovery: false,
+            device: Some(Arc::new(DeviceKey::generate().unwrap())),
+            ..ListenOptions::default()
+        })
+        .unwrap();
+        let port = listener.port();
+        let sender_code = code.clone();
+        let sender = thread::spawn(move || {
+            let me = PeerInfo {
+                name: "laptop".into(),
+                os: OsKind::Linux,
+            };
+            listener
+                .accept_pair_only(&sender_code, &me, T, || {})
+                .map(drop)
+        });
+        let silent = std::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let silent_port = silent.local_addr().unwrap().port();
+        let secret = Secret::Pair {
+            code,
+            device: Some(Arc::new(DeviceKey::generate().unwrap())),
+            purpose: PairPurpose::PairOnly,
+            pin: Some(DeviceKey::generate().unwrap().public()),
+        };
+        let (dialer, _) = dialer(secret, T);
+        let started = std::time::Instant::now();
+        let result = race(dialer, &[at(port, 1), at(silent_port, 1)]);
+        assert!(
+            matches!(result, Err(TransportError::KeyMismatch)),
+            "{result:?}"
+        );
+        assert!(started.elapsed() < Duration::from_secs(5));
+        assert!(sender.join().unwrap().is_err());
     }
 }

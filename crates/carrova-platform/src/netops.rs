@@ -48,9 +48,9 @@ fn any_v4(port: u16) -> socket2::SockAddr {
 /// this socket.
 pub(crate) fn bind_broadcast_udp(port: u16) -> io::Result<UdpSocket> {
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
-    #[cfg(any(target_os = "linux", windows))]
+    #[cfg(any(target_os = "linux", target_os = "android", windows))]
     socket.set_reuse_address(true)?;
-    #[cfg(all(unix, not(target_os = "linux")))]
+    #[cfg(all(unix, not(any(target_os = "linux", target_os = "android"))))]
     socket.set_reuse_port(true)?;
     socket.set_broadcast(true)?;
     socket.set_nonblocking(true)?;

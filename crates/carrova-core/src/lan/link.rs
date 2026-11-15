@@ -6,7 +6,9 @@ use std::time::{Duration, Instant};
 
 use carrova_crypto::pairing::ResumeSecret;
 use carrova_platform::Platform;
-use carrova_transport::{ConnectOptions, Connection, Target, TransportError, connect};
+use carrova_transport::{
+    ConnectOptions, Connection, SetupFailure, Target, TransportError, connect,
+};
 
 use super::{
     LanMsg, RECONNECT_ATTEMPT, RECONNECT_BACKOFF_MAX, RECONNECT_BACKOFF_MIN, ReceiverStage,
@@ -78,6 +80,14 @@ impl Dialer for TransportDialer {
     }
 }
 
+/// The resume secret of a move session's connection. Only a device link
+/// has none, and one reaching a move session is a bug.
+pub(crate) fn move_secret(conn: &Connection) -> Result<ResumeSecret, TransportError> {
+    conn.resume_secret()
+        .cloned()
+        .ok_or_else(|| SetupFailure::HandshakeStateMismatch.into())
+}
+
 impl Link {
     /// A link over a freshly paired connection; reconnects via `dialer`
     /// until `cancel` fires, at once when `control` asks to retry now.
@@ -86,12 +96,12 @@ impl Link {
         dialer: Box<dyn Dialer>,
         cancel: Cancel,
         control: TransferControl,
-    ) -> Self {
-        let secret = conn.resume_secret().clone();
-        Self {
+    ) -> Result<Self, TransportError> {
+        let secret = move_secret(&conn)?;
+        Ok(Self {
             conn: Some(conn),
             ..Self::detached(secret, dialer, cancel, control)
-        }
+        })
     }
 
     /// A link with no connection yet (resume after a restart).

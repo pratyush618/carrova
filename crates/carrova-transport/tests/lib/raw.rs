@@ -17,7 +17,9 @@ use crate::handshake::binding;
 use crate::runtime::runtime;
 use crate::tls::Identity;
 use crate::tuning::TLS_SERVER_NAME;
-use crate::wire::{CloseCode, Handshake, Intent, RejectReason, StreamReader, encode_frame};
+use crate::wire::{
+    CloseCode, Handshake, Intent, PairPurpose, RejectReason, StreamReader, encode_frame,
+};
 
 /// `127.0.0.<n>`.
 pub(super) fn loopback(n: u8) -> Ipv4Addr {
@@ -49,7 +51,7 @@ impl Dial {
 #[derive(Debug)]
 pub(super) struct RawPeer {
     _endpoint: quinn::Endpoint,
-    identity: Identity,
+    pub(super) identity: Identity,
     pub(super) conn: quinn::Connection,
     stream: Option<(SendStream, StreamReader)>,
 }
@@ -125,10 +127,22 @@ impl RawPeer {
         intent: Intent,
         identify: bool,
     ) -> crate::Result<Handshake> {
+        self.hello_for(intent, identify, PairPurpose::default())
+    }
+
+    /// Send `Hello{intent, identify, purpose}` and return the sender's
+    /// answer.
+    pub(super) fn hello_for(
+        &mut self,
+        intent: Intent,
+        identify: bool,
+        purpose: PairPurpose,
+    ) -> crate::Result<Handshake> {
         self.send(&Handshake::Hello {
             proto: PROTOCOL_VERSION,
             intent,
             identify,
+            purpose,
         });
         self.recv()
     }

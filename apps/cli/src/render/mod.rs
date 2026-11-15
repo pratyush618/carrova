@@ -4,6 +4,7 @@
 
 pub mod devices;
 pub mod lan;
+pub mod link;
 pub mod plan;
 pub mod preview;
 pub mod recipes;

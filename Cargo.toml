@@ -22,10 +22,13 @@ carrova-platform = { path = "crates/carrova-platform" }
 carrova-plugin = { path = "crates/carrova-plugin" }
 carrova-view = { path = "crates/carrova-view" }
 carrova-bundle = { path = "crates/carrova-bundle" }
+carrova-link = { path = "crates/carrova-link" }
 carrova-report = { path = "crates/carrova-report" }
 
 aead-stream = "0.6"
 anyhow = "1"
+# Linux clipboard: X11 text (no image codecs) and the Wayland data-control protocol (carrova-platform only).
+arboard = { version = "3", default-features = false }
 argon2 = { version = "0.6", default-features = false, features = ["alloc", "zeroize"] }
 blake3 = "1"
 chacha20poly1305 = { version = "0.11", features = ["zeroize"] }
@@ -46,13 +49,18 @@ if-addrs = "0.15"
 # SHA-2 generation pinned to spake2 0.4 (digest 0.10): hkdf/hmac/sha2 share it.
 hkdf = "0.12.4"
 hmac = "0.12.1"
+# Android JNI bridge (carrova-platform only); 0.21 as Tauri/tao/wry use (ADR 0003).
+jni = "0.21.1"
 jsonschema = { version = "0.33", default-features = false }
 # Windows Known Folder API (semantic roots), safe wrapper (carrova-platform only).
 known-folders = "1.4.2"
 mdns-sd = { version = "0.21.7", default-features = false }
+# Android JavaVM + app context, set by tao's activity or by `android/jni.rs`.
+ndk-context = "0.1.1"
 # Directory watch on macOS (FSEvents) and Windows (ReadDirectoryChangesW); carrova-platform only.
 notify = { version = "8.2.2", default-features = false, features = ["macos_fsevent"] }
 # QUIC/TLS: ring backend only (no aws-lc anywhere).
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 quinn = { version = "0.11.12", default-features = false, features = ["runtime-tokio", "rustls-ring"] }
 rcgen = { version = "0.14.10", default-features = false, features = ["crypto", "ring"] }
 rpassword = "7"
@@ -86,6 +94,7 @@ tauri-plugin-single-instance = "2.5.5"
 tauri-plugin-updater = "2.14.1"
 # Blocking HTTP for recipe bundle fetch (rustls + ring, no tokio).
 ureq = { version = "3.5.1", default-features = false, features = ["rustls", "gzip"] }
+url = "2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 walkdir = "2"
 # WASM plugin runtime (pure-Rust interpreter, fuel metering; carrova-plugin only).
@@ -96,6 +105,9 @@ wat = "1.263.0"
 winapi-util = "0.1.11"
 # Safe Windows registry API for per-user Explorer verbs (carrova-platform only).
 winreg = "0.56.0"
+wl-clipboard-rs = "0.9"
+# X11 selection targets for the clipboard (already in the tree via arboard).
+x11rb = "0.13"
 zeroize = { version = "1", features = ["derive"] }
 # Linux session bus: tray-host detection, screen wake and lock query (already in the tree via Tauri).
 zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }

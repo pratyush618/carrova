@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use carrova_view::ipc::BridgeEvent;
+#[cfg(desktop)]
 use tauri::{AppHandle, Manager};
 
 use crate::state::AppState;
@@ -66,6 +67,7 @@ pub fn forward(state: &AppState, paths: &[PathBuf]) {
 /// [`forward`] once the app `state` exists; before that, only queue
 /// `paths` in `queue` (the one the state is built with), which the UI
 /// drains when it starts.
+#[cfg(desktop)]
 fn deliver(state: Option<&AppState>, queue: &SendRequests, paths: &[PathBuf]) {
     match state {
         Some(state) => forward(state, paths),
@@ -77,6 +79,7 @@ fn deliver(state: Option<&AppState>, queue: &SendRequests, paths: &[PathBuf]) {
 /// running app: queue its `--send` paths, if any, in `queue` (shared with
 /// [`AppState::pending_send`], so none are lost while the app starts) and
 /// open the window.
+#[cfg(desktop)]
 pub fn on_second_instance(app: &AppHandle, queue: &SendRequests, argv: Vec<String>, cwd: &str) {
     let argv: Vec<OsString> = argv.into_iter().map(OsString::from).collect();
     let paths = send_paths(&argv, Path::new(cwd)).unwrap_or_default();

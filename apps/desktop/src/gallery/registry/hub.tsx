@@ -9,11 +9,13 @@ import {
 import type { CatalogModel } from '../../screens/apps/model';
 import { HistoryScreen } from '../../screens/history/HistoryScreen';
 import { historyEmpty, historyTimeline, historyUndone } from '../../screens/history/fixtures';
+import { pixel } from '../../screens/devices/fixtures';
 import { NearbyScreen } from '../../screens/nearby/NearbyScreen';
 import {
   nearbyEmpty,
   nearbyList,
   nearbyMap,
+  nearbyLinked,
   nearbyNoHint,
   nearbySelected,
 } from '../../screens/nearby/fixtures';
@@ -71,13 +73,36 @@ const settingsOn = noops(
   'onPause',
   'onSection',
   'onBack',
+  'onOpenDevice',
+  'onAddDevice',
+  'onLinkComputer',
+  'onClipHistory',
+  'onClip',
 );
+/** Clipboard settings as a new user has them. */
+const CLIP = { share: true, show_note: false, history_file: false } as const;
 const SETTINGS = {
   notes: settingsFileManagerNotes,
   unsupported: settingsNoFileManager,
 } as const;
-const settingsBase = <SettingsScreen section="general" model={settingsModel} on={settingsOn} />;
-const settingsNearby = <SettingsScreen section="nearby" model={settingsModel} on={settingsOn} />;
+const settingsBase = (
+  <SettingsScreen
+    section="general"
+    model={settingsModel}
+    on={settingsOn}
+    linked={[pixel]}
+    clip={CLIP}
+  />
+);
+const settingsNearby = (
+  <SettingsScreen
+    section="nearby"
+    model={settingsModel}
+    on={settingsOn}
+    linked={[pixel]}
+    clip={CLIP}
+  />
+);
 const nearbyOn = noops(
   'onView',
   'onSelect',
@@ -87,12 +112,16 @@ const nearbyOn = noops(
   'onWake',
   'onForget',
   'onDismissWake',
+  'onOpen',
+  'onAddDevice',
+  'onLinkComputer',
 );
 const NEARBY: Readonly<Record<string, NearbyModel>> = {
   selected: nearbySelected,
   list: nearbyList,
   empty: nearbyEmpty,
   'no-hint': nearbyNoHint,
+  linked: nearbyLinked,
 };
 
 export const hubScreens: readonly GalleryScreen[] = [
@@ -107,6 +136,7 @@ export const hubScreens: readonly GalleryScreen[] = [
       ['list', 'List'],
       ['empty', 'Nobody nearby'],
       ['no-hint', 'Wake without a saved address'],
+      ['linked', 'A phone linked'],
     ),
     render: (s) => ({ base: <NearbyScreen model={NEARBY[s] ?? nearbyMap} on={nearbyOn} /> }),
   },
@@ -168,7 +198,17 @@ export const hubScreens: readonly GalleryScreen[] = [
       const section =
         SECTIONS.find(({ id }) => id === s)?.id ??
         (fixture === settingsModel ? 'general' : 'sending');
-      return { base: <SettingsScreen section={section} model={fixture} on={settingsOn} /> };
+      return {
+        base: (
+          <SettingsScreen
+            section={section}
+            model={fixture}
+            on={settingsOn}
+            linked={[pixel]}
+            clip={CLIP}
+          />
+        ),
+      };
     },
   },
   {

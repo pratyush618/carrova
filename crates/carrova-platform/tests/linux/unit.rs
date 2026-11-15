@@ -103,6 +103,7 @@ fn xdg_overrides() {
         xdg_state_home: None,
         path: None,
         appimage: None,
+        wayland_display: None,
     });
     assert_eq!(root(&p, SemanticRoot::UserConfig), PathBuf::from("/cfg"));
     assert_eq!(root(&p, SemanticRoot::UserData), PathBuf::from("/data"));
@@ -119,6 +120,7 @@ fn relative_or_empty_xdg_ignored() {
         xdg_state_home: None,
         path: None,
         appimage: None,
+        wayland_display: None,
     });
     assert_eq!(
         root(&p, SemanticRoot::UserConfig),
@@ -229,6 +231,7 @@ fn filesystem_root_is_never_a_semantic_root() {
             xdg_state_home: None,
             path: None,
             appimage: None,
+            wayland_display: None,
         });
         for r in [
             SemanticRoot::UserConfig,
@@ -522,4 +525,26 @@ fn the_lock_comes_from_the_first_service_that_answers() {
     assert_eq!(answers(Some(true), Some(false)), Locked);
     assert_eq!(answers(None, Some(true)), Locked);
     assert_eq!(answers(None, None), Unknown);
+}
+
+#[test]
+fn downloads_follow_user_dirs_else_default() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let p = LinuxPlatform::new(LinuxEnv {
+        home: Some(tmp.path().into()),
+        xdg_config_home: Some(tmp.path().join("cfg").into()),
+        ..LinuxEnv::default()
+    });
+    assert_eq!(p.downloads_dir().unwrap(), tmp.path().join("Downloads"));
+
+    std::fs::create_dir(tmp.path().join("cfg")).unwrap();
+    std::fs::write(
+        tmp.path().join("cfg/user-dirs.dirs"),
+        "XDG_DOWNLOAD_DIR=\"$HOME/Heruntergeladen\"\n",
+    )
+    .unwrap();
+    assert_eq!(
+        p.downloads_dir().unwrap(),
+        tmp.path().join("Heruntergeladen")
+    );
 }

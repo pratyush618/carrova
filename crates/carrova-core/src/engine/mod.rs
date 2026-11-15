@@ -75,6 +75,7 @@ mod redact;
 mod remember;
 mod resume;
 mod send;
+pub(crate) use send::offer;
 mod session;
 pub mod sessions;
 mod transfer;
@@ -195,6 +196,12 @@ impl Engine {
     #[must_use]
     pub fn sink(&self) -> &Arc<dyn EventSink> {
         &self.sink
+    }
+
+    /// This engine reporting to `sink` instead.
+    pub(crate) fn with_sink(mut self, sink: Arc<dyn EventSink>) -> Self {
+        self.sink = sink;
+        self
     }
 }
 

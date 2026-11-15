@@ -16,7 +16,7 @@ use super::{Engine, sessions};
 use crate::cancel::Cancel;
 use crate::capture::MANIFEST_FILE;
 use crate::error::{CoreError, Result, SessionProblem};
-use crate::lan::link::TransportDialer;
+use crate::lan::link::{TransportDialer, move_secret};
 use crate::lan::{
     self, FINAL_NOTICE_WINDOW, Inventory, LanMsg, Link, PAIR_TIMEOUT, RECONNECT_WINDOW,
     REPLY_TIMEOUT, ReceiverFailure, ReceiverStage,
@@ -85,7 +85,7 @@ impl Importer {
             }),
         )?;
         write_atomic(s.platform(), &s.dir, MANIFEST_FILE, &bytes)?;
-        store::write_resume_secret(s.platform(), &s.dir, conn.resume_secret())?;
+        store::write_resume_secret(s.platform(), &s.dir, &move_secret(&conn)?)?;
         tracing::info!(session = %s.record.id, "paired with the sender");
         s.emit(Event::PeerConnected {
             peer: conn.peer_addr(),
@@ -93,7 +93,7 @@ impl Importer {
         let known_peer = me.and_then(|(_, epoch)| KnownPeer::of(&conn, epoch));
         let dialer = TransportDialer::boxed(s.engine.platform().clone(), &cancel);
         let control = TransferControl::default();
-        let link = Link::paired(conn, dialer, cancel.clone(), control.clone());
+        let link = Link::paired(conn, dialer, cancel.clone(), control.clone())?;
         let mut imp = Self::started(s, ImportFrom::Lan(Some(Box::new(link))), manifest, cancel)?;
         imp.control = control;
         imp.known_peer = known_peer;

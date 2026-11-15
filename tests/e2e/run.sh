@@ -11,10 +11,12 @@
 #
 #        tests/e2e/run.sh --lan [...]   LAN migration between two containers
 #        (see lan.sh).
+#        tests/e2e/run.sh --link   linked devices: pair, file send (see link.sh).
 #        tests/e2e/run.sh --cross-os   restore onto fake Windows/macOS layouts
 #        (see cross-os.sh).
 set -euo pipefail
 [ "${1:-}" = --lan ] && exec "$(dirname "$0")/lan.sh" "${@:2}"
+[ "${1:-}" = --link ] && exec "$(dirname "$0")/link.sh" "${@:2}"
 [ "${1:-}" = --cross-os ] && exec "$(dirname "$0")/cross-os.sh" "${@:2}"
 # shellcheck source-path=SCRIPTDIR source=common.sh
 . "$(dirname "$0")/common.sh"

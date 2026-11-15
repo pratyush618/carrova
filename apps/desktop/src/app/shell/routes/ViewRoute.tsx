@@ -1,5 +1,6 @@
 import type { SettingsSection } from '../../../screens/settings/sections';
 import type { HubPage, View } from '../../nav/navMachine';
+import { DeviceRoute } from './DeviceRoutes';
 import { AppsRoute, HistoryRoute, HomeRoute, NearbyRoute, SettingsRoute } from './HubRoutes';
 import { OpenRoute, ReceiveRoute } from './ReceiveRoutes';
 import { SaveRoute, SendRoute } from './SendRoutes';
@@ -31,6 +32,8 @@ export function ViewRoute({ view }: { readonly view: View }) {
   switch (view.kind) {
     case 'hub':
       return <HubRoute page={view.page} section={view.section} />;
+    case 'device':
+      return <DeviceRoute id={view.id} />;
     case 'flow': {
       const { at } = view;
       switch (at.flow) {

@@ -4,6 +4,7 @@
 //! peer-provided string themselves.
 
 pub mod devices;
+pub mod ecosystem;
 pub mod ipc;
 pub mod lan;
 pub mod notice;

@@ -24,13 +24,23 @@
 //! - [`tray`]: the window in background mode (closed to the tray,
 //!   minimised or quit) and the tray menu.
 //! - [`presence`]: this computer's advert on the LAN while the app runs.
-//! - [`recipes`], [`settings`], [`error_report`], [`updater`]: services.
+//! - [`ops::ecosystem`]: the link supervisor of linked devices, started
+//!   with the app; its events go out as engine events of the link session.
+//! - [`opened`]: links the app was opened with (a phone's share sheet,
+//!   quick-settings tile or notification action), queued for the UI.
+//! - `mobile` (phones only): one window, a process that outlives it, and
+//!   the entry of the link service that keeps it alive.
+//! - [`recipes`], [`settings`], [`error_report`], [`updater`] (desktop):
+//!   services.
 //! - [`command_error`]: the one mapping of every failure to `BridgeError`.
 
 pub mod command_error;
 pub mod commands;
 pub mod error_report;
 pub mod events;
+#[cfg(mobile)]
+pub mod mobile;
+pub mod opened;
 pub mod ops;
 pub mod pairing;
 pub mod presence;
@@ -39,7 +49,9 @@ pub mod registry;
 pub mod send_request;
 pub mod settings;
 pub mod state;
+#[cfg(desktop)]
 pub mod tray;
+#[cfg(desktop)]
 pub mod updater;
 pub mod worker;
 
@@ -51,10 +63,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use error_report::Reports;
+use opened::Opened;
 use presence::BackgroundPresence;
 use state::{AppState, BridgeConfig};
 use tauri::{AppHandle, Manager, RunEvent};
-use updater::PendingUpdate;
 
 /// Builds the Tauri application and runs it until the last window closes
 /// with no tray icon up, or Quit.
@@ -74,16 +86,23 @@ use updater::PendingUpdate;
 pub fn run() -> tauri::Result<()> {
     // Before the builder: a second launch can arrive before `setup` runs.
     let pending_send = send_request::SendRequests::default();
+    #[cfg(desktop)]
     let early_sends = pending_send.clone();
-    tauri::Builder::default()
-        // First, so a second launch is caught before anything else starts.
+    let builder = tauri::Builder::default();
+    // First, so a second launch is caught before anything else starts.
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_single_instance::init(move |app, argv, cwd| {
             send_request::on_second_instance(app, &early_sends, argv, &cwd);
         }))
+        .on_window_event(tray::on_window_event)
+        // Phones update through their store or a new APK, not the updater.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(updater::PendingUpdate::default());
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(move |app| {
             let platform: Arc<dyn carrova_platform::Platform> =
                 Arc::from(carrova_platform::current());
@@ -94,20 +113,26 @@ pub fn run() -> tauri::Result<()> {
             let state = app_state(app.handle(), platform, pending_send, presence.clone())?;
             refresh_launchers(state.clone());
             start_presence(&presence);
+            start_link(state.clone());
             app.manage(presence);
             send_request::forward(&state, &launch_send_paths());
             app.manage(state.clone());
+            #[cfg(desktop)]
             tray::start(app.handle(), &state, launched_in_background());
+            #[cfg(mobile)]
+            mobile::open_main_window(app.handle())?;
             Ok(())
         })
-        .on_window_event(tray::on_window_event)
-        .manage(PendingUpdate::default())
+        .manage(Opened::default())
         .invoke_handler(tauri::generate_handler![
             commands::send::scan,
             commands::send::start_manual,
             commands::send::scan_apps,
             commands::send::pick,
             commands::send::take_send_request,
+            commands::send::take_opened,
+            #[cfg(mobile)]
+            mobile::scan_qr,
             commands::send::suggest,
             commands::send::select,
             commands::send::passphrase_strength,
@@ -155,8 +180,31 @@ pub fn run() -> tauri::Result<()> {
             commands::devices::set_visibility,
             commands::devices::wake_device,
             commands::devices::take_show_nearby,
+            commands::ecosystem::linked_devices,
+            commands::ecosystem::pair_invite,
+            commands::ecosystem::link_computer,
+            commands::ecosystem::link_invite,
+            commands::ecosystem::answer_pair_peer,
+            commands::ecosystem::own_fingerprint,
+            commands::ecosystem::lan_available,
+            commands::ecosystem::set_feature,
+            commands::ecosystem::answer_ask,
+            commands::ecosystem::send_clipboard,
+            commands::ecosystem::send_text,
+            commands::ecosystem::send_files,
+            commands::ecosystem::handoff_url,
+            commands::ecosystem::ring,
+            commands::ecosystem::stop_ring,
+            commands::ecosystem::clip_history,
+            commands::ecosystem::clear_clip_history,
+            commands::ecosystem::clip_settings,
+            commands::ecosystem::set_clip_settings,
+            commands::ecosystem::retry_file,
+            #[cfg(desktop)]
             updater::check_update,
+            #[cfg(desktop)]
             updater::install_update,
+            #[cfg(desktop)]
             updater::restart_app,
             commands::reports::error_report_consent,
             commands::reports::set_error_report_consent,
@@ -173,7 +221,10 @@ pub fn run() -> tauri::Result<()> {
             {
                 presence.stop();
             }
+            #[cfg(desktop)]
             tray::on_run_event(app, &event);
+            #[cfg(mobile)]
+            mobile::on_run_event(app, &event);
         });
     Ok(())
 }
@@ -187,7 +238,20 @@ fn launch_send_paths() -> Vec<PathBuf> {
     send_request::send_paths(&argv, &cwd).unwrap_or_default()
 }
 
+/// Entry point the Android and iOS runtimes call (they cannot take a
+/// `Result`). The macro emits `extern` JNI glue, hence the one `unsafe`
+/// exception to the workspace's `forbid` (ADR 0003 sign-off).
+#[cfg(mobile)]
+#[allow(unsafe_code)]
+#[tauri::mobile_entry_point]
+fn mobile_main() {
+    if let Err(error) = run() {
+        tracing::error!(%error, "the app failed to run");
+    }
+}
+
 /// Whether this launch is a start at sign-in.
+#[cfg(desktop)]
 fn launched_in_background() -> bool {
     std::env::args_os().any(|arg| arg == tray::BACKGROUND_FLAG)
 }
@@ -196,6 +260,17 @@ fn launched_in_background() -> bool {
 fn start_presence(presence: &Arc<BackgroundPresence>) {
     let presence = Arc::clone(presence);
     tauri::async_runtime::spawn_blocking(move || presence.start());
+}
+
+/// Start the link supervisor (or attach to another process's), off the
+/// start-up path; on a phone the link service may have started it already
+/// ([`ops::ecosystem::start_once`]).
+fn start_link(state: AppState) {
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(error) = ops::ecosystem::start_link(&state) {
+            tracing::warn!(%error, "linked devices are unavailable");
+        }
+    });
 }
 
 /// Point the file-manager and autostart entries at this app's launcher,
@@ -223,6 +298,7 @@ fn app_state(
         .ok();
     Ok(AppState {
         pending_send,
+        link: ops::ecosystem::process_link(),
         ..AppState::new(
             platform,
             recipes::app_locations(resources.as_deref()),

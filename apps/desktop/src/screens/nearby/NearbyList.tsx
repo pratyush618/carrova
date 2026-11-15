@@ -1,7 +1,8 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppGlyph, Badge, List, Row } from '../../ui';
-import { DeviceActions, useDeviceSub } from './DeviceCard';
+import { AppGlyph, List, Row } from '../../ui';
+import { deviceIcon } from '../devices/model';
+import { DeviceActions, glyphTone, KindBadge, useDeviceSub } from './DeviceCard';
 import type { DeviceEntry, NearbyIntents } from './model';
 
 function DeviceRows({
@@ -15,7 +16,6 @@ function DeviceRows({
   readonly now: Date;
   readonly on: NearbyIntents;
 }) {
-  const { t } = useTranslation();
   const sub = useDeviceSub();
   if (devices.length === 0) return null;
   return (
@@ -26,16 +26,11 @@ function DeviceRows({
           <Row
             key={device.key}
             off={device.kind === 'away'}
-            lead={
-              <AppGlyph
-                glyph={{ icon: 'laptop' }}
-                tone={device.kind === 'known' ? 'accent' : 'neutral'}
-              />
-            }
+            lead={<AppGlyph glyph={{ icon: deviceIcon(device.os) }} tone={glyphTone(device)} />}
             title={
               <>
                 {device.name}
-                {device.kind === 'new' && <Badge tone="warning">{t('nearby.new')}</Badge>}
+                <KindBadge kind={device.kind} />
               </>
             }
             sub={sub(device, now)}

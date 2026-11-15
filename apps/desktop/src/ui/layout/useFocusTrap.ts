@@ -14,10 +14,15 @@ function focusables(root: HTMLElement): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => !el.closest('[inert]'));
 }
 
+/** The window's toast dock: its notes stay reachable over an overlay (see `Window`). */
+function toastDock(root: HTMLElement): HTMLElement | null {
+  return root.closest('.p-window')?.querySelector<HTMLElement>(':scope > .p-toast-dock') ?? null;
+}
+
 /**
  * Modal focus handling: moves focus in (to `[data-initial-focus]`, else the
- * heading), keeps Tab inside, calls `onEscape` on Esc, and gives focus back
- * to whatever had it when the overlay closes.
+ * heading), keeps Tab inside it and the window's toasts, calls `onEscape` on
+ * Esc, and gives focus back to whatever had it when the overlay closes.
  */
 export function useFocusTrap(ref: RefObject<HTMLElement | null>, onEscape: () => void): void {
   const escape = useEffectEvent(onEscape);
@@ -31,14 +36,18 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, onEscape: () =>
       root.querySelector<HTMLElement>('h2')
     )?.focus();
 
+    const dock = toastDock(root);
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      // An overlay under the top one keeps its listener on the shared dock.
+      if (root.closest('[inert]')) return;
+      // Escape in a toast is no answer to the overlay under it.
+      if (event.key === 'Escape' && event.target instanceof Node && root.contains(event.target)) {
         event.stopPropagation();
         escape();
         return;
       }
       if (event.key !== 'Tab') return;
-      const items = focusables(root);
+      const items = [...focusables(root), ...(dock ? focusables(dock) : [])];
       const first = items[0];
       const last = items.at(-1);
       if (!first || !last) {
@@ -48,7 +57,9 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, onEscape: () =>
       const active = document.activeElement;
       if (
         event.shiftKey &&
-        (active === first || !root.contains(active) || active === root.querySelector('h2'))
+        (active === first ||
+          !(active instanceof HTMLElement && items.includes(active)) ||
+          active === root.querySelector('h2'))
       ) {
         event.preventDefault();
         last.focus();
@@ -59,8 +70,10 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, onEscape: () =>
     };
 
     root.addEventListener('keydown', onKeyDown);
+    dock?.addEventListener('keydown', onKeyDown);
     return () => {
       root.removeEventListener('keydown', onKeyDown);
+      dock?.removeEventListener('keydown', onKeyDown);
       previous?.focus();
     };
   }, [ref]);

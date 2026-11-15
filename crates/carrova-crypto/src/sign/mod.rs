@@ -58,6 +58,9 @@ pub enum SignContext {
     /// A device proving its identity key inside a paired connection
     /// ([`crate::identity`]). No [`KeyRole`] permits it.
     DeviceIdentity,
+    /// A linked device proving its identity key when it reconnects
+    /// ([`crate::identity`]). No [`KeyRole`] permits it.
+    DeviceLink,
 }
 
 impl SignContext {
@@ -68,6 +71,7 @@ impl SignContext {
             Self::KeyCert => b"carrova/keycert/v1\0",
             Self::BundleIndex => b"carrova/bundle-index/v1\0",
             Self::DeviceIdentity => b"carrova/device-identity/v1\0",
+            Self::DeviceLink => b"carrova/device-link/v1\0",
         }
     }
 

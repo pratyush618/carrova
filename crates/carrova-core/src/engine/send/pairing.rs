@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use super::{Peer, SendHandle};
 use crate::engine::remember::KnownPeer;
 use crate::error::{CoreError, Result};
+use crate::lan::link::move_secret;
 use crate::lan::{IDLE_POLL, Inventory, MAX_PAIRING_FAILURES, RECONNECT_WINDOW, SendStep};
 use crate::session::Event;
 use crate::store::{self, Source};
@@ -96,7 +97,7 @@ impl SendHandle {
                         .accept_pairing(&ticket.code, IDLE_POLL.min(left), staked)
                     {
                         Ok(conn) => {
-                            let secret = conn.resume_secret().clone();
+                            let secret = move_secret(&conn)?;
                             store::write_resume_secret(self.s.platform(), &self.s.dir, &secret)?;
                             // Stop offering the nameplate right away.
                             self.listener.advertise_resume(&secret)?;
@@ -166,7 +167,7 @@ impl SendHandle {
 
 /// Fresh code advertised on `listener`, as a ticket with the fallback
 /// address.
-pub(super) fn offer(listener: &mut Listener) -> Result<Ticket> {
+pub(crate) fn offer(listener: &mut Listener) -> Result<Ticket> {
     let code = PairingCode::generate().map_err(TransportError::from)?;
     listener.advertise_pairing(&code)?;
     Ok(Ticket {

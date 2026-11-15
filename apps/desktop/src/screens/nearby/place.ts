@@ -9,8 +9,8 @@ export interface Placement {
   readonly slot: number;
 }
 
-/** When the map is full, newcomers are left off in this order: away first, known last. */
-const KEEP: Readonly<Record<DeviceKind, number>> = { known: 0, new: 1, away: 2 };
+/** When the map is full, newcomers are left off in this order: away first, known and linked last. */
+const KEEP: Readonly<Record<DeviceKind, number>> = { linked: 0, known: 0, new: 1, away: 2 };
 
 /**
  * Seats `devices` in the slots open on a `fieldWidth` field. A device keeps

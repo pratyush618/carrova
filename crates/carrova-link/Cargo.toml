@@ -1,0 +1,28 @@
+[package]
+name = "carrova-link"
+description = "Carrova link: per-device feature policy and the two-sided gate"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+blake3 = { workspace = true }
+carrova-transport = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+ts-rs = { workspace = true, optional = true }
+url = { workspace = true }
+
+[dev-dependencies]
+carrova-crypto = { workspace = true }
+carrova-platform = { workspace = true }
+serde_json = { workspace = true }
+
+[features]
+# TypeScript bindings (ts-rs) of the policy types front-ends receive.
+ts = ["dep:ts-rs"]
+
+[lints]
+workspace = true

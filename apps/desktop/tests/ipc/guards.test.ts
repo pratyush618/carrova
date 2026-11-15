@@ -27,4 +27,30 @@ describe('the IPC guards', () => {
   it('turn an unknown code into an internal error', () => {
     expect(toBridgeError({ code: 'mystery', message: 'm', hint: null }).code).toBe('internal');
   });
+
+  it('accept a pairing invite, which names no session, only with its QR code, code and lifetime', () => {
+    const code = {
+      code: '4-maple-orbit',
+      fallback: null,
+      renewed: false,
+      expired: false,
+      expires_in_secs: 180,
+    };
+    const invite = { uri: 'carrova://pair?v=1', qr_svg: '<svg/>', code, expires_in_s: 180 };
+    expect(isBridgeEvent({ kind: 'pair_invite', invite })).toBe(true);
+    expect(isBridgeEvent({ kind: 'pair_invite', invite: { uri: 'x' } })).toBe(false);
+    expect(isBridgeEvent({ kind: 'pair_invite', invite: { ...invite, code: {} } })).toBe(false);
+    expect(isBridgeEvent({ kind: 'pair_invite', invite: { ...invite, expires_in_s: '180' } })).toBe(
+      false,
+    );
+  });
+
+  it('accept a device found while pairing only with its name, OS and fingerprint', () => {
+    const peer = { name: 'Pixel 8', os: 'android', fingerprint: 'C4D2·7781' };
+    expect(isBridgeEvent({ kind: 'pair_peer_found', peer })).toBe(true);
+    expect(isBridgeEvent({ kind: 'pair_peer_found', peer: { name: 'Pixel 8' } })).toBe(false);
+    expect(isBridgeEvent({ kind: 'pair_peer_found', peer: { ...peer, fingerprint: 7 } })).toBe(
+      false,
+    );
+  });
 });

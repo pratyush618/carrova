@@ -154,3 +154,13 @@ pub enum ScreenLock {
     #[default]
     Unknown,
 }
+
+/// What a phone shows while it keeps running for its links
+/// ([`crate::Platform::keep_running`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LinkNotice {
+    /// Names of the devices it keeps linked (at least one).
+    pub devices: Vec<String>,
+    /// The user paused linking ([`crate::Platform::links_paused`]).
+    pub paused: bool,
+}

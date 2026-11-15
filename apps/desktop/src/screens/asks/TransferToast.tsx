@@ -1,0 +1,65 @@
+import { useTranslation } from 'react-i18next';
+import type { Transfer } from '../../app/state/appState';
+import { useFormat } from '../../i18n/useFormat';
+import { Button, Progress, Toast } from '../../ui';
+
+/** A file moving with a linked device: progress, then saved (or sent) or why it stopped. */
+export function TransferToast({
+  device,
+  transfer,
+  onDismiss,
+  onRetry,
+}: {
+  /** The other device's name. */
+  readonly device: string;
+  readonly transfer: Transfer;
+  readonly onDismiss: () => void;
+  /** Send it again; offered only for a file that can be (its device left mid-send). */
+  readonly onRetry: () => void;
+}) {
+  const { t } = useTranslation();
+  const format = useFormat();
+  // The name arrives with the saved file; until then the file has none.
+  const file = transfer.file_name === '' ? t('ecosystem.transfer.aFile') : transfer.file_name;
+  const { state } = transfer;
+  switch (state.kind) {
+    case 'active':
+      return (
+        <Toast icon="receive" onDismiss={onDismiss}>
+          <Progress
+            size="sm"
+            label={t('ecosystem.transfer.label', { name: device })}
+            value={transfer.total === 0 ? 0 : transfer.done / transfer.total}
+            meta={[
+              t('ecosystem.transfer.with', { file, name: device }),
+              `${format.bytes(transfer.done)} / ${format.bytes(transfer.total)}`,
+            ]}
+          />
+        </Toast>
+      );
+    case 'done':
+      return (
+        <Toast onDismiss={onDismiss}>
+          {transfer.sent
+            ? t('ecosystem.transfer.sent', { name: device })
+            : t('ecosystem.transfer.saved', { file })}
+        </Toast>
+      );
+    case 'failed':
+      return (
+        <Toast
+          icon="warn"
+          onDismiss={onDismiss}
+          action={
+            state.retry && (
+              <Button kind="primary" size="sm" icon="refresh" onClick={onRetry}>
+                {t('ecosystem.transfer.retry')}
+              </Button>
+            )
+          }
+        >
+          {t(`ecosystem.transfer.${state.reason}`, { name: device, file })}
+        </Toast>
+      );
+  }
+}

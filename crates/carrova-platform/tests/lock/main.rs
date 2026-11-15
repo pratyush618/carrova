@@ -55,3 +55,14 @@ fn a_symlink_is_never_locked_through() {
     std::os::unix::fs::symlink(&target, &link).unwrap();
     assert!(current().lock_exclusive(&link).is_err());
 }
+
+#[test]
+fn try_lock_gives_none_while_held_and_the_lock_once_free() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("lock");
+    let platform = current();
+    let guard = platform.try_lock_exclusive(&path).unwrap().unwrap();
+    assert!(platform.try_lock_exclusive(&path).unwrap().is_none());
+    drop(guard);
+    assert!(platform.try_lock_exclusive(&path).unwrap().is_some());
+}

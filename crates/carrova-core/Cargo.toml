@@ -10,11 +10,13 @@ publish.workspace = true
 [dependencies]
 carrova-archive = { workspace = true }
 carrova-crypto = { workspace = true }
+carrova-link = { workspace = true }
 carrova-manifest = { workspace = true }
 carrova-transport = { workspace = true }
 blake3 = { workspace = true }
 ciborium = { workspace = true }
 data-encoding = { workspace = true }
+percent-encoding = "2"
 getrandom = { workspace = true }
 serde_json = { workspace = true }
 tracing-subscriber = { workspace = true }

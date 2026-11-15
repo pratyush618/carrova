@@ -8,7 +8,9 @@ export type HubPage = 'home' | 'nearby' | 'history' | 'apps' | 'settings';
 export type View =
   /** `section`: the open part of Settings (only on the settings page). */
   | { readonly kind: 'hub'; readonly page: HubPage; readonly section?: SettingsSection }
-  | { readonly kind: 'flow'; readonly at: FlowPosition };
+  | { readonly kind: 'flow'; readonly at: FlowPosition }
+  /** One linked device's page (under Nearby). */
+  | { readonly kind: 'device'; readonly id: string };
 
 /** Why an override dialog is open: each names one rule the user may bend. */
 export type OverrideKind = 'unmovable' | 'running' | 'space' | 'cross_os' | 'elsewhere';
@@ -36,7 +38,15 @@ export type Overlay =
   /** Rename or forget remembered devices (Settings → Nearby & devices). */
   | { readonly kind: 'known-devices' }
   /** Confirm forgetting every remembered device, or giving this computer a new identity. */
-  | { readonly kind: 'forget-devices'; readonly what: 'all' | 'identity' };
+  | { readonly kind: 'forget-devices'; readonly what: 'all' | 'identity' }
+  /** Add a device: a QR code for a phone, a typed code for a computer. */
+  | { readonly kind: 'add-device' }
+  /** Link another computer by typing its code. */
+  | { readonly kind: 'link-computer' }
+  /** Confirm forgetting a linked device. */
+  | { readonly kind: 'forget-device'; readonly id: string }
+  /** Clips received from linked devices. */
+  | { readonly kind: 'clip-history' };
 
 /** Navigation state: one view, the hub page a flow returns to, and a stack of overlays (top last). */
 export interface Nav {
@@ -49,6 +59,7 @@ export interface Nav {
 /** Every way navigation can change. Screens raise intents; the shell maps them to these. */
 export type NavEvent =
   | { readonly type: 'openHub'; readonly page: HubPage; readonly section?: SettingsSection }
+  | { readonly type: 'openDevice'; readonly id: string }
   | { readonly type: 'startFlow'; readonly flow: FlowId }
   | { readonly type: 'enterFlow'; readonly at: FlowPosition }
   | { readonly type: 'next' }
@@ -83,6 +94,8 @@ export function navigate(nav: Nav, event: NavEvent): Nav {
             overlays: [],
           }
         : { view: { kind: 'hub', page: event.page }, origin: event.page, overlays: [] };
+    case 'openDevice':
+      return show(nav, { kind: 'device', id: event.id });
     case 'startFlow':
       return show(nav, { kind: 'flow', at: flowStart(event.flow) });
     case 'enterFlow':

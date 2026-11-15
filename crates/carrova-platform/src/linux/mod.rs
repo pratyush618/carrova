@@ -13,19 +13,22 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::{
-    DirEntry, DiskInfo, FileManagerStatus, FileMeta, OsKind, Platform, PlatformError, ProcessInfo,
-    SemanticRoot, SnapshotCapability,
+    ClipContent, ClipboardWatch, DirEntry, DiskInfo, FileManagerStatus, FileMeta, LocalListener,
+    LocalStream, OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability,
 };
 
 mod background;
+mod clipboard;
 mod file_manager;
 mod mounts;
+mod open;
 mod roots;
 mod screen;
 #[cfg(test)]
 #[path = "../../tests/linux/unit.rs"]
 mod tests;
 mod watch;
+mod x11;
 
 /// Snapshot of the environment variables the adapter depends on.
 #[derive(Debug, Clone, Default)]
@@ -38,6 +41,8 @@ pub(crate) struct LinuxEnv {
     pub(crate) path: Option<OsString>,
     /// Set by the AppImage runtime to the image file.
     pub(crate) appimage: Option<OsString>,
+    /// Set by a Wayland session; without it the clipboard is X11's.
+    pub(crate) wayland_display: Option<OsString>,
 }
 
 impl LinuxEnv {
@@ -50,6 +55,7 @@ impl LinuxEnv {
             xdg_state_home: std::env::var_os("XDG_STATE_HOME"),
             path: std::env::var_os("PATH"),
             appimage: std::env::var_os("APPIMAGE"),
+            wayland_display: std::env::var_os("WAYLAND_DISPLAY"),
         }
     }
 }
@@ -152,6 +158,44 @@ impl Platform for LinuxPlatform {
         crate::sys::free_space(path)
     }
 
+    fn clipboard_read(&self) -> Result<Option<ClipContent>, PlatformError> {
+        self.clipboard().read()
+    }
+
+    fn clipboard_write(&self, content: &ClipContent) -> Result<(), PlatformError> {
+        self.clipboard().write(content)
+    }
+
+    fn watch_clipboard(
+        &self,
+        on_change: Box<dyn Fn() + Send>,
+    ) -> Result<ClipboardWatch, PlatformError> {
+        Ok(self.clipboard().watch(on_change))
+    }
+
+    fn downloads_dir(&self) -> Result<PathBuf, PlatformError> {
+        self.downloads()
+    }
+
+    fn open_url(&self, url: &str) -> Result<(), PlatformError> {
+        self.xdg_open(crate::open::checked_url(url)?.as_ref())
+    }
+
+    fn open_path(&self, path: &Path) -> Result<(), PlatformError> {
+        self.xdg_open(crate::open::checked_path(path)?.as_os_str())
+    }
+
+    fn bind_local_socket(&self, path: &Path) -> Result<LocalListener, PlatformError> {
+        let owner = self
+            .current_uid()
+            .ok_or(PlatformError::Unsupported("current_uid"))?;
+        LocalListener::bind(path, owner)
+    }
+
+    fn connect_local_socket(&self, path: &Path) -> Result<LocalStream, PlatformError> {
+        LocalStream::connect(path)
+    }
+
     fn wake_display(&self) -> Result<(), PlatformError> {
         screen::wake()
     }
@@ -251,6 +295,10 @@ impl Platform for LinuxPlatform {
 
     fn lock_exclusive(&self, path: &Path) -> Result<crate::FileLock, PlatformError> {
         crate::sys::lock_exclusive(path)
+    }
+
+    fn try_lock_exclusive(&self, path: &Path) -> Result<Option<crate::FileLock>, PlatformError> {
+        crate::sys::try_lock_exclusive(path)
     }
 
     fn current_uid(&self) -> Option<u32> {

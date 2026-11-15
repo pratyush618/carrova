@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HubLayout, LinkRow, Marked } from '../../ui';
+import type { ClipSettings, LinkedDeviceView } from '../../engine/types';
 import { AlertsGroup } from './AlertsGroup';
+import { ClipboardGroup, FeaturesGroup, LinkedGroup } from './EcosystemGroups';
 import { BackgroundGroup } from './BackgroundGroup';
 import { Group } from './Group';
 import type { SettingsIntents, SettingsModel } from './model';
@@ -15,6 +17,12 @@ import { LookGroup, MoreGroup, PrivacyGroup, SendingGroup, UpdatesGroup } from '
 interface Props {
   readonly model: SettingsModel;
   readonly on: SettingsIntents;
+  /** Linked devices (Settings → Linked devices). */
+  readonly linked: readonly LinkedDeviceView[];
+  /** Clipboard settings (Settings → Clipboard); `null` until loaded. */
+  readonly clip: ClipSettings | null;
+  /** The last clipboard change could not be saved. */
+  readonly clipFailed?: boolean;
 }
 
 /** What each section shows. */
@@ -25,6 +33,9 @@ const BODY: Record<SettingsSection, (props: Props) => ReactNode> = {
       <BackgroundGroup {...p} />
     </>
   ),
+  features: () => <FeaturesGroup />,
+  linked: (p) => <LinkedGroup {...p} />,
+  clipboard: (p) => <ClipboardGroup {...p} />,
   sending: (p) => <SendingGroup {...p} />,
   nearby: (p) => <NearbyGroup {...p} />,
   notifications: (p) => <AlertsGroup {...p} />,
@@ -39,6 +50,9 @@ export function SettingsScreen({
   section,
   model,
   on,
+  linked,
+  clip,
+  clipFailed = false,
 }: Props & { readonly section: SettingsSection }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
@@ -81,7 +95,7 @@ export function SettingsScreen({
           ))}
         </Group>
       ) : (
-        BODY[section]({ model, on })
+        BODY[section]({ model, on, linked, clip, clipFailed })
       )}
     </HubLayout>
   );

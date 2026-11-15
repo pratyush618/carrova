@@ -57,6 +57,8 @@ select {
 button {
   /* No UA buttonface: axe and the eye must see the surface behind the row. */
   background: transparent;
+  /* WebKitGTK paints an outset UA border on any button that sets none. */
+  border: 0;
   cursor: pointer;
 }
 

@@ -1,7 +1,13 @@
 import type { AlertSettings } from '../../bindings/AlertSettings';
 import type { BackgroundSettings } from '../../bindings/BackgroundSettings';
 import type { NearbySettings } from '../../bindings/NearbySettings';
-import type { BridgeError, MoveDefaults, OsKind, VisibilityChoice } from '../../engine/types';
+import type {
+  BridgeError,
+  ClipSettings,
+  MoveDefaults,
+  OsKind,
+  VisibilityChoice,
+} from '../../engine/types';
 import type { DeviceChange } from '../nearby/model';
 import type { SettingsSection } from './sections';
 
@@ -124,6 +130,13 @@ export interface SettingsIntents {
   readonly onAlerts: (patch: Partial<AlertSettings>) => void;
   readonly onPause: (choice: PauseChoice) => void;
   readonly onSection: (section: SettingsSection) => void;
+  readonly onOpenDevice: (id: string) => void;
+  readonly onAddDevice: () => void;
+  readonly onLinkComputer: () => void;
+  /** Open the clipboard history sheet. */
+  readonly onClipHistory: () => void;
+  /** Change the clipboard settings (only the fields given). */
+  readonly onClip: (patch: Partial<ClipSettings>) => void;
   /** Leave Settings for the page it was opened from. */
   readonly onBack: () => void;
 }

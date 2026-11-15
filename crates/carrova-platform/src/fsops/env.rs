@@ -85,6 +85,7 @@ fn is_executable_file(path: &Path) -> bool {
 }
 
 /// Minimal tool environment: `HOME`, `PATH` (if known), `LC_ALL=C`.
+#[cfg(any(feature = "fake", not(target_os = "android")))]
 pub(crate) fn tool_command(bin: &Path, home: &Path, path: Option<&OsStr>) -> std::process::Command {
     let mut cmd = std::process::Command::new(bin);
     cmd.env_clear().env("HOME", home).env("LC_ALL", "C");

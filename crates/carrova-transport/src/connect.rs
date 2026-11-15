@@ -5,19 +5,20 @@ use std::net::SocketAddrV4;
 use std::sync::Arc;
 use std::time::Duration;
 
-use carrova_crypto::identity::DeviceKey;
-use carrova_crypto::pairing::ResumeSecret;
+use carrova_crypto::identity::{DeviceKey, DevicePublic};
+use carrova_crypto::pairing::{KnownSecret, ResumeSecret};
 use carrova_platform::Platform;
 use tokio::time::Instant;
 
 use crate::cancel::{CancelSignal, Watch};
 use crate::connection::Connection;
 use crate::endpoint;
-use crate::error::Result;
-use crate::handshake::Secret;
+use crate::error::{Result, SetupFailure};
+use crate::handshake::{self, Authenticated, PairedPeer, PeerIdentity, PeerInfo, Secret};
 use crate::race::{Dialer, race};
 use crate::ticket::Ticket;
 use crate::tls::Identity;
+use crate::wire::PairPurpose;
 
 /// How the receiver connects.
 #[derive(Debug, Clone)]
@@ -54,31 +55,58 @@ pub enum Target<'a> {
     /// Reconnect: discovery by resume tag, proven with the session's
     /// resume secret.
     Resume(&'a ResumeSecret),
+    /// Link to a paired device listening at `addr` (ADR 0002 §3): no code;
+    /// both sides prove the `secret` they share and their device keys,
+    /// and the listener's must be `peer`. Needs
+    /// [`ConnectOptions::device`].
+    Link {
+        /// The paired device's stored key.
+        peer: &'a DevicePublic,
+        /// The secret shared with it since pairing.
+        secret: &'a KnownSecret,
+        /// Its link listener (presence TXT [`crate::TXT_LINK_PORT`]).
+        addr: SocketAddrV4,
+    },
 }
 
 impl Target<'_> {
-    /// The secret the handshake proves (pairing: with `device`).
-    fn secret(self, device: Option<Arc<DeviceKey>>) -> Secret {
-        match self {
+    /// The secret the handshake proves (pairing: with `device`; link:
+    /// requires it).
+    fn secret(self, device: Option<Arc<DeviceKey>>) -> Result<Secret> {
+        Ok(match self {
             Self::Pairing(ticket) => Secret::Pair {
                 code: ticket.code.clone(),
                 device,
+                purpose: PairPurpose::Move,
+                pin: None,
             },
             Self::Resume(secret) => Secret::Resume(secret.clone()),
-        }
+            Self::Link { peer, secret, .. } => Secret::Link {
+                peer: PeerIdentity {
+                    public: *peer,
+                    secret: secret.clone(),
+                },
+                device: device.ok_or(SetupFailure::NoDeviceKey)?,
+            },
+        })
     }
 
-    /// The address the user typed, if any (otherwise: discovery).
+    /// The address the user typed or the link's, if any (otherwise:
+    /// discovery).
     fn address(self) -> Option<SocketAddrV4> {
         match self {
             Self::Pairing(ticket) => ticket.addr,
             Self::Resume(_) => None,
+            Self::Link { addr, .. } => Some(addr),
         }
     }
 }
 
 /// Receiver side: find the sender of `target` and authenticate within
 /// `timeout`.
+///
+/// A link fails with [`TransportError::LinkFailed`] when the listener
+/// does not know us or either side's proof is wrong (no further detail).
 ///
 /// Every error means no authenticated sender was reached (never an
 /// authenticated peer's protocol error), so callers may retry. Discovered
@@ -92,22 +120,73 @@ impl Target<'_> {
 /// `timeout`.
 ///
 /// [`TransportError::PairingFailed`]: crate::TransportError::PairingFailed
+/// [`TransportError::LinkFailed`]: crate::TransportError::LinkFailed
 pub fn connect(target: Target<'_>, timeout: Duration, opts: &ConnectOptions) -> Result<Connection> {
+    let (endpoint, auth, cancel) = authenticate(
+        target.secret(opts.device.clone())?,
+        target.address(),
+        timeout,
+        opts,
+    )?;
+    Ok(Connection::new(endpoint, auth, cancel))
+}
+
+/// Receiver side of pairing without a transfer (ADR 0002 §1): pair with
+/// `ticket` as [`connect`] does, always proving device identities, swap
+/// [`PeerInfo`] and return once the sender confirmed it stored us (its
+/// user may check our key first: waits up to [`PAIR_CONFIRM_TIMEOUT`]).
+///
+/// `pin` (the key from a scanned QR code) must equal the sender's proven
+/// key, else [`TransportError::KeyMismatch`] and this device's identity
+/// is never sent. Needs [`ConnectOptions::device`]; without it fails with
+/// [`SetupFailure::NoDeviceKey`] before connecting.
+///
+/// [`TransportError::KeyMismatch`]: crate::TransportError::KeyMismatch
+/// [`PAIR_CONFIRM_TIMEOUT`]: crate::PAIR_CONFIRM_TIMEOUT
+pub fn pair_only(
+    ticket: &Ticket,
+    pin: Option<&DevicePublic>,
+    me: &PeerInfo,
+    timeout: Duration,
+    opts: &ConnectOptions,
+) -> Result<PairedPeer> {
+    let device = opts.device.clone().ok_or(SetupFailure::NoDeviceKey)?;
+    let secret = Secret::Pair {
+        code: ticket.code.clone(),
+        device: Some(device),
+        purpose: PairPurpose::PairOnly,
+        pin: pin.copied(),
+    };
+    let (_endpoint, auth, cancel) = authenticate(secret, ticket.addr, timeout, opts)?;
+    cancel.block_on(handshake::receive(auth, me))
+}
+
+/// Find the sender (at `addr`, else by discovery) and authenticate with
+/// `secret`; the endpoint must outlive the connection.
+fn authenticate(
+    secret: Secret,
+    addr: Option<SocketAddrV4>,
+    timeout: Duration,
+    opts: &ConnectOptions,
+) -> Result<(quinn::Endpoint, Authenticated, Watch)> {
     let identity = Arc::new(Identity::generate()?);
-    let (endpoint, config) = endpoint::client(opts.platform.as_ref(), &identity)?;
+    let (endpoint, mut config) = endpoint::client(opts.platform.as_ref(), &identity)?;
+    if matches!(secret, Secret::Link { .. }) {
+        config.transport_config(endpoint::link_transport(opts.platform.as_ref())?);
+    }
     let dialer = Dialer::new(
         endpoint.clone(),
         config,
         identity,
-        target.secret(opts.device.clone()),
+        secret,
         Instant::now() + timeout,
     );
     let cancel = Watch::new(opts.cancel.as_ref());
     let auth = cancel.block_on(async {
-        match target.address() {
+        match addr {
             Some(addr) => dialer.authenticate(addr).await,
             None => race(dialer, &opts.platform).await,
         }
     })?;
-    Ok(Connection::new(endpoint, auth, cancel))
+    Ok((endpoint, auth, cancel))
 }

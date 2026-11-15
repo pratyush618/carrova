@@ -32,20 +32,43 @@ const settingsOn = (): SettingsIntents => ({
   onPause: vi.fn(),
   onSection: vi.fn(),
   onBack: vi.fn(),
+  onOpenDevice: vi.fn(),
+  onAddDevice: vi.fn(),
+  onLinkComputer: vi.fn(),
+  onClipHistory: vi.fn(),
+  onClip: vi.fn(),
 });
+
+const clipDefaults = { share: true, show_note: false, history_file: false };
 
 /** The page opened on `section`. */
 const inSection = (
   section: SettingsSection,
   on: SettingsIntents,
   model: Partial<SettingsModel> = {},
-) => <SettingsScreen section={section} model={{ ...settingsModel, ...model }} on={on} />;
+) => (
+  <SettingsScreen
+    section={section}
+    model={{ ...settingsModel, ...model }}
+    on={on}
+    linked={[]}
+    clip={clipDefaults}
+  />
+);
 
 describe('Settings', () => {
   it('swaps the sidebar for the sections, with a back button', async () => {
     const user = userEvent.setup();
     const on = settingsOn();
-    renderScreen(<SettingsScreen section="general" model={settingsModel} on={on} />);
+    renderScreen(
+      <SettingsScreen
+        section="general"
+        model={settingsModel}
+        on={on}
+        linked={[]}
+        clip={clipDefaults}
+      />,
+    );
     const sections = screen.getByRole('navigation', { name: 'Settings sections' });
     expect(
       within(sections)
@@ -53,6 +76,9 @@ describe('Settings', () => {
         .map((b) => b.textContent),
     ).toEqual([
       'General',
+      'Features',
+      'Linked devices',
+      'Clipboard',
       'Sending',
       'Nearby & devices',
       'Notifications',
@@ -129,7 +155,15 @@ describe('Settings', () => {
   it('searches every section and opens the one a result belongs to', async () => {
     const user = userEvent.setup();
     const on = settingsOn();
-    renderScreen(<SettingsScreen section="general" model={settingsModel} on={on} />);
+    renderScreen(
+      <SettingsScreen
+        section="general"
+        model={settingsModel}
+        on={on}
+        linked={[]}
+        clip={clipDefaults}
+      />,
+    );
     await user.type(screen.getByRole('searchbox', { name: 'Search settings' }), 'wake');
     expect(screen.getByText('2 results for “wake”')).toBeInTheDocument();
     expect(
@@ -325,5 +359,38 @@ describe('Known devices', () => {
     expect(on.onRename).toHaveBeenCalledOnce();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(pen()).toHaveFocus();
+  });
+});
+
+describe('Clipboard settings', () => {
+  it('switches clipboard sharing, the arrival note and the history file', async () => {
+    const user = userEvent.setup();
+    const on = settingsOn();
+    renderScreen(inSection('clipboard', on));
+    const share = screen.getByRole('switch', { name: 'Share the clipboard' });
+    expect(share).toBeChecked();
+    expect(
+      screen.getByRole('switch', { name: 'Show a note when something arrives' }),
+    ).not.toBeChecked();
+    await user.click(share);
+    expect(on.onClip).toHaveBeenCalledWith({ share: false });
+    await user.click(screen.getByRole('switch', { name: 'Show a note when something arrives' }));
+    expect(on.onClip).toHaveBeenCalledWith({ show_note: true });
+    await user.click(screen.getByRole('switch', { name: 'Keep the history in a file' }));
+    expect(on.onClip).toHaveBeenCalledWith({ history_file: true });
+  });
+
+  it('says when a clipboard change did not stick', () => {
+    renderScreen(
+      <SettingsScreen
+        section="clipboard"
+        model={settingsModel}
+        on={settingsOn()}
+        linked={[]}
+        clip={clipDefaults}
+        clipFailed
+      />,
+    );
+    expect(screen.getByText("Couldn't change that. Try again.")).toBeInTheDocument();
   });
 });

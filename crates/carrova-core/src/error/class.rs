@@ -138,6 +138,7 @@ impl CoreError {
                 C::new(K::Network).resumable().hint(Hint::ResumeWhenBack)
             }
             Self::PeerAborted(_) => C::new(K::Network).hint(Hint::PeerEnded),
+            Self::NotLinked => C::new(K::Network),
             Self::TransferIncomplete { .. } => C::new(K::Network)
                 .resumable()
                 .hint(Hint::DeselectUnsupplied),
@@ -155,7 +156,13 @@ impl CoreError {
             Self::UnknownDevice
             | Self::AmbiguousDevice { .. }
             | Self::InvalidDeviceName
+            | Self::Link(_)
+            | Self::FeatureOff(_)
+            | Self::AskGone
+            | Self::NothingToRetry
+            | Self::InvalidInvite(_)
             | Self::NoWakeHint => C::new(K::KnownDevice),
+            Self::KeyMismatch | Self::PairRejected => C::new(K::PairingFailed),
             Self::DeviceKey { .. } => C::new(K::DeviceKey),
             other if out_of_space(other) => C::new(K::NoSpace),
             _ => C::new(K::Internal),

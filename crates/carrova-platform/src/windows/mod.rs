@@ -231,6 +231,10 @@ impl Platform for WindowsPlatform {
         crate::sys::lock_exclusive(path)
     }
 
+    fn try_lock_exclusive(&self, path: &Path) -> Result<Option<FileLock>, PlatformError> {
+        crate::sys::try_lock_exclusive(path)
+    }
+
     fn watch_dirs(
         &self,
         dirs: &[PathBuf],

@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "Phone only: ask once for permission to show the link notification (Android 13+).",
+  "platforms": ["android"],
+  "windows": ["main"],
+  "permissions": [
+    "notification:allow-is-permission-granted",
+    "notification:allow-request-permission"
+  ]
+}

@@ -132,3 +132,27 @@ fn typed_reasons_keep_their_texts() {
         );
     }
 }
+
+#[test]
+fn link_failed_close_maps_to_link_failed() {
+    let close = ConnectionError::ApplicationClosed(quinn::ApplicationClose {
+        error_code: CloseCode::LinkFailed.to_wire(),
+        reason: Default::default(),
+    });
+    assert!(matches!(
+        TransportError::connection(&close),
+        TransportError::LinkFailed
+    ));
+}
+
+#[test]
+fn superseded_close_maps_to_superseded() {
+    let close = ConnectionError::ApplicationClosed(quinn::ApplicationClose {
+        error_code: CloseCode::Superseded.to_wire(),
+        reason: Default::default(),
+    });
+    assert!(matches!(
+        TransportError::connection(&close),
+        TransportError::Superseded
+    ));
+}

@@ -7,6 +7,7 @@ import { buildChrome } from '@/app/shell/chrome';
 import { i18n } from '@/i18n/i18n';
 import {
   nearbyEmpty,
+  nearbyLinked,
   nearbyList,
   nearbyMap,
   nearbyNoHint,
@@ -24,6 +25,9 @@ const nearbyOn = (): NearbyIntents => ({
   onSendWithCode: vi.fn(),
   onWake: vi.fn(),
   onForget: vi.fn(),
+  onOpen: vi.fn(),
+  onAddDevice: vi.fn(),
+  onLinkComputer: vi.fn(),
   onDismissWake: vi.fn(),
 });
 
@@ -375,5 +379,19 @@ describe('Nearby', () => {
   it('says no one can see this computer without naming it', () => {
     renderScreen(page({ ...nearbyMap, visibility: { choice: 'no_one', until: null } }));
     expect(screen.getByRole('button', { name: 'Visible to no one' })).toBeInTheDocument();
+  });
+
+  it('Nearby shows linked phone with Linked badge', async () => {
+    const user = userEvent.setup();
+    const on = nearbyOn();
+    renderScreen(page({ ...nearbyLinked, view: 'list' }, on));
+    const here = within(screen.getByRole('list', { name: 'Here now' }));
+    expect(here.getByText('Linked')).toBeInTheDocument();
+    // A phone never moved anything: its line names the system only.
+    expect(here.getByText('Android')).toBeInTheDocument();
+    await user.click(here.getByRole('button', { name: 'Open: Pixel 8' }));
+    expect(on.onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 'p8' }));
+    await user.click(screen.getByRole('button', { name: 'Add a device' }));
+    expect(on.onAddDevice).toHaveBeenCalledOnce();
   });
 });

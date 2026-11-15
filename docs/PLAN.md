@@ -172,6 +172,22 @@ Spec: `docs/superpowers/specs/2026-11-11-manual-mode-design.md` · Plan: `docs/s
 
 ---
 
+## Ecosystem — linked devices (in progress)
+
+**Goal:** linked computers and Android phones share clipboard, files, Handoff and Ring over the LAN, paired once ("Add a device": QR for phones, code for computers). Three phases; only Phase 1 is planned in detail.
+
+| # | Phase | Outcome | Status |
+|---|-------|---------|--------|
+| 1 | Link + clipboard, files, Handoff, Ring | `carrova-link`, supervisor, CLI `devices`, `link`, `clip`, `file`, `handoff`, desktop screens, Android shell | Implemented; exit gate pending (user: real hardware, checklist in `tasks/todo.md`) |
+| 2 | Phone on the laptop | Notifications, messages (SMS), calls (Android restricted-settings step) | Not started |
+| 3 | Screens and input | Screen sharing and control, shared keyboard and mouse | Not started |
+
+Specs: `docs/superpowers/specs/2026-11-15-ecosystem-design.md` (whole), `docs/superpowers/specs/2026-11-15-ecosystem-phase1-design.md` (Phase 1) · Plan: `docs/superpowers/plans/2026-11-15-ecosystem-phase1.md`
+
+**Exit gate (Phase 1):** automated suite green (`just ci`, `just e2e --link`) and the real-hardware checklist passed by the user. Do not mark complete until then.
+
+---
+
 ## Risks
 
 | Risk | Mitigation |

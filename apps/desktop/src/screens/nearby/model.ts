@@ -6,8 +6,8 @@ export type DeviceChange = 'visibility' | 'rename' | 'forget' | 'reset';
 /** How the page shows the devices. */
 export type NearbyView = 'map' | 'list';
 
-/** A device remembered and here now, one seen for the first time, or a remembered one not here. */
-export type DeviceKind = 'known' | 'new' | 'away';
+/** A device remembered and here now, one seen for the first time, a remembered one not here, or one linked now. */
+export type DeviceKind = 'known' | 'new' | 'away' | 'linked';
 
 /** One device on the Nearby page. */
 export interface DeviceEntry {
@@ -29,13 +29,14 @@ export interface DeviceEntry {
 }
 
 /** What each kind of device offers (Wake only where a hint is saved). */
-export type DeviceAction = 'sendWithCode' | 'wake' | 'forget';
+export type DeviceAction = 'open' | 'sendWithCode' | 'wake' | 'forget';
 
 // Phase 3 gives known devices a code-less "Send"; until then every device here pairs with a code.
 export const DEVICE_ACTIONS: Readonly<Record<DeviceKind, readonly DeviceAction[]>> = {
   known: ['sendWithCode'],
   new: ['sendWithCode'],
   away: ['wake', 'forget'],
+  linked: ['open'],
 };
 
 /** The actions `device` offers now. */
@@ -94,4 +95,8 @@ export interface NearbyIntents {
   readonly onWake: (device: DeviceEntry) => void;
   readonly onForget: (device: DeviceEntry) => void;
   readonly onDismissWake: () => void;
+  /** Open a linked device's page. */
+  readonly onOpen: (device: DeviceEntry) => void;
+  readonly onAddDevice: () => void;
+  readonly onLinkComputer: () => void;
 }

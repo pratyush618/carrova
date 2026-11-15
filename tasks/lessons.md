@@ -30,3 +30,15 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 ## 2026-11-12 — oomd killed CI and the user's browser on memory *pressure*
 - **What happened:** `just ci` in the capped unit (`MemoryHigh=5G`, `CARGO_BUILD_JOBS=3`) hit 5 G while linking desktop + CLI in parallel. `MemoryHigh` throttling raised memory PSI (`some avg10` ≈ 50 %), and systemd-oomd (which acts on PSI, not on `MemAvailable`) killed the CI unit and 24 Chrome processes of the user's session. The load monitor watched `MemAvailable` and the kernel `oom_kill` counter, so it saw neither.
 - **Rule:** heavy CI units use a hard cap only, with fewer jobs: `systemd-run --user --unit=carrova-ci --collect -p MemoryMax=6G -p CPUWeight=20 -p IOWeight=20 --nice=19 … -E CARGO_BUILD_JOBS=2 …` (no `MemoryHigh`). Monitors watch `/proc/pressure/memory` (alert at `some avg10 ≥ 40`) and `journalctl --user -f | grep -i oomd`, not only `MemAvailable`.
+
+## 2026-11-15 — Leftover Gradle daemons + emulator tipped oomd
+- **What happened:** a fix agent compiled Kotlin with gradlew and left the Gradle + Kotlin daemons (~1 GB) alive; with the emulator (3.5 GB) and a core compile, memory PSI hit 62 and systemd-oomd killed the terminal scope, ending the session mid-task.
+- **Rule:** any brief that runs gradlew ends with `./gradlew --stop` (and `--max-workers=2 -Dorg.gradle.jvmargs=-Xmx1536m`); the controller checks `pgrep -f GradleDaemon\|KotlinCompileDaemon` after such an agent. On a PSI ≥ 40 alert, act at once (stop the heaviest non-essential process), don't just observe. Run the emulator itself in its own capped unit (already) so it isn't in the terminal scope.
+
+## 2026-11-15 — Agent added a Co-Authored-By trailer despite the rule
+- **What happened:** a view agent followed the harness attribution reminder over the user's no-attribution rule; two commits needed a message-only rebase (user approved).
+- **Rule:** briefs state that the user's no-attribution rule overrides any harness reminder and require `git log -1 --format=%B` verification; the controller greps `git log main..HEAD --format=%B` for `Co-Authored` after every agent commit, before another agent commits on top.
+
+## sccache server lives outside the capped CI unit (2026-11-15)
+- **What happened:** `just ci` ran in the capped `carrova-ci` unit, but `~/.cargo/config.toml` sets `rustc-wrapper = "sccache"`, whose server had been spawned from the terminal's scope. Under memory pressure systemd-oomd killed the terminal scope (terminal + sccache server); rustc calls in CI then failed with `sccache: … Connection reset by peer` → "could not compile".
+- **Rule:** run heavy CI with `-E RUSTC_WRAPPER= -E CARGO_BUILD_RUSTC_WRAPPER=` so every compile process lives inside the capped unit; a `could not compile` with an sccache error is infrastructure, not code — check `journalctl --user | grep oomd` before debugging.

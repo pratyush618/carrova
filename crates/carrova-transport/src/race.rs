@@ -202,7 +202,8 @@ fn refused(e: &ConnectionError) -> bool {
 /// addresses; it waits for its deadline and returns a retryable error
 /// (never [`TransportError::PairingFailed`]). Callers retry.
 pub(crate) async fn race(dialer: Dialer, platform: &Arc<dyn Platform>) -> Result<Authenticated> {
-    let found = discover(platform, dialer.secret.subject(), dialer.deadline)?;
+    let subject = dialer.secret.subject().ok_or(TransportError::NotFound)?;
+    let found = discover(platform, subject, dialer.deadline)?;
     race_found(dialer, found).await
 }
 
@@ -236,6 +237,9 @@ async fn race_found(
                     Ok(Ok(Some(auth))) => return Ok(auth),
                     Ok(Ok(None)) => {}
                     Ok(Err(TransportError::PairingFailed)) => auth_failed = true,
+                    // Only after the PAKE verified: this is the real sender,
+                    // and not the one the user scanned.
+                    Ok(Err(TransportError::KeyMismatch)) => return Err(TransportError::KeyMismatch),
                     Ok(Err(e)) => last_error = Some(e),
                     Err(e) => last_error = Some(TransportError::internal("handshake task", e)),
                 }

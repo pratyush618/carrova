@@ -36,6 +36,12 @@ pub(super) async fn stream(
     let mut recv = StreamReader::new(recv);
     match recv.expect_frame::<StreamOpen>().await? {
         StreamOpen::FetchDone => return Ok(StreamEnd::Done(send)),
+        StreamOpen::Lane => {
+            // Lanes are not served during a move.
+            let _ = send.reset(STREAM_CANCELLED);
+            let _ = recv.stream_mut().stop(STREAM_CANCELLED);
+            return Ok(StreamEnd::Served(ServeEnd::default()));
+        }
         StreamOpen::Chunks => {}
     }
     let (pending_tx, pending_rx) = mpsc::unbounded_channel();

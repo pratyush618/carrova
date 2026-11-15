@@ -6,11 +6,13 @@
 //! Every engine notification reaches the UI as one [`BridgeEvent`] on the
 //! single `carrova://event` channel. Commands return the payloads below or a
 //! [`BridgeError`]. Nothing here carries a secret except
-//! [`BridgeEvent::PairingCode`], whose code is meant to be shown on screen.
+//! [`BridgeEvent::PairingCode`] and [`BridgeEvent::PairInvite`], whose
+//! codes are meant to be shown on screen.
 
 use carrova_core::{ErrorKind, Event, Notice, SessionId};
 use serde::{Deserialize, Serialize};
 
+use crate::ecosystem::{PairInviteView, PairPeerView};
 use crate::lan::CodeView;
 
 mod about;
@@ -33,6 +35,10 @@ pub use settings::{
 /// Name of the one event channel the bridge emits on.
 pub const EVENT_CHANNEL: &str = "carrova://event";
 
+/// The session [`BridgeEvent::Engine`] names for linked-device events
+/// (links, asks, clips, files, handoff, ring), which belong to no move.
+pub const LINK_SESSION: &str = "link";
+
 /// Everything the bridge pushes to the front-end.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -51,6 +57,18 @@ pub enum BridgeEvent {
         session: SessionId,
         /// Code to display.
         code: CodeView,
+    },
+    /// The invite a phone scans to link with this computer is ready: show
+    /// it until the `pair_invite` command ends.
+    PairInvite {
+        /// QR code, link text and typed fallback.
+        invite: PairInviteView,
+    },
+    /// A device answered the invite: show it for the user's key check and
+    /// answer with the `answer_pair_peer` command (no answer is a no).
+    PairPeerFound {
+        /// Name, OS and fingerprint of the device found.
+        peer: PairPeerView,
     },
     /// A pairing attempt failed; the user decides whether to offer a new
     /// code. Answer with the `answer_pairing` command.

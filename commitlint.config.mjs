@@ -14,11 +14,11 @@ export default {
       [
         // crates/
         'core', 'recipe', 'manifest', 'transport', 'crypto', 'archive',
-        'platform', 'plugin', 'view', 'bundle', 'report',
+        'platform', 'plugin', 'view', 'bundle', 'report', 'link',
         // apps/ + tooling
-        'cli', 'desktop', 'tauri', 'xtask',
+        'cli', 'desktop', 'tauri', 'android', 'xtask',
         // repo-wide areas
-        'recipes', 'e2e', 'ci', 'deps', 'docs', 'release', 'repo',
+        'recipes', 'e2e', 'ci', 'deps', 'docs', 'adr', 'spec', 'release', 'repo',
       ],
     ],
   },

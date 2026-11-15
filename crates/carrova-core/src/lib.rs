@@ -24,6 +24,7 @@ pub mod capture;
 pub mod catalog;
 pub mod checklist;
 pub mod devices;
+pub mod ecosystem;
 pub mod engine;
 mod error;
 pub mod export;

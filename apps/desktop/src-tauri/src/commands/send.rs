@@ -11,6 +11,7 @@ use tauri::{AppHandle, State};
 
 use super::reply;
 use crate::command_error::CommandError;
+use crate::opened::Opened;
 use crate::ops;
 use crate::state::AppState;
 
@@ -58,6 +59,12 @@ pub async fn pick(
 #[tauri::command]
 pub async fn take_send_request(state: State<'_, AppState>) -> Result<Vec<String>, CommandError> {
     Ok(ops::send::take_send_request(&state))
+}
+
+/// The links the app was opened with, oldest first ([`crate::opened`]).
+#[tauri::command]
+pub async fn take_opened(opened: State<'_, Opened>) -> Result<Vec<String>, CommandError> {
+    Ok(opened.take())
 }
 
 /// `CarrovaPort.suggest`.

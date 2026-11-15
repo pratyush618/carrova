@@ -7,6 +7,7 @@
  * look like `7-acid-lemon`.
  */
 import type { About } from '../../bindings/About';
+import type { OsKind } from '../../bindings/OsKind';
 import type { FileManagerStatus } from '../../bindings/FileManagerStatus';
 import type { Notice } from '../../bindings/Notice';
 import type { ReportConsent } from '../../bindings/ReportConsent';
@@ -15,6 +16,7 @@ import type { CarrovaPort } from '../port';
 import { withPatch } from '../settingsPatch';
 import { bridgeError, raise } from '../reject';
 import { fakeDevices } from './devices';
+import { fakeEcosystem } from './ecosystem';
 import * as fx from './fixtures';
 import { FakeReceiver } from './receive';
 import { later, realSleep, Runtime, type Sleep } from './runtime';
@@ -32,6 +34,12 @@ export interface FakeOptions {
   stepMs?: number;
   /** How to wait (default: real timers). */
   sleep?: Sleep;
+  /** This device's OS (default `linux`; `android` renders the phone layouts). */
+  os?: OsKind;
+  /** Whether this device is on a LAN (default `true`; `false`: a phone on mobile data). */
+  lan?: boolean;
+  /** Links the app was opened with, taken once (`takeOpened`). */
+  opened?: readonly string[];
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -111,6 +119,12 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
   const runtime = new Runtime(options.stepMs ?? 150, options.sleep ?? realSleep);
   const sender = new FakeSender(runtime, scenario);
   const receiver = new FakeReceiver(runtime, scenario);
+  const {
+    cancel: cancelPairing,
+    forget: unlink,
+    ...ecosystem
+  } = fakeEcosystem(runtime, scenario, options.os ?? 'linux');
+  const devices = fakeDevices(scenario);
   let settings = DEFAULT_SETTINGS;
   let consent: ReportConsent = 'unset';
   let notices = seedNotices(Math.floor(Date.now() / 1000));
@@ -119,6 +133,7 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
   const newerRecipes = () => scenario === 'recipes-update' && !recipesInstalled;
   const noReport = () => later(() => raise(bridgeError('session', 'no such error report')));
   let fileManager: FileManagerStatus = { supported: true, installed: false, skipped: [] };
+  let opened = [...(options.opened ?? [])];
   /** Paths "sent from the file manager", handed over once. */
   let forwarded = scenario === 'forwarded' ? [...FORWARDED] : [];
 
@@ -150,6 +165,7 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
     cancelConnect: () =>
       later(() => {
         receiver.cancelConnect();
+        cancelPairing();
       }),
     browseNearby: () => later(() => []),
     plan: (session, options) => receiver.plan(session, options),
@@ -162,7 +178,12 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
     ignoreFreeSpace: (session) => receiver.ignoreFreeSpace(session),
     retryConnection: (session) => receiver.retryConnection(session),
 
-    ...fakeDevices(scenario),
+    ...devices,
+    forgetDevice: (which) =>
+      devices.forgetDevice(which).then(() => {
+        unlink(which);
+      }),
+    ...ecosystem,
 
     cancel: (session) =>
       later(() => {
@@ -209,10 +230,22 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
       }),
     recipesReset: () => later(() => fx.recipesStatus),
 
+    lanAvailable: () => later(() => options.lan ?? true),
+    takeOpened: () =>
+      later(() => {
+        const links = opened;
+        opened = [];
+        return links;
+      }),
+    // Every opened link is there from the start: none arrives later.
+    onOpened: () => later(() => () => undefined),
+
     about: () =>
-      later(() =>
-        scenario === 'nearby-crowded' ? { ...ABOUT, device_name: LONG_COMPUTER_NAME } : ABOUT,
-      ),
+      later(() => ({
+        ...ABOUT,
+        os: options.os ?? ABOUT.os,
+        ...(scenario === 'nearby-crowded' && { device_name: LONG_COMPUTER_NAME }),
+      })),
 
     settings: () => later(() => settings),
     saveSettings: (patch) =>

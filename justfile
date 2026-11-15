@@ -20,6 +20,44 @@ build:
 test:
     cargo test --workspace --all-features --no-fail-fast
 
+# Cross-check the Android-compatible crates (not in `ci`; needs the NDK:
+# export ANDROID_NDK_HOME, e.g. ~/Android/Sdk/ndk/27.1.12297006).
+android-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${ANDROID_NDK_HOME:?set ANDROID_NDK_HOME to the Android NDK root (r27 or newer)}"
+    bin="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+    export CC_aarch64_linux_android="$bin/aarch64-linux-android29-clang"
+    export AR_aarch64_linux_android="$bin/llvm-ar"
+    export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$CC_aarch64_linux_android"
+    cargo check -p carrova-platform -p carrova-core -p carrova-desktop --target aarch64-linux-android
+
+# Run the app on a connected phone or emulator with hot reload (needs
+# ANDROID_HOME and NDK_HOME). Gradle's daemons are stopped afterwards.
+android-dev:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    trap '(cd apps/desktop/src-tauri/gen/android && ./gradlew --stop >/dev/null 2>&1) || true' EXIT
+    pnpm --filter desktop tauri android dev
+
+# Build an APK for `target` (aarch64, armv7, i686, x86_64). `debug` is signed
+# with the debug key; `release` with the keystore at CARROVA_ANDROID_KEYSTORE
+# (+ CARROVA_ANDROID_KEYSTORE_PASSWORD, CARROVA_ANDROID_KEY_ALIAS,
+# CARROVA_ANDROID_KEY_PASSWORD; keys are never committed). Gradle's daemons
+# are stopped afterwards.
+android-build profile="debug" target="aarch64":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{profile}}" in
+        debug) flags=(--debug) ;;
+        release)
+            : "${CARROVA_ANDROID_KEYSTORE:?set CARROVA_ANDROID_KEYSTORE (and its password/alias env) to sign a release}"
+            flags=() ;;
+        *) echo "profile must be debug or release" >&2; exit 1 ;;
+    esac
+    trap '(cd apps/desktop/src-tauri/gen/android && ./gradlew --stop >/dev/null 2>&1) || true' EXIT
+    pnpm --filter desktop tauri android build --apk --target {{target}} "${flags[@]}"
+
 # Build every plugin under plugins/ to plugins/<id>/plugin.wasm (+ host tests).
 plugins:
     #!/usr/bin/env bash
@@ -87,6 +125,8 @@ ci-portable: lint build test fixtures
 # `just e2e --archive FILE` imports an existing archive instead of a seeded one.
 # `just e2e --lan [--only A|B1|B2|B3|C]... [--ubuntu-rmem]`: two containers on a
 # Docker network migrate over LAN (pairing, interruption + resume, rollback).
+# `just e2e --link`: two containers pair and send a file over a link (clipboard and
+# Handoff are covered by in-process tests; see tests/e2e/link.sh).
 # `just e2e --cross-os`: restore onto fake Windows/macOS layouts (see tests/e2e/README.md).
 e2e *args:
     tests/e2e/run.sh {{args}}

@@ -3,10 +3,13 @@
 use std::path::{Path, PathBuf};
 
 use super::{EntriesWrite, FakePlatform};
+use crate::{ClipContent, ClipboardWatch, LinkNotice};
 use crate::{
     DiskInfo, FileManagerStatus, FileMeta, FsId, OsKind, PermissionModel, Platform, PlatformError,
     ProcessInfo, SemanticRoot, SnapshotCapability,
 };
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use crate::{LocalListener, LocalStream};
 
 impl Platform for FakePlatform {
     fn os(&self) -> OsKind {
@@ -163,6 +166,11 @@ impl Platform for FakePlatform {
     }
 
     #[cfg(any(unix, windows))]
+    fn try_lock_exclusive(&self, path: &Path) -> Result<Option<crate::FileLock>, PlatformError> {
+        crate::sys::try_lock_exclusive(path)
+    }
+
+    #[cfg(any(unix, windows))]
     fn open_rw_nofollow(&self, path: &Path) -> Result<std::fs::File, PlatformError> {
         crate::sys::open_rw_nofollow(path)
     }
@@ -220,6 +228,15 @@ impl Platform for FakePlatform {
     #[cfg(any(unix, windows))]
     fn lan_ipv4_interfaces(&self) -> Result<Vec<crate::LanInterface>, PlatformError> {
         crate::netops::lan_ipv4_interfaces()
+    }
+
+    /// Off when [`Hooks::off_local_network`](super::Hooks::off_local_network)
+    /// says so, else the default: any LAN address.
+    fn on_local_network(&self) -> Result<bool, PlatformError> {
+        if self.hooks.hooks.off_local_network {
+            return Ok(false);
+        }
+        Ok(!self.lan_ipv4_interfaces()?.is_empty())
     }
 
     fn neighbour_mac(&self, _addr: std::net::IpAddr) -> Option<[u8; 6]> {
@@ -324,5 +341,48 @@ impl Platform for FakePlatform {
 
     fn set_autostart(&self, launcher: &Path, on: bool) -> Result<bool, PlatformError> {
         Ok(self.background.set_autostart(launcher, on))
+    }
+
+    fn clipboard_read(&self) -> Result<Option<ClipContent>, PlatformError> {
+        Ok(self.clip_read())
+    }
+
+    fn clipboard_write(&self, content: &ClipContent) -> Result<(), PlatformError> {
+        self.clip_write(content);
+        Ok(())
+    }
+
+    fn watch_clipboard(
+        &self,
+        on_change: Box<dyn Fn() + Send>,
+    ) -> Result<ClipboardWatch, PlatformError> {
+        Ok(self.clip_watch(on_change))
+    }
+
+    fn downloads_dir(&self) -> Result<PathBuf, PlatformError> {
+        Ok(self.resolve_root(SemanticRoot::Home)?.join("Downloads"))
+    }
+
+    /// Real sockets, owned by [`Platform::current_uid`] (so
+    /// [`Hooks::uid`](super::Hooks::uid) plays another user).
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fn bind_local_socket(&self, path: &Path) -> Result<LocalListener, PlatformError> {
+        let owner = self
+            .current_uid()
+            .ok_or(PlatformError::Unsupported("current_uid"))?;
+        LocalListener::bind(path, owner)
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    fn connect_local_socket(&self, path: &Path) -> Result<LocalStream, PlatformError> {
+        LocalStream::connect(path)
+    }
+
+    fn keep_running(&self, notice: Option<&LinkNotice>) -> Result<(), PlatformError> {
+        self.links.keep_running(notice)
+    }
+
+    fn links_paused(&self) -> bool {
+        self.links.paused()
     }
 }

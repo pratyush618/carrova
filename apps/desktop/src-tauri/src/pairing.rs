@@ -6,13 +6,18 @@
 //! blocks until the `answer_pairing` command answers, the session is
 //! cancelled, or [`ANSWER_TIMEOUT`] passes. No answer is a "no", the safe
 //! choice when nobody is at the screen.
+//!
+//! Linking a device asks the same way: the found device is emitted as
+//! [`BridgeEvent::PairPeerFound`] and [`PeerAnswer`] waits for the
+//! `answer_pair_peer` command.
 
 use std::collections::HashMap;
-use std::sync::mpsc::{self, Receiver, SyncSender};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender};
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use carrova_core::{CodeOffer, SendPrompt, SessionId, Ticket};
+use carrova_core::{Cancel, CodeOffer, SendPrompt, SessionId, Ticket};
+use carrova_view::ecosystem::PairPeerView;
 use carrova_view::ipc::BridgeEvent;
 use carrova_view::lan::code_view;
 
@@ -53,6 +58,55 @@ impl PairingAnswers {
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<SessionId, SyncSender<bool>>> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// How often an open "is this your device?" question checks for a cancel.
+const CANCEL_POLL: Duration = Duration::from_millis(100);
+
+/// The open "is this your device?" question of the pairing in progress
+/// (the connect slot runs one at a time).
+#[derive(Debug, Default)]
+pub struct PeerAnswer(Mutex<Option<SyncSender<bool>>>);
+
+impl PeerAnswer {
+    /// Show `peer` on `out` and wait up to `within` for the user's
+    /// answer. No answer, or `cancel` firing, is a no.
+    pub fn ask(
+        &self,
+        out: &dyn Emit,
+        peer: PairPeerView,
+        cancel: &Cancel,
+        within: Duration,
+    ) -> bool {
+        let (answer, question) = mpsc::sync_channel(1);
+        *self.lock() = Some(answer);
+        out.emit(&BridgeEvent::PairPeerFound { peer });
+        let deadline = Instant::now() + within;
+        let yes = loop {
+            let left = deadline.saturating_duration_since(Instant::now());
+            match question.recv_timeout(left.min(CANCEL_POLL)) {
+                Ok(yes) => break yes,
+                Err(RecvTimeoutError::Timeout) if !left.is_zero() && !cancel.is_cancelled() => {}
+                Err(_) => break false,
+            }
+        };
+        *self.lock() = None;
+        yes
+    }
+
+    /// Answer the open question.
+    ///
+    /// # Errors
+    ///
+    /// [`NoQuestion`] if none is open.
+    pub fn answer(&self, accept: bool) -> Result<(), NoQuestion> {
+        let answer = self.lock().take().ok_or(NoQuestion)?;
+        answer.try_send(accept).map_err(|_| NoQuestion)
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, Option<SyncSender<bool>>> {
         self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }

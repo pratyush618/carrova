@@ -48,6 +48,10 @@ pub struct Hooks {
     /// Refuse [`Platform::watch_dirs`](crate::Platform::watch_dirs) as
     /// unsupported, as on macOS and Windows.
     pub unwatched: bool,
+    /// Report no local network from
+    /// [`Platform::on_local_network`](crate::Platform::on_local_network)
+    /// (a phone on mobile data).
+    pub off_local_network: bool,
 }
 
 impl fmt::Debug for Hooks {
@@ -65,6 +69,7 @@ impl fmt::Debug for Hooks {
             .field("hide_mode", &self.hide_mode)
             .field("neighbour_mac", &self.neighbour_mac.is_some())
             .field("unwatched", &self.unwatched)
+            .field("off_local_network", &self.off_local_network)
             .finish()
     }
 }

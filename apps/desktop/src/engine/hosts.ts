@@ -4,7 +4,7 @@ import type { DesktopHost } from './host';
 /** Carrova archive files. */
 const ARCHIVE_FILTER = { name: 'Carrova file', extensions: ['carrova'] };
 
-/** The Tauri host: dialog and opener plugins, loaded only inside the app. */
+/** The Tauri host: dialog, opener and notification plugins, loaded only inside the app. */
 const tauriHost: DesktopHost = {
   pickSavePath: async (defaultPath) => {
     const { save } = await import('@tauri-apps/plugin-dialog');
@@ -29,6 +29,11 @@ const tauriHost: DesktopHost = {
   revealPath: async (path) => {
     const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
     await revealItemInDir(path);
+  },
+  askNotifications: async () => {
+    const { isPermissionGranted, requestPermission } =
+      await import('@tauri-apps/plugin-notification');
+    if (!(await isPermissionGranted())) await requestPermission();
   },
 };
 

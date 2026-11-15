@@ -36,8 +36,8 @@ mod tuning;
 fn pairing_succeeds_and_control_messages_round_trip() {
     let (mut sender, mut receiver) = pair();
     assert_eq!(
-        sender.resume_secret().expose_bytes(),
-        receiver.resume_secret().expose_bytes()
+        sender.resume_secret().unwrap().expose_bytes(),
+        receiver.resume_secret().unwrap().expose_bytes()
     );
     assert_ne!(sender.peer_cert_hash(), receiver.peer_cert_hash());
     assert_eq!(receiver.peer_addr().ip(), LOOPBACK);
@@ -52,6 +52,21 @@ fn recv_times_out_without_losing_the_next_message() {
         Err(TransportError::Timeout)
     ));
     control_round_trip(&mut sender, &mut receiver);
+}
+
+#[test]
+fn receiver_dialling_before_the_sender_accepts_still_pairs() {
+    let mut listener = direct_listener();
+    let code = PairingCode::generate().unwrap();
+    let t = ticket(&code, &listener);
+    // The receiver's first packet waits in the endpoint until the sender
+    // accepts, which answers it with a QUIC Retry.
+    let receiver =
+        thread::spawn(move || connect(Target::Pairing(&t), T, &ConnectOptions::default()));
+    thread::sleep(Duration::from_millis(200));
+    let sender = listener.accept_pairing(&code, T, || {});
+    assert!(receiver.join().unwrap().is_ok());
+    assert!(sender.is_ok());
 }
 
 #[test]
@@ -358,6 +373,7 @@ fn a_presence_is_browsed_by_its_tags_and_names_itself_only_when_told() {
             known: tags(),
             name: Some(name.clone()),
             os: Some(platform.os()),
+            ..PresenceAdvert::default()
         },
     )
     .unwrap();
@@ -375,8 +391,8 @@ fn resume_reconnects_with_the_session_secret() {
         return;
     }
     let (sender, receiver, mut listener) = pair_on(discoverable_listener());
-    let secret = sender.resume_secret().clone();
-    let receiver_secret = receiver.resume_secret().clone();
+    let secret = sender.resume_secret().unwrap().clone();
+    let receiver_secret = receiver.resume_secret().unwrap().clone();
     drop((sender, receiver));
 
     listener.advertise_resume(&secret).unwrap();
@@ -389,7 +405,7 @@ fn resume_reconnects_with_the_session_secret() {
     .unwrap();
     let mut sender = sender.join().unwrap().unwrap();
     assert_eq!(
-        sender.resume_secret().expose_bytes(),
+        sender.resume_secret().unwrap().expose_bytes(),
         receiver_secret.expose_bytes()
     );
     control_round_trip(&mut sender, &mut receiver);

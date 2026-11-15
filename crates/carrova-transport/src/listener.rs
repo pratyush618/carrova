@@ -1,11 +1,12 @@
 //! Sender side: bind, advertise, accept authenticated connections.
 
+use std::fmt;
 use std::net::SocketAddrV4;
 use std::sync::Arc;
 use std::time::Duration;
 
-use carrova_crypto::identity::DeviceKey;
-use carrova_crypto::pairing::{CertHash, PairingCode, ResumeSecret};
+use carrova_crypto::identity::{DeviceKey, DevicePublic};
+use carrova_crypto::pairing::{CertHash, KnownSecret, PairingCode, ResumeSecret};
 use carrova_platform::Platform;
 use tokio::time::Instant;
 
@@ -15,11 +16,12 @@ use crate::claim::CodeBook;
 use crate::connection::Connection;
 use crate::discovery::{Advertiser, Offer, Subject, primary_lan_ipv4};
 use crate::endpoint;
-use crate::error::{Result, TransportError};
-use crate::handshake::Expected;
+use crate::error::{Result, SetupFailure, TransportError};
+use crate::handshake::{self, Authenticated, Expected, PeerInfo, PendingPair};
 use crate::replay::ResumeNonces;
 use crate::tls::Identity;
 use crate::tuning::RESUME_NONCE_MEMORY;
+use crate::wire::PairPurpose;
 
 /// How the sender listens.
 #[derive(Debug, Clone)]
@@ -59,12 +61,30 @@ impl Default for ListenOptions {
     }
 }
 
+/// The paired devices a link listener accepts ([`Listener::accept_link`]).
+pub trait KnownPeers: Send + Sync {
+    /// Each paired device's key and the secret shared with it, most
+    /// recently used first: only the first 64 can link. Read for every
+    /// incoming link `Hello` (on a transport thread; keep it quick), so a
+    /// forgotten device stops linking at once.
+    fn candidates(&self) -> Vec<(DevicePublic, KnownSecret)>;
+}
+
+impl fmt::Debug for dyn KnownPeers {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("KnownPeers(<redacted>)")
+    }
+}
+
 /// A bound QUIC endpoint on the sender plus its discovery advertisement.
 /// Advertisements stop when the listener is dropped; accepted connections
 /// stay open.
 #[derive(Debug)]
 pub struct Listener {
     endpoint: quinn::Endpoint,
+    /// The endpoint's server config; each accept reuses it (and so its
+    /// retry-token key) with that accept's transport parameters.
+    config: quinn::ServerConfig,
     identity: Arc<Identity>,
     platform: Arc<dyn Platform>,
     device: Option<Arc<DeviceKey>>,
@@ -72,7 +92,7 @@ pub struct Listener {
     advertiser: Option<Advertiser>,
     /// Every code offered so far, each single-use.
     codes: CodeBook,
-    /// Resume-`Hello` nonces already admitted.
+    /// Resume- and link-`Hello` nonces already admitted.
     nonces: Arc<ResumeNonces>,
     /// The caller's cancel signal.
     cancel: Watch,
@@ -82,7 +102,8 @@ impl Listener {
     /// Bind the QUIC endpoint (IPv4) and start discovery responders.
     pub fn bind(opts: ListenOptions) -> Result<Self> {
         let identity = Arc::new(Identity::generate()?);
-        let endpoint = endpoint::server(opts.platform.as_ref(), &identity, opts.port)?;
+        let config = endpoint::server_config(&identity, endpoint::session_transport()?)?;
+        let endpoint = endpoint::server(opts.platform.as_ref(), config.clone(), opts.port)?;
         let port = endpoint::local_v4(&endpoint)?.port();
         let advertiser = if opts.discovery {
             // Unique per listener without extra randomness: the throwaway
@@ -99,6 +120,7 @@ impl Listener {
         };
         Ok(Self {
             endpoint,
+            config,
             identity,
             platform: opts.platform,
             device: opts.device,
@@ -152,19 +174,53 @@ impl Listener {
         timeout: Duration,
         mut on_pake: impl FnMut(),
     ) -> Result<Connection> {
+        let expected = self.offer(code, self.device.clone(), PairPurpose::Move)?;
+        let auth = self.authenticate(&expected, timeout, &mut on_pake)?;
+        Ok(self.connection(auth))
+    }
+
+    /// Wait for a receiver and pair with `code` without a transfer (ADR
+    /// 0002 §1): as [`Self::accept_pairing`] (one guess per code), but
+    /// only receivers asking for pair-only and proving their device
+    /// identity are admitted, and both sides swap [`PeerInfo`]. Store the
+    /// returned peer, then [`PendingPair::confirm`] (the user may check the
+    /// peer's key first: the receiver waits at most
+    /// [`PAIR_CONFIRM_TIMEOUT`](crate::PAIR_CONFIRM_TIMEOUT)); the
+    /// receiver remembers us only then.
+    ///
+    /// Needs [`ListenOptions::device`]; without it fails with
+    /// [`SetupFailure::NoDeviceKey`].
+    pub fn accept_pair_only(
+        &mut self,
+        code: &PairingCode,
+        me: &PeerInfo,
+        timeout: Duration,
+        mut on_pake: impl FnMut(),
+    ) -> Result<PendingPair> {
+        let device = self.device.clone().ok_or(SetupFailure::NoDeviceKey)?;
+        let expected = self.offer(code, Some(device), PairPurpose::PairOnly)?;
+        let auth = self.authenticate(&expected, timeout, &mut on_pake)?;
+        self.cancel
+            .block_on(handshake::offer(self.endpoint.clone(), auth, me))
+    }
+
+    /// `code` offered for `purpose`; a code that was used already fails.
+    fn offer(
+        &mut self,
+        code: &PairingCode,
+        device: Option<Arc<DeviceKey>>,
+        purpose: PairPurpose,
+    ) -> Result<Expected> {
         let claim = self.codes.claim(code);
         if claim.is_taken() {
             return Err(TransportError::PairingFailed);
         }
-        self.accept(
-            &Expected::Pair {
-                code: code.clone(),
-                claim,
-                device: self.device.clone(),
-            },
-            timeout,
-            &mut on_pake,
-        )
+        Ok(Expected::Pair {
+            code: code.clone(),
+            claim,
+            device,
+            purpose,
+        })
     }
 
     /// Wait for the session's receiver to reconnect, proven with `secret`.
@@ -173,36 +229,76 @@ impl Listener {
         secret: &ResumeSecret,
         timeout: Duration,
     ) -> Result<Connection> {
-        self.accept(
+        let auth = self.authenticate(
             &Expected::Resume {
                 secret: secret.clone(),
                 nonces: Arc::clone(&self.nonces),
             },
             timeout,
             &mut || {},
-        )
+        )?;
+        Ok(self.connection(auth))
+    }
+
+    /// Wait for a paired device to link (ADR 0002 §3): no code; it must
+    /// prove the secret `known` holds for it and its device key, and so
+    /// must we. This side plays the sender. Each attempt is checked
+    /// against the first 64 of [`KnownPeers::candidates`], read as it
+    /// arrives.
+    ///
+    /// Attempts that fail (unknown device, replayed `Hello`, wrong proof
+    /// or key) are closed with no detail and logged by kind only; the
+    /// listener keeps waiting until `timeout`
+    /// ([`TransportError::Timeout`]).
+    ///
+    /// Needs [`ListenOptions::device`]; without it fails with
+    /// [`SetupFailure::NoDeviceKey`].
+    pub fn accept_link(
+        &mut self,
+        known: Arc<dyn KnownPeers>,
+        timeout: Duration,
+    ) -> Result<Connection> {
+        let device = self.device.clone().ok_or(SetupFailure::NoDeviceKey)?;
+        let expected = Expected::Link {
+            known,
+            device,
+            nonces: Arc::clone(&self.nonces),
+        };
+        let auth = self.authenticate(&expected, timeout, &mut || {})?;
+        Ok(self.connection(auth))
     }
 
     /// Handshakes still running when the caller cancels are dropped.
-    fn accept(
+    /// Connections accepted now get a link's or a session's keep-alive
+    /// and idle timeout (fixed per connection at its handshake).
+    fn authenticate(
         &self,
         expected: &Expected,
         timeout: Duration,
         on_staked: &mut dyn FnMut(),
-    ) -> Result<Connection> {
+    ) -> Result<Authenticated> {
+        let transport = match expected {
+            Expected::Link { .. } => endpoint::link_transport(self.platform.as_ref())?,
+            Expected::Pair { .. } | Expected::Resume { .. } => endpoint::session_transport()?,
+        };
+        // A fresh config would carry a fresh retry-token key: a receiver
+        // retried under the previous one would never validate (it may not
+        // follow a second Retry) and stall until it times out.
+        let mut config = self.config.clone();
+        config.transport_config(transport);
+        self.endpoint.set_server_config(Some(config));
         let deadline = Instant::now() + timeout;
-        let auth = self.cancel.block_on(accept::accept(
+        self.cancel.block_on(accept::accept(
             &self.endpoint,
             &self.identity,
             expected,
             deadline,
             on_staked,
-        ))?;
-        Ok(Connection::new(
-            self.endpoint.clone(),
-            auth,
-            self.cancel.clone(),
         ))
+    }
+
+    fn connection(&self, auth: Authenticated) -> Connection {
+        Connection::new(self.endpoint.clone(), auth, self.cancel.clone())
     }
 
     /// UDP port of the QUIC endpoint (all IPv4 interfaces).

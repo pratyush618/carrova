@@ -3,7 +3,7 @@ use carrova_crypto::pairing::KnownSecret;
 use carrova_platform::OsKind;
 
 use super::*;
-use crate::{TXT_DEVICE_NAME, TXT_KNOWN_TAGS, TXT_OS};
+use crate::{TXT_DEVICE_NAME, TXT_KNOWN_TAGS, TXT_LINK_PORT, TXT_OS};
 
 fn secret(n: u8) -> KnownSecret {
     KnownSecret::from_bytes([n; 32])
@@ -98,6 +98,7 @@ fn an_advert_reads_back_from_its_txt() {
         known: Some(tags(&[secret(1)])),
         name: Some("desk".into()),
         os: Some(OsKind::Linux),
+        link_port: None,
     };
     let txt = advert.txt();
     let keys: Vec<_> = txt.iter().map(|(k, _)| *k).collect();
@@ -114,4 +115,37 @@ fn an_advert_without_name_or_os_carries_only_kt() {
     };
     let keys: Vec<_> = advert.txt().into_iter().map(|(k, _)| k).collect();
     assert_eq!(keys, [TXT_KNOWN_TAGS]);
+}
+
+#[test]
+fn presence_advert_carries_link_port() {
+    let advert = PresenceAdvert {
+        name: Some("desk".into()),
+        link_port: Some(50123),
+        ..PresenceAdvert::default()
+    };
+    let txt = advert.txt();
+    assert!(
+        txt.contains(&(TXT_LINK_PORT, "50123".to_owned())),
+        "{txt:?}"
+    );
+    let get = |key: &str| txt.iter().find(|(k, _)| *k == key).map(|(_, v)| v.as_str());
+    assert_eq!(PresenceAdvert::from_txt(get), advert);
+}
+
+#[test]
+fn presence_without_lp_parses() {
+    let older = [(TXT_DEVICE_NAME, "desk")];
+    let get = |key: &str| older.iter().find(|(k, _)| *k == key).map(|(_, v)| *v);
+    let advert = PresenceAdvert::from_txt(get);
+    assert_eq!(advert.name.as_deref(), Some("desk"));
+    assert_eq!(advert.link_port, None);
+}
+
+#[test]
+fn malformed_lp_is_ignored() {
+    for bad in ["", "0", "+5", "0x50", "65536", "-1"] {
+        let get = |key: &str| (key == TXT_LINK_PORT).then_some(bad);
+        assert_eq!(PresenceAdvert::from_txt(get).link_port, None, "{bad:?}");
+    }
 }

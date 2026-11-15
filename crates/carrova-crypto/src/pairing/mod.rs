@@ -25,6 +25,9 @@
 //! 6. A third HKDF output, the [`KnownSecret`], outlives the session when
 //!    both sides remember each other (ADR 0001): it makes per-advert
 //!    [`KnownTag`]s that let a known device recognise this one nearby.
+//!    Linked devices (ADR 0002 §3) reconnect with it: the dialer names the
+//!    pair with a [`LinkTag`] and both prove the secret over the binding
+//!    ([`KnownSecret::prove`]).
 //!
 //! Every label used for domain separation is a constant in this module.
 //! Secrets ([`PairingCode`], [`SessionKeys`], [`ResumeSecret`],
@@ -70,7 +73,7 @@ mod wordlist;
 pub use binding::{CertHash, ChannelBinding};
 pub use code::{Nameplate, PairingCode};
 pub use keys::{ResumeSecret, ResumeTag, TagNonce, TagPurpose};
-pub use known::{KnownPurpose, KnownSecret, KnownTag};
+pub use known::{KnownPurpose, KnownSecret, KnownTag, LinkTag};
 pub use pake::{Confirmation, Pake, PakeMessage, PakeRole, SessionKeys};
 
 /// Valid nameplates (shown before the words of a code).
@@ -91,6 +94,9 @@ pub const RESUME_TAG_LEN: usize = 16;
 pub const KNOWN_SECRET_LEN: usize = 32;
 /// Length of a [`KnownTag`] (truncated HMAC; up to 13 fit one TXT string).
 pub const KNOWN_TAG_LEN: usize = 8;
+/// Length of a [`LinkTag`] (truncated HMAC; admission check of a link
+/// `Hello`, so longer than a [`KnownTag`], ADR 0002 §3).
+pub const LINK_TAG_LEN: usize = 16;
 /// Length of a [`TagNonce`].
 pub const TAG_NONCE_LEN: usize = 16;
 /// Length of a [`Confirmation`] (HMAC-SHA256 output).
@@ -117,6 +123,10 @@ const INFO_RESUME: &[u8] = b"carrova/1/resume";
 const INFO_KNOWN: &[u8] = b"carrova/1/known";
 /// HMAC label prefixed to the nonce of a discovery [`KnownTag`].
 const KNOWN_TAG_DISCOVERY: &[u8] = b"carrova/1/known-discovery";
+/// HMAC label prefixed to the nonce of a [`LinkTag`].
+const KNOWN_TAG_LINK: &[u8] = b"carrova/1/known-link";
+/// HMAC label prefixed to a [`KnownSecret`] link proof.
+const LINK_CONFIRM: &[u8] = b"carrova/1/link-confirm";
 /// HMAC label prefixed to the nonce of a discovery [`ResumeTag`].
 const RESUME_TAG_DISCOVERY: &[u8] = b"carrova/1/resume-tag";
 /// HMAC label prefixed to the nonce of a resume-`Hello` [`ResumeTag`].

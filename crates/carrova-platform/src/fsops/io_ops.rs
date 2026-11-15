@@ -60,7 +60,7 @@ pub(crate) fn disk(path: &Path) -> Result<DiskInfo, PlatformError> {
 
 /// See [`crate::Platform::sync_fs`]: `syncfs(2)` on an `O_NOFOLLOW` fd of
 /// `path` (a directory or regular file).
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub(crate) fn sync_fs(path: &Path) -> Result<(), PlatformError> {
     use rustix::fs::{FileType, Mode, OFlags};
 
@@ -81,7 +81,7 @@ pub(crate) fn sync_fs(path: &Path) -> Result<(), PlatformError> {
 
 /// See [`crate::Platform::sync_fs`]: there is no `syncfs(2)`, and an
 /// `fsync` would flush one file only, so callers must sync per file.
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub(crate) fn sync_fs(_path: &Path) -> Result<(), PlatformError> {
     Err(PlatformError::Unsupported("sync_fs"))
 }

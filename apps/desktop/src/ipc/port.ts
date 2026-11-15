@@ -13,17 +13,23 @@
  * (never mid-apply).
  */
 import type { About } from '../bindings/About';
+import type { AskId } from '../bindings/AskId';
 import type { ArchiveSummary } from '../bindings/ArchiveSummary';
 import type { BackgroundSettings } from '../bindings/BackgroundSettings';
 import type { BridgeEvent } from '../bindings/BridgeEvent';
 import type { CatalogEntry } from '../bindings/CatalogEntry';
+import type { ClipHistoryView } from '../bindings/ClipHistoryView';
+import type { ClipSettings } from '../bindings/ClipSettings';
 import type { Checklist } from '../bindings/Checklist';
 import type { ErrorReport } from '../bindings/ErrorReport';
+import type { Feature } from '../bindings/Feature';
+import type { FeatureState } from '../bindings/FeatureState';
 import type { FileManagerStatus } from '../bindings/FileManagerStatus';
 import type { ForgetDevices } from '../bindings/ForgetDevices';
 import type { IssueDraft } from '../bindings/IssueDraft';
 import type { KdfStrength } from '../bindings/KdfStrength';
 import type { KnownDeviceView } from '../bindings/KnownDeviceView';
+import type { LinkedDeviceView } from '../bindings/LinkedDeviceView';
 import type { NearbyDeviceView } from '../bindings/NearbyDeviceView';
 import type { NearbyPeer } from '../bindings/NearbyPeer';
 import type { Picked } from '../bindings/Picked';
@@ -191,6 +197,63 @@ export interface CarrovaPort {
    * start, then on each `show_nearby`; a window built for it was not listening).
    */
   takeShowNearby(): Promise<boolean>;
+
+  // --- Linked devices (their events arrive on the `link` session) --------
+  /** Devices linked to this computer, with each feature's settings on both sides. */
+  linkedDevices(): Promise<LinkedDeviceView[]>;
+  /**
+   * Invite a phone: emits `pair_invite` (QR code and typed code), then
+   * resolves once a device has linked. Stop it with `cancelConnect`.
+   */
+  pairInvite(): Promise<void>;
+  /**
+   * Answer the key check of `pair_invite` (`pair_peer_found`): link the
+   * device found, or not (then nothing is stored on either side).
+   */
+  answerPairPeer(accept: boolean): Promise<void>;
+  /** Link with another computer by its code (or `code@ip:port` ticket). Stop it with `cancelConnect`. */
+  linkComputer(ticket: string): Promise<void>;
+  /** Link with the computer whose `carrova://pair?…` link was scanned or pasted. Stop it with `cancelConnect`. */
+  linkInvite(uri: string): Promise<void>;
+  /** This device's own key fingerprint, shown while it links. */
+  ownFingerprint(): Promise<string>;
+  /** Scan a computer's pairing QR code with the phone's camera: its `carrova://pair?…` link, `null` if cancelled. */
+  scanQr(): Promise<string | null>;
+  /**
+   * Links the phone app was opened with (share sheet, tile, notification)
+   * since the last call, oldest first: `carrova://send-clipboard`, `file:`
+   * links to shared copies, `http(s)` and `data:text/plain` text.
+   */
+  takeOpened(): Promise<string[]>;
+  /** Be told when opened links are waiting for `takeOpened`. */
+  onOpened(listener: () => void): Promise<Unsubscribe>;
+  /** Whether this device has a LAN address now (`false`: the phone is not on Wi-Fi). */
+  lanAvailable(): Promise<boolean>;
+  /** Change one feature on this computer's side of the link with `id`. */
+  setFeature(id: string, feature: Feature, state: FeatureState): Promise<void>;
+  /** Answer a device's offer (`ask_received`). */
+  answerAsk(askId: AskId, accept: boolean): Promise<void>;
+  /** Send this computer's clipboard to `id` now. */
+  sendClipboard(id: string): Promise<void>;
+  /** Offer files to `id`, one at a time (it asks on arrival). */
+  sendFiles(id: string, paths: string[]): Promise<void>;
+  /** Offer an `http(s)` link to open on `id` (it asks on arrival). */
+  handoffUrl(id: string, url: string): Promise<void>;
+  /** Make the phone `id` ring. */
+  ring(id: string): Promise<void>;
+  /** Send `text` to `id` as a clip (this device's clipboard stays as it is). */
+  sendText(id: string, text: string): Promise<void>;
+  /** Stop the ring this computer started on `id`. */
+  stopRing(id: string): Promise<void>;
+  /** Clips received from linked devices, newest first. */
+  clipHistory(): Promise<ClipHistoryView>;
+  clearClipHistory(): Promise<void>;
+  /** How this computer's clipboard is shared (Settings → Clipboard). */
+  clipSettings(): Promise<ClipSettings>;
+  /** Save and apply them at once (turning the history file off deletes it). */
+  setClipSettings(settings: ClipSettings): Promise<void>;
+  /** Send file `id` again, from the start: one whose device left (`file_failed` with `retry`). */
+  retryFile(id: number): Promise<void>;
 
   // --- Notifications ------------------------------------------------------
   /** The bell's notices (kept 30 days), newest first. */

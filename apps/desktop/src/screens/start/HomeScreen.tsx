@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFormat } from '../../i18n/useFormat';
 import {
@@ -25,6 +25,8 @@ import './start.css';
 export interface HomeScreenProps {
   readonly model: HomeModel;
   readonly on: HomeIntents;
+  /** Linked devices at a glance, above the verbs (none: nothing). */
+  readonly glance?: ReactNode;
 }
 
 /** Where single-key shortcuts must not fire: typing, or anything over Home. */
@@ -117,7 +119,7 @@ function HowItWorks() {
  * likely first step, the three steps and the promise. Returning users get
  * their recent moves with Undo instead.
  */
-export function HomeScreen({ model, on }: HomeScreenProps) {
+export function HomeScreen({ model, on, glance }: HomeScreenProps) {
   const { t } = useTranslation();
   const [hint, setHint] = useState(true);
   useShortcuts(on);
@@ -126,6 +128,7 @@ export function HomeScreen({ model, on }: HomeScreenProps) {
   return (
     <HubLayout variant="center">
       <Head hero title={t(`start.home.${mode}.title`)} lede={t(`start.home.${mode}.lede`)} />
+      {glance}
       <div className="s-home__verbs">
         <VerbTile
           verb="send"

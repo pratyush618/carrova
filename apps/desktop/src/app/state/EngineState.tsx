@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -8,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { usePort } from '../../engine/port';
-import type { SessionId } from '../../engine/types';
+import type { PairInviteView, PairPeerView, SessionId } from '../../engine/types';
 import {
   appReducer,
   bridgeAction,
@@ -16,6 +17,7 @@ import {
   initialAppState,
   type AppAction,
   type AppState,
+  type LinkState,
 } from './appState';
 import type { SessionProgress } from './session';
 
@@ -30,6 +32,24 @@ interface EngineStateApi {
   readonly remembered: Remembered | null;
   /** How many `show_nearby` events arrived (each: the tray asked for the Nearby page). */
   readonly nearbyRequests: number;
+  /** The last pairing invite, and when it arrived (ms since epoch); kept only while its dialog needs it. */
+  readonly invite: Invite | null;
+  /** The device that last answered an invite, waiting for the key check; kept like the invite. */
+  readonly found: Found | null;
+  /** Drop the invite and the device found (their dialog closed, or the code ran out): the code leaves memory. */
+  readonly clearInvite: () => void;
+}
+
+/** A pairing invite as it arrived. */
+export interface Invite {
+  readonly view: PairInviteView;
+  readonly receivedAt: number;
+}
+
+/** A device found while pairing (`pair_peer_found`), as it arrived. */
+export interface Found {
+  readonly view: PairPeerView;
+  readonly receivedAt: number;
 }
 
 /** A device a move just remembered, as `device_remembered` names it. */
@@ -48,6 +68,12 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
   const [noticeEvents, setNoticeEvents] = useState(0);
   const [remembered, setRemembered] = useState<Remembered | null>(null);
   const [nearbyRequests, setNearbyRequests] = useState(0);
+  const [invite, setInvite] = useState<Invite | null>(null);
+  const [found, setFound] = useState<Found | null>(null);
+  const clearInvite = useCallback(() => {
+    setInvite(null);
+    setFound(null);
+  }, []);
   useEffect(() => {
     let stop: (() => void) | null = null;
     let live = true;
@@ -57,6 +83,11 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
         if (event.kind === 'send_requested') setSendRequests((n) => n + 1);
         else if (event.kind === 'notice') setNoticeEvents((n) => n + 1);
         else if (event.kind === 'show_nearby') setNearbyRequests((n) => n + 1);
+        // A pairing invite belongs to its dialog, not to a session.
+        else if (event.kind === 'pair_invite')
+          setInvite({ view: event.invite, receivedAt: Date.now() });
+        else if (event.kind === 'pair_peer_found')
+          setFound({ view: event.peer, receivedAt: Date.now() });
         else {
           if (event.kind === 'engine' && event.event.event === 'device_remembered') {
             const { name, fingerprint } = event.event;
@@ -75,8 +106,18 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
     };
   }, [port]);
   const api = useMemo(
-    () => ({ state, dispatch, sendRequests, noticeEvents, remembered, nearbyRequests }),
-    [state, sendRequests, noticeEvents, remembered, nearbyRequests],
+    () => ({
+      state,
+      dispatch,
+      sendRequests,
+      noticeEvents,
+      remembered,
+      nearbyRequests,
+      invite,
+      found,
+      clearInvite,
+    }),
+    [state, sendRequests, noticeEvents, remembered, nearbyRequests, invite, found, clearInvite],
   );
   return <EngineStateContext value={api}>{children}</EngineStateContext>;
 }
@@ -116,4 +157,19 @@ export function useRemembered(): Remembered | null {
 /** Changes on each `show_nearby` event (the tray's "Nearby"). */
 export function useNearbyRequests(): number {
   return useEngineState().nearbyRequests;
+}
+
+/** What linked devices did (asks, transfers, skipped clips, change counters). */
+export function useLink(): LinkState {
+  return useEngineState().state.link;
+}
+
+/** The last pairing invite and device found (`null` until one arrives, and once cleared), and how to drop them. */
+export function useInvite(): {
+  readonly invite: Invite | null;
+  readonly found: Found | null;
+  readonly clear: () => void;
+} {
+  const { invite, found, clearInvite } = useEngineState();
+  return { invite, found, clear: clearInvite };
 }

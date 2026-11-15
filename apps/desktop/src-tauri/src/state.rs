@@ -3,17 +3,18 @@
 //! worker.
 
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use carrova_bundle::RecipeLocations;
+use carrova_core::ecosystem::SharedSupervisor;
 use carrova_core::time::now_unix;
 use carrova_core::{Engine, Inbox, KdfParams, KdfStrength, NoticeKind, SessionId};
 use carrova_platform::Platform;
 
 use crate::command_error::CommandError;
 use crate::events::{Emit, SessionSink};
-use crate::pairing::{ANSWER_TIMEOUT, PairingAnswers};
+use crate::pairing::{ANSWER_TIMEOUT, PairingAnswers, PeerAnswer};
 use crate::presence::Advertise;
 use crate::recipes::RecipeService;
 use crate::registry::Registry;
@@ -51,6 +52,8 @@ pub struct AppState {
     pub sessions: Arc<Registry>,
     /// Open pairing questions.
     pub answers: Arc<PairingAnswers>,
+    /// The open key-check question of a device being linked.
+    pub peer_answer: Arc<PeerAnswer>,
     /// User settings.
     pub settings: SettingsStore,
     /// The bell's notices.
@@ -68,6 +71,10 @@ pub struct AppState {
     /// This computer's advert, told of every change to visibility or known
     /// devices.
     pub presence: Arc<dyn Advertise>,
+    /// The link supervisor (here or in another process), set once
+    /// it started ([`crate::ops::ecosystem::start_link`]); the app uses the
+    /// process-wide one ([`crate::ops::ecosystem::process_link`]).
+    pub link: Arc<OnceLock<SharedSupervisor>>,
     /// Run options.
     pub config: BridgeConfig,
 }
@@ -111,10 +118,12 @@ impl AppState {
             recipes: Arc::new(RecipeService::new(Arc::clone(&platform), locations)),
             sessions: Arc::new(Registry::default()),
             answers: Arc::new(PairingAnswers::default()),
+            peer_answer: Arc::default(),
             settings: SettingsStore::new(Arc::clone(&platform)),
             pending_send: SendRequests::default(),
             nearby_asked: Arc::default(),
             entries_lock: Arc::default(),
+            link: Arc::default(),
             presence,
             platform,
             out,

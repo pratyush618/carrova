@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { EngineEvent } from '@/engine/types';
-import { appReducer, bridgeAction, initialAppState, type AppState } from '@/app/state/appState';
+import {
+  appReducer,
+  bridgeAction,
+  initialAppState,
+  LINK_SESSION,
+  type AppState,
+} from '@/app/state/appState';
 
 const feed = (session: string, ...events: EngineEvent[]): AppState =>
   events.reduce<AppState>(
@@ -139,5 +145,127 @@ describe('appReducer peer facts', () => {
       free_space: 112_000_000_000,
     });
     expect(state.sessions['s1']?.peerPlan).toEqual({ items: [] });
+  });
+
+  it('folds linked-device events into the link state, never into a session', () => {
+    const link = (event: EngineEvent) => (state: AppState) =>
+      appReducer(state, { type: 'engine', session: LINK_SESSION, event });
+    const steps = [
+      link({ event: 'link_up', device: 'p8' }),
+      link({
+        event: 'ask_received',
+        ask: 7,
+        device: 'p8',
+        kind: { kind: 'file', name: 'a.pdf', size: 9 },
+      }),
+      link({ event: 'file_progress', device: 'p8', id: 1, done: 4, total: 9 }),
+      link({ event: 'file_saved', device: 'p8', id: 1, path: '/home/ana/Downloads/a.pdf' }),
+      link({ event: 'clip_skipped', reason: 'sensitive' }),
+    ];
+    const state = steps.reduce((s, step) => step(s), initialAppState);
+    expect(state.sessions).toEqual({});
+    expect(state.link.changes).toBe(1);
+    expect(state.link.asks).toEqual([
+      { id: 7, device: 'p8', kind: { kind: 'file', name: 'a.pdf', size: 9 } },
+    ]);
+    expect(state.link.transfers).toEqual([
+      {
+        device: 'p8',
+        id: 1,
+        file_name: 'a.pdf',
+        done: 9,
+        total: 9,
+        state: { kind: 'done' },
+        dismissed: false,
+        sent: false,
+      },
+    ]);
+    expect(state.link.clip?.note).toEqual({ kind: 'skipped', reason: 'sensitive' });
+
+    const expired = link({ event: 'ask_expired', ask: 7 })(state);
+    expect(expired.link.asks).toEqual([]);
+    const answered = appReducer(state, { type: 'ask_answered', id: 7 });
+    expect(answered.link.asks).toEqual([]);
+  });
+
+  it('keeps a transfer dismissed while it runs on, and drops it once finished', () => {
+    const link = (state: AppState, event: EngineEvent) =>
+      appReducer(state, { type: 'engine', session: LINK_SESSION, event });
+    let state = link(initialAppState, {
+      event: 'file_progress',
+      device: 'p8',
+      id: 1,
+      done: 0,
+      total: 9,
+    });
+    state = link(state, { event: 'file_progress', device: 'p8', id: 2, done: 2, total: 8 });
+    state = appReducer(state, { type: 'transfer_dismissed', device: 'p8', id: 2 });
+    state = link(state, { event: 'file_progress', device: 'p8', id: 2, done: 4, total: 8 });
+    expect(state.link.transfers.find((t) => t.id === 2)).toMatchObject({
+      done: 4,
+      total: 8,
+      dismissed: true,
+    });
+    // The newest one still shown is the other file, not the one dismissed.
+    expect(state.link.transfers.filter((t) => !t.dismissed).map((t) => t.id)).toEqual([1]);
+
+    state = link(state, { event: 'file_saved', device: 'p8', id: 2, path: '/d/b.pdf' });
+    expect(state.link.transfers.map((t) => t.id)).toEqual([1]);
+  });
+
+  it('finishes a sent file once the other side saved it, and lets it go when dismissed', () => {
+    const link = (state: AppState, event: EngineEvent) =>
+      appReducer(state, { type: 'engine', session: LINK_SESSION, event });
+    let state = link(initialAppState, {
+      event: 'file_progress',
+      device: 'p8',
+      id: 4,
+      done: 9,
+      total: 9,
+    });
+    state = appReducer(state, { type: 'transfer_dismissed', device: 'p8', id: 4 });
+    state = link(state, { event: 'file_progress', device: 'p8', id: 5, done: 3, total: 9 });
+    state = link(state, { event: 'file_sent', device: 'p8', id: 5 });
+    expect(state.link.transfers.find((t) => t.id === 5)).toMatchObject({
+      done: 9,
+      total: 9,
+      state: { kind: 'done' },
+      sent: true,
+    });
+    // The dismissed one still waits for its end, then goes.
+    state = link(state, { event: 'file_sent', device: 'p8', id: 4 });
+    expect(state.link.transfers.map((t) => t.id)).toEqual([5]);
+  });
+
+  it('dismissing the newest finished transfer also lets the older finished ones go', () => {
+    const link = (state: AppState, event: EngineEvent) =>
+      appReducer(state, { type: 'engine', session: LINK_SESSION, event });
+    let state = link(initialAppState, { event: 'file_saved', device: 'p8', id: 1, path: '/d/a' });
+    state = link(state, { event: 'file_saved', device: 'p8', id: 2, path: '/d/b' });
+    state = appReducer(state, { type: 'transfer_dismissed', device: 'p8', id: 2 });
+    expect(state.link.transfers).toEqual([]);
+  });
+
+  it('notes a received clip only when the user asked for a note', () => {
+    const link = (state: AppState, event: EngineEvent) =>
+      appReducer(state, { type: 'engine', session: LINK_SESSION, event });
+    const quiet = link(initialAppState, { event: 'clip_received', device: 'p8', note: false });
+    expect(quiet.link.clip).toBeNull();
+    expect(quiet.link.clips).toBe(1);
+    const noted = link(quiet, { event: 'clip_received', device: 'p8', note: true });
+    expect(noted.link.clip?.note).toEqual({ kind: 'received', device: 'p8' });
+  });
+
+  it('keeps whether a failed file can be sent again', () => {
+    const state = appReducer(initialAppState, {
+      type: 'engine',
+      session: LINK_SESSION,
+      event: { event: 'file_failed', device: 'p8', id: 3, reason: 'device_left', retry: true },
+    });
+    expect(state.link.transfers[0]?.state).toEqual({
+      kind: 'failed',
+      reason: 'device_left',
+      retry: true,
+    });
   });
 });

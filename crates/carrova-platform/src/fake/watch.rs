@@ -11,7 +11,7 @@ use crate::{DirWatch, PlatformError};
 
 /// A watch's callback; `None` once its guard dropped. Called under its own
 /// lock, never the registry's, so a callback may change the watches.
-type Callback = Arc<Mutex<Option<Box<dyn Fn() + Send>>>>;
+pub(super) type Callback = Arc<Mutex<Option<Box<dyn Fn() + Send>>>>;
 
 /// One live watch: its dirs and callback.
 type Watch = (u64, Vec<PathBuf>, Callback);
@@ -95,7 +95,7 @@ impl FakePlatform {
     }
 }
 
-fn locked(callback: &Callback) -> MutexGuard<'_, Option<Box<dyn Fn() + Send>>> {
+pub(super) fn locked(callback: &Callback) -> MutexGuard<'_, Option<Box<dyn Fn() + Send>>> {
     callback.lock().unwrap_or_else(PoisonError::into_inner)
 }
 

@@ -3,6 +3,7 @@
 use std::net::{SocketAddr, SocketAddrV4, UdpSocket};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use carrova_platform::Platform;
 use quinn::crypto::rustls::{QuicClientConfig, QuicServerConfig};
@@ -12,7 +13,7 @@ use crate::error::{Result, SetupFailure, TransportError};
 use crate::runtime::runtime;
 use crate::tls::Identity;
 use crate::tuning::{
-    CONNECTION_RECEIVE_WINDOW, IDLE_TIMEOUT, INITIAL_RTT, KEEP_ALIVE_INTERVAL,
+    CONNECTION_RECEIVE_WINDOW, IDLE_TIMEOUT, INITIAL_RTT, KEEP_ALIVE_INTERVAL, LINK_IDLE_FACTOR,
     MAX_CONCURRENT_BIDI_STREAMS, SEND_WINDOW, STREAM_RECEIVE_WINDOW, UDP_SOCKET_BUFFER,
 };
 
@@ -38,8 +39,20 @@ fn udp_socket(platform: &dyn Platform, port: u16) -> Result<UdpSocket> {
     Ok(socket)
 }
 
-/// QUIC transport parameters (see `tuning`).
-fn transport_config() -> Result<Arc<TransportConfig>> {
+/// A move session's QUIC transport parameters (see `tuning`).
+pub(crate) fn session_transport() -> Result<Arc<TransportConfig>> {
+    transport_config(KEEP_ALIVE_INTERVAL, IDLE_TIMEOUT)
+}
+
+/// A link's: the platform's keep-alive interval, idle timeout
+/// [`LINK_IDLE_FACTOR`]× it. quinn fixes both per connection at the
+/// handshake (the idle timeout is negotiated), so they are chosen here.
+pub(crate) fn link_transport(platform: &dyn Platform) -> Result<Arc<TransportConfig>> {
+    let keep_alive = platform.link_keepalive();
+    transport_config(keep_alive, keep_alive.saturating_mul(LINK_IDLE_FACTOR))
+}
+
+fn transport_config(keep_alive: Duration, idle: Duration) -> Result<Arc<TransportConfig>> {
     let mut t = TransportConfig::default();
     t.stream_receive_window(VarInt::from_u32(STREAM_RECEIVE_WINDOW))
         .receive_window(VarInt::from_u32(CONNECTION_RECEIVE_WINDOW))
@@ -48,10 +61,9 @@ fn transport_config() -> Result<Arc<TransportConfig>> {
         .max_concurrent_uni_streams(VarInt::from_u32(0))
         .initial_rtt(INITIAL_RTT)
         .max_idle_timeout(Some(
-            IdleTimeout::try_from(IDLE_TIMEOUT)
-                .map_err(|e| TransportError::internal("idle timeout", e))?,
+            IdleTimeout::try_from(idle).map_err(|e| TransportError::internal("idle timeout", e))?,
         ))
-        .keep_alive_interval(Some(KEEP_ALIVE_INTERVAL));
+        .keep_alive_interval(Some(keep_alive));
     Ok(Arc::new(t))
 }
 
@@ -66,17 +78,26 @@ fn endpoint(socket: UdpSocket, server: Option<quinn::ServerConfig>) -> Result<qu
     )?)
 }
 
-/// Sender endpoint on `port` (0 = any), accepting mutual-TLS connections.
+/// Sender endpoint on `port` (0 = any), accepting mutual-TLS connections
+/// with `config` ([`server_config`]).
 pub(crate) fn server(
     platform: &dyn Platform,
-    identity: &Identity,
+    config: quinn::ServerConfig,
     port: u16,
 ) -> Result<quinn::Endpoint> {
+    endpoint(udp_socket(platform, port)?, Some(config))
+}
+
+/// Server config for `identity` whose connections use `transport`.
+pub(crate) fn server_config(
+    identity: &Identity,
+    transport: Arc<TransportConfig>,
+) -> Result<quinn::ServerConfig> {
     let tls = QuicServerConfig::try_from(identity.server_config()?)
         .map_err(|e| TransportError::internal("QUIC server crypto", e))?;
     let mut cfg = quinn::ServerConfig::with_crypto(Arc::new(tls));
-    cfg.transport_config(transport_config()?);
-    endpoint(udp_socket(platform, port)?, Some(cfg))
+    cfg.transport_config(transport);
+    Ok(cfg)
 }
 
 /// Receiver endpoint on an ephemeral port, with its client config.
@@ -96,7 +117,7 @@ pub(crate) fn client_on(
     let tls = QuicClientConfig::try_from(identity.client_config()?)
         .map_err(|e| TransportError::internal("QUIC client crypto", e))?;
     let mut cfg = quinn::ClientConfig::new(Arc::new(tls));
-    cfg.transport_config(transport_config()?);
+    cfg.transport_config(session_transport()?);
     Ok((endpoint(socket, None)?, cfg))
 }
 

@@ -10,7 +10,10 @@
 //! are unsupported unless [`FakePlatform::file_manager_entries`] pretends
 //! them. A status tray is shown until [`FakePlatform::set_status_tray`]
 //! takes it away; autostart is kept in memory. Directory watches report
-//! only the changes a test fires ([`FakePlatform::fire_dir_change`]).
+//! only the changes a test fires ([`FakePlatform::fire_dir_change`]). The
+//! clipboard is in memory; downloads sit in `~/Downloads`. Keeping running
+//! is recorded ([`FakePlatform::kept_running`]) and linking is paused only
+//! when a test says so ([`FakePlatform::set_links_paused`]).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -21,9 +24,11 @@ use crate::Platform;
 use crate::{FsId, OsKind, ProcessInfo, ScreenLock, SemanticRoot};
 
 mod background;
+mod clipboard;
 mod file_manager;
 mod fixture;
 mod hooks;
+mod links;
 mod platform;
 #[cfg(test)]
 #[path = "../../tests/fake/unit.rs"]
@@ -37,8 +42,10 @@ pub use fixture::{pin_umask, write_tool_script};
 pub use hooks::{Hooks, MetadataHook, OpenHook, RenameHook, StatusHook, SyncDirHook};
 
 use background::FakeBackground;
+use clipboard::FakeClipboard;
 use file_manager::FakeEntries;
 use hooks::HookState;
+use links::FakeLinks;
 use watch::FakeWatches;
 
 /// Deterministic [`Platform`] for tests. Filesystem metadata and operations
@@ -67,6 +74,10 @@ pub struct FakePlatform {
     background: Arc<FakeBackground>,
     /// Pretend directory watches (shared by clones).
     watches: Arc<FakeWatches>,
+    /// Pretend clipboard (shared by clones).
+    clipboard: Arc<FakeClipboard>,
+    /// Pretend background service and pause control (shared by clones).
+    links: Arc<FakeLinks>,
 }
 
 /// A pretend filesystem mounted at `mount` (see [`FakePlatform::filesystem`]).
@@ -108,13 +119,16 @@ impl FakePlatform {
             entries: None,
             background: Arc::default(),
             watches: Arc::default(),
+            clipboard: Arc::default(),
+            links: Arc::default(),
         }
     }
 
     /// A `os` machine whose roots sit under `home` where that OS puts
     /// them: Linux as [`Self::with_home`]; macOS `Library/Application
     /// Support` (config and data) and `Library/Caches`; Windows
-    /// `AppData/Roaming` (config) and `AppData/Local` (data and cache).
+    /// `AppData/Roaming` (config) and `AppData/Local` (data and cache);
+    /// Android `config`, `data` and `cache`.
     #[must_use]
     pub fn with_os_layout(home: impl AsRef<Path>, os: OsKind) -> Self {
         let home = home.as_ref();
@@ -127,6 +141,7 @@ impl FakePlatform {
                 "Library/Caches",
             ),
             OsKind::Windows => ("AppData/Roaming", "AppData/Local", "AppData/Local"),
+            OsKind::Android => ("config", "data", "cache"),
         };
         p.root(SemanticRoot::UserConfig, home.join(config))
             .root(SemanticRoot::UserData, home.join(data))

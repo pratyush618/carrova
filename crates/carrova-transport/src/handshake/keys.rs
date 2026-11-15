@@ -1,10 +1,13 @@
 //! Confirmation keys and the TLS channel binding they are bound to.
 
+use carrova_crypto::identity::DevicePublic;
 use carrova_crypto::pairing::{
     CertHash, ChannelBinding, Confirmation, EXPORTER_LABEL, EXPORTER_LEN, KnownSecret, PakeRole,
     ResumeSecret, SessionKeys,
 };
 
+use super::PeerIdentity;
+use super::identify::Proof;
 use crate::error::{Result, SetupFailure, TransportError};
 use crate::tls::{self, Identity};
 
@@ -12,6 +15,8 @@ use crate::tls::{self, Identity};
 pub(super) enum Keys<'a> {
     Pake(SessionKeys),
     Resume(&'a ResumeSecret),
+    /// A link: the secret shared with this known peer.
+    Link(&'a PeerIdentity),
 }
 
 impl Keys<'_> {
@@ -19,6 +24,7 @@ impl Keys<'_> {
         Ok(match self {
             Self::Pake(keys) => keys.confirm(role, binding)?,
             Self::Resume(secret) => secret.prove(role, binding)?,
+            Self::Link(peer) => peer.secret.prove(role, binding)?,
         })
     }
 
@@ -31,22 +37,37 @@ impl Keys<'_> {
         match self {
             Self::Pake(keys) => keys.verify(peer, binding, c),
             Self::Resume(secret) => secret.verify(peer, binding, c),
+            Self::Link(known) => known.secret.verify(peer, binding, c),
         }
-        .map_err(|_| TransportError::PairingFailed)
+        .map_err(|_| self.proof(None).failure())
     }
 
-    /// The secret for recognising a remembered device: code pairing only.
+    /// The secret for recognising a remembered device: code pairing (new)
+    /// or link (the one proven).
     pub(super) fn known_secret(&self) -> Option<KnownSecret> {
         match self {
             Self::Pake(keys) => Some(keys.known_secret()),
             Self::Resume(_) => None,
+            Self::Link(peer) => Some(peer.secret.clone()),
         }
     }
 
-    pub(super) fn resume_secret(&self) -> ResumeSecret {
+    /// What the peer's `Identify` must prove: a link, by the known peer's
+    /// key; a pairing, by any key (or `pin`, from a scanned QR code).
+    pub(super) fn proof<'b>(&'b self, pin: Option<&'b DevicePublic>) -> Proof<'b> {
         match self {
-            Self::Pake(keys) => keys.resume_secret(),
-            Self::Resume(secret) => (*secret).clone(),
+            Self::Link(peer) => Proof::Link(&peer.public),
+            Self::Pake(_) | Self::Resume(_) => Proof::Pairing(pin),
+        }
+    }
+
+    /// The session's resume secret; none for a link (redialled, never
+    /// resumed).
+    pub(super) fn resume_secret(&self) -> Option<ResumeSecret> {
+        match self {
+            Self::Pake(keys) => Some(keys.resume_secret()),
+            Self::Resume(secret) => Some((*secret).clone()),
+            Self::Link(_) => None,
         }
     }
 }

@@ -140,10 +140,26 @@ export function applyEvent(session: SessionProgress, event: EngineEvent): Sessio
       return { ...session, pairingFailures: session.pairingFailures + 1, checking: false };
     case 'pairing_in_progress':
       return { ...session, checking: true };
+    // Not move state; the linked-device events (link_up onwards) belong to no move session.
     case 'recaptured':
     case 'conflict_found':
     case 'device_remembered':
     case 'action_applied':
+    case 'link_up':
+    case 'link_down':
+    case 'policy_changed':
+    case 'ask_received':
+    case 'ask_expired':
+    case 'clip_received':
+    case 'clip_sent':
+    case 'clip_skipped':
+    case 'file_progress':
+    case 'file_saved':
+    case 'file_sent':
+    case 'file_failed':
+    case 'handoff_opened':
+    case 'ring_started':
+    case 'ring_stopped':
       return session;
   }
 }

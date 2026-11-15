@@ -3,7 +3,11 @@
 use std::thread;
 use std::time::Instant;
 
+use carrova_core::Cancel;
+use carrova_view::ecosystem::PairPeerView;
+
 use super::*;
+use crate::registry::Registry;
 use crate::testing::Recorder;
 
 fn session() -> SessionId {
@@ -78,4 +82,69 @@ fn no_answer_in_time_means_no_new_code() {
 fn answering_without_a_question_fails() {
     let answers = PairingAnswers::default();
     assert_eq!(answers.answer(&session(), true), Err(NoQuestion));
+}
+
+fn found() -> PairPeerView {
+    PairPeerView {
+        name: "Pixel 8".into(),
+        os: carrova_platform::OsKind::Android,
+        fingerprint: "7F3A·19C2".into(),
+    }
+}
+
+/// Ask `found()` on a thread, within `window`; returns the answer's handle.
+fn ask_on_thread(
+    recorder: &Arc<Recorder>,
+    peers: &Arc<PeerAnswer>,
+    cancel: &Cancel,
+    window: Duration,
+) -> thread::JoinHandle<bool> {
+    let (out, peers, cancel) = (recorder.clone(), peers.clone(), cancel.clone());
+    let asked = thread::spawn(move || peers.ask(&*out, found(), &cancel, window));
+    while recorder.of_kind("pair_peer_found").is_empty() {
+        thread::sleep(Duration::from_millis(5));
+    }
+    asked
+}
+
+#[test]
+fn the_users_answer_decides_whether_the_peer_is_linked() {
+    for yes in [true, false] {
+        let recorder = Arc::new(Recorder::default());
+        let peers = Arc::new(PeerAnswer::default());
+        let asked = ask_on_thread(&recorder, &peers, &Cancel::default(), ANSWER_TIMEOUT);
+        peers.answer(yes).unwrap();
+        assert_eq!(asked.join().unwrap(), yes);
+        let shown = recorder.of_kind("pair_peer_found");
+        assert_eq!(shown[0]["peer"]["fingerprint"], "7F3A·19C2");
+    }
+}
+
+#[test]
+fn an_unanswered_peer_question_is_a_no_and_closes() {
+    let recorder = Arc::new(Recorder::default());
+    let peers = Arc::new(PeerAnswer::default());
+    let asked = ask_on_thread(
+        &recorder,
+        &peers,
+        &Cancel::default(),
+        Duration::from_millis(50),
+    );
+    assert!(!asked.join().unwrap());
+    assert_eq!(peers.answer(true), Err(NoQuestion), "question closed");
+}
+
+#[test]
+fn cancel_connect_unblocks_peer_question() {
+    let recorder = Arc::new(Recorder::default());
+    let peers = Arc::new(PeerAnswer::default());
+    let registry = Registry::default();
+    let cancel = registry.begin_connect().unwrap();
+    let asked = ask_on_thread(&recorder, &peers, &cancel, ANSWER_TIMEOUT);
+
+    let started = Instant::now();
+    registry.cancel_connect();
+
+    assert!(!asked.join().unwrap());
+    assert!(started.elapsed() < Duration::from_secs(2));
 }

@@ -92,3 +92,23 @@ export const nearbyNoHint: NearbyModel = {
   ...nearbyList,
   wake: { name: 'Work laptop', outcome: 'no_hint' },
 };
+
+/** Pixel 8 linked (phones never answer the browse), beside the mockup's network. */
+export const nearbyLinked: NearbyModel = {
+  ...nearbyMap,
+  here: [
+    {
+      key: 'p8',
+      id: 'p8',
+      name: 'Pixel 8',
+      os: 'android',
+      kind: 'linked',
+      ring: 'inner',
+      fingerprint: 'C4D2·7781',
+      lastMove: null,
+      moves: 0,
+      canWake: false,
+    },
+    ...nearbyMap.here,
+  ],
+};

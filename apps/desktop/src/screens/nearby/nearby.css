@@ -193,7 +193,8 @@
   color: var(--text-secondary);
 }
 
-.s-near__dev--known .s-near__dev-icon {
+.s-near__dev--known .s-near__dev-icon,
+.s-near__dev--linked .s-near__dev-icon {
   background: var(--accent-soft);
   color: var(--accent);
 }

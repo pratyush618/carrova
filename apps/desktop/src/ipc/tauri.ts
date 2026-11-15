@@ -14,6 +14,9 @@ import { raise } from './reject';
 /** The bridge's event channel (`carrova_view::ipc::EVENT_CHANNEL`). */
 export const EVENT_CHANNEL = 'carrova://event';
 
+/** Opened links are waiting (`crate::opened::OPENED_EVENT`, no payload). */
+const OPENED_EVENT = 'carrova://opened';
+
 /** `invoke`, rejecting only with a `BridgeError`. */
 async function call<T>(command: string, args?: InvokeArgs): Promise<T> {
   try {
@@ -79,6 +82,34 @@ export function createTauriPort(): CarrovaPort {
     setVisibility: (choice) => call('set_visibility', { choice }),
     wakeDevice: (device) => call('wake_device', { device }),
     takeShowNearby: () => call('take_show_nearby'),
+
+    linkedDevices: () => call('linked_devices'),
+    pairInvite: () => call('pair_invite'),
+    answerPairPeer: (accept) => call('answer_pair_peer', { accept }),
+    linkComputer: (ticket) => call('link_computer', { ticket }),
+    linkInvite: (uri) => call('link_invite', { uri }),
+    ownFingerprint: () => call('own_fingerprint'),
+    lanAvailable: () => call('lan_available'),
+    scanQr: () => call('scan_qr'),
+    takeOpened: () => call('take_opened'),
+    onOpened: (listener) =>
+      listen(OPENED_EVENT, () => {
+        listener();
+      }),
+    // `state` is taken by Tauri's managed state on the Rust side.
+    setFeature: (id, feature, state) => call('set_feature', { id, feature, featureState: state }),
+    answerAsk: (askId, accept) => call('answer_ask', { askId, accept }),
+    sendClipboard: (id) => call('send_clipboard', { id }),
+    sendFiles: (id, paths) => call('send_files', { id, paths }),
+    handoffUrl: (id, url) => call('handoff_url', { id, url }),
+    ring: (id) => call('ring', { id }),
+    stopRing: (id) => call('stop_ring', { id }),
+    sendText: (id, text) => call('send_text', { id, text }),
+    clipHistory: () => call('clip_history'),
+    clearClipHistory: () => call('clear_clip_history'),
+    clipSettings: () => call('clip_settings'),
+    setClipSettings: (settings) => call('set_clip_settings', { settings }),
+    retryFile: (id) => call('retry_file', { id }),
 
     notices: () => call('notices'),
     markNoticesRead: (ids) => call('mark_notices_read', { ids: ids === 'all' ? null : ids }),

@@ -37,12 +37,47 @@ impl MacKey {
         Ok(mac)
     }
 
-    /// `HMAC(key, role identity ‖ binding)`.
-    pub(super) fn role_mac(&self, role: PakeRole, binding: &ChannelBinding) -> Result<HmacSha256> {
+    /// `HMAC(key, label ‖ role identity ‖ binding)`; `label` is empty for
+    /// keys that prove nothing else (pairing confirmation, resume).
+    fn role_mac(
+        &self,
+        label: &[u8],
+        role: PakeRole,
+        binding: &ChannelBinding,
+    ) -> Result<HmacSha256> {
         let mut mac = self.mac()?;
+        mac.update(label);
         mac.update(role.identity());
         mac.update(binding.as_bytes());
         Ok(mac)
+    }
+
+    /// This side's proof of the key over `binding`, signed as `role`.
+    pub(super) fn prove(
+        &self,
+        label: &[u8],
+        role: PakeRole,
+        binding: &ChannelBinding,
+    ) -> Result<Confirmation> {
+        Ok(Confirmation(
+            self.role_mac(label, role, binding)?
+                .finalize()
+                .into_bytes()
+                .into(),
+        ))
+    }
+
+    /// Check the peer's proof in constant time.
+    pub(super) fn verify(
+        &self,
+        label: &[u8],
+        peer_role: PakeRole,
+        binding: &ChannelBinding,
+        proof: &Confirmation,
+    ) -> Result<()> {
+        self.role_mac(label, peer_role, binding)?
+            .verify_slice(&proof.0)
+            .map_err(|_| PairingError::ConfirmationFailed)
     }
 }
 
@@ -101,13 +136,7 @@ impl ResumeSecret {
 
     /// This side's proof of the secret over a fresh connection's binding.
     pub fn prove(&self, role: PakeRole, binding: &ChannelBinding) -> Result<Confirmation> {
-        Ok(Confirmation(
-            self.key()
-                .role_mac(role, binding)?
-                .finalize()
-                .into_bytes()
-                .into(),
-        ))
+        self.key().prove(&[], role, binding)
     }
 
     /// Check the peer's proof in constant time.
@@ -117,10 +146,7 @@ impl ResumeSecret {
         binding: &ChannelBinding,
         proof: &Confirmation,
     ) -> Result<()> {
-        self.key()
-            .role_mac(peer_role, binding)?
-            .verify_slice(&proof.0)
-            .map_err(|_| PairingError::ConfirmationFailed)
+        self.key().verify(&[], peer_role, binding, proof)
     }
 }
 

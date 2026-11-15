@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Behind the system bars: the app's window base (theme token surface-1, dark). -->
+    <color name="window_background">#131418</color>
+</resources>

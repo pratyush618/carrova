@@ -7,6 +7,7 @@ mod events;
 mod integrate;
 mod interrupt;
 mod lan;
+mod link;
 mod output;
 mod prompt;
 mod recipes;
@@ -97,6 +98,15 @@ enum Command {
     /// The devices this computer remembers: list, rename, forget, or
     /// reset this computer's identity.
     Devices(devices::DevicesArgs),
+    /// Linked devices: show their links, or run the link supervisor
+    /// headless.
+    Link(link::LinkArgs),
+    /// Send the clipboard to a linked device.
+    Clip(link::ClipArgs),
+    /// Send a file to a linked device.
+    File(link::FileArgs),
+    /// Open a link or file on a linked device.
+    Handoff(link::HandoffArgs),
     /// Show or choose who may find this computer nearby.
     Visibility(devices::VisibilityArgs),
     /// Opt-in local error reports: choose, list, inspect, delete, or turn
@@ -148,6 +158,10 @@ fn run(cli: Cli, reports: &Result<Reports, PlatformError>) -> Result<ExitCode> {
         Command::Sessions(a) => session::sessions(&mut out, &recipes, cli.verbose, a),
         Command::Integrate { command } => integrate::integrate(&mut out, &command),
         Command::Devices(a) => devices::devices(&mut out, a),
+        Command::Link(a) => link::link(&mut out, &a),
+        Command::Clip(a) => link::clip(&mut out, a),
+        Command::File(a) => link::file(&mut out, a),
+        Command::Handoff(a) => link::handoff(&mut out, &a),
         Command::Visibility(a) => devices::visibility(&mut out, &a),
         Command::Report(a) => {
             let reports = reports

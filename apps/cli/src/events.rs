@@ -93,6 +93,22 @@ impl CliSink {
             Event::DeviceRemembered { name, fingerprint } => {
                 Some(format!("Remembered {} ({fingerprint}).", safe(name)))
             }
+            // Linked-device events: the link commands report their own outcome.
+            Event::LinkUp { .. }
+            | Event::LinkDown { .. }
+            | Event::PolicyChanged { .. }
+            | Event::AskReceived { .. }
+            | Event::AskExpired { .. }
+            | Event::ClipReceived { .. }
+            | Event::ClipSent { .. }
+            | Event::ClipSkipped { .. }
+            | Event::FileProgress { .. }
+            | Event::FileSaved { .. }
+            | Event::FileSent { .. }
+            | Event::FileFailed { .. }
+            | Event::HandoffOpened { .. }
+            | Event::RingStarted { .. }
+            | Event::RingStopped { .. } => None,
         }
     }
 

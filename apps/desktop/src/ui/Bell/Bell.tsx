@@ -78,7 +78,7 @@ export function Bell({ model }: { readonly model: BellModel }) {
       <button
         ref={button}
         type="button"
-        className="p-bell__btn"
+        className="p-btn p-btn--quiet p-btn--icon p-bell__btn"
         aria-label={
           model.unread > 0 ? t('bell.labelUnread', { count: model.unread }) : t('bell.label')
         }

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cx } from '../cx';
 import { useReducedMotion } from '../motion';
@@ -51,28 +51,26 @@ function CodeTiles({ words, reveal = false, size = 'md' }: CodeDisplayProps) {
         aria-label={t('ui.code.label', { code: words.join(' ') })}
       >
         {words.map((word, w) => (
-          <Fragment key={`${String(w)}-${word}`}>
-            {w > 0 && <span className="p-code__dash" />}
-            <span className="p-code__word" aria-hidden="true">
-              {Array.from(word, (ch, c) => {
-                const i = (offsets[w] ?? 0) + c;
-                const set = elapsed >= settleAt(i);
-                return (
-                  <span
-                    key={i}
-                    className={cx(
-                      'p-flap',
-                      /\d/.test(ch) && 'p-flap--num',
-                      reveal && (set ? 'p-flap--set' : 'p-flap--spinning'),
-                    )}
-                    data-settled={set}
-                  >
-                    {flapFace(ch, i, elapsed)}
-                  </span>
-                );
-              })}
-            </span>
-          </Fragment>
+          <span key={`${String(w)}-${word}`} className="p-code__word" aria-hidden="true">
+            {Array.from(word, (ch, c) => {
+              const i = (offsets[w] ?? 0) + c;
+              const set = elapsed >= settleAt(i);
+              return (
+                <span
+                  key={i}
+                  className={cx(
+                    'p-flap',
+                    /\d/.test(ch) && 'p-flap--num',
+                    reveal && (set ? 'p-flap--set' : 'p-flap--spinning'),
+                  )}
+                  data-settled={set}
+                >
+                  {flapFace(ch, i, elapsed)}
+                </span>
+              );
+            })}
+            {w < words.length - 1 && <span className="p-code__dash" />}
+          </span>
         ))}
       </div>
     </div>

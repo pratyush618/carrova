@@ -138,6 +138,34 @@ pub enum CoreError {
         key: String,
         problem: KeyFileProblem,
     },
+    /// A device policy is not valid.
+    #[error(transparent)]
+    Link(#[from] carrova_link::LinkError),
+    /// A pairing link could not be read.
+    #[error("invalid pairing link: {0}")]
+    InvalidInvite(&'static str),
+    /// A linked device is known but not connected right now.
+    #[error("linked devices: the device is not connected")]
+    NotLinked,
+    /// The link supervisor's control socket failed.
+    #[error("link supervisor control: {0}")]
+    Control(#[from] crate::ecosystem::ControlError),
+    /// A feature is off for this device, on this side or the other.
+    #[error("linked devices: {0:?} is off for this device")]
+    FeatureOff(carrova_link::Feature),
+    /// The ask was already answered, or it expired.
+    #[error("linked devices: the request is no longer waiting for an answer")]
+    AskGone,
+    /// No file with that id is waiting to be sent again.
+    #[error("linked devices: that file is no longer waiting to be sent again")]
+    NothingToRetry,
+    /// The computer reached is not the one whose QR code was scanned.
+    #[error("this is not the computer you scanned")]
+    KeyMismatch,
+    /// The user did not confirm the device found while pairing (said no,
+    /// or did not answer in time); nothing was stored.
+    #[error("pairing: the device found was not confirmed")]
+    PairRejected,
     /// No known device matches (forget, rename or a typed fingerprint).
     #[error("known devices: no known device matches")]
     UnknownDevice,
@@ -244,6 +272,7 @@ impl From<carrova_transport::TransportError> for CoreError {
         match e {
             T::Cancelled => Self::Cancelled,
             T::PeerCancelled => Self::PeerCancelled,
+            T::KeyMismatch => Self::KeyMismatch,
             e => Self::Transport(e),
         }
     }

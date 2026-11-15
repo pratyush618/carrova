@@ -11,9 +11,11 @@ publish.workspace = true
 carrova-bundle = { workspace = true }
 carrova-core = { workspace = true }
 carrova-crypto = { workspace = true }
+carrova-link = { workspace = true }
 carrova-platform = { workspace = true }
 # Only for the TS export of error-report types (desktop IPC contract).
 carrova-report = { workspace = true, optional = true }
+qrcode = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -27,7 +29,7 @@ tempfile = { workspace = true }
 [features]
 # TypeScript bindings (ts-rs) of the view-models and every engine type a
 # front-end receives or sends; `tests/export_bindings/main.rs` writes them.
-ts = ["dep:ts-rs", "carrova-core/ts", "carrova-platform/ts", "dep:carrova-report", "carrova-report/ts"]
+ts = ["dep:ts-rs", "carrova-core/ts", "carrova-link/ts", "carrova-platform/ts", "dep:carrova-report", "carrova-report/ts"]
 
 [lints]
 workspace = true

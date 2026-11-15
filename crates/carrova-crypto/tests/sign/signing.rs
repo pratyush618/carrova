@@ -212,12 +212,19 @@ fn bundle_signer_cannot_sign_certificates() {
 
 #[test]
 fn context_tags_are_distinct_and_nul_terminated() {
-    let tags = [SignContext::KeyCert.tag(), SignContext::BundleIndex.tag()];
-    for tag in tags {
+    let tags = [
+        SignContext::KeyCert.tag(),
+        SignContext::BundleIndex.tag(),
+        SignContext::DeviceIdentity.tag(),
+        SignContext::DeviceLink.tag(),
+    ];
+    for (i, tag) in tags.iter().enumerate() {
         assert_eq!(tag.last(), Some(&0));
         assert_eq!(tag.iter().filter(|b| **b == 0).count(), 1);
+        for other in &tags[i + 1..] {
+            assert_ne!(tag, other);
+        }
     }
-    assert_ne!(tags[0], tags[1]);
 }
 
 #[test]

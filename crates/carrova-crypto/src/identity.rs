@@ -7,7 +7,10 @@
 //!
 //! Each side signs, under [`SignContext::DeviceIdentity`],
 //! `role identity ‖ ChannelBinding ‖ own public key`: the role stops
-//! reflection, the binding ties the proof to one TLS session. The key
+//! reflection, the binding ties the proof to one TLS session. A linked
+//! device's reconnect signs the same payload under
+//! [`SignContext::DeviceLink`] (ADR 0002 §3), so neither proof passes as
+//! the other. The key
 //! seed zeroizes on drop; no `Debug` output here shows key bytes (public
 //! keys print as their fingerprint).
 
@@ -85,10 +88,13 @@ impl DeviceKey {
     /// This side's identity proof for `binding`, signed as `role`.
     #[must_use]
     pub fn sign_binding(&self, role: PakeRole, binding: &ChannelBinding) -> [u8; IDENTITY_SIG_LEN] {
-        let payload = identity_payload(role, binding, &self.public());
-        self.0
-            .sign(SignContext::DeviceIdentity, &payload)
-            .to_bytes()
+        self.sign(SignContext::DeviceIdentity, role, binding)
+    }
+
+    /// This side's link proof for `binding`, signed as `role`.
+    #[must_use]
+    pub fn sign_link(&self, role: PakeRole, binding: &ChannelBinding) -> [u8; IDENTITY_SIG_LEN] {
+        self.sign(SignContext::DeviceLink, role, binding)
     }
 
     /// Check the peer's identity proof: `peer` signed `binding` as
@@ -101,16 +107,45 @@ impl DeviceKey {
         binding: &ChannelBinding,
         sig: &[u8; IDENTITY_SIG_LEN],
     ) -> Result<(), IdentityError> {
+        self.verify(SignContext::DeviceIdentity, peer, peer_role, binding, sig)
+    }
+
+    /// Check the peer's link proof, as [`verify_peer`](Self::verify_peer)
+    /// but under [`SignContext::DeviceLink`].
+    pub fn verify_link_peer(
+        &self,
+        peer: &DevicePublic,
+        peer_role: PakeRole,
+        binding: &ChannelBinding,
+        sig: &[u8; IDENTITY_SIG_LEN],
+    ) -> Result<(), IdentityError> {
+        self.verify(SignContext::DeviceLink, peer, peer_role, binding, sig)
+    }
+
+    fn sign(
+        &self,
+        context: SignContext,
+        role: PakeRole,
+        binding: &ChannelBinding,
+    ) -> [u8; IDENTITY_SIG_LEN] {
+        let payload = identity_payload(role, binding, &self.public());
+        self.0.sign(context, &payload).to_bytes()
+    }
+
+    fn verify(
+        &self,
+        context: SignContext,
+        peer: &DevicePublic,
+        peer_role: PakeRole,
+        binding: &ChannelBinding,
+        sig: &[u8; IDENTITY_SIG_LEN],
+    ) -> Result<(), IdentityError> {
         if *peer == self.public() {
             return Err(IdentityError::OwnKey);
         }
         let payload = identity_payload(peer_role, binding, peer);
         peer.0
-            .verify(
-                SignContext::DeviceIdentity,
-                &payload,
-                &Signature::from_bytes(sig),
-            )
+            .verify(context, &payload, &Signature::from_bytes(sig))
             .map_err(|_| IdentityError::BadSignature)
     }
 }

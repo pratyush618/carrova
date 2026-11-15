@@ -31,6 +31,11 @@
 //!   parallel streams; the sender serves only chunks in its manifest
 //!   ([`Connection::serve_chunks`]). Every chunk is BLAKE3-verified on
 //!   arrival and re-requested up to [`MAX_CHUNK_RETRIES`] times.
+//! - **Lanes:** either side of a connection opens bidirectional
+//!   [`Stream`]s ([`Connection::open_stream`], [`Connection::accept_stream`])
+//!   carrying frames and raw bytes; a link's keep-alive comes from
+//!   [`Platform::link_keepalive`](carrova_platform::Platform::link_keepalive),
+//!   its idle timeout is 3× that.
 
 mod accept;
 mod admission;
@@ -48,6 +53,7 @@ mod race;
 mod replay;
 mod runtime;
 mod serve;
+mod stream;
 #[cfg(test)]
 #[path = "../tests/lib/unit.rs"]
 mod tests;
@@ -57,16 +63,18 @@ mod tuning;
 mod wire;
 
 pub use cancel::CancelSignal;
-pub use connect::{ConnectOptions, Target, connect};
+pub use connect::{ConnectOptions, Target, connect, pair_only};
 pub use connection::{
     AllowedChunks, ChunkFailure, Connection, FailedChunk, FetchAbort, FetchReport, OnChunk,
     ServeEnd,
 };
 pub use discovery::{KnownTags, MAX_KNOWN_TAGS, Nearby, PresenceAdvert, PresenceBeacon, browse};
 pub use error::{ProtocolViolation, Result, SetupFailure, TransportError};
-pub use handshake::PeerIdentity;
-pub use listener::{ListenOptions, Listener};
+pub use handshake::{PairedPeer, PeerIdentity, PeerInfo, PendingPair};
+pub use listener::{KnownPeers, ListenOptions, Listener};
+pub use stream::Stream;
 pub use ticket::Ticket;
+pub use tuning::PAIR_CONFIRM_TIMEOUT;
 
 /// QUIC/TLS application protocol identifier.
 pub const ALPN: &[u8] = b"carrova/1";
@@ -94,6 +102,9 @@ pub const TXT_KNOWN_TAGS: &str = "kt";
 /// ([`OsKind::as_str`](carrova_platform::OsKind::as_str)), present only
 /// when the device shows itself to everyone.
 pub const TXT_OS: &str = "os";
+/// TXT key: a presence advert's link listener QUIC port in decimal,
+/// present only while one runs (see [`Listener::accept_link`]).
+pub const TXT_LINK_PORT: &str = "lp";
 /// UDP port of the broadcast discovery fallback.
 pub const BROADCAST_PORT: u16 = 47821;
 /// Broadcast discovery query prefix, followed by `np=<nameplate>` or

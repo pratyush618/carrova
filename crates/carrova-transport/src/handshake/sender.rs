@@ -9,12 +9,13 @@ use tokio::time::{Instant, timeout, timeout_at};
 use super::identify::{self, PeerIdentity};
 use super::io::{read_confirm, unexpected, write};
 use super::keys::Keys;
+use super::secret::Admitted;
 use super::{Authenticated, Expected, binding};
 use crate::PROTOCOL_VERSION;
 use crate::error::{Result, SetupFailure, TransportError};
 use crate::tls::Identity;
 use crate::tuning::{HANDSHAKE_TIMEOUT, PRE_PAKE_TIMEOUT};
-use crate::wire::{CloseCode, Handshake, RejectReason, StreamReader};
+use crate::wire::{Handshake, Intent, RejectReason, StreamReader};
 
 /// How one incoming connection ended without authenticating.
 #[derive(Debug)]
@@ -59,10 +60,9 @@ pub(crate) async fn sender_attempt(
         .map_err(AttemptFailure::Failed),
         Err(e) => Err(e),
     };
-    match &outcome {
-        Ok(_) => {}
-        Err(Retry(_)) => CloseCode::Rejected.close(&conn),
-        Err(AttemptFailure::Failed(_)) => CloseCode::PairingFailed.close(&conn),
+    if let Err(failure) = &outcome {
+        let staked = matches!(failure, AttemptFailure::Failed(_));
+        expected.failure_code(staked).close(&conn);
     }
     outcome
 }
@@ -75,6 +75,8 @@ struct Staked {
     peer_pake: Option<PakeMessage>,
     /// The receiver's `Hello` asked for device identities.
     identify: bool,
+    /// The known peer a link `Hello` came from.
+    link: Option<PeerIdentity>,
 }
 
 /// Sender, before anything secret is used: read `Hello`, check the
@@ -91,22 +93,30 @@ async fn stake(conn: &quinn::Connection, expected: &Expected) -> Result<Staked, 
         proto,
         intent,
         identify,
+        purpose,
     } = recv.expect_frame().await.map_err(Retry)?
     else {
         return Err(Retry(unexpected("hello")));
     };
-    let reject = if proto != PROTOCOL_VERSION {
-        Some(RejectReason::Version)
-    } else if !expected.admit(&intent) {
-        Some(RejectReason::NotOffered)
+    let admitted = if proto == PROTOCOL_VERSION {
+        expected
+            .admit(&intent, identify, purpose)
+            .ok_or(RejectReason::NotOffered)
     } else {
-        None
+        Err(RejectReason::Version)
     };
-    if let Some(reason) = reject {
-        // Best effort: the `Rejected` close tells the receiver anyway.
-        let _ = write(&mut send, &[Handshake::Reject(reason)]).await;
-        return Err(Retry(TransportError::NotFound));
-    }
+    let link = match admitted {
+        Ok(Admitted::Offer) => None,
+        Ok(Admitted::Link(peer)) => Some(peer),
+        Err(reason) => {
+            // A link `Hello` learns nothing but the close (ADR 0002 §3).
+            if reason == RejectReason::Version || !matches!(intent, Intent::Link { .. }) {
+                // Best effort: the close tells the receiver anyway.
+                let _ = write(&mut send, &[Handshake::Reject(reason)]).await;
+            }
+            return Err(Retry(TransportError::NotFound));
+        }
+    };
     write(&mut send, &[Handshake::Welcome])
         .await
         .map_err(Retry)?;
@@ -121,18 +131,20 @@ async fn stake(conn: &quinn::Connection, expected: &Expected) -> Result<Staked, 
             }
             Some(PakeMessage::from_bytes(msg))
         }
-        Expected::Resume { .. } => None,
+        Expected::Resume { .. } | Expected::Link { .. } => None,
     };
     Ok(Staked {
         send,
         recv,
         peer_pake,
         identify,
+        link,
     })
 }
 
 /// Sender, with the secret at stake: run the PAKE (pairing), both
-/// confirmations and, if both sides remember devices, both identities.
+/// confirmations and, if both sides remember devices (always, for a link),
+/// both identities.
 async fn prove(
     conn: &quinn::Connection,
     identity: &Identity,
@@ -144,47 +156,41 @@ async fn prove(
         mut recv,
         peer_pake,
         identify,
+        link,
     } = staked;
     let (binding, peer_cert) = binding(conn, identity, PakeRole::Sender)?;
-    let keys = match (expected, peer_pake) {
-        (Expected::Pair { code, .. }, Some(peer_msg)) => {
+    let (keys, own_pake) = match (expected, peer_pake, &link) {
+        (Expected::Pair { code, .. }, Some(peer_msg), None) => {
             let (pake, own_msg) = Pake::start(code, PakeRole::Sender);
-            let keys = Keys::Pake(
-                pake.finish(&peer_msg)
-                    .map_err(|_| TransportError::PairingFailed)?,
-            );
-            let confirm = keys.confirm(PakeRole::Sender, &binding)?;
-            write(
-                &mut send,
-                &[
-                    Handshake::Pake(own_msg.into_bytes()),
-                    Handshake::Confirm(confirm.0),
-                ],
+            let keys = pake
+                .finish(&peer_msg)
+                .map_err(|_| TransportError::PairingFailed)?;
+            (
+                Keys::Pake(keys),
+                Some(Handshake::Pake(own_msg.into_bytes())),
             )
-            .await?;
-            keys
         }
-        (Expected::Resume { secret: resume, .. }, None) => {
-            let keys = Keys::Resume(resume);
-            let confirm = keys.confirm(PakeRole::Sender, &binding)?;
-            write(&mut send, &[Handshake::Confirm(confirm.0)]).await?;
-            keys
-        }
+        (Expected::Resume { secret, .. }, None, None) => (Keys::Resume(secret), None),
+        (Expected::Link { .. }, None, Some(peer)) => (Keys::Link(peer), None),
         _ => return Err(SetupFailure::HandshakeStateMismatch.into()),
     };
+    let confirm = Handshake::Confirm(keys.confirm(PakeRole::Sender, &binding)?.0);
+    let frames: Vec<_> = own_pake.into_iter().chain([confirm]).collect();
+    write(&mut send, &frames).await?;
     let theirs = read_confirm(&mut recv).await?;
     keys.verify(PakeRole::Receiver, &binding, &theirs)?;
     let device = expected.device().filter(|_| identify);
     let peer_identity = match (device, keys.known_secret()) {
         (Some(device), Some(known)) => {
+            let proof = keys.proof(None);
             write(
                 &mut send,
-                &[identify::proof(device, PakeRole::Sender, &binding)],
+                &[identify::proof(device, PakeRole::Sender, &binding, proof)],
             )
             .await?;
             let frame = recv.expect_frame().await?;
             Some(PeerIdentity {
-                public: identify::check(device, PakeRole::Receiver, &binding, &frame)?,
+                public: identify::check(device, PakeRole::Receiver, &binding, &frame, proof)?,
                 secret: known,
             })
         }

@@ -7,6 +7,15 @@ pub enum PlatformError {
     #[error("operation not supported on this platform: {0}")]
     Unsupported(&'static str),
 
+    /// The caller passed a value the OS must not act on (e.g. a URL that is
+    /// not `http(s)`).
+    #[error("invalid input: {0}")]
+    InvalidInput(&'static str),
+
+    /// The clipboard could not be read or written.
+    #[error("clipboard error: {0}")]
+    Clipboard(String),
+
     /// A semantic root could not be determined (e.g. `HOME` unset).
     #[error("cannot resolve semantic root `{root}`: {reason}")]
     RootUnavailable {
@@ -21,6 +30,11 @@ pub enum PlatformError {
     /// A network query or send failed.
     #[error("network error: {0}")]
     Network(String),
+
+    /// A call into the Android (Java) side failed; `cause` names the error
+    /// or exception class, never its message (it may hold names or URLs).
+    #[error("Android call {call} failed: {cause}")]
+    Android { call: &'static str, cause: String },
 
     /// I/O failure on a specific path.
     #[error("I/O error on {path}: {source}")]

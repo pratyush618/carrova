@@ -56,15 +56,23 @@ export function NearbyScreen({
     <HubLayout
       variant="flush"
       tools={
-        <Segmented
-          label={t('nearby.show')}
-          options={views}
-          value={model.view}
-          onChange={(view) => {
-            setViaChip(false);
-            on.onView(view);
-          }}
-        />
+        <>
+          <Segmented
+            label={t('nearby.show')}
+            options={views}
+            value={model.view}
+            onChange={(view) => {
+              setViaChip(false);
+              on.onView(view);
+            }}
+          />
+          <Button size="sm" icon="phone" onClick={on.onAddDevice}>
+            {t('ecosystem.nearby.addDevice')}
+          </Button>
+          <Button size="sm" kind="quiet" icon="laptop" onClick={on.onLinkComputer}>
+            {t('ecosystem.nearby.linkComputer')}
+          </Button>
+        </>
       }
     >
       <div className="s-near">
