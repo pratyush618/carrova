@@ -12,8 +12,8 @@ export type PhonePairStep =
   | { readonly kind: 'checking' }
   /** Not on any LAN: linking cannot work. */
   | { readonly kind: 'offline' }
-  /** Scan the code, or type it instead. */
-  | { readonly kind: 'add' }
+  /** Scan the code, or type it instead; `scanFailed`: the last scan could not read one. */
+  | { readonly kind: 'add'; readonly scanFailed: boolean }
   | { readonly kind: 'typing' }
   | { readonly kind: 'linking' }
   /** `device`: the computer that linked, when the list names it. */
@@ -38,10 +38,10 @@ export function usePhonePairing() {
   const probe = useCallback(() => {
     port.lanAvailable().then(
       (lan) => {
-        setStep({ kind: lan ? 'add' : 'offline' });
+        setStep(lan ? { kind: 'add', scanFailed: false } : { kind: 'offline' });
       },
       () => {
-        setStep({ kind: 'add' });
+        setStep({ kind: 'add', scanFailed: false });
       },
     );
   }, [port]);
@@ -80,8 +80,9 @@ export function usePhonePairing() {
       (uri) => {
         if (uri !== null) link(uri);
       },
+      // No camera, or not a Carrova code: nothing was linked, so scan again or type it.
       () => {
-        setStep({ kind: 'failed' });
+        setStep({ kind: 'add', scanFailed: true });
       },
     );
   }, [port, link]);

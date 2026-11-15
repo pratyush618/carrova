@@ -83,4 +83,20 @@ describe('adding a computer from the phone', () => {
     await scanToLinked(user);
     expect(screen.getByRole('button', { name: 'Choose what to share' })).toBeInTheDocument();
   });
+
+  it('explains a failed scan and stays on Add a computer', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderPhone();
+    vi.spyOn(port, 'scanQr').mockRejectedValueOnce({
+      code: 'internal',
+      message: 'camera refused',
+      hint: null,
+    });
+    await user.click(await screen.findByRole('button', { name: 'Add a computer' }));
+    await user.click(await screen.findByRole('button', { name: 'Scan the code' }));
+
+    expect(await screen.findByText(/Couldn't scan the code/)).toBeInTheDocument();
+    expect(screen.queryByText(/didn't answer/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Type the code instead' })).toBeInTheDocument();
+  });
 });

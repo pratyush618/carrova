@@ -12,6 +12,8 @@ export const mobile = {
     lede: 'Scan the code Carrova shows on your computer. The camera is used only for this.',
     scan: 'Scan the code',
     type: 'Type the code instead',
+    scanFailed:
+      "Couldn't scan the code. Allow the camera and scan the code Carrova shows, or type it instead.",
   },
   type: {
     title: 'Type the code',

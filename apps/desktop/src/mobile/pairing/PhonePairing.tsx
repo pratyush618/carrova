@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LinkedDeviceView } from '../../engine/types';
-import { Button, Empty, Field, Input, Note } from '../../ui';
+import { Banner, Button, Empty, Field, Input, Note } from '../../ui';
 import { PhonePage } from '../PhonePage';
 import { usePhonePairing } from './usePhonePairing';
 
@@ -45,6 +45,7 @@ export function PhonePairing({
       return (
         <PhonePage title={t('mobile.add.title')} onBack={onClose}>
           <p>{t('mobile.add.lede')}</p>
+          {step.scanFailed && <Banner tone="warning" title={t('mobile.add.scanFailed')} />}
           <div className="m-wide">
             <Button kind="primary" size="lg" icon="laptop" onClick={scan}>
               {t('mobile.add.scan')}
