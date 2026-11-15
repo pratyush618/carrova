@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use carrova_link::ClipItem;
+use carrova_link::ReceivedClip;
 use carrova_platform::{FileKind, FileLock, LocalListener, LocalStream, Platform, PlatformError};
 
 use super::wire::{
@@ -390,7 +390,7 @@ fn reply(stream: &mut LocalStream, response: &ControlResponse) -> Result<()> {
 
 /// The count, then one message per clip. Every clip fits the limit (its
 /// size is checked before it enters the history).
-fn send_clips(stream: &mut LocalStream, clips: &[ClipItem]) -> Result<()> {
+fn send_clips(stream: &mut LocalStream, clips: &[ReceivedClip]) -> Result<()> {
     let count = u32::try_from(clips.len()).map_err(|_| ControlError::TooLarge)?;
     reply(stream, &ControlResponse::ClipHistory(count))?;
     clips

@@ -130,19 +130,29 @@ impl fmt::Debug for ClipItem {
     }
 }
 
+/// A received clip and when it arrived.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReceivedClip {
+    /// The clip.
+    pub item: ClipItem,
+    /// When it arrived, Unix seconds.
+    pub at: u64,
+}
+
 /// The 20 most recent received clips, newest first.
 #[derive(Debug, Default)]
-pub struct ClipHistory(VecDeque<ClipItem>);
+pub struct ClipHistory(VecDeque<ReceivedClip>);
 
 impl ClipHistory {
-    /// Records `item` as the newest clip, dropping the oldest past the cap.
-    pub fn push(&mut self, item: ClipItem) {
-        self.0.push_front(item);
+    /// Records `item`, arrived at `at` (Unix seconds), as the newest clip,
+    /// dropping the oldest past the cap.
+    pub fn push(&mut self, item: ClipItem, at: u64) {
+        self.0.push_front(ReceivedClip { item, at });
         self.0.truncate(HISTORY_CAP);
     }
 
     /// Clips, newest first.
-    pub fn items(&self) -> impl Iterator<Item = &ClipItem> {
+    pub fn items(&self) -> impl Iterator<Item = &ReceivedClip> {
         self.0.iter()
     }
 

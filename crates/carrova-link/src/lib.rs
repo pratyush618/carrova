@@ -10,7 +10,9 @@ mod ping;
 mod policy;
 mod ring;
 
-pub use clipboard::{ClipHistory, ClipItem, MAX_CLIP_PNG, MAX_CLIP_TEXT, recv_clip, send_clip};
+pub use clipboard::{
+    ClipHistory, ClipItem, MAX_CLIP_PNG, MAX_CLIP_TEXT, ReceivedClip, recv_clip, send_clip,
+};
 pub use error::LinkError;
 pub use file::{
     ANSWER_TIMEOUT, FileOffer, FileSink, OfferAnswer, ReadSeek, offer_file, receive_file,

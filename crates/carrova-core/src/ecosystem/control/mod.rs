@@ -20,7 +20,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use carrova_crypto::identity::DeviceId;
-use carrova_link::{ClipItem, Feature, FeatureState};
+use carrova_link::{Feature, FeatureState, ReceivedClip};
 
 pub use client::ControlClient;
 pub use server::ControlServer;
@@ -165,7 +165,7 @@ impl SupervisorHandle {
     /// # Errors
     ///
     /// The control socket failed.
-    pub fn clip_history(&self) -> Result<Vec<ClipItem>> {
+    pub fn clip_history(&self) -> Result<Vec<ReceivedClip>> {
         match self {
             Self::Local(server) => Ok(server.supervisor().clip_history()),
             Self::Remote(client) => client.clip_history(),

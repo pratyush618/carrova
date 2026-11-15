@@ -84,12 +84,13 @@ fn items_at_exactly_the_cap_pass() {
 fn history_keeps_twenty_newest() {
     let mut h = ClipHistory::default();
     for i in 0..25 {
-        h.push(ClipItem::Text(i.to_string()));
+        h.push(ClipItem::Text(i.to_string()), i);
     }
     let items: Vec<_> = h.items().collect();
     assert_eq!(items.len(), 20);
-    assert_eq!(items[0], &ClipItem::Text("24".into()));
-    assert_eq!(items[19], &ClipItem::Text("5".into()));
+    assert_eq!(items[0].item, ClipItem::Text("24".into()));
+    assert_eq!(items[0].at, 24);
+    assert_eq!(items[19].item, ClipItem::Text("5".into()));
     h.clear();
     assert_eq!(h.items().count(), 0);
 }

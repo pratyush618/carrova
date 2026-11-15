@@ -254,10 +254,11 @@ fn clip_history_round_trips() {
     s.high.platform.clipboard_write(&clip).unwrap();
     wait_until("the clip", || !s.server.clip_history().unwrap().is_empty());
 
-    assert_eq!(
-        s.client.clip_history().unwrap(),
-        vec![ClipItem::Text("from high".to_owned())]
-    );
+    let history = s.client.clip_history().unwrap();
+    let items: Vec<_> = history.iter().map(|clip| &clip.item).collect();
+    assert_eq!(items, [&ClipItem::Text("from high".to_owned())]);
+    // Stamped on arrival.
+    assert!(history[0].at >= carrova_core::time::now_unix() - 60);
     s.client.clear_clip_history().unwrap();
     assert!(s.server.clip_history().unwrap().is_empty());
 }
@@ -284,7 +285,13 @@ fn clip_history_of_max_size_pngs_round_trips() {
         });
     }
 
-    let history = s.client.clip_history().unwrap();
+    let history: Vec<_> = s
+        .client
+        .clip_history()
+        .unwrap()
+        .into_iter()
+        .map(|clip| clip.item)
+        .collect();
 
     let expected: Vec<_> = (1..=3).rev().map(|n| ClipItem::Png(png(n))).collect();
     assert!(history == expected, "history differs");

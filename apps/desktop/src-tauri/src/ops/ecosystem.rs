@@ -13,7 +13,6 @@ use carrova_core::ecosystem::{
     link_with_code, offer_pairing,
 };
 use carrova_core::lan::CODE_LIFETIME;
-use carrova_core::time::now_unix;
 use carrova_core::{Cancel, CodeOffer, CoreError, Engine, NullSink, SessionId};
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{Feature, FeatureState};
@@ -273,10 +272,9 @@ pub async fn ring(state: &AppState, device: DeviceId) -> Result<(), CommandError
 /// The supervisor is not ready or cannot be reached.
 pub async fn clip_history(state: &AppState) -> Result<ClipHistoryView, CommandError> {
     let clips = with_link(state, SupervisorHandle::clip_history).await?;
-    // shortcut: the supervisor keeps no arrival times, so each clip shows
-    // the time it was read; record them in core's history to fix.
-    let now = now_unix();
-    Ok(clip_history_view(clips.iter().map(|clip| (clip, now))))
+    Ok(clip_history_view(
+        clips.iter().map(|clip| (&clip.item, clip.at)),
+    ))
 }
 
 /// Forget the clips received.

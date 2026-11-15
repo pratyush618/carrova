@@ -7,7 +7,9 @@ use std::sync::{Arc, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
 
 use carrova_crypto::identity::DeviceId;
-use carrova_link::{ClipHistory, ClipItem, Feature, FeatureState, allowed, send_clip};
+use carrova_link::{
+    ClipHistory, ClipItem, Feature, FeatureState, ReceivedClip, allowed, send_clip,
+};
 use carrova_platform::{ClipContent, ClipKind, ClipboardWatch, PlatformError};
 use carrova_transport::Connection;
 use serde::{Deserialize, Serialize};
@@ -36,7 +38,7 @@ pub(super) struct Clips {
 }
 
 impl Clips {
-    pub(super) fn history(&self) -> Vec<ClipItem> {
+    pub(super) fn history(&self) -> Vec<ReceivedClip> {
         self.history.items().cloned().collect()
     }
 
@@ -44,7 +46,7 @@ impl Clips {
     /// does not send it back).
     pub(super) fn received(&mut self, content: ClipContent, item: ClipItem) {
         self.last = Some(content);
-        self.history.push(item);
+        self.history.push(item, crate::time::now_unix());
     }
 
     pub(super) fn clear(&mut self) {

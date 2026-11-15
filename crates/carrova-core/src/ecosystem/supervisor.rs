@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use carrova_crypto::identity::{DeviceId, DeviceKey};
 use carrova_link::{
-    ClipItem, Feature, FeatureState, FileOffer, Handoff, OfferAnswer, PolicyDoc, RING_SECONDS,
+    Feature, FeatureState, FileOffer, Handoff, OfferAnswer, PolicyDoc, RING_SECONDS, ReceivedClip,
     RingMsg, allowed, offer_file, send_handoff, send_ring,
 };
 use carrova_platform::{ClipboardWatch, Platform};
@@ -243,7 +243,7 @@ impl Supervisor {
 
     /// The last clips received (newest first).
     #[must_use]
-    pub fn clip_history(&self) -> Vec<ClipItem> {
+    pub fn clip_history(&self) -> Vec<ReceivedClip> {
         clip::lock_clips(&self.shared).history()
     }
 
