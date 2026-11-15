@@ -88,7 +88,7 @@ pub enum PeerState {
 /// A known device as the supervisor sees it ([`Supervisor::status`]).
 ///
 /// [`Supervisor::status`]: super::Supervisor::status
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LinkedPeer {
     /// Its identity.
     pub id: DeviceId,

@@ -5,6 +5,7 @@
 #[expect(dead_code, reason = "shared test helpers; this test uses a subset")]
 #[path = "../support/mod.rs"]
 mod common;
+mod control;
 mod invite;
 #[expect(dead_code, reason = "shared test helpers; this test uses a subset")]
 #[path = "../support/lan.rs"]

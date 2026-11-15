@@ -1,7 +1,7 @@
 //! The link supervisor: two devices in one process over loopback, presence
 //! replaced by a fake source, the platform recording what it opens.
 
-mod device;
+pub(crate) mod device;
 mod recording;
 
 use std::thread;

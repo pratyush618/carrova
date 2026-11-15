@@ -147,6 +147,9 @@ pub enum CoreError {
     /// A linked device is known but not connected right now.
     #[error("linked devices: the device is not connected")]
     NotLinked,
+    /// The link supervisor's control socket failed.
+    #[error("link supervisor control: {0}")]
+    Control(#[from] crate::ecosystem::ControlError),
     /// A feature is off for this device, on this side or the other.
     #[error("linked devices: {0:?} is off for this device")]
     FeatureOff(carrova_link::Feature),

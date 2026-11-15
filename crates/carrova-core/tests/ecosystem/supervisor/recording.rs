@@ -10,8 +10,9 @@ use std::time::Duration;
 
 use carrova_platform::fake::FakePlatform;
 use carrova_platform::{
-    ClipContent, ClipboardWatch, DirEntry, DirWatch, FileLock, FileMeta, LanInterface, OsKind,
-    Platform, PlatformError, ProcessInfo, SemanticRoot, SnapshotCapability, SocketBuffers,
+    ClipContent, ClipboardWatch, DirEntry, DirWatch, FileLock, FileMeta, LanInterface,
+    LocalListener, LocalStream, OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot,
+    SnapshotCapability, SocketBuffers,
 };
 
 /// What a [`Recording`] platform was asked to do.
@@ -125,6 +126,15 @@ impl Platform for Recording {
     }
     fn lock_exclusive(&self, path: &Path) -> Result<FileLock, PlatformError> {
         self.inner.lock_exclusive(path)
+    }
+    fn try_lock_exclusive(&self, path: &Path) -> Result<Option<FileLock>, PlatformError> {
+        self.inner.try_lock_exclusive(path)
+    }
+    fn bind_local_socket(&self, path: &Path) -> Result<LocalListener, PlatformError> {
+        self.inner.bind_local_socket(path)
+    }
+    fn connect_local_socket(&self, path: &Path) -> Result<LocalStream, PlatformError> {
+        self.inner.connect_local_socket(path)
     }
     fn current_uid(&self) -> Option<u32> {
         self.inner.current_uid()

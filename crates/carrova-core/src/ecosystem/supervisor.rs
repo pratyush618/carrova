@@ -57,7 +57,7 @@ impl Default for SupervisorConfig {
 }
 
 /// What to hand off to a device ([`Supervisor::handoff`]).
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HandoffItem {
     /// A web link (`http`/`https`) to open there.
     Url(String),

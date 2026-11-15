@@ -1,8 +1,10 @@
 //! Linked devices (ADR 0002): per-device feature policies, the QR pairing
-//! invite, pair-only linking and the link supervisor.
+//! invite, pair-only linking and the link supervisor (one per user,
+//! shared over a control socket).
 
 mod asks;
 mod clip;
+mod control;
 mod dial;
 mod features;
 mod invite;
@@ -14,6 +16,10 @@ mod supervisor;
 
 pub use asks::{Answer, AskId, AskKind};
 pub use clip::ClipSkip;
+pub use control::{
+    ControlClient, ControlError, ControlRequest, ControlResponse, ControlServer,
+    MAX_CONTROL_MESSAGE, SupervisorHandle, attach_or_start,
+};
 pub use features::FileFailure;
 pub use invite::PairInvite;
 pub use pair::{accept_invite, link_with_code, offer_pairing};
