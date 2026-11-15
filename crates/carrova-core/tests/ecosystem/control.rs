@@ -242,6 +242,43 @@ fn remote_client_answers_an_ask() {
 }
 
 #[test]
+fn remote_client_answers_while_its_own_send_waits() {
+    let s = served_and_linked();
+    let out = s.low.home.join("out.txt");
+    let inbound = s.high.home.join("in.txt");
+    std::fs::write(&out, b"waiting").unwrap();
+    std::fs::write(&inbound, b"answered").unwrap();
+    next(&s.events, "link up", |e| {
+        matches!(e, Event::LinkUp { .. }).then_some(())
+    });
+
+    thread::scope(|scope| {
+        // Waits for high's answer, which comes only at the end.
+        let waiting = scope.spawn(|| s.client.send_file(&s.high.id, &out));
+        let outgoing = s.high.wait("the ask on high", |e| {
+            matches!(e, Event::AskReceived { .. })
+        });
+        let sending = scope.spawn(|| s.sh.send_file(&s.low.id, &inbound));
+        let ask = next(&s.events, "the ask on low", |e| match e {
+            Event::AskReceived { ask, .. } => Some(ask),
+            _ => None,
+        });
+        s.client.answer(ask, Answer::Accept).unwrap();
+        sending.join().unwrap().unwrap();
+        assert!(!waiting.is_finished(), "the send was still waiting");
+
+        let Event::AskReceived { ask, .. } = outgoing else {
+            unreachable!()
+        };
+        s.sh.answer(ask, Answer::Decline).unwrap();
+        assert!(waiting.join().unwrap().is_err(), "declined");
+    });
+
+    let saved = s.low.home.join("Downloads/in.txt");
+    assert_eq!(std::fs::read(saved).unwrap(), b"answered");
+}
+
+#[test]
 fn clip_history_round_trips() {
     let s = served_and_linked();
     next(&s.events, "link up", |e| {
@@ -310,7 +347,9 @@ impl carrova_core::EventSink for ToChannel {
 #[test]
 fn shared_supervisor_attaches_again_when_its_host_exits() {
     let (low, high, _) = pair(&PolicyDoc::phone_defaults());
-    let host = attach_or_start(low.engine.clone()).unwrap();
+    // Fake source: a real browse holds the host's drop ~2 s, long enough for
+    // the forwarder to re-attach to the dying host and miss the link.
+    let host = attach_or_start_with(low.engine.clone(), low.source.clone(), fast()).unwrap();
     let shared = std::sync::Arc::new(
         SharedSupervisor::attach_with(other_process(&low), low.source.clone(), fast()).unwrap(),
     );

@@ -41,9 +41,19 @@ impl ControlClient {
         })
     }
 
-    /// Send `request` and wait for the answer (requests from several
-    /// threads take turns). A refusal is [`ControlError::Failed`].
+    /// Send `request` and wait for the answer (short requests from several
+    /// threads take turns; a send, which waits for the peer's answer and
+    /// the transfer, runs on a connection of its own so it holds up none
+    /// of them). A refusal is [`ControlError::Failed`].
     pub(super) fn request(&self, request: &ControlRequest) -> Result<ControlResponse> {
+        if matches!(
+            request,
+            ControlRequest::SendFile(..)
+                | ControlRequest::Handoff(..)
+                | ControlRequest::RetryFile(_)
+        ) {
+            return exchange(&mut dial(&*self.platform, &self.socket)?, request);
+        }
         let mut stream = self.stream.lock().unwrap_or_else(PoisonError::into_inner);
         exchange(&mut stream, request)
     }
