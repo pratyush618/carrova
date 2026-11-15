@@ -27,14 +27,14 @@ use carrova_core::{
     RollbackReport, ScanOptions, ScanReport, Selection, SelectionEdit, SelectionIssue, SendReport,
     SessionRecord,
 };
+use carrova_link::{Feature, FeatureState, Group};
 use carrova_platform::FileManagerStatus;
 use carrova_report::{ErrorReport, IssueDraft, ReportConsent, ReportId, ReportSummary};
 use carrova_view::devices::{
     ForgetDevices, KnownDeviceView, NearbyDeviceView, Ring, VisibilityChoice, VisibilityView,
 };
 use carrova_view::ecosystem::{
-    ClipHistoryView, ClipItemView, ClipKind, FeatureGroup, FeatureId, FeatureRowView,
-    FeatureStateView, PairInviteView,
+    ClipHistoryView, ClipItemView, ClipKind, FeatureRowView, PairInviteView,
 };
 use carrova_view::ipc::{
     About, AlertChannel, AlertSettings, BackgroundSettings, BridgeError, BridgeEvent, CatalogEntry,
@@ -119,9 +119,9 @@ fn export_typescript_bindings() {
         VisibilityView::export_all,
         VisibilityChoice::export_all,
         FeatureRowView::export_all,
-        FeatureId::export_all,
-        FeatureGroup::export_all,
-        FeatureStateView::export_all,
+        Feature::export_all,
+        FeatureState::export_all,
+        Group::export_all,
         PairInviteView::export_all,
         ClipHistoryView::export_all,
         ClipItemView::export_all,

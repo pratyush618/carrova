@@ -7,10 +7,9 @@ use carrova_core::Ticket;
 use carrova_core::ecosystem::PairInvite;
 use carrova_crypto::identity::DeviceKey;
 use carrova_crypto::pairing::PairingCode;
-use carrova_link::{ClipItem, Feature, FeatureState, PolicyDoc, allowed};
+use carrova_link::{ClipItem, Feature, FeatureState, Group, PolicyDoc, allowed};
 use carrova_view::ecosystem::{
-    ClipKind, FeatureGroup, FeatureId, FeatureStateView, PREVIEW_CHARS, clip_history_view,
-    feature_rows, pair_invite_view,
+    ClipKind, PREVIEW_CHARS, clip_history_view, feature_rows, pair_invite_view,
 };
 use carrova_view::lan::code_view;
 
@@ -28,14 +27,14 @@ fn rows_list_phase_one_features_in_spec_order() {
     assert_eq!(
         order,
         [
-            FeatureId::Clipboard,
-            FeatureId::Ring,
-            FeatureId::Files,
-            FeatureId::Handoff
+            Feature::Clipboard,
+            Feature::Ring,
+            Feature::Files,
+            Feature::Handoff
         ]
     );
-    assert_eq!(rows[0].group, FeatureGroup::Quiet);
-    assert_eq!(rows[2].group, FeatureGroup::Ask);
+    assert_eq!(rows[0].group, Group::Quiet);
+    assert_eq!(rows[2].group, Group::Ask);
 }
 
 #[test]
@@ -43,17 +42,17 @@ fn rows_show_remote_off() {
     let local = PolicyDoc::phone_defaults();
     let remote = doc(&[(Feature::Clipboard, FeatureState::On)]);
     let rows = feature_rows(&local, Some(&remote));
-    let ring = rows.iter().find(|r| r.feature == FeatureId::Ring).unwrap();
-    assert_eq!(ring.local, FeatureStateView::On);
-    assert_eq!(ring.remote, Some(FeatureStateView::Off));
-    assert_eq!(ring.effective, FeatureStateView::Off);
+    let ring = rows.iter().find(|r| r.feature == Feature::Ring).unwrap();
+    assert_eq!(ring.local, FeatureState::On);
+    assert_eq!(ring.remote, Some(FeatureState::Off));
+    assert_eq!(ring.effective, FeatureState::Off);
 }
 
 #[test]
 fn rows_without_a_remote_document_flow_nothing() {
     for row in feature_rows(&PolicyDoc::phone_defaults(), None) {
         assert_eq!(row.remote, None);
-        assert_eq!(row.effective, FeatureStateView::Off, "{:?}", row.feature);
+        assert_eq!(row.effective, FeatureState::Off, "{:?}", row.feature);
     }
 }
 
@@ -66,15 +65,10 @@ fn effective_matches_gate() {
             let local = doc(&[(Feature::Clipboard, l), (Feature::Files, l)]);
             let remote = doc(&[(Feature::Clipboard, r), (Feature::Files, r)]);
             for row in feature_rows(&local, Some(&remote)) {
-                let f = match row.feature {
-                    FeatureId::Clipboard => Feature::Clipboard,
-                    FeatureId::Ring => Feature::Ring,
-                    FeatureId::Files => Feature::Files,
-                    FeatureId::Handoff => Feature::Handoff,
-                };
+                let f = row.feature;
                 assert_eq!(
                     row.effective,
-                    allowed(&local, &remote, f).into(),
+                    allowed(&local, &remote, f),
                     "{f:?} {l:?}/{r:?}"
                 );
             }

@@ -13,101 +13,35 @@ use crate::lan::CodeView;
 /// Characters of a text clip shown in the history.
 pub const PREVIEW_CHARS: usize = 120;
 
-/// A Phase 1 feature, in the order the UI lists them.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-pub enum FeatureId {
-    /// Clipboard sync.
-    Clipboard,
-    /// Ring a device.
-    Ring,
-    /// File offers.
-    Files,
-    /// URL / file handoff.
-    Handoff,
-}
-
-impl FeatureId {
-    const ALL: [Self; 4] = [Self::Clipboard, Self::Ring, Self::Files, Self::Handoff];
-
-    fn link(self) -> Feature {
-        match self {
-            Self::Clipboard => Feature::Clipboard,
-            Self::Ring => Feature::Ring,
-            Self::Files => Feature::Files,
-            Self::Handoff => Feature::Handoff,
-        }
-    }
-}
-
-/// Whether a feature runs silently or asks per offer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-pub enum FeatureGroup {
-    /// States `on` / `off`.
-    Quiet,
-    /// States `ask` / `off`.
-    Ask,
-}
-
-/// One feature's setting.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-pub enum FeatureStateView {
-    /// Runs without asking.
-    On,
-    /// Runs after a per-offer approval.
-    Ask,
-    /// Disabled.
-    Off,
-}
-
-impl From<FeatureState> for FeatureStateView {
-    fn from(state: FeatureState) -> Self {
-        match state {
-            FeatureState::On => Self::On,
-            FeatureState::Ask => Self::Ask,
-            FeatureState::Off => Self::Off,
-        }
-    }
-}
-
 /// One feature on a link: both sides' settings and what actually flows.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct FeatureRowView {
     /// The feature.
-    pub feature: FeatureId,
+    pub feature: Feature,
     /// Which states it accepts.
-    pub group: FeatureGroup,
+    pub group: Group,
     /// This computer's setting.
-    pub local: FeatureStateView,
+    pub local: FeatureState,
     /// The other device's setting; `None` until its policy has arrived.
-    pub remote: Option<FeatureStateView>,
+    pub remote: Option<FeatureState>,
     /// What the two-sided gate allows; `Off` while the remote is unknown.
-    pub effective: FeatureStateView,
+    pub effective: FeatureState,
 }
 
 /// The Phase 1 feature rows of a link, in display order.
 #[must_use]
 pub fn feature_rows(local: &PolicyDoc, remote: Option<&PolicyDoc>) -> Vec<FeatureRowView> {
-    FeatureId::ALL
+    Feature::PHASE1
         .into_iter()
-        .map(|id| {
-            let f = id.link();
-            FeatureRowView {
-                feature: id,
-                group: match f.group() {
-                    Some(Group::Ask) => FeatureGroup::Ask,
-                    _ => FeatureGroup::Quiet,
-                },
-                local: local.get(f).into(),
-                remote: remote.map(|r| r.get(f).into()),
-                effective: remote.map_or(FeatureStateView::Off, |r| allowed(local, r, f).into()),
-            }
+        .filter_map(|feature| {
+            Some(FeatureRowView {
+                feature,
+                group: feature.group()?,
+                local: local.get(feature),
+                remote: remote.map(|r| r.get(feature)),
+                effective: remote.map_or(FeatureState::Off, |r| allowed(local, r, feature)),
+            })
         })
         .collect()
 }

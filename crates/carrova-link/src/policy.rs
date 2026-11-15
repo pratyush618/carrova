@@ -9,6 +9,7 @@ use crate::LinkError;
 /// A feature a link can carry. The last five are reserved and always read `Off`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum Feature {
     /// Clipboard sync.
     Clipboard,
@@ -31,7 +32,9 @@ pub enum Feature {
 }
 
 /// Whether a feature runs silently or needs a per-offer approval.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum Group {
     /// States `on` / `off`.
     Quiet,
@@ -42,6 +45,7 @@ pub enum Group {
 /// One feature's setting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum FeatureState {
     /// Runs without asking.
     On,
