@@ -20,6 +20,34 @@ fn handoff_rejects_non_http() {
 }
 
 #[test]
+fn check_url_rejects_inputs_the_parser_would_silently_rewrite() {
+    for bad in [
+        " http://x.example",
+        "http://a\nb.example",
+        "http://a\tb.example",
+        "http:/x.example",
+        "http:x.example",
+        "http:\\\\x.example",
+        "http:///x.example",
+        "http://evil@good.example",
+        "http://user:pw@good.example",
+    ] {
+        assert!(
+            matches!(check_url(bad), Err(LinkError::UnsafeUrl)),
+            "{bad:?}"
+        );
+    }
+}
+
+#[test]
+fn check_url_returns_the_normalised_url() {
+    assert_eq!(
+        check_url("HTTP://Ok.Example").unwrap().as_str(),
+        "http://ok.example/"
+    );
+}
+
+#[test]
 fn handoff_rejects_urls_over_8_kib() {
     let at_cap = format!("https://a.example/{}", "x".repeat(8192 - 18));
     assert_eq!(at_cap.len(), 8192);

@@ -9,8 +9,8 @@ publish.workspace = true
 
 [dependencies]
 serde = { workspace = true }
-url = { workspace = true }
 thiserror = { workspace = true }
+url = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

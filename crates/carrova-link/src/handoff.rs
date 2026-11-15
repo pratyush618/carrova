@@ -17,16 +17,47 @@ pub enum Handoff {
     File(FileOffer),
 }
 
-/// Accepts only http(s) URLs with a host, at most 8 KiB.
-pub fn check_url(url: &str) -> Result<(), LinkError> {
+/// A URL that passed [`check_url`], in the parser's normalised form: the only
+/// form that may be shown to the user or opened.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SafeUrl(String);
+
+impl SafeUrl {
+    /// The normalised URL.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// Accepts only plain `http(s)://host...` URLs of at most 8 KiB, with no
+/// credentials, whitespace or control characters, and returns the normalised
+/// form. Inputs the parser would silently rewrite (`http:/x`, padded, ...) are refused.
+pub fn check_url(url: &str) -> Result<SafeUrl, LinkError> {
     if url.len() > MAX_URL {
         return Err(LinkError::TooBig {
             len: url.len(),
             max: MAX_URL,
         });
     }
+    let plain = url.chars().all(|c| !c.is_whitespace() && !c.is_control());
+    // The parser rewrites `\` to `/` and skips extra slashes after the scheme.
+    let http = !url.contains('\\')
+        && ["http://", "https://"].iter().any(|p| {
+            url.get(..p.len())
+                .is_some_and(|s| s.eq_ignore_ascii_case(p))
+                && !url[p.len()..].starts_with('/')
+        });
     match Url::parse(url) {
-        Ok(u) if matches!(u.scheme(), "http" | "https") && u.has_host() => Ok(()),
+        Ok(u)
+            if plain
+                && http
+                && u.has_host()
+                && u.username().is_empty()
+                && u.password().is_none() =>
+        {
+            Ok(SafeUrl(u.into()))
+        }
         _ => Err(LinkError::UnsafeUrl),
     }
 }
