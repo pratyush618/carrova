@@ -149,6 +149,7 @@ pub fn advert(
         known,
         name: Some(announced_name(platform)),
         os: Some(platform.os()),
+        ..PresenceAdvert::default()
     }))
 }
 

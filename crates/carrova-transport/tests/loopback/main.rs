@@ -358,6 +358,7 @@ fn a_presence_is_browsed_by_its_tags_and_names_itself_only_when_told() {
             known: tags(),
             name: Some(name.clone()),
             os: Some(platform.os()),
+            ..PresenceAdvert::default()
         },
     )
     .unwrap();

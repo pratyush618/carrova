@@ -62,6 +62,7 @@ fn presence_answers_browsers_with_its_txt_fields_after_the_port() {
         known: Some(known),
         name: Some("desk".into()),
         os: Some(OsKind::Linux),
+        ..PresenceAdvert::default()
     });
     assert_eq!(
         reply(&open, BROADCAST_BROWSE, 47821, None),
@@ -85,6 +86,7 @@ fn the_largest_presence_reply_fits_one_datagram() {
         known: KnownTags::fresh(&secrets, &me).unwrap(),
         name: Some("\u{1d11e}".repeat(200)),
         os: Some(OsKind::Windows),
+        link_port: Some(u16::MAX),
     });
     let reply = reply(&largest, BROADCAST_BROWSE, u16::MAX, None).unwrap();
     assert!(

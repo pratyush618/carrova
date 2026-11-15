@@ -60,7 +60,7 @@ fn presence_reply_carries_its_txt_fields_one_per_line() {
     .unwrap()
     .unwrap();
     let body = format!(
-        "47821\nkt={}\ndn=ezio's laptop\nos=macos\nzz=later",
+        "47821\nkt={}\ndn=ezio's laptop\nos=macos\nlp=50123\nzz=later",
         known.encode()
     );
     let reply = [BROADCAST_REPLY, body.as_bytes()].concat();
@@ -72,6 +72,7 @@ fn presence_reply_carries_its_txt_fields_one_per_line() {
                 known: Some(known),
                 name: Some("ezio's laptop".into()),
                 os: Some(OsKind::MacOs),
+                link_port: Some(50123),
             })
         ))
     );
