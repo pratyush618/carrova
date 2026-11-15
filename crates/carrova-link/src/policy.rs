@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::LinkError;
 
@@ -45,22 +45,24 @@ pub enum Group {
 pub enum FeatureState {
     /// Runs without asking.
     On,
-    /// Disabled.
-    Off,
     /// Runs after a per-offer approval.
     Ask,
+    /// Disabled; also what any state this version does not know reads as.
+    #[serde(other)]
+    Off,
 }
 
 impl Feature {
     /// Features active in Phase 1.
     pub const PHASE1: [Self; 4] = [Self::Clipboard, Self::Files, Self::Handoff, Self::Ring];
 
-    /// The group that decides which states this feature accepts.
+    /// The group that decides which states this feature accepts; `None` for reserved features.
     #[must_use]
-    pub fn group(self) -> Group {
+    pub fn group(self) -> Option<Group> {
         match self {
-            Self::Clipboard | Self::Ring => Group::Quiet,
-            _ => Group::Ask,
+            Self::Clipboard | Self::Ring => Some(Group::Quiet),
+            Self::Files | Self::Handoff => Some(Group::Ask),
+            Self::Notifications | Self::Messages | Self::Calls | Self::Screen | Self::Input => None,
         }
     }
 }
@@ -70,7 +72,8 @@ impl Feature {
 pub struct PolicyDoc {
     /// Schema version (1).
     pub version: u32,
-    /// Explicit settings; anything missing reads `Off`.
+    /// Explicit settings; anything missing reads `Off`. Unknown keys are dropped on decode.
+    #[serde(deserialize_with = "known_features")]
     pub features: BTreeMap<Feature, FeatureState>,
 }
 
@@ -85,22 +88,19 @@ impl PolicyDoc {
     /// Setting for `f`; missing and reserved features read `Off`.
     #[must_use]
     pub fn get(&self, f: Feature) -> FeatureState {
-        if Feature::PHASE1.contains(&f) {
-            self.features.get(&f).copied().unwrap_or(FeatureState::Off)
+        let state = self.features.get(&f).copied().unwrap_or(FeatureState::Off);
+        if state_fits(f.group(), state) {
+            state
         } else {
             FeatureState::Off
         }
     }
 
-    /// Rejects states outside the feature's group (quiet: on/off, ask: ask/off).
+    /// Strict check for local writes: rejects states outside the feature's group
+    /// (quiet: on/off, ask: ask/off). Reserved features are ignored.
     pub fn validated(self) -> Result<Self, LinkError> {
         for (&feature, &state) in &self.features {
-            let ok = matches!(
-                (feature.group(), state),
-                (_, FeatureState::Off)
-                    | (Group::Quiet, FeatureState::On)
-                    | (Group::Ask, FeatureState::Ask)
-            );
+            let ok = feature.group().is_none() || state_fits(feature.group(), state);
             if !ok {
                 return Err(LinkError::InvalidState { feature, state });
             }
@@ -136,4 +136,34 @@ pub fn allowed(local: &PolicyDoc, remote: &PolicyDoc, f: Feature) -> FeatureStat
         (FeatureState::Ask, _) | (_, FeatureState::Ask) => FeatureState::Ask,
         _ => FeatureState::On,
     }
+}
+
+/// Whether `state` is valid for a feature of `group`; reserved features (`None`) never are.
+fn state_fits(group: Option<Group>, state: FeatureState) -> bool {
+    matches!(
+        (group, state),
+        (Some(_), FeatureState::Off)
+            | (Some(Group::Quiet), FeatureState::On)
+            | (Some(Group::Ask), FeatureState::Ask)
+    )
+}
+
+/// Decodes the feature map, dropping keys this version does not know.
+fn known_features<'de, D: Deserializer<'de>>(
+    d: D,
+) -> Result<BTreeMap<Feature, FeatureState>, D::Error> {
+    #[derive(Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+    #[serde(untagged)]
+    enum Key {
+        Known(Feature),
+        Unknown(String),
+    }
+    let raw = BTreeMap::<Key, FeatureState>::deserialize(d)?;
+    Ok(raw
+        .into_iter()
+        .filter_map(|(k, v)| match k {
+            Key::Known(f) => Some((f, v)),
+            Key::Unknown(_) => None,
+        })
+        .collect())
 }

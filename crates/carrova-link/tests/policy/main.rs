@@ -14,8 +14,9 @@ fn doc(f: Feature, s: FeatureState) -> PolicyDoc {
 fn gate_requires_both_sides() {
     for f in Feature::PHASE1 {
         let states = match f.group() {
-            Group::Quiet => [On, Off],
-            Group::Ask => [Ask, Off],
+            Some(Group::Quiet) => [On, Off],
+            Some(Group::Ask) => [Ask, Off],
+            None => unreachable!("phase 1 features have a group"),
         };
         for local in states {
             for remote in states {
@@ -32,10 +33,6 @@ fn gate_requires_both_sides() {
             }
         }
     }
-    // Mixed On/Ask: the stricter side wins.
-    let (a, b) = (doc(Feature::Files, On), doc(Feature::Files, Ask));
-    assert_eq!(allowed(&a, &b, Feature::Files), Ask);
-    assert_eq!(allowed(&b, &a, Feature::Files), Ask);
 }
 
 #[test]
@@ -105,4 +102,26 @@ fn policy_doc_json_shape() {
     )
     .unwrap();
     assert_eq!(got, want);
+}
+
+#[test]
+fn forward_compatible_remote_doc() {
+    let json = r#"{"version":2,"features":{"clipboard":"on","notifications":"on","wallet":"on","ring":"prompt","files":"ask"}}"#;
+    let doc: PolicyDoc = serde_json::from_str(json).unwrap();
+    assert_eq!(doc.get(Feature::Clipboard), On);
+    assert_eq!(doc.get(Feature::Files), Ask);
+    assert_eq!(doc.get(Feature::Ring), Off, "unknown state reads off");
+    assert_eq!(doc.get(Feature::Notifications), Off);
+    assert!(
+        doc.validated().is_ok(),
+        "reserved keys never fail validation"
+    );
+}
+
+#[test]
+fn invalid_group_state_reads_off() {
+    let files_on = doc(Feature::Files, On);
+    assert_eq!(files_on.get(Feature::Files), Off);
+    assert_eq!(allowed(&files_on, &files_on, Feature::Files), Off);
+    assert_eq!(doc(Feature::Ring, Ask).get(Feature::Ring), Off);
 }
