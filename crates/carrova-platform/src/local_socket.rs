@@ -79,6 +79,32 @@ impl LocalStream {
     pub(crate) fn connect(_: &Path) -> Result<Self, PlatformError> {
         Err(PlatformError::Unsupported("connect_local_socket"))
     }
+
+    /// A second handle on the same connection (e.g. to
+    /// [`Self::shutdown`] it from another thread).
+    ///
+    /// # Errors
+    ///
+    /// The OS is out of descriptors.
+    pub fn try_clone(&self) -> io::Result<Self> {
+        self.0.try_clone().map(Self)
+    }
+
+    /// Close both directions at once: a read blocked on any handle of
+    /// the connection returns end-of-file, and the peer sees it closed.
+    ///
+    /// # Errors
+    ///
+    /// The connection is already gone.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub fn shutdown(&self) -> io::Result<()> {
+        self.0.shutdown(std::net::Shutdown::Both)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    pub fn shutdown(&self) -> io::Result<()> {
+        Err(io::ErrorKind::Unsupported.into())
+    }
 }
 
 impl Read for LocalStream {

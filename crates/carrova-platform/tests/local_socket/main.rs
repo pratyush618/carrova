@@ -56,3 +56,19 @@ fn local_socket_rejects_other_uid() {
     let _client = other.connect_local_socket(&path).unwrap();
     assert!(listener.accept().is_err());
 }
+
+#[test]
+fn shutdown_on_a_clone_ends_a_blocked_read() {
+    let tmp = tempfile::tempdir().unwrap();
+    let p = FakePlatform::with_home(tmp.path());
+    let path = tmp.path().join("ctl.sock");
+    let listener = p.bind_local_socket(&path).unwrap();
+    let _client = p.connect_local_socket(&path).unwrap();
+    let mut served = listener.accept().unwrap();
+    let handle = served.try_clone().unwrap();
+
+    let reader = thread::spawn(move || served.read(&mut [0; 1]).unwrap());
+    handle.shutdown().unwrap();
+
+    assert_eq!(reader.join().unwrap(), 0);
+}
