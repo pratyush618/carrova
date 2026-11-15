@@ -146,8 +146,9 @@ pub(super) fn send_clip_to(
 }
 
 /// Watch the clipboard and, while [`ClipSettings::share`] is on, send each
-/// change to every linked device that takes it. `None` where the platform cannot watch (Android sends by
-/// user action only). The thread ends when the watch drops.
+/// change to every linked device that takes it. `None` where the platform
+/// cannot watch (Android sends by user action only). The thread ends when
+/// the watch drops.
 pub(super) fn watch_clipboard(
     shared: &Arc<Shared>,
 ) -> Result<Option<(ClipboardWatch, JoinHandle<()>)>> {

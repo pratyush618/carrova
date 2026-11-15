@@ -5,7 +5,7 @@ import { LinkedSummary } from './LinkedSummary';
 import type { AddDeviceIntents, AddDeviceModel } from './model';
 import './devices.css';
 
-/** What to check when the phone couldn't connect. */
+/** What to check when the device couldn't connect. */
 const REASONS = ['wifi', 'guest', 'vpn'] as const;
 
 /** "New code in 2:41": read by the eye; it is not a live region, so it never interrupts. */
