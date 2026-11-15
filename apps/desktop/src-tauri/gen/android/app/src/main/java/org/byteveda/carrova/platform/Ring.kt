@@ -20,22 +20,32 @@ object Ring {
     fun start(context: Context, seconds: Int) {
         stop(context)
         val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        volumeBefore = audio.getStreamVolume(AudioManager.STREAM_ALARM)
+        val before = audio.getStreamVolume(AudioManager.STREAM_ALARM)
+        volumeBefore = before
         audio.setStreamVolume(AudioManager.STREAM_ALARM, audio.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0)
         val tone = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-        player = MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-            )
-            setDataSource(context, tone)
-            isLooping = true
-            prepare()
-            start()
+        val ring = MediaPlayer()
+        try {
+            ring.apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                setDataSource(context, tone)
+                isLooping = true
+                prepare()
+                start()
+            }
+        } catch (e: Exception) {
+            ring.release()
+            audio.setStreamVolume(AudioManager.STREAM_ALARM, before, 0)
+            volumeBefore = null
+            throw e
         }
+        player = ring
         main.postDelayed({ stop(context) }, seconds * 1000L)
     }
 
