@@ -17,7 +17,8 @@ use carrova_core::{Cancel, CodeOffer, CoreError, Engine, NullSink, SessionId};
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{Feature, FeatureState};
 use carrova_view::ecosystem::{
-    ClipHistoryView, LinkedDeviceView, clip_history_view, linked_device_views, pair_invite_view,
+    ClipHistoryView, LinkedDeviceView, QrError, clip_history_view, linked_device_views,
+    pair_invite_view,
 };
 use carrova_view::ipc::{BridgeEvent, ErrorCode, LINK_SESSION};
 use carrova_view::lan::code_view;
@@ -119,15 +120,23 @@ pub async fn linked_devices(state: &AppState) -> Result<Vec<LinkedDeviceView>, C
 ///
 /// # Errors
 ///
-/// Another pairing runs, it was cancelled, the invite expired, or the
-/// pairing failed.
+/// Another pairing runs, the invite could not be drawn, it was
+/// cancelled, the invite expired, or the pairing failed.
 pub async fn pair_invite(state: &AppState) -> Result<(), CommandError> {
     let engine = link_engine(state);
     let out = Arc::clone(&state.out);
     pairing(state, move |cancel| {
-        offer_pairing(&engine, cancel, |invite| {
-            show_invite(&*out, &invite, cancel);
-        })
+        let mut undrawn = None;
+        let paired = offer_pairing(&engine, cancel, |invite| {
+            if let Err(error) = show_invite(&*out, &invite) {
+                undrawn = Some(error);
+                cancel.cancel();
+            }
+        });
+        match undrawn {
+            Some(error) => Err(error.into()),
+            None => paired.map_err(|e| CommandError::when_connecting(&e)),
+        }
     })
     .await
 }
@@ -143,7 +152,7 @@ pub async fn link_computer(state: &AppState, code: String) -> Result<(), Command
     let ticket = ticket(code)?;
     let engine = link_engine(state);
     pairing(state, move |cancel| {
-        link_with_code(&engine, &ticket, cancel)
+        link_with_code(&engine, &ticket, cancel).map_err(|e| CommandError::when_connecting(&e))
     })
     .await
 }
@@ -152,29 +161,20 @@ pub async fn link_computer(state: &AppState, code: String) -> Result<(), Command
 /// `cancel_connect`, as a receive's).
 async fn pairing(
     state: &AppState,
-    pair: impl FnOnce(&Cancel) -> Result<DeviceRecord, CoreError> + Send + 'static,
+    pair: impl FnOnce(&Cancel) -> Result<DeviceRecord, CommandError> + Send + 'static,
 ) -> Result<(), CommandError> {
     let cancel = state.sessions.begin_connect()?;
-    let paired = blocking(move || {
-        pair(&cancel)
-            .map(drop)
-            .map_err(|e| CommandError::when_connecting(&e))
-    })
-    .await;
+    let paired = blocking(move || pair(&cancel).map(drop)).await;
     state.sessions.end_connect();
     paired
 }
 
-/// Emit `invite`'s view; one that cannot be drawn ends the pairing.
-fn show_invite(out: &dyn Emit, invite: &PairInvite, cancel: &Cancel) {
+/// Emit `invite`'s view.
+fn show_invite(out: &dyn Emit, invite: &PairInvite) -> Result<(), QrError> {
     let code = code_view(&invite.ticket, CodeOffer::First, CODE_LIFETIME);
-    match pair_invite_view(invite, code) {
-        Ok(invite) => out.emit(&BridgeEvent::PairInvite { invite }),
-        Err(error) => {
-            tracing::warn!(%error, "could not draw the pairing invite");
-            cancel.cancel();
-        }
-    }
+    let invite = pair_invite_view(invite, code)?;
+    out.emit(&BridgeEvent::PairInvite { invite });
+    Ok(())
 }
 
 /// Set `feature` to `feature_state` for `device`.

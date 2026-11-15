@@ -197,6 +197,7 @@ internal_errors!(
     carrova_report::ReportError,
     carrova_platform::PlatformError,
     carrova_view::ipc::SettingsError,
+    carrova_view::ecosystem::QrError,
     serde_json::Error,
     std::io::Error,
     tauri::Error,
