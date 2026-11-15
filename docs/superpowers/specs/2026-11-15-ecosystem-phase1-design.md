@@ -132,9 +132,14 @@ sign-off.
 
 ## Pairing UX (pinned)
 
-- Desktop: Nearby → "Add a phone" (QR + typed code, 3-minute code like
-  today) and "Link a computer" (typed code). States per mockup: waiting,
-  phone found (key check), linked, code expired, couldn't connect.
+- Desktop: Nearby → "Add a device": a QR for phones and a typed code for
+  computers (3-minute code like today). States per mockup: waiting,
+  "<Phone|Computer> found" (key check), linked, code expired, couldn't
+  connect.
+- Key check (signed off): the found device's fingerprint is shown with
+  Confirm / "Not my <phone|computer>"; nothing is stored until Confirm.
+  The joining device shows its own fingerprint while it links, so the user
+  can compare the two.
 - Android: welcome → scan (camera permission) or type code → linking →
   linked/failed/not on Wi-Fi → "Choose what to share" (Phase 1 rows only)
   → home.

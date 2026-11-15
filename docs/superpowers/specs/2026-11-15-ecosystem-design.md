@@ -303,7 +303,7 @@ Each phase ends with `just ci` green and a real-hardware exit gate
   `carrova send-clip`, `carrova send-file --to`).
 - Android build: shell, foreground service, QR pairing, onboarding,
   home, device page, activity, settings, system surfaces.
-- Desktop: Nearby with phones, Add a phone, device pages, Home glance, tray,
+- Desktop: Nearby with phones, Add a device (QR for phones, code for computers), device pages, Home glance, tray,
   settings sections.
 - Features: clipboard, files, Handoff (links + files), Ring.
 - Exit gate: pair by QR; link survives Wi-Fi drop, laptop sleep, app
