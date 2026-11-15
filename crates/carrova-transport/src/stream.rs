@@ -10,14 +10,16 @@ use serde::de::DeserializeOwned;
 use tokio::time::{Instant, timeout, timeout_at};
 
 use crate::cancel::Watch;
-use crate::error::{ProtocolViolation, Result, TransportError};
+use crate::error::{Result, TransportError};
 use crate::tuning::STREAM_OPEN_TIMEOUT;
 use crate::wire::{STREAM_CANCELLED, StreamOpen, StreamReader, encode_frame};
 
 /// One lane: control frames (length + CBOR, at most
 /// [`crate::MAX_FRAME_LEN`]) and raw bytes, in order, both ways. Blocking;
-/// every call watches the connection's cancel signal. Dropping it without
-/// [`Self::finish`] still ends the lane cleanly for the peer.
+/// every call watches the connection's cancel signal. Dropping it finishes
+/// it (quinn 0.11), so the peer sees a dropped lane as
+/// [`TransportError::StreamFinished`] too: protocols must end with an
+/// explicit end/ack frame to tell completion from abandonment.
 #[derive(Debug)]
 pub struct Stream {
     send: SendStream,
@@ -75,7 +77,8 @@ impl Stream {
     pub fn finish(mut self) -> Result<()> {
         self.send
             .finish()
-            .map_err(|_| ProtocolViolation::StreamClosed.into())
+            // Only fails if finished or reset before, which `Stream` never does.
+            .map_err(|e| TransportError::internal("finish lane", e))
     }
 }
 
@@ -103,6 +106,10 @@ pub(crate) async fn accept(
     deadline: Instant,
 ) -> Result<Stream> {
     loop {
+        // Streams already queued would otherwise win over a passed deadline.
+        if Instant::now() >= deadline {
+            return Err(TransportError::Timeout);
+        }
         let (mut send, recv) = timeout_at(deadline, conn.accept_bi())
             .await
             .map_err(|_| TransportError::Timeout)?
@@ -122,3 +129,7 @@ pub(crate) async fn accept(
         let _ = recv.stream_mut().stop(STREAM_CANCELLED);
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/stream/unit.rs"]
+mod tests;
