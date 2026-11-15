@@ -31,6 +31,11 @@
 //!   parallel streams; the sender serves only chunks in its manifest
 //!   ([`Connection::serve_chunks`]). Every chunk is BLAKE3-verified on
 //!   arrival and re-requested up to [`MAX_CHUNK_RETRIES`] times.
+//! - **Lanes:** either side of a connection opens bidirectional
+//!   [`Stream`]s ([`Connection::open_stream`], [`Connection::accept_stream`])
+//!   carrying frames and raw bytes; a link's keep-alive comes from
+//!   [`Platform::link_keepalive`](carrova_platform::Platform::link_keepalive),
+//!   its idle timeout is 3× that.
 
 mod accept;
 mod admission;
@@ -48,6 +53,7 @@ mod race;
 mod replay;
 mod runtime;
 mod serve;
+mod stream;
 #[cfg(test)]
 #[path = "../tests/lib/unit.rs"]
 mod tests;
@@ -66,6 +72,7 @@ pub use discovery::{KnownTags, MAX_KNOWN_TAGS, Nearby, PresenceAdvert, PresenceB
 pub use error::{ProtocolViolation, Result, SetupFailure, TransportError};
 pub use handshake::{PairedPeer, PeerIdentity, PeerInfo, PendingPair};
 pub use listener::{KnownPeers, ListenOptions, Listener};
+pub use stream::Stream;
 pub use ticket::Ticket;
 
 /// QUIC/TLS application protocol identifier.

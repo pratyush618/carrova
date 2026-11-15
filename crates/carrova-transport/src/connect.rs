@@ -168,7 +168,10 @@ fn authenticate(
     opts: &ConnectOptions,
 ) -> Result<(quinn::Endpoint, Authenticated, Watch)> {
     let identity = Arc::new(Identity::generate()?);
-    let (endpoint, config) = endpoint::client(opts.platform.as_ref(), &identity)?;
+    let (endpoint, mut config) = endpoint::client(opts.platform.as_ref(), &identity)?;
+    if matches!(secret, Secret::Link { .. }) {
+        config.transport_config(endpoint::link_transport(opts.platform.as_ref())?);
+    }
     let dialer = Dialer::new(
         endpoint.clone(),
         config,

@@ -11,12 +11,13 @@ use carrova_manifest::{ChunkHash, ChunkRef, ChunkSource, Manifest};
 use quinn::SendStream;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use tokio::time::timeout;
+use tokio::time::{Instant, timeout};
 
 use crate::cancel::Watch;
 use crate::error::{Result, TransportError};
 use crate::handshake::{Authenticated, PeerIdentity};
 use crate::runtime::runtime;
+use crate::stream::{self, Stream};
 use crate::tuning::CLOSE_LINGER;
 use crate::wire::{CloseCode, StreamReader, encode_frame};
 use crate::{fetch, serve};
@@ -126,6 +127,22 @@ impl Connection {
                 Some(msg) => Ok(msg),
                 None => Err(TransportError::closed_by_peer(conn).await),
             }
+        })
+    }
+
+    /// Open a lane to the peer (either side may). Lanes and a move
+    /// session's chunk streams never mix: only [`Self::accept_stream`]
+    /// takes lanes. Takes `&self`, so threads can share the connection.
+    pub fn open_stream(&self) -> Result<Stream> {
+        self.cancel.block_on(stream::open(&self.conn, &self.cancel))
+    }
+
+    /// Accept the next lane the peer opens, waiting at most
+    /// `timeout_after` ([`TransportError::Timeout`]). Other streams on the
+    /// connection are refused, never returned.
+    pub fn accept_stream(&self, timeout_after: Duration) -> Result<Stream> {
+        self.cancel.block_on(async {
+            stream::accept(&self.conn, &self.cancel, Instant::now() + timeout_after).await
         })
     }
 

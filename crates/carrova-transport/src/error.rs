@@ -30,6 +30,10 @@ pub enum TransportError {
     /// The peer disconnected or became unreachable.
     #[error("connection to peer lost")]
     PeerLost,
+    /// The peer finished the [`crate::Stream`] being read (the connection
+    /// may still be up).
+    #[error("the other machine closed the stream")]
+    StreamFinished,
     /// The caller's [`crate::CancelSignal`] stopped the call.
     #[error("cancelled")]
     Cancelled,

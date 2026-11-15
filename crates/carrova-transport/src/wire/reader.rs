@@ -97,6 +97,18 @@ impl StreamReader {
         msg.map(Some)
     }
 
+    /// Fill `out` exactly (all of it buffered first, so a timed-out read
+    /// loses nothing). `Ok(false)` at a clean end of stream before any
+    /// byte; an end part-way is [`ProtocolViolation::TruncatedMessage`].
+    pub(crate) async fn exact(&mut self, out: &mut [u8]) -> Result<bool> {
+        if !self.fill(out.len()).await? {
+            return Ok(false);
+        }
+        out.copy_from_slice(&self.buffered()[..out.len()]);
+        self.consume(out.len());
+        Ok(true)
+    }
+
     /// Next control frame; end of stream is an error (peer went away).
     pub(crate) async fn expect_frame<T: DeserializeOwned>(&mut self) -> Result<T> {
         self.frame().await?.ok_or(TransportError::PeerLost)

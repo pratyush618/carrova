@@ -31,7 +31,7 @@ pub(crate) const CONNECTION_RECEIVE_WINDOW: u32 = 32 * MIB as u32;
 /// Bytes in flight across all streams.
 pub(crate) const SEND_WINDOW: u64 = 32 * MIB as u64;
 /// Bidirectional streams a peer may have open at once: control stream +
-/// chunk streams + the fetch-done stream.
+/// chunk streams + the fetch-done stream, or a link's lanes.
 pub(crate) const MAX_CONCURRENT_BIDI_STREAMS: u32 = 16;
 /// Initial RTT estimate (LAN; the default 333 ms slows early recovery).
 pub(crate) const INITIAL_RTT: Duration = Duration::from_millis(10);
@@ -39,6 +39,12 @@ pub(crate) const INITIAL_RTT: Duration = Duration::from_millis(10);
 pub(crate) const IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 /// Keep-alive interval (keeps Wi-Fi pauses from killing the session).
 pub(crate) const KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(5);
+/// A link's idle timeout as a multiple of its keep-alive interval
+/// ([`carrova_platform::Platform::link_keepalive`]).
+pub(crate) const LINK_IDLE_FACTOR: u32 = 3;
+/// Accepting a lane: longest wait for its opening tag (sent with the
+/// open, so this only bounds a misbehaving peer).
+pub(crate) const STREAM_OPEN_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// TLS server name the receiver presents (certificates are self-signed and
 /// authenticated by the PAKE, so the name only has to be well-formed).

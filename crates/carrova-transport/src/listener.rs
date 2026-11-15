@@ -263,12 +263,20 @@ impl Listener {
     }
 
     /// Handshakes still running when the caller cancels are dropped.
+    /// Connections accepted now get a link's or a session's keep-alive
+    /// and idle timeout (fixed per connection at its handshake).
     fn authenticate(
         &self,
         expected: &Expected,
         timeout: Duration,
         on_staked: &mut dyn FnMut(),
     ) -> Result<Authenticated> {
+        let transport = match expected {
+            Expected::Link { .. } => endpoint::link_transport(self.platform.as_ref())?,
+            Expected::Pair { .. } | Expected::Resume { .. } => endpoint::session_transport()?,
+        };
+        let config = endpoint::server_config(&self.identity, transport)?;
+        self.endpoint.set_server_config(Some(config));
         let deadline = Instant::now() + timeout;
         self.cancel.block_on(accept::accept(
             &self.endpoint,

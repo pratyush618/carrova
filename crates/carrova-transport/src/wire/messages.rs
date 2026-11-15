@@ -107,7 +107,7 @@ pub(crate) enum RejectReason {
     NotOffered,
 }
 
-/// First frame on every receiver-opened stream after the control stream.
+/// First frame on every stream after the control stream.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum StreamOpen {
     /// A chunk stream: [`ChunkRequest`] frames follow.
@@ -115,6 +115,9 @@ pub(crate) enum StreamOpen {
     /// The receiver finished fetching; the sender finishes this stream once
     /// every chunk stream is drained.
     FetchDone,
+    /// A lane ([`crate::Stream`]), opened by either side; only
+    /// [`crate::Connection::accept_stream`] takes it.
+    Lane,
 }
 
 /// A batch of chunks to send, in order.
