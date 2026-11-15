@@ -34,7 +34,8 @@ use carrova_view::devices::{
     ForgetDevices, KnownDeviceView, NearbyDeviceView, Ring, VisibilityChoice, VisibilityView,
 };
 use carrova_view::ecosystem::{
-    ClipHistoryView, ClipItemView, ClipKind, FeatureRowView, PairInviteView,
+    AskTopic, AskView, ClipHistoryView, ClipItemView, ClipKind, FeatureRowView, LinkedDeviceView,
+    PairInviteView, TransferState, TransferView,
 };
 use carrova_view::ipc::{
     About, AlertChannel, AlertSettings, BackgroundSettings, BridgeError, BridgeEvent, CatalogEntry,
@@ -126,6 +127,11 @@ fn export_typescript_bindings() {
         ClipHistoryView::export_all,
         ClipItemView::export_all,
         ClipKind::export_all,
+        LinkedDeviceView::export_all,
+        AskView::export_all,
+        AskTopic::export_all,
+        TransferView::export_all,
+        TransferState::export_all,
         // Desktop IPC contract.
         BridgeEvent::export_all,
         BridgeError::export_all,

@@ -2,8 +2,11 @@
 //! the clipboard history. Pure (no I/O, no escaping): front-ends escape
 //! every peer-provided string themselves.
 
-use carrova_core::ecosystem::PairInvite;
+use carrova_core::Event;
+use carrova_core::ecosystem::{AskId, AskKind, FileFailure, LinkedPeer, PairInvite, PeerState};
+use carrova_crypto::identity::{DeviceId, Fingerprint};
 use carrova_link::{ClipItem, Feature, FeatureState, Group, PolicyDoc, allowed};
+use carrova_platform::OsKind;
 use qrcode::QrCode;
 use qrcode::render::svg;
 use serde::Serialize;
@@ -56,8 +59,8 @@ pub fn feature_rows(local: &PolicyDoc, remote: Option<&PolicyDoc>) -> Vec<Featur
 
 /// A pairing invite as the UI shows it: link text, QR code and fallback code.
 ///
-/// Holds the pairing code: never logged.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+/// Holds the pairing code: never logged (its `Debug` redacts it).
+#[derive(Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct PairInviteView {
     /// The `carrova://pair?...` text the QR code carries.
@@ -68,6 +71,14 @@ pub struct PairInviteView {
     pub code: CodeView,
     /// Seconds until the invite stops working.
     pub expires_in_s: u32,
+}
+
+impl std::fmt::Debug for PairInviteView {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PairInviteView")
+            .field("expires_in_s", &self.expires_in_s)
+            .finish_non_exhaustive()
+    }
 }
 
 /// The QR code could not be drawn.
@@ -142,4 +153,188 @@ pub fn clip_history_view<'a>(
         })
         .collect();
     ClipHistoryView { items }
+}
+
+/// A known device and its link, as the devices list shows it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct LinkedDeviceView {
+    /// Its id, for commands.
+    pub id: String,
+    /// Its local name.
+    pub name: String,
+    /// Its OS family.
+    pub os: OsKind,
+    /// Its fingerprint (`7F3A·19C2`).
+    pub fingerprint: String,
+    /// Whether the link is up.
+    pub state: PeerState,
+    /// What each feature does on this link.
+    pub features: Vec<FeatureRowView>,
+}
+
+/// `peers` as the devices list shows them, in the given order.
+#[must_use]
+pub fn linked_device_views(peers: &[LinkedPeer]) -> Vec<LinkedDeviceView> {
+    peers
+        .iter()
+        .map(|p| LinkedDeviceView {
+            id: p.id.to_hex(),
+            name: p.name.clone(),
+            os: p.os,
+            fingerprint: Fingerprint::of(&p.id).to_string(),
+            state: p.state,
+            features: feature_rows(&p.local, p.remote.as_ref()),
+        })
+        .collect()
+}
+
+/// What an ask is about.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub enum AskTopic {
+    /// A file to save in Downloads.
+    File,
+    /// A link or file to continue here.
+    Handoff,
+}
+
+/// A device's offer waiting for the user's answer. Names are already safe;
+/// front-ends still escape them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct AskView {
+    /// What to answer with.
+    pub ask_id: AskId,
+    /// The offering device's name.
+    pub device_name: String,
+    /// What it is about.
+    pub kind: AskTopic,
+    /// The file's name (a file offer, or a handed-off file).
+    pub file_name: Option<String>,
+    /// The file's size in bytes (a file offer).
+    pub size: Option<u64>,
+    /// The link's host (a handed-off link); never the full URL.
+    pub url_host: Option<String>,
+    /// Seconds left to answer; the caller works it out from its clock.
+    pub expires_in_s: u32,
+}
+
+/// The view of `kind` offered by `device_name`.
+#[must_use]
+pub fn ask_view(ask: AskId, device_name: &str, kind: &AskKind, expires_in_s: u32) -> AskView {
+    let (kind, file_name, size, url_host) = match kind {
+        AskKind::File { name, size } => (AskTopic::File, Some(name.clone()), Some(*size), None),
+        AskKind::Handoff { url_host, file } => {
+            (AskTopic::Handoff, file.clone(), None, url_host.clone())
+        }
+    };
+    AskView {
+        ask_id: ask,
+        device_name: device_name.to_owned(),
+        kind,
+        file_name,
+        size,
+        url_host,
+        expires_in_s,
+    }
+}
+
+/// Where a file transfer stands.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub enum TransferState {
+    /// Bytes are moving.
+    Active,
+    /// The file arrived.
+    Done,
+    /// The file did not arrive.
+    Failed {
+        /// Why.
+        reason: FileFailure,
+    },
+}
+
+/// One file moving to or from a linked device.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct TransferView {
+    /// The transfer's id on its device.
+    pub id: u64,
+    /// The other device's name.
+    pub device_name: String,
+    /// The file's name; empty until the engine reports it (on arrival).
+    pub file_name: String,
+    /// Bytes moved so far.
+    pub done: u64,
+    /// Bytes in the file.
+    pub total: u64,
+    /// Where it stands.
+    pub state: TransferState,
+}
+
+/// The transfers seen so far, folded from the engine's `File*` events.
+#[derive(Debug, Default)]
+pub struct Transfers(Vec<(DeviceId, TransferView)>);
+
+impl Transfers {
+    /// The transfers, in the order they first appeared.
+    #[must_use]
+    pub fn views(&self) -> Vec<TransferView> {
+        self.0.iter().map(|(_, v)| v.clone()).collect()
+    }
+
+    /// Fold `event`, which concerns the device called `device_name`;
+    /// events that are not about files change nothing.
+    pub fn apply(&mut self, event: &Event, device_name: &str) {
+        match event {
+            Event::FileProgress {
+                device,
+                id,
+                done,
+                total,
+            } => {
+                let view = self.entry(*device, *id, device_name);
+                view.done = *done;
+                view.total = *total;
+            }
+            Event::FileSaved { device, id, path } => {
+                let view = self.entry(*device, *id, device_name);
+                view.done = view.total;
+                view.state = TransferState::Done;
+                if let Some(name) = path.file_name() {
+                    view.file_name = name.to_string_lossy().into_owned();
+                }
+            }
+            Event::FileFailed { device, id, reason } => {
+                self.entry(*device, *id, device_name).state =
+                    TransferState::Failed { reason: *reason };
+            }
+            _ => {}
+        }
+    }
+
+    fn entry(&mut self, device: DeviceId, id: u64, device_name: &str) -> &mut TransferView {
+        let at = self
+            .0
+            .iter()
+            .position(|(d, v)| *d == device && v.id == id)
+            .unwrap_or_else(|| {
+                self.0.push((
+                    device,
+                    TransferView {
+                        id,
+                        device_name: device_name.to_owned(),
+                        file_name: String::new(),
+                        done: 0,
+                        total: 0,
+                        state: TransferState::Active,
+                    },
+                ));
+                self.0.len() - 1
+            });
+        &mut self.0[at].1
+    }
 }

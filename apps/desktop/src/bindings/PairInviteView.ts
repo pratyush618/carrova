@@ -4,7 +4,7 @@ import type { CodeView } from "./CodeView";
 /**
  * A pairing invite as the UI shows it: link text, QR code and fallback code.
  *
- * Holds the pairing code: never logged.
+ * Holds the pairing code: never logged (its `Debug` redacts it).
  */
 export type PairInviteView = { 
 /**
