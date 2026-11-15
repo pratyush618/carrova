@@ -21,6 +21,9 @@ pub enum TransportError {
     /// The link proof failed (unknown device, revoked link or tampering).
     #[error("link failed")]
     LinkFailed,
+    /// A newer link from the same device replaced this connection.
+    #[error("a newer connection to the other device replaced this one")]
+    Superseded,
     /// No answer within the caller's timeout.
     #[error("timed out")]
     Timeout,
@@ -203,9 +206,8 @@ impl TransportError {
             Some(CloseCode::Protocol) => ProtocolViolation::PeerClosed.into(),
             Some(CloseCode::Cancelled) => Self::PeerCancelled,
             Some(CloseCode::LinkFailed) => Self::LinkFailed,
-            Some(CloseCode::Normal | CloseCode::Rejected | CloseCode::Superseded) | None => {
-                Self::PeerLost
-            }
+            Some(CloseCode::Superseded) => Self::Superseded,
+            Some(CloseCode::Normal | CloseCode::Rejected) | None => Self::PeerLost,
         }
     }
 

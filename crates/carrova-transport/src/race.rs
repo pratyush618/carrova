@@ -202,7 +202,8 @@ fn refused(e: &ConnectionError) -> bool {
 /// addresses; it waits for its deadline and returns a retryable error
 /// (never [`TransportError::PairingFailed`]). Callers retry.
 pub(crate) async fn race(dialer: Dialer, platform: &Arc<dyn Platform>) -> Result<Authenticated> {
-    let found = discover(platform, dialer.secret.subject(), dialer.deadline)?;
+    let subject = dialer.secret.subject().ok_or(TransportError::NotFound)?;
+    let found = discover(platform, subject, dialer.deadline)?;
     race_found(dialer, found).await
 }
 

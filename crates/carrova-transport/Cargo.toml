@@ -13,6 +13,7 @@ mdns-sd = { workspace = true }
 carrova-crypto = { workspace = true }
 carrova-manifest = { workspace = true }
 carrova-platform = { workspace = true }
+getrandom = { workspace = true }
 quinn = { workspace = true }
 rcgen = { workspace = true }
 rustls = { workspace = true }

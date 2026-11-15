@@ -3,6 +3,7 @@
 mod admission;
 mod deadline;
 mod identify;
+mod link;
 mod pair_only;
 mod raw;
 

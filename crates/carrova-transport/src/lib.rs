@@ -65,7 +65,7 @@ pub use connection::{
 pub use discovery::{KnownTags, MAX_KNOWN_TAGS, Nearby, PresenceAdvert, PresenceBeacon, browse};
 pub use error::{ProtocolViolation, Result, SetupFailure, TransportError};
 pub use handshake::{PairedPeer, PeerIdentity, PeerInfo, PendingPair};
-pub use listener::{ListenOptions, Listener};
+pub use listener::{KnownPeers, ListenOptions, Listener};
 pub use ticket::Ticket;
 
 /// QUIC/TLS application protocol identifier.
@@ -94,6 +94,9 @@ pub const TXT_KNOWN_TAGS: &str = "kt";
 /// ([`OsKind::as_str`](carrova_platform::OsKind::as_str)), present only
 /// when the device shows itself to everyone.
 pub const TXT_OS: &str = "os";
+/// TXT key: a presence advert's link listener QUIC port in decimal,
+/// present only while one runs (see [`Listener::accept_link`]).
+pub const TXT_LINK_PORT: &str = "lp";
 /// UDP port of the broadcast discovery fallback.
 pub const BROADCAST_PORT: u16 = 47821;
 /// Broadcast discovery query prefix, followed by `np=<nameplate>` or

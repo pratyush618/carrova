@@ -14,7 +14,7 @@ use crate::error::{ProtocolViolation, Result, TransportError};
 use crate::race::PakeBudget;
 use crate::tls::Identity;
 use crate::tuning::HANDSHAKE_TIMEOUT;
-use crate::wire::{CloseCode, Handshake, PairPurpose, RejectReason, StreamReader};
+use crate::wire::{CloseCode, Handshake, RejectReason, StreamReader};
 
 /// Receiver: authenticate an established QUIC connection with `secret`.
 /// On failure the connection is closed with the matching code.
@@ -30,7 +30,12 @@ pub(crate) async fn connect(
         .await
         .unwrap_or(Err(TransportError::Timeout));
     if let Err(e) = &result {
-        failure_code(e).close(&conn);
+        // A link closes every failure the same way (ADR 0002 §3).
+        match secret {
+            Secret::Link { .. } => CloseCode::LinkFailed,
+            _ => failure_code(e),
+        }
+        .close(&conn);
     }
     result
 }
@@ -115,6 +120,7 @@ async fn session_keys<'a>(
             )
         }
         Secret::Resume(resume) => Keys::Resume(resume),
+        Secret::Link { peer, .. } => Keys::Link(peer),
     })
 }
 
@@ -134,22 +140,20 @@ async fn confirm(
     let ours = keys.confirm(PakeRole::Receiver, &binding)?;
     write(&mut send, &[Handshake::Confirm(ours.0)]).await?;
     let peer_identity = match recv.expect_frame().await? {
-        // Pair-only always identifies (and checks the pin).
-        Handshake::Established if secret.purpose() == PairPurpose::Move => None,
-        // Sent only if our `Hello` asked for it (code pairing, device key).
+        // Pair-only and links always identify.
+        Handshake::Established if !secret.must_identify() => None,
+        // Sent only if our `Hello` asked for it (device key).
         frame @ Handshake::Identify { .. } => {
             let (Some(device), Some(known)) = (secret.device(), keys.known_secret()) else {
                 return Err(unexpected("established"));
             };
-            let public = identify::check(device, PakeRole::Sender, &binding, &frame)?;
-            // A pinned sender's key is checked before ours is revealed.
-            if secret.pin().is_some_and(|pin| *pin != public) {
-                tracing::warn!("sender's key differs from the scanned one");
-                return Err(TransportError::KeyMismatch);
-            }
+            // The sender's key (pinned or linked) is checked before ours
+            // is revealed.
+            let proof = keys.proof(secret.pin());
+            let public = identify::check(device, PakeRole::Sender, &binding, &frame, proof)?;
             write(
                 &mut send,
-                &[identify::proof(device, PakeRole::Receiver, &binding)],
+                &[identify::proof(device, PakeRole::Receiver, &binding, proof)],
             )
             .await?;
             let Handshake::Established = recv.expect_frame().await? else {
@@ -167,7 +171,7 @@ async fn confirm(
         send,
         recv,
         peer_cert,
-        resume: keys.resume_secret(),
+        resume: keys.resume_secret()?,
         peer_identity,
     })
 }

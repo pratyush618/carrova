@@ -4,8 +4,8 @@ use std::net::SocketAddrV4;
 use std::sync::Arc;
 use std::time::Duration;
 
-use carrova_crypto::identity::DeviceKey;
-use carrova_crypto::pairing::{CertHash, PairingCode, ResumeSecret};
+use carrova_crypto::identity::{DeviceKey, DevicePublic};
+use carrova_crypto::pairing::{CertHash, KnownSecret, PairingCode, ResumeSecret};
 use carrova_platform::Platform;
 use tokio::time::Instant;
 
@@ -16,10 +16,10 @@ use crate::connection::Connection;
 use crate::discovery::{Advertiser, Offer, Subject, primary_lan_ipv4};
 use crate::endpoint;
 use crate::error::{Result, SetupFailure, TransportError};
-use crate::handshake::{self, Authenticated, Expected, PeerInfo, PendingPair};
+use crate::handshake::{self, Authenticated, Expected, PeerIdentity, PeerInfo, PendingPair};
 use crate::replay::ResumeNonces;
 use crate::tls::Identity;
-use crate::tuning::RESUME_NONCE_MEMORY;
+use crate::tuning::{MAX_LINK_CANDIDATES, RESUME_NONCE_MEMORY};
 use crate::wire::PairPurpose;
 
 /// How the sender listens.
@@ -60,6 +60,13 @@ impl Default for ListenOptions {
     }
 }
 
+/// The paired devices a link listener accepts ([`Listener::accept_link`]).
+pub trait KnownPeers: Send + Sync {
+    /// Each paired device's key and the secret shared with it, most
+    /// recently used first: only the first 64 can link.
+    fn candidates(&self) -> Vec<(DevicePublic, KnownSecret)>;
+}
+
 /// A bound QUIC endpoint on the sender plus its discovery advertisement.
 /// Advertisements stop when the listener is dropped; accepted connections
 /// stay open.
@@ -73,7 +80,7 @@ pub struct Listener {
     advertiser: Option<Advertiser>,
     /// Every code offered so far, each single-use.
     codes: CodeBook,
-    /// Resume-`Hello` nonces already admitted.
+    /// Resume- and link-`Hello` nonces already admitted.
     nonces: Arc<ResumeNonces>,
     /// The caller's cancel signal.
     cancel: Watch,
@@ -215,6 +222,36 @@ impl Listener {
             timeout,
             &mut || {},
         )?;
+        Ok(self.connection(auth))
+    }
+
+    /// Wait for a paired device to link (ADR 0002 §3): no code; it must
+    /// prove the secret `known` holds for it and its device key, and so
+    /// must we. This side plays the sender. Only the first 64 of
+    /// [`KnownPeers::candidates`], read once per call, are tried; after
+    /// forgetting a device, start a new call.
+    ///
+    /// Attempts that fail (unknown device, replayed `Hello`, wrong proof
+    /// or key) are closed with no detail and logged by kind only; the
+    /// listener keeps waiting until `timeout`
+    /// ([`TransportError::Timeout`]).
+    ///
+    /// Needs [`ListenOptions::device`]; without it fails with
+    /// [`SetupFailure::NoDeviceKey`].
+    pub fn accept_link(&mut self, known: &dyn KnownPeers, timeout: Duration) -> Result<Connection> {
+        let device = self.device.clone().ok_or(SetupFailure::NoDeviceKey)?;
+        let peers = known
+            .candidates()
+            .into_iter()
+            .take(MAX_LINK_CANDIDATES)
+            .map(|(public, secret)| PeerIdentity { public, secret })
+            .collect();
+        let expected = Expected::Link {
+            peers,
+            device,
+            nonces: Arc::clone(&self.nonces),
+        };
+        let auth = self.authenticate(&expected, timeout, &mut || {})?;
         Ok(self.connection(auth))
     }
 

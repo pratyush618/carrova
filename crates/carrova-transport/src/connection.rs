@@ -76,15 +76,18 @@ impl Connection {
         self.peer_cert
     }
 
-    /// The session's resume secret (from pairing, or the one used to resume).
+    /// The session's resume secret (from pairing, or the one used to
+    /// resume). A link has none to share: its secret is random and resumes
+    /// nothing (redial instead).
     #[must_use]
     pub fn resume_secret(&self) -> &ResumeSecret {
         &self.resume
     }
 
-    /// The peer's device identity and the secret now shared with it: only
-    /// on a code pairing where both sides passed a device key
-    /// ([`crate::ListenOptions::device`], [`crate::ConnectOptions::device`]).
+    /// The peer's device identity and the secret shared with it: on a link
+    /// (the verified peer), and on a code pairing where both sides passed
+    /// a device key ([`crate::ListenOptions::device`],
+    /// [`crate::ConnectOptions::device`]).
     #[must_use]
     pub fn peer_identity(&self) -> Option<&PeerIdentity> {
         self.peer_identity.as_ref()
@@ -177,6 +180,13 @@ impl Connection {
     /// [`TransportError::PeerCancelled`].
     pub fn close_cancelled(mut self) {
         self.close = CloseCode::Cancelled;
+    }
+
+    /// Like [`Self::close`], telling the peer a newer link between the
+    /// same two devices replaced this one: its pending and later calls
+    /// end with [`TransportError::Superseded`].
+    pub fn close_superseded(mut self) {
+        self.close = CloseCode::Superseded;
     }
 }
 

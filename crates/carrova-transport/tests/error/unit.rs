@@ -144,3 +144,15 @@ fn link_failed_close_maps_to_link_failed() {
         TransportError::LinkFailed
     ));
 }
+
+#[test]
+fn superseded_close_maps_to_superseded() {
+    let close = ConnectionError::ApplicationClosed(quinn::ApplicationClose {
+        error_code: CloseCode::Superseded.to_wire(),
+        reason: Default::default(),
+    });
+    assert!(matches!(
+        TransportError::connection(&close),
+        TransportError::Superseded
+    ));
+}

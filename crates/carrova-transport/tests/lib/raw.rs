@@ -51,7 +51,7 @@ impl Dial {
 #[derive(Debug)]
 pub(super) struct RawPeer {
     _endpoint: quinn::Endpoint,
-    identity: Identity,
+    pub(super) identity: Identity,
     pub(super) conn: quinn::Connection,
     stream: Option<(SendStream, StreamReader)>,
 }

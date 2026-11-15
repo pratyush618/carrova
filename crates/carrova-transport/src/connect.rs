@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use carrova_crypto::identity::{DeviceKey, DevicePublic};
-use carrova_crypto::pairing::ResumeSecret;
+use carrova_crypto::pairing::{KnownSecret, ResumeSecret};
 use carrova_platform::Platform;
 use tokio::time::Instant;
 
@@ -14,7 +14,7 @@ use crate::cancel::{CancelSignal, Watch};
 use crate::connection::Connection;
 use crate::endpoint;
 use crate::error::{Result, SetupFailure};
-use crate::handshake::{self, Authenticated, PairedPeer, PeerInfo, Secret};
+use crate::handshake::{self, Authenticated, PairedPeer, PeerIdentity, PeerInfo, Secret};
 use crate::race::{Dialer, race};
 use crate::ticket::Ticket;
 use crate::tls::Identity;
@@ -55,12 +55,25 @@ pub enum Target<'a> {
     /// Reconnect: discovery by resume tag, proven with the session's
     /// resume secret.
     Resume(&'a ResumeSecret),
+    /// Link to a paired device listening at `addr` (ADR 0002 §3): no code;
+    /// both sides prove the `secret` they share and their device keys,
+    /// and the listener's must be `peer`. Needs
+    /// [`ConnectOptions::device`].
+    Link {
+        /// The paired device's stored key.
+        peer: &'a DevicePublic,
+        /// The secret shared with it since pairing.
+        secret: &'a KnownSecret,
+        /// Its link listener (presence TXT [`crate::TXT_LINK_PORT`]).
+        addr: SocketAddrV4,
+    },
 }
 
 impl Target<'_> {
-    /// The secret the handshake proves (pairing: with `device`).
-    fn secret(self, device: Option<Arc<DeviceKey>>) -> Secret {
-        match self {
+    /// The secret the handshake proves (pairing: with `device`; link:
+    /// requires it).
+    fn secret(self, device: Option<Arc<DeviceKey>>) -> Result<Secret> {
+        Ok(match self {
             Self::Pairing(ticket) => Secret::Pair {
                 code: ticket.code.clone(),
                 device,
@@ -68,20 +81,32 @@ impl Target<'_> {
                 pin: None,
             },
             Self::Resume(secret) => Secret::Resume(secret.clone()),
-        }
+            Self::Link { peer, secret, .. } => Secret::Link {
+                peer: PeerIdentity {
+                    public: *peer,
+                    secret: secret.clone(),
+                },
+                device: device.ok_or(SetupFailure::NoDeviceKey)?,
+            },
+        })
     }
 
-    /// The address the user typed, if any (otherwise: discovery).
+    /// The address the user typed or the link's, if any (otherwise:
+    /// discovery).
     fn address(self) -> Option<SocketAddrV4> {
         match self {
             Self::Pairing(ticket) => ticket.addr,
             Self::Resume(_) => None,
+            Self::Link { addr, .. } => Some(addr),
         }
     }
 }
 
 /// Receiver side: find the sender of `target` and authenticate within
 /// `timeout`.
+///
+/// A link fails with [`TransportError::LinkFailed`] when the listener
+/// does not know us or either side's proof is wrong (no further detail).
 ///
 /// Every error means no authenticated sender was reached (never an
 /// authenticated peer's protocol error), so callers may retry. Discovered
@@ -95,9 +120,10 @@ impl Target<'_> {
 /// `timeout`.
 ///
 /// [`TransportError::PairingFailed`]: crate::TransportError::PairingFailed
+/// [`TransportError::LinkFailed`]: crate::TransportError::LinkFailed
 pub fn connect(target: Target<'_>, timeout: Duration, opts: &ConnectOptions) -> Result<Connection> {
     let (endpoint, auth, cancel) = authenticate(
-        target.secret(opts.device.clone()),
+        target.secret(opts.device.clone())?,
         target.address(),
         timeout,
         opts,

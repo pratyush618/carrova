@@ -59,9 +59,13 @@ pub(crate) const PRE_PAKE_TIMEOUT: Duration = Duration::from_secs(2);
 pub(crate) const MAX_PENDING_HANDSHAKES: usize = 4;
 /// Sender: pending handshakes one source IP address may hold at once.
 pub(crate) const MAX_PENDING_PER_ADDRESS: usize = 1;
-/// Sender: resume-`Hello` nonces remembered (oldest forgotten first) so a
-/// `Hello` cannot be replayed during the listener's lifetime.
+/// Sender: resume- and link-`Hello` nonces remembered (oldest forgotten
+/// first) so a `Hello` cannot be replayed during the listener's lifetime.
 pub(crate) const RESUME_NONCE_MEMORY: usize = 1024;
+/// Link listener: known peers whose secrets a link `Hello` is checked
+/// against (most recently used first); bounds the HMACs one
+/// unauthenticated `Hello` costs (ADR 0002 §3).
+pub(crate) const MAX_LINK_CANDIDATES: usize = 64;
 /// Receiver: code guesses (PAKE messages sent) one connect call may spend
 /// across all candidates; more would let impostors answering discovery
 /// collect guesses at the code.
