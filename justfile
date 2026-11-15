@@ -125,6 +125,8 @@ ci-portable: lint build test fixtures
 # `just e2e --archive FILE` imports an existing archive instead of a seeded one.
 # `just e2e --lan [--only A|B1|B2|B3|C]... [--ubuntu-rmem]`: two containers on a
 # Docker network migrate over LAN (pairing, interruption + resume, rollback).
+# `just e2e --link`: two containers pair and send a file over a link (clipboard and
+# Handoff are covered by in-process tests; see tests/e2e/link.sh).
 # `just e2e --cross-os`: restore onto fake Windows/macOS layouts (see tests/e2e/README.md).
 e2e *args:
     tests/e2e/run.sh {{args}}
