@@ -93,6 +93,7 @@ fn invite_view_has_svg_and_uri() {
     let view = pair_invite_view(&invite, code).unwrap();
     assert_eq!(view.uri, invite.to_uri());
     assert!(view.qr_svg.contains("<svg"), "{}", view.qr_svg);
+    assert!(view.qr_svg.len() > 1000 && view.qr_svg.len() < 50_000);
     assert_eq!(view.expires_in_s, 90);
     assert_eq!(view.code.code, invite.ticket.code.to_string());
 }

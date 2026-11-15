@@ -10,6 +10,14 @@ use serde::Serialize;
 
 use crate::lan::CodeView;
 
+/// The order the UI lists the Phase 1 features in.
+const ROW_ORDER: [Feature; 4] = [
+    Feature::Clipboard,
+    Feature::Ring,
+    Feature::Files,
+    Feature::Handoff,
+];
+
 /// Characters of a text clip shown in the history.
 pub const PREVIEW_CHARS: usize = 120;
 
@@ -32,7 +40,7 @@ pub struct FeatureRowView {
 /// The Phase 1 feature rows of a link, in display order.
 #[must_use]
 pub fn feature_rows(local: &PolicyDoc, remote: Option<&PolicyDoc>) -> Vec<FeatureRowView> {
-    Feature::PHASE1
+    ROW_ORDER
         .into_iter()
         .filter_map(|feature| {
             Some(FeatureRowView {
