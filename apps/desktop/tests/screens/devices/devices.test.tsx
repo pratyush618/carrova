@@ -1,12 +1,13 @@
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '../../support/render';
 import { AddDeviceDialog } from '@/screens/devices/AddDeviceDialog';
 import { DevicePage } from '@/screens/devices/DevicePage';
 import { LinkComputerDialog } from '@/screens/devices/LinkComputerDialog';
 import { pixel, pixelInvite, pixelPeer } from '@/screens/devices/fixtures';
 import type { DeviceIntents } from '@/screens/devices/model';
+import { revealDuration } from '@/ui/CodeDisplay/flaps';
 
 const deviceOn = (): DeviceIntents => ({
   onFeature: vi.fn(),
@@ -54,6 +55,10 @@ describe('Device page', () => {
 });
 
 describe('Add a device', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('AddDeviceDialog renders QR svg and code, shows expired state', async () => {
     const user = userEvent.setup();
     const on = pairOn();
@@ -72,6 +77,38 @@ describe('Add a device', () => {
     expect(screen.queryByRole('img', { name: 'Pairing QR code' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'New code' }));
     expect(on.onRetry).toHaveBeenCalledOnce();
+  });
+
+  it('flips the code in like the send screen, static under reduced motion', () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'performance'] });
+    const waiting = (
+      <AddDeviceDialog
+        model={{ state: 'waiting', invite: pixelInvite, expiresAt: Date.now() + 160_000 }}
+        on={pairOn()}
+      />
+    );
+    const tiles = () =>
+      Array.from(screen.getByRole('img', { name: /4 maple orbit/ }).querySelectorAll('.p-flap'));
+    const { unmount } = renderScreen(waiting);
+    expect(tiles().every((t) => t.classList.contains('p-flap--spinning'))).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(revealDuration(tiles().length) + 120);
+    });
+    expect(
+      tiles()
+        .map((t) => t.textContent)
+        .join(''),
+    ).toBe('4mapleorbit');
+    expect(tiles().every((t) => t.classList.contains('p-flap--set'))).toBe(true);
+    unmount();
+
+    renderScreen(waiting, { reduceMotion: true });
+    expect(
+      tiles()
+        .map((t) => t.textContent)
+        .join(''),
+    ).toBe('4mapleorbit');
+    expect(tiles().some((t) => t.classList.contains('p-flap--spinning'))).toBe(false);
   });
 
   it('offers the QR to a phone and the code to a computer', () => {

@@ -54,7 +54,7 @@ export function AddDeviceDialog({
                 alt={t('ecosystem.pair.qr')}
               />
               <Note center>{t('ecosystem.pair.orType')}</Note>
-              <CodeDisplay words={model.invite.code.code.split('-')} size="sm" />
+              <CodeDisplay words={model.invite.code.code.split('-')} size="sm" reveal />
               <Expiry at={model.expiresAt} />
             </>
           )}
