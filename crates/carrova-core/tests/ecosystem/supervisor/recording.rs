@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use carrova_platform::fake::FakePlatform;
 use carrova_platform::{
-    ClipContent, ClipboardWatch, DirEntry, DirWatch, FileLock, FileMeta, LanInterface,
+    ClipContent, ClipboardWatch, DirEntry, DirWatch, FileLock, FileMeta, LanInterface, LinkNotice,
     LocalListener, LocalStream, OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot,
     SnapshotCapability, SocketBuffers,
 };
@@ -198,5 +198,11 @@ impl Platform for Recording {
     }
     fn link_keepalive(&self) -> Duration {
         self.inner.link_keepalive()
+    }
+    fn keep_running(&self, notice: Option<&LinkNotice>) -> Result<(), PlatformError> {
+        self.inner.keep_running(notice)
+    }
+    fn links_paused(&self) -> bool {
+        self.inner.links_paused()
     }
 }

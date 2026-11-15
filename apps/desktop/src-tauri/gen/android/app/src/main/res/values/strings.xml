@@ -2,6 +2,10 @@
     <string name="app_name">"Carrova"</string>
     <string name="main_activity_title">"Carrova"</string>
     <string name="link_channel">Linked devices</string>
-    <string name="link_running">Keeping your linked devices connected</string>
+    <string name="link_starting">Connecting your linked devices</string>
+    <string name="link_running">Linked to %1$s</string>
+    <string name="link_paused">Linking paused</string>
     <string name="send_clipboard">Send clipboard</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
 </resources>

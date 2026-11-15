@@ -59,7 +59,7 @@ pub use platform::Platform;
 pub use root::SemanticRoot;
 pub use types::{
     Allocation, DirEntry, DiskInfo, FileKind, FileManagerStatus, FileMeta, FsId, LanInterface,
-    ProcessInfo, ScreenLock, SnapshotCapability, SocketBuffers,
+    LinkNotice, ProcessInfo, ScreenLock, SnapshotCapability, SocketBuffers,
 };
 pub use watch::DirWatch;
 

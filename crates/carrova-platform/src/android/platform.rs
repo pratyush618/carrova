@@ -11,11 +11,11 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use super::files::{self, MediaStoreSink};
-use super::{clipboard, net, ring};
+use super::{clipboard, net, ring, service};
 use crate::sys;
 use crate::{
     Allocation, ClipContent, DirEntry, DiskInfo, DownloadSink, FileLock, FileMeta, FsId,
-    LanInterface, MulticastGuard, OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot,
+    LanInterface, LinkNotice, MulticastGuard, OsKind, Platform, PlatformError, ProcessInfo, SemanticRoot,
     SnapshotCapability, SocketBuffers,
 };
 
@@ -249,5 +249,13 @@ impl Platform for AndroidPlatform {
 
     fn link_keepalive(&self) -> Duration {
         LINK_KEEPALIVE
+    }
+
+    fn keep_running(&self, notice: Option<&LinkNotice>) -> Result<(), PlatformError> {
+        service::keep_running(notice)
+    }
+
+    fn links_paused(&self) -> bool {
+        service::links_paused()
     }
 }

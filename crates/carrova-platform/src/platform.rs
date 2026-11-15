@@ -9,7 +9,8 @@ use std::time::Duration;
 
 use crate::{
     Allocation, ClipContent, ClipboardWatch, DirEntry, DirWatch, DiskInfo, DownloadSink, FileLock,
-    FileManagerStatus, FileMeta, FsId, LanInterface, LocalListener, LocalStream, MulticastGuard,
+    FileManagerStatus, FileMeta, FsId, LanInterface, LinkNotice, LocalListener, LocalStream,
+    MulticastGuard,
     OsKind, PermissionModel, PlatformError, ProcessInfo, ScreenLock, SemanticRoot,
     SnapshotCapability, SocketBuffers,
 };
@@ -514,5 +515,19 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     /// connection (and a mobile radio) alive.
     fn link_keepalive(&self) -> Duration {
         Duration::from_secs(15)
+    }
+
+    /// Keep this process running in the background, showing `notice`
+    /// (a phone's foreground service), or with `None` let the OS stop it.
+    /// A no-op where background processes are not stopped.
+    fn keep_running(&self, notice: Option<&LinkNotice>) -> Result<(), PlatformError> {
+        let _ = notice;
+        Ok(())
+    }
+
+    /// Whether the user paused linking outside the app (a phone's
+    /// notification). Never where there is no such control.
+    fn links_paused(&self) -> bool {
+        false
     }
 }

@@ -1,8 +1,8 @@
 //! Android adapter.
 //!
 //! Filesystem primitives and `PATH` lookup are the Unix ones shared with
-//! Linux (`crate::sys`). Clipboard, Downloads, opening, ring and the
-//! multicast lock go through one static Kotlin method each
+//! Linux (`crate::sys`). Clipboard, Downloads, opening, ring, the
+//! multicast lock and the link service go through one static Kotlin method each
 //! (`org.byteveda.carrova.platform.*`), reached over JNI in [`jni`] (ADR
 //! 0003). The helpers here are pure, so they are tested on any host.
 
@@ -20,6 +20,8 @@ mod net;
 mod platform;
 #[cfg(target_os = "android")]
 mod ring;
+#[cfg(target_os = "android")]
+mod service;
 #[cfg(test)]
 #[path = "../../tests/android/unit.rs"]
 mod tests;

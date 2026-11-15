@@ -11,7 +11,9 @@
 //! them. A status tray is shown until [`FakePlatform::set_status_tray`]
 //! takes it away; autostart is kept in memory. Directory watches report
 //! only the changes a test fires ([`FakePlatform::fire_dir_change`]). The
-//! clipboard is in memory; downloads sit in `~/Downloads`.
+//! clipboard is in memory; downloads sit in `~/Downloads`. Keeping running
+//! is recorded ([`FakePlatform::kept_running`]) and linking is paused only
+//! when a test says so ([`FakePlatform::set_links_paused`]).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -26,6 +28,7 @@ mod clipboard;
 mod file_manager;
 mod fixture;
 mod hooks;
+mod links;
 mod platform;
 #[cfg(test)]
 #[path = "../../tests/fake/unit.rs"]
@@ -42,6 +45,7 @@ use background::FakeBackground;
 use clipboard::FakeClipboard;
 use file_manager::FakeEntries;
 use hooks::HookState;
+use links::FakeLinks;
 use watch::FakeWatches;
 
 /// Deterministic [`Platform`] for tests. Filesystem metadata and operations
@@ -72,6 +76,8 @@ pub struct FakePlatform {
     watches: Arc<FakeWatches>,
     /// Pretend clipboard (shared by clones).
     clipboard: Arc<FakeClipboard>,
+    /// Pretend background service and pause control (shared by clones).
+    links: Arc<FakeLinks>,
 }
 
 /// A pretend filesystem mounted at `mount` (see [`FakePlatform::filesystem`]).
@@ -114,6 +120,7 @@ impl FakePlatform {
             background: Arc::default(),
             watches: Arc::default(),
             clipboard: Arc::default(),
+            links: Arc::default(),
         }
     }
 

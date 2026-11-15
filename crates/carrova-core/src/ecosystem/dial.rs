@@ -6,9 +6,15 @@
 //! [`SupervisorConfig::backoff_min`], doubling to
 //! [`SupervisorConfig::backoff_max`], reset by a network change.
 //!
+//! While any device is wanted, the process asks to keep running (a phone's
+//! link service, "Linked to" its names); with none, it lets the OS stop it.
+//! While the user has paused linking ([`Platform::links_paused`]) every
+//! link is closed and none is dialled or accepted, until they resume.
+//!
 //! [`SupervisorConfig::away_after`]: super::SupervisorConfig::away_after
 //! [`SupervisorConfig::backoff_min`]: super::SupervisorConfig::backoff_min
 //! [`SupervisorConfig::backoff_max`]: super::SupervisorConfig::backoff_max
+//! [`Platform::links_paused`]: carrova_platform::Platform::links_paused
 
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddrV4};
@@ -19,6 +25,7 @@ use std::time::{Duration, Instant};
 use carrova_crypto::identity::DeviceId;
 use carrova_crypto::pairing::KnownSecret;
 use carrova_link::{LinkError, PolicyDoc};
+use carrova_platform::LinkNotice;
 use carrova_transport::{
     ConnectOptions, Connection, KnownPeers, ListenOptions, Listener, Target, TransportError,
     connect,
@@ -76,9 +83,19 @@ pub(super) fn accept_loop(shared: &Arc<Shared>, mut listener: Listener) {
 /// until the supervisor stops.
 pub(super) fn maintain(shared: &Arc<Shared>, source: &dyn PeerSource) {
     let mut lan = interfaces(shared);
+    // `None` until the first round, so the first notice is always given.
+    let mut shown: Option<Option<LinkNotice>> = None;
     loop {
         if let Err(e) = refresh(shared) {
             tracing::warn!(error = %e, "known devices unreadable");
+        }
+        let paused = shared.platform().links_paused();
+        let notice = notice(shared, paused);
+        if shown.as_ref() != Some(&notice) {
+            if let Err(e) = shared.platform().keep_running(notice.as_ref()) {
+                tracing::warn!(error = %e, "could not keep running for the links");
+            }
+            shown = Some(notice);
         }
         let seen = source.seen();
         let now = interfaces(shared);
@@ -89,11 +106,23 @@ pub(super) fn maintain(shared: &Arc<Shared>, source: &dyn PeerSource) {
                 peer.next_dial = Instant::now();
             }
         }
-        round(shared, &seen);
+        round(shared, &seen, paused);
         if shared.stop.sleep(shared.config.tick).is_err() {
             return;
         }
     }
+}
+
+/// What to keep running for: the devices some feature is on for here, and
+/// whether linking is paused; `None` with no such device.
+fn notice(shared: &Shared, paused: bool) -> Option<LinkNotice> {
+    let devices: Vec<String> = shared
+        .peers()
+        .iter()
+        .filter(|peer| peer.wanted())
+        .map(|peer| peer.record.name.clone())
+        .collect();
+    (!devices.is_empty()).then_some(LinkNotice { devices, paused })
 }
 
 /// This device's LAN addresses (a change resets every backoff).
@@ -158,8 +187,8 @@ pub(super) fn refresh(shared: &Shared) -> Result<()> {
 }
 
 /// Note where presence saw each device, close the links this side no
-/// longer wants, and dial the devices due.
-fn round(shared: &Arc<Shared>, seen: &[super::SeenPeer]) {
+/// longer wants (all of them while `paused`), and dial the devices due.
+fn round(shared: &Arc<Shared>, seen: &[super::SeenPeer], paused: bool) {
     let now = Instant::now();
     let away_after = shared.config.away_after;
     let mut down = Vec::new();
@@ -167,6 +196,10 @@ fn round(shared: &Arc<Shared>, seen: &[super::SeenPeer]) {
     for peer in shared.peers().iter_mut() {
         if let Some(s) = seen.iter().find(|s| s.id == peer.id()) {
             peer.seen = Some((s.addr, now));
+        }
+        if paused {
+            down.extend(peer.link.take().map(|link| (peer.id(), link)));
+            continue;
         }
         if !dials(&shared.me, &peer.id()) {
             continue;
@@ -239,11 +272,19 @@ fn failed(shared: &Shared, device: &DeviceId) {
 }
 
 /// Make `conn` the device's live link, closing an older one as
-/// superseded, and serve it on its own thread.
+/// superseded, and serve it on its own thread. Refused while linking is
+/// paused.
 fn register(shared: &Arc<Shared>, conn: Connection) {
     let Some(device) = conn.peer_identity().map(|p| p.public) else {
         return;
     };
+    if shared.platform().links_paused() {
+        if let Some(peer) = shared.peers().iter_mut().find(|p| p.id() == device) {
+            peer.dialing = false;
+        }
+        conn.close_now();
+        return;
+    }
     let conn = Arc::new(conn);
     let generation = LINKS.fetch_add(1, Ordering::Relaxed);
     let closed = Cancel::default();

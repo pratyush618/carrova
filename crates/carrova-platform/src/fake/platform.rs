@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use super::{EntriesWrite, FakePlatform};
-use crate::{ClipContent, ClipboardWatch, LocalListener, LocalStream};
+use crate::{ClipContent, ClipboardWatch, LinkNotice, LocalListener, LocalStream};
 use crate::{
     DiskInfo, FileManagerStatus, FileMeta, FsId, OsKind, PermissionModel, Platform, PlatformError,
     ProcessInfo, SemanticRoot, SnapshotCapability,
@@ -365,5 +365,14 @@ impl Platform for FakePlatform {
     #[cfg(unix)]
     fn connect_local_socket(&self, path: &Path) -> Result<LocalStream, PlatformError> {
         LocalStream::connect(path)
+    }
+
+    fn keep_running(&self, notice: Option<&LinkNotice>) -> Result<(), PlatformError> {
+        self.links.keep_running(notice);
+        Ok(())
+    }
+
+    fn links_paused(&self) -> bool {
+        self.links.paused()
     }
 }

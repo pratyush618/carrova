@@ -7,6 +7,7 @@
 mod common;
 mod control;
 mod invite;
+mod keep_running;
 #[expect(dead_code, reason = "shared test helpers; this test uses a subset")]
 #[path = "../support/lan.rs"]
 mod lan_support;
