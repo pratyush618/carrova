@@ -212,7 +212,7 @@ describe('Link a computer', () => {
       />,
     );
     expect(screen.getByText('This computer: A1B2·C3D4')).toBeInTheDocument();
-    expect(screen.getByText('Confirm on your computer')).toBeInTheDocument();
+    expect(screen.getByText('Confirm on your other computer')).toBeInTheDocument();
   });
 
   it('shows no key before linking starts', () => {
