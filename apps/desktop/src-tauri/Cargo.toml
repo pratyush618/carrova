@@ -37,8 +37,6 @@ serde_json = { workspace = true }
 # Not `workspace = true`: tauri-cli only sees `tray-icon` here, and without
 # it the AppImage ships no appindicator and crashes closing to the tray.
 tauri = { version = "2.12.5", features = ["tray-icon"] }
-# Mobile only (the crate is empty elsewhere): QR scan for pairing (ADR 0003).
-tauri-plugin-barcode-scanner = { workspace = true }
 tauri-plugin-dialog = { workspace = true }
 tauri-plugin-notification = { workspace = true }
 tauri-plugin-opener = { workspace = true }

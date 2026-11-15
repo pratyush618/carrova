@@ -99,8 +99,6 @@ pub fn run() -> tauri::Result<()> {
         // Phones update through their store or a new APK, not the updater.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate::default());
-    #[cfg(mobile)]
-    let builder = builder.plugin(tauri_plugin_barcode_scanner::init());
     builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
@@ -133,6 +131,8 @@ pub fn run() -> tauri::Result<()> {
             commands::send::pick,
             commands::send::take_send_request,
             commands::send::take_opened,
+            #[cfg(mobile)]
+            mobile::scan_qr,
             commands::send::suggest,
             commands::send::select,
             commands::send::passphrase_strength,

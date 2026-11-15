@@ -6,14 +6,18 @@
 
 use std::sync::Arc;
 
+use carrova_core::ecosystem::PairInvite;
 use carrova_platform::{Platform, SemanticRoot};
+use carrova_view::ipc::ErrorCode;
 use tauri::utils::config::WindowConfig;
 use tauri::wry::prelude::{JNIEnv, JObject};
-use tauri::{AppHandle, Emitter, Manager, RunEvent, Url, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, Url, WebviewWindowBuilder};
 
+use crate::command_error::CommandError;
 use crate::opened::{OPENED_EVENT, Opened, SHARED_DIR};
 use crate::ops;
 use crate::state::AppState;
+use crate::worker::blocking;
 
 /// Open the window from the config (at start-up, and for the new activity
 /// of an app reopened after its window was closed).
@@ -80,6 +84,29 @@ fn main_config(app: &AppHandle) -> tauri::Result<&WindowConfig> {
         .windows
         .first()
         .ok_or(tauri::Error::WindowNotFound)
+}
+
+/// Scan a computer's pairing QR code with the camera: the invite's text,
+/// checked to be a Carrova pairing invite; `None` if the user cancelled.
+/// Phones only.
+///
+/// # Errors
+///
+/// The camera could not scan, or the code is not a pairing invite.
+#[tauri::command]
+pub async fn scan_qr(state: State<'_, AppState>) -> Result<Option<String>, CommandError> {
+    let platform = Arc::clone(&state.platform);
+    blocking(move || {
+        let Some(text) = platform.scan_qr()? else {
+            return Ok(None);
+        };
+        let invite: PairInvite = text.parse().map_err(|_| {
+            CommandError::new(ErrorCode::BadCode, "that is not a Carrova pairing code")
+                .with_hint("Scan the code Carrova shows on the computer.")
+        })?;
+        Ok(Some(invite.to_uri()))
+    })
+    .await
 }
 
 /// `LinkService.startSupervisor(context)` (Kotlin,

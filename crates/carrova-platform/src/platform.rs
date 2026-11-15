@@ -530,4 +530,10 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     fn links_paused(&self) -> bool {
         false
     }
+
+    /// Scan a QR code with the camera (phones) and return its text, as
+    /// is; `None` if the user cancelled.
+    fn scan_qr(&self) -> Result<Option<String>, PlatformError> {
+        Err(PlatformError::Unsupported("scan_qr"))
+    }
 }

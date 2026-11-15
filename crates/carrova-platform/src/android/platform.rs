@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use super::files::{self, MediaStoreSink};
-use super::{clipboard, net, ring, service};
+use super::{clipboard, net, ring, scan, service};
 use crate::sys;
 use crate::{
     Allocation, ClipContent, DirEntry, DiskInfo, DownloadSink, FileLock, FileMeta, FsId,
@@ -257,5 +257,9 @@ impl Platform for AndroidPlatform {
 
     fn links_paused(&self) -> bool {
         service::links_paused()
+    }
+
+    fn scan_qr(&self) -> Result<Option<String>, PlatformError> {
+        scan::scan_qr()
     }
 }
