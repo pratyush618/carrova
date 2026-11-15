@@ -68,6 +68,29 @@ fn stale_socket_file_replaced() {
     assert_eq!(client.status().unwrap().len(), 1);
 }
 
+#[test]
+fn attach_takes_over_once_an_exiting_host_lets_go() {
+    let (low, _high, _) = pair(&PolicyDoc::phone_defaults());
+    // A host on its way out: it still holds the lock, its socket is gone.
+    let dir = low.platform.state_dir().unwrap();
+    let lock = low
+        .platform
+        .try_lock_exclusive(&dir.join("link.lock"))
+        .unwrap()
+        .unwrap();
+    let exiting = thread::spawn(move || {
+        thread::sleep(std::time::Duration::from_millis(300));
+        drop(lock);
+    });
+
+    let started = std::time::Instant::now();
+    let handle = attach_or_start(low.engine.clone()).unwrap();
+
+    assert!(matches!(handle, SupervisorHandle::Local(_)));
+    assert!(started.elapsed() < std::time::Duration::from_secs(2));
+    exiting.join().unwrap();
+}
+
 /// One framed message read off `raw`.
 fn read_reply(raw: &mut impl Read) -> ControlResponse {
     let mut len = [0; 4];

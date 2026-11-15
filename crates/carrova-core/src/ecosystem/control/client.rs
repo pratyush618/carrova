@@ -19,7 +19,9 @@ use crate::error::Result;
 use crate::session::Event;
 
 /// How long a client waits for a just-started supervisor to listen.
-const CONNECT_WAIT: Duration = Duration::from_secs(5);
+pub(super) const CONNECT_WAIT: Duration = Duration::from_secs(5);
+/// How often it tries meanwhile.
+pub(super) const CONNECT_RETRY: Duration = Duration::from_millis(50);
 
 /// A connection to the supervisor another process runs.
 #[derive(Debug)]
@@ -30,10 +32,10 @@ pub struct ControlClient {
 }
 
 impl ControlClient {
-    /// Connect to `<state>/link.sock`.
+    /// Connect to `<state>/link.sock` (one try).
     pub(super) fn connect(platform: &Arc<dyn Platform>) -> Result<Self> {
         let socket = platform.state_dir()?.join(SOCKET_FILE);
-        let stream = Mutex::new(dial(&**platform, &socket)?);
+        let stream = Mutex::new(platform.connect_local_socket(&socket)?);
         Ok(Self {
             platform: Arc::clone(platform),
             socket,
@@ -104,7 +106,7 @@ fn dial(platform: &dyn Platform, socket: &Path) -> Result<LocalStream> {
     loop {
         match platform.connect_local_socket(socket) {
             Ok(stream) => return Ok(stream),
-            Err(_) if start.elapsed() < CONNECT_WAIT => thread::sleep(Duration::from_millis(50)),
+            Err(_) if start.elapsed() < CONNECT_WAIT => thread::sleep(CONNECT_RETRY),
             Err(e) => return Err(e.into()),
         }
     }

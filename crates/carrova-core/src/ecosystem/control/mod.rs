@@ -17,12 +17,13 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::mpsc::Receiver;
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{Feature, FeatureState, ReceivedClip};
 
 pub use client::ControlClient;
+use client::{CONNECT_RETRY, CONNECT_WAIT};
 pub use server::ControlServer;
 pub use shared::SharedSupervisor;
 pub use wire::{ControlError, ControlRequest, ControlResponse, MAX_CONTROL_MESSAGE};
@@ -265,11 +266,18 @@ pub fn attach_or_start_with(
     let dir = platform.state_dir()?;
     ensure_dir(&*platform, &dir, 0o700)?;
     // Lock first: a client must never start (and on drop clear the port
-    // file of) a second supervisor.
-    match platform.try_lock_exclusive(&dir.join(LOCK_FILE))? {
-        None => ControlClient::connect(&platform).map(SupervisorHandle::Remote),
-        Some(lock) => {
-            ControlServer::start(engine, source, config, lock).map(SupervisorHandle::Local)
+    // file of) a second supervisor. A host still starting has no socket
+    // yet; one exiting has none any more but holds the lock a little
+    // longer, so retry both: the lock frees soon and this one takes over.
+    let started = Instant::now();
+    loop {
+        if let Some(lock) = platform.try_lock_exclusive(&dir.join(LOCK_FILE))? {
+            return ControlServer::start(engine, source, config, lock).map(SupervisorHandle::Local);
+        }
+        match ControlClient::connect(&platform) {
+            Ok(client) => return Ok(SupervisorHandle::Remote(client)),
+            Err(e) if started.elapsed() >= CONNECT_WAIT => return Err(e),
+            Err(_) => thread::sleep(CONNECT_RETRY),
         }
     }
 }
