@@ -15,11 +15,11 @@ fn doc(f: Feature, s: FeatureState) -> PolicyDoc {
 
 #[test]
 fn gate_requires_both_sides() {
-    for f in Feature::PHASE1 {
+    for f in Feature::PHASE2 {
         let states = match f.group() {
             Some(Group::Quiet) => [On, Off],
             Some(Group::Ask) => [Ask, Off],
-            None => unreachable!("phase 1 features have a group"),
+            None => unreachable!("phase 2 features have a group"),
         };
         for local in states {
             for remote in states {
@@ -39,27 +39,30 @@ fn gate_requires_both_sides() {
 }
 
 #[test]
-fn reserved_features_read_off() {
+fn phase2_features_are_quiet() {
+    for f in [Feature::Notifications, Feature::Messages, Feature::Calls] {
+        assert_eq!(f.group(), Some(Group::Quiet), "{f:?}");
+        assert!(Feature::PHASE2.contains(&f), "{f:?}");
+        assert_eq!(allowed(&doc(f, On), &doc(f, On), f), On);
+        assert!(matches!(
+            doc(f, Ask).validated(),
+            Err(LinkError::InvalidState { .. })
+        ));
+    }
+}
+
+#[test]
+fn screen_and_input_stay_reserved() {
     let all_on = PolicyDoc {
         version: 1,
-        features: [
-            Feature::Notifications,
-            Feature::Messages,
-            Feature::Calls,
-            Feature::Screen,
-            Feature::Input,
-        ]
-        .into_iter()
-        .map(|f| (f, On))
-        .collect(),
+        features: [Feature::Screen, Feature::Input]
+            .into_iter()
+            .map(|f| (f, On))
+            .collect(),
     };
-    for f in [
-        Feature::Notifications,
-        Feature::Messages,
-        Feature::Calls,
-        Feature::Screen,
-        Feature::Input,
-    ] {
+    for f in [Feature::Screen, Feature::Input] {
+        assert_eq!(f.group(), None);
+        assert!(!Feature::PHASE2.contains(&f));
         assert_eq!(all_on.get(f), Off);
         assert_eq!(allowed(&all_on, &all_on, f), Off);
     }
@@ -87,21 +90,24 @@ fn defaults_match_spec() {
             Feature::Clipboard,
             Feature::Files,
             Feature::Handoff,
-            Feature::Ring
+            Feature::Ring,
+            Feature::Notifications,
+            Feature::Messages,
+            Feature::Calls
         ]
         .map(|f| phone.get(f)),
-        [On, Ask, Ask, On]
+        [On, Ask, Ask, On, On, Off, Off]
     );
     let computer = PolicyDoc::computer_defaults();
-    assert!(Feature::PHASE1.iter().all(|&f| computer.get(f) == Off));
+    assert!(Feature::PHASE2.iter().all(|&f| computer.get(f) == Off));
     assert!(phone.validated().is_ok() && computer.validated().is_ok());
 }
 
 #[test]
-fn policy_doc_json_shape() {
+fn phone_defaults_match_spec() {
     let got = serde_json::to_value(PolicyDoc::phone_defaults()).unwrap();
     let want: serde_json::Value = serde_json::from_str(
-        r#"{"version":1,"features":{"clipboard":"on","files":"ask","handoff":"ask","ring":"on"}}"#,
+        r#"{"version":1,"features":{"clipboard":"on","files":"ask","handoff":"ask","ring":"on","notifications":"on","messages":"off","calls":"off"}}"#,
     )
     .unwrap();
     assert_eq!(got, want);
@@ -109,12 +115,12 @@ fn policy_doc_json_shape() {
 
 #[test]
 fn forward_compatible_remote_doc() {
-    let json = r#"{"version":2,"features":{"clipboard":"on","notifications":"on","wallet":"on","ring":"prompt","files":"ask"}}"#;
+    let json = r#"{"version":2,"features":{"clipboard":"on","screen":"on","wallet":"on","ring":"prompt","files":"ask"}}"#;
     let doc: PolicyDoc = serde_json::from_str(json).unwrap();
     assert_eq!(doc.get(Feature::Clipboard), On);
     assert_eq!(doc.get(Feature::Files), Ask);
     assert_eq!(doc.get(Feature::Ring), Off, "unknown state reads off");
-    assert_eq!(doc.get(Feature::Notifications), Off);
+    assert_eq!(doc.get(Feature::Screen), Off);
     assert!(
         doc.validated().is_ok(),
         "reserved keys never fail validation"

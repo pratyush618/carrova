@@ -16,20 +16,31 @@ export type DeviceKind = 'phone' | 'computer';
 
 export const deviceKind = (os: OsKind): DeviceKind => (os === 'android' ? 'phone' : 'computer');
 
-/** The features Phase 1 shows (the reserved ones stay hidden), in the spec's order. */
-export const PHASE1_FEATURES = ['clipboard', 'ring', 'files', 'handoff'] as const;
+/** The features Phase 2 shows (the reserved ones stay hidden), in the spec's order. */
+export const PHASE2_FEATURES = [
+  'clipboard',
+  'ring',
+  'files',
+  'handoff',
+  'notifications',
+  'messages',
+  'calls',
+] as const;
 
-export type Phase1Feature = (typeof PHASE1_FEATURES)[number];
+export type Phase2Feature = (typeof PHASE2_FEATURES)[number];
 
-export const isPhase1 = (feature: Feature): feature is Phase1Feature =>
-  PHASE1_FEATURES.some((f) => f === feature);
+export const isPhase2 = (feature: Feature): feature is Phase2Feature =>
+  PHASE2_FEATURES.some((f) => f === feature);
 
-/** Each Phase 1 feature's glyph. */
-export const FEATURE_ICON: Readonly<Record<Phase1Feature, IconName>> = {
+/** Each Phase 2 feature's glyph. */
+export const FEATURE_ICON: Readonly<Record<Phase2Feature, IconName>> = {
   clipboard: 'copy',
   ring: 'bell',
   files: 'file',
   handoff: 'external',
+  notifications: 'bell',
+  messages: 'pen',
+  calls: 'phone',
 };
 
 export interface DeviceIntents {

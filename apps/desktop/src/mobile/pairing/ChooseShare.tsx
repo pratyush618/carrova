@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LinkedDeviceView } from '../../engine/types';
 import { FeatureRow } from '../../screens/devices/FeatureRow';
-import { PHASE1_FEATURES } from '../../screens/devices/model';
+import { PHASE2_FEATURES } from '../../screens/devices/model';
 import { Group } from '../../screens/settings/Group';
 import { Button } from '../../ui';
 import { shareDefaults, shareRow, type ShareChoices } from '../model';
@@ -10,8 +10,8 @@ import { PhonePage } from '../PhonePage';
 import '../../screens/settings/settings.css';
 
 /**
- * Right after linking: the Phase 1 features with `device`, clipboard and
- * ring preselected; Done saves them.
+ * Right after linking: the Phase 2 features with `device`, clipboard, ring
+ * and notifications preselected; Done saves them.
  */
 export function ChooseShare({
   device,
@@ -22,7 +22,7 @@ export function ChooseShare({
 }) {
   const { t } = useTranslation();
   const [choices, setChoices] = useState(shareDefaults);
-  const rows = PHASE1_FEATURES.map((feature) => ({
+  const rows = PHASE2_FEATURES.map((feature) => ({
     feature,
     row: shareRow(device, feature, choices[feature]),
   }));

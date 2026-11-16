@@ -791,6 +791,7 @@ dependencies = [
  "carrova-crypto",
  "carrova-platform",
  "carrova-transport",
+ "ciborium",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -818,6 +819,7 @@ version = "0.2.3"
 dependencies = [
  "arboard",
  "blake3",
+ "ciborium",
  "if-addrs",
  "jni 0.21.1",
  "known-folders",
@@ -825,6 +827,7 @@ dependencies = [
  "notify",
  "rustix",
  "serde",
+ "serde_bytes",
  "serde_json",
  "socket2",
  "sysinfo",

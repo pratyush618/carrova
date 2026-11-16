@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { LinkedDeviceView } from '../../engine/types';
-import { isPhase1, type Phase1Feature } from './model';
+import { isPhase2, type Phase2Feature } from './model';
 
 /**
  * What a device just linked does now, from its own settings (a device
@@ -13,8 +13,8 @@ export function LinkedSummary({ device }: { readonly device: LinkedDeviceView | 
     (device?.features ?? [])
       .filter((f) => f.local === state)
       .map((f) => f.feature)
-      .filter(isPhase1)
-      .map((feature: Phase1Feature) => t(`ecosystem.features.${feature}.title`));
+      .filter(isPhase2)
+      .map((feature: Phase2Feature) => t(`ecosystem.features.${feature}.title`));
   const on = named('on');
   const ask = named('ask');
   const parts = [

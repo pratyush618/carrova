@@ -1,20 +1,26 @@
 import { useTranslation } from 'react-i18next';
 import type { ClipSettings, FeatureState, LinkedDeviceView } from '../../engine/types';
 import { AppGlyph, Badge, Banner, Button, Icon, LinkRow, Muted, Row, Toggle } from '../../ui';
-import { deviceIcon, FEATURE_ICON, type Phase1Feature } from '../devices/model';
+import { deviceIcon, FEATURE_ICON, type Phase2Feature } from '../devices/model';
 import { Group } from './Group';
 import type { SettingsIntents } from './model';
 import { ROW_TITLE } from './sections';
 
 /** What a new phone link starts with (the spec's policy table); computers start off. */
-const PHONE_DEFAULT: Readonly<Record<Phase1Feature, FeatureState>> = {
+const PHONE_DEFAULT: Readonly<Record<Phase2Feature, FeatureState>> = {
   clipboard: 'on',
   ring: 'on',
   files: 'ask',
   handoff: 'ask',
+  notifications: 'on',
+  messages: 'off',
+  calls: 'off',
 };
 
-const GROUPS = { quiet: ['clipboard', 'ring'], ask: ['files', 'handoff'] } as const;
+const GROUPS = {
+  quiet: ['clipboard', 'ring', 'notifications', 'messages', 'calls'],
+  ask: ['files', 'handoff'],
+} as const;
 const GROUP_ORDER = ['quiet', 'ask'] as const;
 
 /**

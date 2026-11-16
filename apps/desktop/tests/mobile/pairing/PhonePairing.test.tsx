@@ -20,7 +20,10 @@ describe('adding a computer from the phone', () => {
     expect(screen.getByRole('switch', { name: 'Ring' })).toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: 'Files' })).toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: 'Handoff' })).toBeInTheDocument();
-    expect(screen.queryByText(/Notifications|Messages|Calls|screen/)).not.toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Phone notifications' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Messages' })).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Calls' })).not.toBeChecked();
+    expect(screen.queryByText(/screen|input/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Done' }));
     expect(await screen.findByText('Desk PC')).toBeInTheDocument();

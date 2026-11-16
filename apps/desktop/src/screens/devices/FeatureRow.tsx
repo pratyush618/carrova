@@ -1,7 +1,7 @@
 import type { FeatureRowView, FeatureState } from '../../engine/types';
 import { useTranslation } from 'react-i18next';
 import { AppGlyph, Row, Segmented, Toggle } from '../../ui';
-import { FEATURE_ICON, type Phase1Feature } from './model';
+import { FEATURE_ICON, type Phase2Feature } from './model';
 
 /**
  * One feature on one device: a switch for the quiet ones, Ask/Off for the
@@ -15,7 +15,7 @@ export function FeatureRow({
   off,
   onChange,
 }: {
-  readonly feature: Phase1Feature;
+  readonly feature: Phase2Feature;
   readonly row: FeatureRowView;
   readonly device: string;
   /** The device is away: dimmed, still changeable (the choice is kept). */

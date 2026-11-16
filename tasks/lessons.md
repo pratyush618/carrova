@@ -42,3 +42,7 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 ## sccache server lives outside the capped CI unit (2026-11-15)
 - **What happened:** `just ci` ran in the capped `carrova-ci` unit, but `~/.cargo/config.toml` sets `rustc-wrapper = "sccache"`, whose server had been spawned from the terminal's scope. Under memory pressure systemd-oomd killed the terminal scope (terminal + sccache server); rustc calls in CI then failed with `sccache: … Connection reset by peer` → "could not compile".
 - **Rule:** run heavy CI with `-E RUSTC_WRAPPER= -E CARGO_BUILD_RUSTC_WRAPPER=` so every compile process lives inside the capped unit; a `could not compile` with an sccache error is infrastructure, not code — check `journalctl --user | grep oomd` before debugging.
+
+## 2026-11-16 — Fix agent committed the user's untracked file
+- **What happened:** a mockup fix-round agent staged with a broad add and committed the user's untracked `docs/mockups/gui-v4.html` alongside its two files; caught by checking `git show --stat` (diff ballooned to 254 KB) and removed with a soft reset before anything was pushed.
+- **Rule:** every brief says "`git add <explicit paths>` only, never `-A`/`.`"; the controller checks `git show --stat` of each agent commit against the task's file list before review.

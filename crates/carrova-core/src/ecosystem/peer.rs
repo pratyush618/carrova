@@ -153,7 +153,7 @@ impl Peer {
 
     /// Whether this side allows it any feature (only then is it dialled).
     pub(super) fn wanted(&self) -> bool {
-        Feature::PHASE1
+        Feature::PHASE2
             .iter()
             .any(|&f| self.local.get(f) != FeatureState::Off)
     }

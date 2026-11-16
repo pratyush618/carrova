@@ -19,7 +19,16 @@ fn link_status_json_shape() {
 
     let status = user.json(&["link", "status"]);
 
-    let rows = ["clipboard", "ring", "files", "handoff"].map(|feature| {
+    let rows = [
+        "clipboard",
+        "ring",
+        "files",
+        "handoff",
+        "notifications",
+        "messages",
+        "calls",
+    ]
+    .map(|feature| {
         let group = if matches!(feature, "files" | "handoff") {
             "ask"
         } else {

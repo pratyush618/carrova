@@ -139,6 +139,9 @@ fn devices_features_set_and_show() {
         ("ring", "off"),
         ("files", "ask"),
         ("handoff", "off"),
+        ("notifications", "off"),
+        ("messages", "off"),
+        ("calls", "off"),
     ]
     .map(|(f, s)| (f.to_owned(), s.to_owned()));
     assert_eq!(local_states(&set), expected);
@@ -146,6 +149,26 @@ fn devices_features_set_and_show() {
     assert_eq!(local_states(&shown), expected, "kept for the next command");
     let text = user.ok(&["devices", "features", &desk]);
     assert!(text.contains("clipboard"), "{text}");
+}
+
+#[test]
+fn devices_features_sets_notifications() {
+    let Some(user) = User::new() else { return };
+    let desk = Fingerprint::of(&user.remember(1, "Desk")).to_string();
+
+    let set = user.json(&["devices", "features", &desk, "notifications=on"]);
+
+    let states = local_states(&set);
+    for (feature, state) in [
+        ("notifications", "on"),
+        ("messages", "off"),
+        ("calls", "off"),
+    ] {
+        assert!(
+            states.contains(&(feature.to_owned(), state.to_owned())),
+            "{feature}={state} in {states:?}"
+        );
+    }
 }
 
 #[test]

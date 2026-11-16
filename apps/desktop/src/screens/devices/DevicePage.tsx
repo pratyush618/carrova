@@ -3,15 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { Banner, Button, Head, HubLayout, LinkButton } from '../../ui';
 import { Group } from '../settings/Group';
 import { FeatureRow } from './FeatureRow';
-import { isPhase1, type DeviceIntents, type Phase1Feature } from './model';
+import { isPhase2, type DeviceIntents, type Phase2Feature } from './model';
 import './devices.css';
 
-type Phase1Row = FeatureRowView & { readonly feature: Phase1Feature };
+type Phase2Row = FeatureRowView & { readonly feature: Phase2Feature };
 
-const isPhase1Row = (row: FeatureRowView): row is Phase1Row => isPhase1(row.feature);
+const isPhase2Row = (row: FeatureRowView): row is Phase2Row => isPhase2(row.feature);
 
 /** What flows for `feature` now (off when the link doesn't carry it). */
-const flows = (device: LinkedDeviceView, feature: Phase1Feature): boolean =>
+const flows = (device: LinkedDeviceView, feature: Phase2Feature): boolean =>
   device.features.some((f) => f.feature === feature && f.effective !== 'off');
 
 /** One linked device's page in the desktop's hub. */
@@ -40,7 +40,7 @@ export interface DeviceDetailsProps {
 export function DeviceDetails({ device, failed = false, ringing = false, on }: DeviceDetailsProps) {
   const { t } = useTranslation();
   const here = device.state === 'linked';
-  const rows = device.features.filter(isPhase1Row);
+  const rows = device.features.filter(isPhase2Row);
   const group = (kind: FeatureRowView['group']) =>
     rows
       .filter((row) => row.group === kind)

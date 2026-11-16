@@ -190,7 +190,7 @@ fn existing_known_computer_defaults_all_off() {
     let store = PolicyStore::open(&f.platform).unwrap();
     let doc = store.get(&f.platform, &id).unwrap();
     assert!(
-        Feature::PHASE1
+        Feature::PHASE2
             .iter()
             .all(|&x| doc.get(x) == FeatureState::Off)
     );

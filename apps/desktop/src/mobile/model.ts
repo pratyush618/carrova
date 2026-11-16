@@ -1,31 +1,37 @@
 import type { FeatureRowView, FeatureState, LinkedDeviceView } from '../engine/types';
-import { PHASE1_FEATURES, type Phase1Feature } from '../screens/devices/model';
+import { PHASE2_FEATURES, type Phase2Feature } from '../screens/devices/model';
 
-/** "Choose what to share": one setting per Phase 1 feature. */
-export type ShareChoices = Readonly<Record<Phase1Feature, FeatureState>>;
+/** "Choose what to share": one setting per Phase 2 feature. */
+export type ShareChoices = Readonly<Record<Phase2Feature, FeatureState>>;
 
 /** Each feature's group, and what a new phone link starts with (spec, Policy). */
 const SHARE_DEFAULTS: Readonly<
-  Record<Phase1Feature, { readonly group: FeatureRowView['group']; readonly state: FeatureState }>
+  Record<Phase2Feature, { readonly group: FeatureRowView['group']; readonly state: FeatureState }>
 > = {
   clipboard: { group: 'quiet', state: 'on' },
   ring: { group: 'quiet', state: 'on' },
   files: { group: 'ask', state: 'ask' },
   handoff: { group: 'ask', state: 'ask' },
+  notifications: { group: 'quiet', state: 'on' },
+  messages: { group: 'quiet', state: 'off' },
+  calls: { group: 'quiet', state: 'off' },
 };
 
-/** The choices "Choose what to share" starts with: clipboard and ring on, the rest ask. */
+/** The choices "Choose what to share" starts with: clipboard, ring and notifications on, files and Handoff ask, messages and calls off. */
 export const shareDefaults = (): ShareChoices => ({
   clipboard: SHARE_DEFAULTS.clipboard.state,
   ring: SHARE_DEFAULTS.ring.state,
   files: SHARE_DEFAULTS.files.state,
   handoff: SHARE_DEFAULTS.handoff.state,
+  notifications: SHARE_DEFAULTS.notifications.state,
+  messages: SHARE_DEFAULTS.messages.state,
+  calls: SHARE_DEFAULTS.calls.state,
 });
 
 /** `feature`'s row on `device`, set to `state` on this phone (the other side's as it is). */
 export function shareRow(
   device: LinkedDeviceView,
-  feature: Phase1Feature,
+  feature: Phase2Feature,
   state: FeatureState,
 ): FeatureRowView {
   const row = device.features.find((f) => f.feature === feature);
@@ -37,15 +43,15 @@ export function shareRow(
 export const shareChanges = (
   device: LinkedDeviceView,
   choices: ShareChoices,
-): readonly (readonly [Phase1Feature, FeatureState])[] =>
-  PHASE1_FEATURES.filter(
+): readonly (readonly [Phase2Feature, FeatureState])[] =>
+  PHASE2_FEATURES.filter(
     (feature) => device.features.find((f) => f.feature === feature)?.local !== choices[feature],
   ).map((feature) => [feature, choices[feature]] as const);
 
 /** The devices `feature` reaches now: linked, with it on or asking on both sides. */
 export const readyFor = (
   devices: readonly LinkedDeviceView[],
-  feature: Phase1Feature,
+  feature: Phase2Feature,
 ): readonly LinkedDeviceView[] =>
   devices.filter(
     (d) =>
