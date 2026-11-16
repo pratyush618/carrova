@@ -127,6 +127,15 @@ for reading or sending phone data (the CLI only switches the features, see
   default SMS app stores them; such a message is provisional, never a page
   cursor or dedupe key, and the laptop replaces it by refetching the
   newest page of that thread. Its `when_ms` is the phone's receive time.
+  The refetch runs after the message is stored, not on the broadcast:
+  the phone watches the SMS provider (`ContentObserver` on
+  `content://sms`) and, when it changes, emits `PhoneEvent::SmsStored
+  { thread_id }`, which the phone forwards as `SmsPush::Stored
+  { thread_id }`; the laptop then refetches that thread's newest page
+  and drops the provisional row. If no `Stored` arrives within 10 s of
+  the provisional message, the laptop refetches once anyway. Until then
+  the provisional message shows normally in the thread and the
+  conversation list.
 - "Keep in sync" (phone, mockup): 30 days default / 1 year / All decides how
   far back pages go. The laptop asks for pages; nothing is pushed in bulk.
 - Contacts names resolved on the phone (`READ_CONTACTS`) and sent with the
@@ -183,7 +192,7 @@ for reading or sending phone data (the CLI only switches the features, see
   call back to its earpiece when the hands-free link drops; oFono has no
   audio disconnect). Move to laptop: `ConnectProfile(HFP_AG)` if the link
   is down, then oFono `HandsfreeAudioCard.Connect` for that phone's card.
-  Both verified in spike S4.
+  Both to be verified in spike S4.
 - Pairing with several discoverable phones in range reports "several
   phones visible" (the wizard asks to make only your phone visible);
   targeting the linked phone directly is a later change.
