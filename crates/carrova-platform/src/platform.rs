@@ -638,7 +638,8 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     ///
     /// # Errors
     /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise
-    /// (a send that merely fails is [`SendOutcome::Failed`]).
+    /// (a send that merely fails is [`SendOutcome::Failed`], one with no
+    /// clear answer [`SendOutcome::Unknown`]).
     fn sms_send(&self, to: &str, text: &str) -> Result<SendOutcome, PlatformError> {
         let _ = (to, text);
         Err(PlatformError::Unsupported("sms_send"))

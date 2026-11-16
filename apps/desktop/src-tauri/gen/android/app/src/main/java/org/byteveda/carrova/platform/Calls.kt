@@ -25,10 +25,11 @@ import org.json.JSONObject
 object Calls {
     private var listener: StateListener? = null
 
-    /** Report call state changes to [Events] ([on]) or stop. */
+    /** Report call state changes to [Events] ([on]) or stop; a replaced watch's [gen] does nothing. */
     @JvmStatic
     @Synchronized
-    fun listen(context: Context, on: Boolean) {
+    fun listen(context: Context, on: Boolean, gen: Long) {
+        if (gen != Events.generation) return
         val phone = context.getSystemService(TelephonyManager::class.java)
         listener?.let {
             phone.listen(it, PhoneStateListener.LISTEN_NONE)

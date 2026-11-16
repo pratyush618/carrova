@@ -3,4 +3,4 @@
 /**
  * How sending an SMS went.
  */
-export type SmsSendOutcome = "sent" | "no_signal" | "failed";
+export type SmsSendOutcome = "sent" | "no_signal" | "failed" | "unknown";

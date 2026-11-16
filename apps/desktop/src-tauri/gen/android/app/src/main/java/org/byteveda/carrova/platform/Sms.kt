@@ -95,7 +95,10 @@ object Sms {
         return messages.toString()
     }
 
-    /** Send [text] to [to]; waits for the radio: `sent`, `no_signal` or `failed`. */
+    /**
+     * Send [text] to [to]; waits for the radio: `sent`, `no_signal`, `failed`,
+     * or `unknown` when it may have gone (no answer in time, or only some parts sent).
+     */
     @JvmStatic
     fun send(context: Context, to: String, text: String): String {
         val sms = if (Build.VERSION.SDK_INT >= 31) {
@@ -123,13 +126,14 @@ object Sms {
                 )
             })
             sms.sendMultipartTextMessage(to, null, parts, sent, null)
-            if (!done.await(SEND_TIMEOUT_S, TimeUnit.SECONDS)) return "failed"
+            if (!done.await(SEND_TIMEOUT_S, TimeUnit.SECONDS)) return "unknown"
         } finally {
             context.unregisterReceiver(receiver)
         }
         return synchronized(codes) {
             when {
                 codes.all { it == Activity.RESULT_OK } -> "sent"
+                codes.any { it == Activity.RESULT_OK } -> "unknown"
                 codes.any { it == SmsManager.RESULT_ERROR_NO_SERVICE || it == SmsManager.RESULT_ERROR_RADIO_OFF } -> "no_signal"
                 else -> "failed"
             }
@@ -156,7 +160,8 @@ class SmsReceiver : BroadcastReceiver() {
         val parts = Telephony.Sms.Intents.getMessagesFromIntent(intent)
         val first = parts.firstOrNull() ?: return
         val address = first.originatingAddress ?: ""
-        // The default SMS app stores it (and gives it an id) later; its thread is known now.
+        // The default SMS app stores it (and gives it an id) later: id 0 is
+        // provisional (`phone::SmsMessage::id`); its thread is known now.
         val thread = try {
             Telephony.Threads.getOrCreateThreadId(context, address)
         } catch (e: Exception) {
@@ -169,7 +174,8 @@ class SmsReceiver : BroadcastReceiver() {
                 .put("thread_id", thread)
                 .put("outgoing", false)
                 .put("text", parts.joinToString("") { it.messageBody ?: "" })
-                .put("when_ms", first.timestampMillis)
+                // Receive time, as the provider's `date` will be (not the sender's clock).
+                .put("when_ms", System.currentTimeMillis())
                 .toString(),
         )
     }

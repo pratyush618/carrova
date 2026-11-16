@@ -5,7 +5,9 @@
  */
 export type SmsMessage = { 
 /**
- * Message id on the phone.
+ * Message id on the phone. Provisional on [`PhoneEvent::SmsReceived`]:
+ * `0` means not stored yet, so it is never a page cursor or a dedupe
+ * key; the laptop replaces it by refetching the thread's newest page.
  */
 id: number, 
 /**

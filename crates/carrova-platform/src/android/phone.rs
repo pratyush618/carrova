@@ -87,18 +87,26 @@ fn limit(limit: usize) -> Arg<'static> {
 
 // ---- events ----
 
-/// `Events.<method>()`, a no-argument void call.
-fn events_call(call: &'static str, method: &str) -> Result<(), PlatformError> {
-    jni::call(call, |env, context| {
-        jni::call_static(env, context, "Events", method, "()V", &[])?.v()
+/// `Events.open()`: start a watch (replacing any); returns its generation.
+fn open_events() -> Result<i64, PlatformError> {
+    jni::call("Events.open", |env, context| {
+        jni::call_static(env, context, "Events", "open", "()J", &[])?.j()
     })
 }
 
-/// The next event's JSON, blocking; `None` once the queue is closed.
-fn take() -> Result<Option<String>, PlatformError> {
+/// The next event's JSON for watch `generation`, blocking; `None` once it
+/// is closed or replaced.
+fn take(generation: i64) -> Result<Option<String>, PlatformError> {
     jni::call("Events.take", |env, context| {
-        let json =
-            jni::call_static(env, context, "Events", "take", "()Ljava/lang/String;", &[])?.l()?;
+        let json = jni::call_static(
+            env,
+            context,
+            "Events",
+            "take",
+            "(J)Ljava/lang/String;",
+            &[generation.into()],
+        )?
+        .l()?;
         if json.is_null() {
             return Ok(None);
         }
@@ -107,15 +115,18 @@ fn take() -> Result<Option<String>, PlatformError> {
 }
 
 /// Pull events into `on_event` on a thread of its own until the guard
-/// drops. One watch per process: a second `open` resets the queue.
+/// drops. A new watch replaces the running one (its guard then stops
+/// nothing). If `Events.take()` itself fails, the watch ends silently.
 pub(super) fn watch(on_event: Box<dyn Fn(PhoneEvent) + Send>) -> Result<PhoneWatch, PlatformError> {
-    events_call("Events.open", "open")?;
+    let generation = open_events()?;
     // Without phone permission there are no call events; notes and SMS still flow.
-    let _ = void("Calls.listen", "Calls", "listen", &[Arg::Bool(true)]);
+    let _ = listen_calls(true, generation);
     let pull = std::thread::Builder::new()
         .name("carrova-phone-events".into())
         .spawn(move || {
-            while let Ok(Some(json)) = take() {
+            // shortcut: a failing `take()` (JNI error) ends the watch with no
+            // signal; report it to the owner once the trait has a way to.
+            while let Ok(Some(json)) = take(generation) {
                 // Malformed or unknown events are skipped: one bad note must
                 // not end the watch.
                 if let Ok(Some(event)) = events::parse(&json) {
@@ -126,7 +137,7 @@ pub(super) fn watch(on_event: Box<dyn Fn(PhoneEvent) + Send>) -> Result<PhoneWat
     let pull = match pull {
         Ok(pull) => pull,
         Err(e) => {
-            stop_events();
+            stop_events(generation);
             return Err(PlatformError::Android {
                 call: "Events.open",
                 cause: e.to_string(),
@@ -134,8 +145,8 @@ pub(super) fn watch(on_event: Box<dyn Fn(PhoneEvent) + Send>) -> Result<PhoneWat
         }
     };
     Ok(PhoneWatch::new(move || {
-        // Closing unblocks `take`, so the join is quick.
-        stop_events();
+        // Closing (or a newer watch's open) unblocks `take`: the join is quick.
+        stop_events(generation);
         // Dropped from inside the callback: the thread ends on its own.
         if pull.thread().id() != std::thread::current().id() {
             let _ = pull.join();
@@ -143,11 +154,31 @@ pub(super) fn watch(on_event: Box<dyn Fn(PhoneEvent) + Send>) -> Result<PhoneWat
     }))
 }
 
-/// Stop the call listener and close the queue. Nothing to report to: the
+fn listen_calls(on: bool, generation: i64) -> Result<(), PlatformError> {
+    void(
+        "Calls.listen",
+        "Calls",
+        "listen",
+        &[Arg::Bool(on), Arg::Long(generation)],
+    )
+}
+
+/// Stop the call listener and close the queue of watch `generation`; both
+/// do nothing if a newer watch replaced it. Nothing to report to: the
 /// watch is ending.
-fn stop_events() {
-    let _ = void("Calls.listen", "Calls", "listen", &[Arg::Bool(false)]);
-    let _ = events_call("Events.close", "close");
+fn stop_events(generation: i64) {
+    let _ = listen_calls(false, generation);
+    let _ = jni::call("Events.close", |env, context| {
+        jni::call_static(
+            env,
+            context,
+            "Events",
+            "close",
+            "(J)V",
+            &[generation.into()],
+        )?
+        .v()
+    });
 }
 
 // ---- notifications ----
@@ -208,6 +239,7 @@ pub(super) fn sms_send(to: &str, body: &str) -> Result<SendOutcome, PlatformErro
         "sent" => Ok(SendOutcome::Sent),
         "no_signal" => Ok(SendOutcome::NoSignal),
         "failed" => Ok(SendOutcome::Failed),
+        "unknown" => Ok(SendOutcome::Unknown),
         _ => Err(PlatformError::Android {
             call: "Sms.send",
             cause: "unknown outcome".into(),

@@ -70,7 +70,9 @@ pub struct SmsThread {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct SmsMessage {
-    /// Message id on the phone.
+    /// Message id on the phone. Provisional on [`PhoneEvent::SmsReceived`]:
+    /// `0` means not stored yet, so it is never a page cursor or a dedupe
+    /// key; the laptop replaces it by refetching the thread's newest page.
     pub id: i64,
     /// The thread it belongs to.
     pub thread_id: i64,
@@ -209,6 +211,9 @@ pub enum SendOutcome {
     NoSignal,
     /// Sending failed.
     Failed,
+    /// May have been sent (no answer in time, or only some parts went);
+    /// check the phone before resending.
+    Unknown,
 }
 
 /// Where a call's audio plays.
