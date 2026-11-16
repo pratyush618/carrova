@@ -1077,7 +1077,6 @@ html.rm .cam__line { animation: none; inset-block-start: 50%; }
 </style>
 </head>
 <body>
-<!-- Phase 2 note (no Phase 1 code): add an "Allow restricted settings" state to the Android messages/calls onboarding. Sideloaded APKs on Android 13+ grey out Accessibility and Notification-access toggles until the user opens App info, taps the three-dot menu and picks "Allow restricted settings". -->
 <div class="mk">
   <nav class="nav" aria-label="Screens">
     <div class="nav__brand"><svg class="mark" viewBox="0 0 20 20" aria-hidden="true"></svg><div>Carrova for Android<small>ecosystem · quiet instrument</small></div></div>
@@ -1366,7 +1365,7 @@ function setupBody() {
       srow("clip", "Clipboard", "From the laptop by itself, to it with a tap", toggle(1)),
       srow("bell", "Notifications", "Show this phone's notifications on the laptop", toggle(0)),
       srow("msg", "Messages", "Read and send texts from the laptop", toggle(1)),
-      srow("call", "Calls", "Answer on the laptop, over Bluetooth", toggle(0)),
+      srow("call", "Calls", "Ring and answer on the laptop", toggle(0)),
     ])}
     ${ig("Asks each time", [
       srow("file", "Files", "", ask("Ask")), srow("monitor", "See this screen", "", ask("Ask")),
@@ -1375,11 +1374,18 @@ function setupBody() {
     ${ig("Background", [srow("batt", "Stay connected when closed", "Android may stop Carrova to save battery", btn("Allow", { size: "sm", go: "setup:battery" }))])}
     ${btn("Done", { kind: "primary", size: "lg", cls: "wide", go: "home:linked" })}`;
 }
-add({ id: "setup", group: "Onboarding", title: "Choose what to share", states: [["start", "Choose"], ["sms", "SMS permission"], ["battery", "Battery permission"]],
+add({ id: "setup", group: "Onboarding", title: "Choose what to share", states: [["start", "Choose"], ["restricted", "Allow restricted settings"], ["access", "Notification access"], ["phoneperms", "Calls and contacts"], ["sms", "SMS permission"], ["battery", "Battery permission"]],
   note: "The approved split: quiet features are switches, the rest are Ask / Off. Each Android permission appears only when its switch is turned on (here: Messages asks for SMS). Stay connected asks to skip battery optimisation.",
   render(st) {
     const over = st === "sms" ? sysdlg(`<span class="sysdlg__ic">${icon("msg", "icon--lg")}</span><h3>Allow Carrova to send and view SMS messages?</h3><div class="sysdlg__acts"><span class="p">Allow</span><span>Don't allow</span></div>`)
       : st === "battery" ? sysdlg(`<h3>Let app always run in background?</h3><p>Allowing Carrova to always run in the background may reduce battery life.</p><div class="sysdlg__row"><span>Deny</span><span class="p">Allow</span></div>`) : "";
+    if (st === "restricted") return phone({ back: "setup:start", title: "Allow restricted settings", nav: false, body: `<div class="banner banner--warn" style="margin-bottom:18px">${icon("lock")}<div><b>Android is holding this setting back</b>Apps installed outside the Play Store need one extra step before they can read notifications.</div></div>
+      <ol class="steps-v"><li><span class="dot dot--accent">1</span><div><b>Open App info</b><span>Tap the button below.</span></div></li><li><span class="dot dot--muted">2</span><div><b>Tap the three dots, top right</b></div></li><li><span class="dot dot--muted">3</span><div><b>Choose Allow restricted settings</b><span>Android asks for your PIN or fingerprint.</span></div></li></ol>
+      <div style="margin-top:14px">${btn("Open App info", { kind: "primary", size: "lg", cls: "wide", go: "setup:access" })}</div><p class="small muted" style="text-align:center;margin-top:12px">Then come back here. Carrova only sees what you choose to share.</p>` });
+    if (st === "access") return phone({ back: "setup:start", title: "Notification access", nav: false, body: `<p class="sec" style="margin-bottom:18px">To show this phone's notifications on ${LAP}, Carrova needs notification access. Android has its own page for it.</p>
+      ${ig("", [srow("bell", "Carrova", "Read notifications and reply to them", toggle(0))], "Notifications go only to your linked computers, never to a server. Turn this off any time.")}
+      <div style="margin-top:14px">${btn("Open Android settings", { kind: "primary", size: "lg", cls: "wide", go: "setup:start" })}</div><p class="small muted" style="text-align:center;margin-top:12px">Toggle greyed out? <a class="link" data-go="setup:restricted">Allow restricted settings first</a>.</p>` });
+    if (st === "phoneperms") return phone({ title: "Choose what to share", nav: false, body: setupBody(), over: sysdlg(`<span class="sysdlg__ic">${icon("call", "icon--lg")}</span><h3>Allow Carrova to make and manage phone calls?</h3><p>So ${LAP} can show who is calling, answer and hang up. Next, Android asks about contacts.</p><div class="sysdlg__acts"><span class="p">Allow</span><span>Don't allow</span></div>`) });
     return phone({ title: "Choose what to share", nav: false, body: setupBody(), over });
   } });
 
@@ -1401,7 +1407,7 @@ function deviceBody(away) {
       srow("clip", "Clipboard", "Copies on the laptop land here", toggle(1)),
       srow("bell", "Notifications", "6 apps show on the laptop", chev, { go: "notif:apps" }),
       srow("msg", "Messages", "Synced, last 30 days", chev, { go: "msgs:synced" }),
-      srow("call", "Calls", "Needs a one-time Bluetooth pairing", btn("Set up", { size: "sm", go: "calls:setup" })),
+      srow("call", "Calls", "Ring and answer on the laptop", btn("Set up", { size: "sm", go: "calls:setup" })),
     ])}
     ${ig(`${LAP} may ask to`, [
       srow("file", "Send you files", "", ask("Ask")), srow("monitor", "See this screen", "", ask("Ask")),
@@ -1500,8 +1506,9 @@ add({ id: "calls", group: "Calls", title: "Calls", states: [["setup", "Set up"],
     if (st === "btoff") return phone({ back: "device:on", title: "Calls", body: `<div class="banner banner--warn">${icon("bt")}<div><b>Bluetooth is off</b>Calls stay on this phone until it's back on.</div><span class="banner__act">${btn("Turn on", { size: "sm" })}</span></div>` });
     if (st === "ready") return phone({ back: "device:on", title: "Calls", bt: 1, body: `<div class="banner banner--ok" style="margin-bottom:18px">${icon("bt")}<div><b>Paired with ${LAP}</b>Connected over Bluetooth</div></div>
       ${ig("", [srow("laptop", `Ring on ${LAP}`, "", toggle(1)), srow("phone", "Also ring this phone", "", toggle(1))], "Answer on either. This phone always places the call.")}` });
-    const steps = `<ol class="steps-v"><li><span class="dot">${icon("check")}</span><div><b>Bluetooth on</b></div></li><li><span class="dot dot--accent">2</span><div><b>Pair with ${LAP}</b><span>Android shows a code; check it matches the laptop.</span></div></li><li><span class="dot dot--muted">3</span><div><b>Allow calls and contacts</b><span>So the laptop can show who's calling.</span></div></li></ol>`;
-    return phone({ back: "device:on", title: "Calls", body: `<p class="sec" style="margin-bottom:18px">Calls travel over Bluetooth, like a headset. Audio never goes over Wi-Fi.</p>${steps}<div style="margin-top:14px">${btn("Pair now", { kind: "primary", size: "lg", cls: "wide", go: "calls:pairing" })}</div>`,
+    const steps = `<ol class="steps-v"><li><span class="dot dot--accent">1</span><div><b>Allow calls and contacts</b><span>So ${LAP} can show who's calling, answer and hang up.</span></div></li><li><span class="dot dot--muted">2</span><div><b>Ring and answer on ${LAP}</b><span>Works right away. You talk on this phone.</span></div></li></ol>`;
+    return phone({ back: "device:on", title: "Calls", body: `<p class="sec" style="margin-bottom:18px">${LAP} rings when this phone does, and you can answer from it. No Bluetooth needed.</p>${steps}<div style="margin-top:14px">${btn("Allow calls and contacts", { kind: "primary", size: "lg", cls: "wide", go: "setup:phoneperms" })}</div>
+      ${ig("Optional", [srow("bt", `Use ${LAP}'s mic and speakers`, "Pair over Bluetooth, once. Audio never goes over Wi-Fi.", btn("Pair now", { size: "sm", go: "calls:pairing" }))])}`,
       over: st === "pairing" ? sysdlg(`<span class="sysdlg__ic">${icon("bt", "icon--lg")}</span><h3>Pair with ${LAP}?</h3><p>Bluetooth pairing code</p><p style="font:700 26px var(--mono);color:#ececef;margin:6px 0 12px;letter-spacing:.08em">482 913</p><p style="text-align:start">☑ Allow access to your contacts and call history</p><div class="sysdlg__row"><span>Cancel</span><span class="p">Pair</span></div>`) : "" });
   } });
 
