@@ -184,7 +184,7 @@ Spec: `docs/superpowers/specs/2026-11-11-manual-mode-design.md` · Plan: `docs/s
 
 Specs: `docs/superpowers/specs/2026-11-15-ecosystem-design.md` (whole), `docs/superpowers/specs/2026-11-15-ecosystem-phase1-design.md` (Phase 1) · Plan: `docs/superpowers/plans/2026-11-15-ecosystem-phase1.md`
 
-**Decision (user, 2026-11-16):** `carrova link serve` announces presence like the app (saved visibility honoured), so two CLI-only computers can link.
+**Decision (user, 2026-11-16):** `carrova link serve` announces presence like the app (saved visibility honoured), so computers already linked find each other from the CLI. A first link still needs the desktop app to show the pairing code (the CLI only joins).
 
 **Exit gate (Phase 1):** automated suite green (`just ci`, `just e2e --link`) and the real-hardware checklist passed by the user. Do not mark complete until then.
 
