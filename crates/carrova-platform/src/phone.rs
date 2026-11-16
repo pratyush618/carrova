@@ -104,7 +104,9 @@ pub enum CallState {
         since_ms: i64,
         /// The microphone is muted.
         muted: bool,
-        /// Audio runs through this computer.
+        /// A Bluetooth Hands-Free device can carry the call: this computer's
+        /// link or a headset (Android can't tell them apart). The phone keeps
+        /// its speaker off; a computer reads its own audio side locally.
         on_laptop_audio: bool,
     },
     /// The call ended.

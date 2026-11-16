@@ -164,6 +164,9 @@ for reading or sending phone data (the CLI only switches the features, see
   each `CallRecord` carries its call-log `id`).
 - Answer from the laptop turns the phone's speaker on (unless optional
   audio is set up and connected: then audio goes to the laptop).
+  `on_laptop_audio` means a Bluetooth Hands-Free device can carry the call
+  (Android can't tell the laptop's link from a headset); the laptop shows
+  its own audio side from its local call-audio status.
 - Ringing on the laptop follows the laptop setting "Ring on this
   computer": Always / While I'm using it (default) / Never (mockup
   Settings › Calls and Bluetooth). "Also ring this phone" is the phone's own
