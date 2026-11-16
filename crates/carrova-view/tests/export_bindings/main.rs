@@ -31,8 +31,8 @@ use carrova_core::{
 use carrova_link::{Feature, FeatureState, Group};
 use carrova_platform::FileManagerStatus;
 use carrova_platform::phone::{
-    AudioSide, CallKind, CallRecord, CallState, Hidden, Note, PermState, PhonePerm, SendOutcome,
-    SmsMessage, SmsThread,
+    AudioSide, CallKind, CallRecord, CallState, Cursor, Hidden, Note, PermState, PhonePerm,
+    SendOutcome, SmsMessage, SmsThread,
 };
 use carrova_report::{ErrorReport, IssueDraft, ReportConsent, ReportId, ReportSummary};
 use carrova_view::devices::{
@@ -146,6 +146,7 @@ fn export_typescript_bindings() {
         CallState::export_all,
         CallRecord::export_all,
         CallKind::export_all,
+        Cursor::export_all,
         SendOutcome::export_all,
         AudioSide::export_all,
         PhonePerm::export_all,

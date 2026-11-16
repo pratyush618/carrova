@@ -8,7 +8,7 @@
 use std::fmt;
 use std::time::Duration;
 
-use carrova_platform::phone::{AudioSide, CallRecord, CallState};
+use carrova_platform::phone::{AudioSide, CallRecord, CallState, Cursor};
 use carrova_transport::Stream;
 use serde::{Deserialize, Serialize};
 
@@ -41,10 +41,10 @@ pub enum CallCommand {
         /// Number to call.
         number: String,
     },
-    /// One page of the call log, newest first, older than `before_ms`.
+    /// One page of the call log, newest first by `(when_ms, id)`, after `before`.
     History {
-        /// Only entries before this time (ms since the Unix epoch).
-        before_ms: Option<i64>,
+        /// Page cursor: only entries ordered strictly before this one.
+        before: Option<Cursor>,
     },
     /// Send keypad tones (same alphabet as `Dial`). Answered by the laptop's
     /// own platform, never sent to the phone.

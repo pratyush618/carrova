@@ -11,7 +11,7 @@
 use std::fmt;
 use std::time::Duration;
 
-use carrova_platform::phone::{SendOutcome, SmsMessage, SmsThread};
+use carrova_platform::phone::{Cursor, SendOutcome, SmsMessage, SmsThread};
 use carrova_transport::Connection;
 use serde::{Deserialize, Serialize};
 
@@ -36,17 +36,18 @@ const REPLY_WAIT: Duration = Duration::from_secs(30);
 /// What the laptop asks of the phone.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SmsRequest {
-    /// A page of threads, newest first, older than `before_ms`.
+    /// A page of threads, newest first by `(when_ms, id)`, after `before`.
     Threads {
-        /// Page cursor: only threads older than this.
-        before_ms: Option<i64>,
+        /// Page cursor: only threads ordered strictly before this one.
+        before: Option<Cursor>,
     },
-    /// A page of one thread's messages, older than `before_ms`.
+    /// A page of one thread's messages, newest first by `(when_ms, id)`,
+    /// after `before`.
     Thread {
         /// Thread id on the phone.
         id: i64,
-        /// Page cursor: only messages older than this.
-        before_ms: Option<i64>,
+        /// Page cursor: only messages ordered strictly before this one.
+        before: Option<Cursor>,
     },
     /// Send a text.
     Send {
@@ -80,6 +81,9 @@ pub enum SmsReply {
 pub enum SmsPush {
     /// A message arrived.
     Incoming(SmsMessage),
+    /// SMS changed in ways the laptop may have missed (the phone's event
+    /// queue overflowed): refetch the threads and any open thread.
+    Resync,
 }
 
 macro_rules! hide {
@@ -172,8 +176,11 @@ fn matches(req: &SmsRequest, reply: &SmsReply) -> bool {
     }
 }
 
-fn check_push(SmsPush::Incoming(m): &SmsPush) -> Result<(), LinkError> {
-    cap(m.text.len(), MAX_SMS_TEXT)
+fn check_push(push: &SmsPush) -> Result<(), LinkError> {
+    match push {
+        SmsPush::Incoming(m) => cap(m.text.len(), MAX_SMS_TEXT),
+        SmsPush::Resync => Ok(()),
+    }
 }
 
 /// Ask the phone for threads or messages, or to send a text.

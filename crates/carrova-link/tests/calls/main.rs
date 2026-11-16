@@ -11,7 +11,7 @@ use carrova_link::{
     AudioSide, CallCommand, CallIncoming, CallReply, HISTORY_PAGE, LaneKind, LinkError,
     accept_lane, call_command, open_lane, recv_calls, send_call_state,
 };
-use carrova_platform::phone::{CallKind, CallRecord, CallState};
+use carrova_platform::phone::{CallKind, CallRecord, CallState, Cursor};
 use support::{Open, T, linked};
 
 #[test]
@@ -65,9 +65,10 @@ fn command(cmd: &CallCommand, answer: &CallReply) -> (CallReply, CallCommand) {
 #[test]
 fn history_page_roundtrip() {
     let cmd = CallCommand::History {
-        before_ms: Some(99),
+        before: Some(Cursor { when_ms: 99, id: 3 }),
     };
     let page = vec![CallRecord {
+        id: 2,
         number: "+1555".into(),
         name: None,
         when_ms: 7,
@@ -150,6 +151,7 @@ fn local_commands_never_leave_the_laptop() {
 #[test]
 fn oversized_history_page_is_refused() {
     let rec = CallRecord {
+        id: 1,
         number: "1".into(),
         name: None,
         when_ms: 0,
@@ -166,7 +168,7 @@ fn oversized_history_page_is_refused() {
             r.reply(&CallReply::HistoryPage(vec![rec; HISTORY_PAGE + 1]))
                 .unwrap();
         });
-        call_command(&a, &CallCommand::History { before_ms: None })
+        call_command(&a, &CallCommand::History { before: None })
     });
     assert!(matches!(got, Err(LinkError::Protocol("history"))));
 }

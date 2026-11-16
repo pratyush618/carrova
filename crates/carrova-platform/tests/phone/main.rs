@@ -5,8 +5,8 @@
 use std::fmt::Debug;
 
 use carrova_platform::phone::{
-    AudioSide, CallKind, CallRecord, CallState, Hidden, Note, PermState, PhoneEvent, PhonePerm,
-    SendOutcome, SmsMessage, SmsThread,
+    AudioSide, CallKind, CallRecord, CallState, Cursor, Hidden, Note, PermState, PhoneEvent,
+    PhonePerm, SendOutcome, SmsMessage, SmsThread,
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -48,12 +48,14 @@ fn phone_types_cbor_roundtrip() {
         unread: 2,
     });
     roundtrip(&CallRecord {
+        id: 12,
         number: "+15550100".into(),
         name: Some("Ana".into()),
         when_ms: 1,
         duration_s: 61,
         kind: CallKind::Declined,
     });
+    roundtrip(&Cursor { when_ms: 5, id: -2 });
     for state in [
         CallState::Idle,
         CallState::Ringing {
@@ -151,6 +153,7 @@ fn debug_output_hides_phone_content() {
         format!(
             "{:?}",
             CallRecord {
+                id: 1,
                 number: s(),
                 name: Some(s()),
                 when_ms: 1,
@@ -163,6 +166,14 @@ fn debug_output_hides_phone_content() {
     for out in shown {
         assert!(!out.contains("SECRET"), "{out}");
     }
+}
+
+#[test]
+fn cursor_orders_by_time_then_id() {
+    let c = |when_ms, id| Cursor { when_ms, id };
+    assert!(c(1, 9) < c(2, 0));
+    assert!(c(5, 1) < c(5, 2));
+    assert_eq!(c(5, 1), c(5, 1));
 }
 
 #[test]

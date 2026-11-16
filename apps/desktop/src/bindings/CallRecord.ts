@@ -6,6 +6,10 @@ import type { CallKind } from "./CallKind";
  */
 export type CallRecord = { 
 /**
+ * Call log row id on the phone.
+ */
+id: number, 
+/**
  * The other party's number.
  */
 number: string, 

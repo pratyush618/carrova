@@ -14,7 +14,7 @@ use carrova_link::{
     SmsRequest, THREAD_PAGE, accept_lane, check_sms_reply, open_lane, push_sms, recv_sms,
     request_sms,
 };
-use carrova_platform::phone::{SmsMessage, SmsThread};
+use carrova_platform::phone::{Cursor, SmsMessage, SmsThread};
 use support::{Open, T, linked};
 
 fn thread_row(id: i64) -> SmsThread {
@@ -58,7 +58,9 @@ fn ask(req: &SmsRequest, reply: &SmsReply) -> (Result<SmsReply, LinkError>, SmsR
 
 #[test]
 fn threads_page_roundtrip() {
-    let req = SmsRequest::Threads { before_ms: Some(9) };
+    let req = SmsRequest::Threads {
+        before: Some(Cursor { when_ms: 9, id: 4 }),
+    };
     let page = SmsReply::ThreadsPage((0..THREAD_PAGE as i64).map(thread_row).collect());
     let (out, got) = ask(&req, &page);
     assert_eq!(got, req);
@@ -85,7 +87,7 @@ fn page_over_cap_refused() {
         // ... and the laptop refuses it too.
         let req = SmsRequest::Thread {
             id: 2,
-            before_ms: None,
+            before: None,
         };
         assert!(matches!(
             request_sms(&a, &req),
@@ -158,6 +160,22 @@ fn incoming_push_roundtrip() {
 }
 
 #[test]
+fn resync_push_roundtrip() {
+    let (phone, laptop) = linked();
+    thread::scope(|s| {
+        let rx = s.spawn(|| {
+            let (_, stream) = accept_lane(&laptop, &Open, T).unwrap();
+            recv_sms(stream).unwrap()
+        });
+        push_sms(&phone, &SmsPush::Resync).unwrap();
+        let SmsIncoming::Push(got) = rx.join().unwrap() else {
+            panic!("not a push")
+        };
+        assert_eq!(got, SmsPush::Resync);
+    });
+}
+
+#[test]
 fn debug_hides_contents() {
     let push = SmsPush::Incoming(msg("secret".into()));
     let req = SmsRequest::Send {
@@ -199,7 +217,7 @@ fn hostile_phone(req: &SmsRequest, reply: &SmsReply) -> Result<SmsReply, LinkErr
 }
 
 fn threads() -> SmsRequest {
-    SmsRequest::Threads { before_ms: None }
+    SmsRequest::Threads { before: None }
 }
 
 #[test]
@@ -212,7 +230,7 @@ fn laptop_refuses_hostile_replies() {
     let big_text = SmsReply::ThreadPage(vec![msg("x".repeat(MAX_SMS_TEXT + 1))]);
     let ask = SmsRequest::Thread {
         id: 2,
-        before_ms: None,
+        before: None,
     };
     assert!(matches!(
         hostile_phone(&ask, &big_text),
@@ -248,7 +266,7 @@ fn reply_must_match_request() {
         (
             SmsRequest::Thread {
                 id: 2,
-                before_ms: None,
+                before: None,
             },
             SmsReply::ThreadsPage(vec![]),
         ),

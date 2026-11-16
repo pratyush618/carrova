@@ -110,10 +110,23 @@ pub enum CallState {
     },
 }
 
+/// Exclusive paging cursor for newest-first lists: the last row seen.
+/// Rows order by `(when_ms, id)`, so equal timestamps still page exactly once.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct Cursor {
+    /// The row's time (ms since the Unix epoch).
+    pub when_ms: i64,
+    /// The row's id; breaks ties between equal times.
+    pub id: i64,
+}
+
 /// One entry of the phone's call log.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct CallRecord {
+    /// Call log row id on the phone.
+    pub id: i64,
     /// The other party's number.
     pub number: String,
     /// Contact name, resolved on the phone.
@@ -305,6 +318,7 @@ impl fmt::Debug for CallState {
 impl fmt::Debug for CallRecord {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("CallRecord")
+            .field("id", &self.id)
             .field("number", &len(&self.number))
             .field("name", &opt_len(self.name.as_ref()))
             .field("duration_s", &self.duration_s)
