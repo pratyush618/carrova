@@ -398,9 +398,12 @@ pub(crate) fn take_notify(
             // Read outside the supervisor's lock: the OS may be slow to answer.
             let lock = shared.platform().screen_lock();
             let settings = shared.phone_settings();
-            for note in changes.pop {
-                let note = shown(note, lock, settings);
-                shared.emit(Event::PhoneNote { device, note });
+            // Away: the notes stay in the list, without pop-ups.
+            if !settings.only_while_active || lock == ScreenLock::Unlocked {
+                for note in changes.pop {
+                    let note = shown(note, lock, settings);
+                    shared.emit(Event::PhoneNote { device, note });
+                }
             }
         }
     }

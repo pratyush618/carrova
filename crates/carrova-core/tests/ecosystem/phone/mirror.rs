@@ -620,3 +620,29 @@ fn identical_provisional_texts_match_rows_one_to_one() {
 
     assert_eq!(newest(&sl, &phone, 5), rows);
 }
+
+#[test]
+fn pop_ups_held_while_away() {
+    let (phone, _sp, laptop, sl) = linked(&[NOTES], |_| {});
+    laptop.platform.inner.set_screen_lock(ScreenLock::Locked);
+    let settings = PhoneSettings {
+        only_while_active: true,
+        ..PhoneSettings::default()
+    };
+    sl.set_phone_settings(settings).unwrap();
+    wait_watching(&phone);
+
+    let held = note("k1", "org.example.chat");
+    phone.platform.script_event(PhoneEvent::NotePosted(held));
+    wait_notes(&sl, &phone, 1);
+    // Pushes apply in order: once the next one pops up, the first was held.
+    laptop.platform.inner.set_screen_lock(ScreenLock::Unlocked);
+    let shown = note("k2", "org.example.mail");
+    phone
+        .platform
+        .script_event(PhoneEvent::NotePosted(shown.clone()));
+
+    laptop.wait("the pop-up", |e| matches!(e, Event::PhoneNote { .. }));
+    assert_eq!(popped(&laptop), [shown]);
+    assert_eq!(sl.notes(&phone.id).unwrap().len(), 2);
+}
