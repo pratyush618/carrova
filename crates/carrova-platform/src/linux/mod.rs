@@ -206,11 +206,11 @@ impl Platform for LinuxPlatform {
     }
 
     fn call_audio_status(&self) -> Result<crate::phone::CallAudioStatus, PlatformError> {
-        call_audio::status()
+        self.call_audio_status_impl()
     }
 
     fn install_call_audio(&self) -> Result<(), PlatformError> {
-        call_audio::install()
+        self.install_call_audio_impl()
     }
 
     fn set_call_audio_config(&self, on: bool) -> Result<(), PlatformError> {

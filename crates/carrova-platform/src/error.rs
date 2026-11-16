@@ -31,6 +31,11 @@ pub enum PlatformError {
     #[error("network error: {0}")]
     Network(String),
 
+    /// The user stopped it at an OS prompt (e.g. dismissed the password
+    /// request); the text names the operation.
+    #[error("cancelled: {0}")]
+    Cancelled(&'static str),
+
     /// A call into the Android (Java) side failed; `cause` names the error
     /// or exception class, never its message (it may hold names or URLs).
     #[error("Android call {call} failed: {cause}")]

@@ -1,7 +1,9 @@
-use super::bluez::pair_target;
-use super::packagekit::supported_os;
+use super::bluez::{Seen, linked_phone, pair_target};
+use super::ofono::card_for;
+use super::packagekit::{Outcome, outcome, supported_os};
 use super::wireplumber::{self, drop_in, parse_version};
-use super::{AdapterInfo, status_from, valid_tones};
+use super::{AdapterInfo, bus_err, status_from, valid_tones};
+use crate::PlatformError;
 use crate::linux::{LinuxEnv, LinuxPlatform};
 use crate::phone::CallAudioStatus as S;
 use std::path::Path;
@@ -12,21 +14,25 @@ const OFF: Option<AdapterInfo> = Some(AdapterInfo { powered: false });
 
 #[test]
 fn status_table() {
-    // (adapter, hf_profile, ofono_present, paired_phone) -> status
+    // (adapter, hf_profile, ofono_present, configured, paired_phone) -> status
     let rows = [
-        (None, true, true, true, S::NoAdapter),
-        (OFF, true, true, true, S::BluetoothOff),
-        (ON, true, false, true, S::NeedsPackage),
-        (ON, false, false, false, S::NeedsPackage),
-        (ON, false, true, true, S::NoHandsFree),
-        (ON, true, true, false, S::NeedsPairing),
-        (ON, true, true, true, S::Ready),
+        (None, true, true, true, true, S::NoAdapter),
+        (OFF, true, true, true, true, S::BluetoothOff),
+        (ON, true, false, true, true, S::NeedsPackage),
+        (ON, false, false, false, false, S::NeedsPackage),
+        // oFono there but the drop-in missing: still the install screen,
+        // never blamed on the hardware.
+        (ON, false, true, false, true, S::NeedsPackage),
+        (ON, true, true, false, true, S::NeedsPackage),
+        (ON, false, true, true, true, S::NoHandsFree),
+        (ON, true, true, true, false, S::NeedsPairing),
+        (ON, true, true, true, true, S::Ready),
     ];
-    for (adapter, hf, ofono, paired, want) in rows {
+    for (adapter, hf, ofono, configured, paired, want) in rows {
         assert_eq!(
-            status_from(adapter, hf, ofono, paired),
+            status_from(adapter, hf, ofono, configured, paired),
             want,
-            "{adapter:?} hf={hf} ofono={ofono} paired={paired}"
+            "{adapter:?} hf={hf} ofono={ofono} configured={configured} paired={paired}"
         );
     }
 }
@@ -80,12 +86,14 @@ fn write_then_remove_leaves_no_file() {
         // Idempotent: a second write replaces it in place.
         wireplumber::write(&p, version).unwrap();
         assert_eq!(std::fs::read_to_string(&file).unwrap(), drop_in(version).1);
+        assert!(wireplumber::configured(&p, version).unwrap());
         let dir = file.parent().unwrap();
         assert_eq!(std::fs::read_dir(dir).unwrap().count(), 1, "no temp left");
 
         wireplumber::remove(&p).unwrap();
         wireplumber::remove(&p).unwrap();
         assert!(!file.exists());
+        assert!(!wireplumber::configured(&p, version).unwrap());
     }
 }
 
@@ -120,7 +128,59 @@ fn pair_target_is_the_only_unpaired_phone() {
     let paired = ("/org/bluez/hci0/dev_C", true, Some("phone"));
     let headset = ("/org/bluez/hci0/dev_D", false, Some("audio-headset"));
     let unknown = ("/org/bluez/hci0/dev_E", false, None);
-    assert_eq!(pair_target([a, paired, headset, unknown]), Some(a.0));
-    assert_eq!(pair_target([a, b]), None, "two phones: ambiguous");
-    assert_eq!(pair_target([paired, headset]), None);
+    assert_eq!(pair_target([a, paired, headset, unknown]), Seen::One(a.0));
+    assert_eq!(pair_target([a, b]), Seen::Several, "two phones: ambiguous");
+    assert_eq!(pair_target([paired, headset]), Seen::None);
+}
+
+#[test]
+fn linked_phone_prefers_the_connected_gateway() {
+    // (path, paired with the audio gateway role, connected, address)
+    let idle = ("/dev_A", true, false, "AA");
+    let live = ("/dev_B", true, true, "BB");
+    let unpaired = ("/dev_C", false, true, "CC");
+    assert_eq!(linked_phone([idle, live, unpaired]), Some(("/dev_B", "BB")));
+    assert_eq!(linked_phone([unpaired, idle]), Some(("/dev_A", "AA")));
+    assert_eq!(linked_phone([unpaired]), None);
+}
+
+#[test]
+fn card_is_the_gateway_of_that_phone() {
+    // (path, type, remote address)
+    let other = ("/card_1", Some("gateway"), Some("11:22"));
+    let mine = ("/card_2", Some("gateway"), Some("aa:bb"));
+    let hf = ("/card_3", Some("handsfree"), Some("AA:BB"));
+    assert_eq!(card_for([other, hf, mine], "AA:BB"), Some("/card_2"));
+    assert_eq!(card_for([other, hf], "AA:BB"), None);
+}
+
+#[test]
+fn install_outcome_tells_cancel_from_failure() {
+    const SUCCESS: u32 = 1;
+    const FAILED: u32 = 2;
+    const CANCELLED: u32 = 3;
+    const NOT_AUTHORIZED: u32 = 46;
+    const TRANSACTION_CANCELLED: u32 = 17;
+    const NO_NETWORK: u32 = 2;
+    assert_eq!(outcome(SUCCESS, None), Outcome::Done);
+    assert_eq!(outcome(CANCELLED, None), Outcome::Cancelled);
+    assert_eq!(outcome(FAILED, Some(NOT_AUTHORIZED)), Outcome::Cancelled);
+    assert_eq!(
+        outcome(FAILED, Some(TRANSACTION_CANCELLED)),
+        Outcome::Cancelled
+    );
+    assert_eq!(outcome(FAILED, Some(NO_NETWORK)), Outcome::Failed);
+    assert_eq!(outcome(FAILED, None), Outcome::Failed);
+}
+
+#[test]
+fn bus_errors_keep_only_the_error_name() {
+    let secret = "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF";
+    let fdo = zbus::Error::FDO(Box::new(zbus::fdo::Error::AccessDenied(secret.into())));
+    let PlatformError::Io { source, .. } = bus_err("org.bluez", fdo) else {
+        panic!("not an I/O error");
+    };
+    let text = source.to_string();
+    assert!(!text.contains("dev_AA"), "{text}");
+    assert!(text.contains("AccessDenied"), "{text}");
 }
