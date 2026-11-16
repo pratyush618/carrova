@@ -155,6 +155,10 @@ pub enum ErrorCode {
     KnownDevice,
     /// A stored device key is refused.
     DeviceKey,
+    /// This device or OS can't do it.
+    Unsupported,
+    /// A phone permission it needs is not granted.
+    PermissionDenied,
     /// Anything else.
     Internal,
 }
