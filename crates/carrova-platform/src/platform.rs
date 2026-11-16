@@ -8,8 +8,8 @@ use std::process::{Child, Command};
 use std::time::Duration;
 
 use crate::phone::{
-    AudioSide, CallAudioStatus, CallRecord, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch,
-    SendOutcome, SmsMessage, SmsThread,
+    AudioSide, CallAudioStatus, CallRecord, CallState, Cursor, Note, PermState, PhoneEvent,
+    PhonePerm, PhoneWatch, SendOutcome, SmsMessage, SmsThread,
 };
 use crate::{
     Allocation, ClipContent, ClipboardWatch, DirEntry, DirWatch, DiskInfo, DownloadSink, FileLock,
@@ -601,33 +601,36 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         Err(PlatformError::Unsupported("note_open"))
     }
 
-    /// Up to `limit` SMS threads, newest first: only those last active
-    /// before `before_ms` (a page) and after `since_ms` (a refresh).
+    /// Up to `limit` SMS threads, newest first by `(when_ms DESC, id DESC)`:
+    /// only those ordered strictly before the cursor `before` (a page;
+    /// exclusive on the pair, so equal times neither repeat nor vanish) and
+    /// last active after `since_ms` (a refresh).
     ///
     /// # Errors
     /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
     fn sms_threads(
         &self,
-        before_ms: Option<i64>,
+        before: Option<Cursor>,
         limit: usize,
         since_ms: Option<i64>,
     ) -> Result<Vec<SmsThread>, PlatformError> {
-        let _ = (before_ms, limit, since_ms);
+        let _ = (before, limit, since_ms);
         Err(PlatformError::Unsupported("sms_threads"))
     }
 
-    /// Up to `limit` messages of thread `id` sent before `before_ms`,
-    /// newest first.
+    /// Up to `limit` messages of thread `id`, newest first by
+    /// `(when_ms DESC, id DESC)`, ordered strictly before the cursor `before`
+    /// (exclusive on the pair).
     ///
     /// # Errors
     /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
     fn sms_thread(
         &self,
         id: i64,
-        before_ms: Option<i64>,
+        before: Option<Cursor>,
         limit: usize,
     ) -> Result<Vec<SmsMessage>, PlatformError> {
-        let _ = (id, before_ms, limit);
+        let _ = (id, before, limit);
         Err(PlatformError::Unsupported("sms_thread"))
     }
 
@@ -692,18 +695,27 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         Err(PlatformError::Unsupported("call_speaker"))
     }
 
-    /// Up to `limit` call-log entries started before `before_ms`, newest
-    /// first.
+    /// Up to `limit` call-log entries, newest first by
+    /// `(when_ms DESC, id DESC)`, ordered strictly before the cursor `before`
+    /// (exclusive on the pair).
     ///
     /// # Errors
     /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
     fn call_history(
         &self,
-        before_ms: Option<i64>,
+        before: Option<Cursor>,
         limit: usize,
     ) -> Result<Vec<CallRecord>, PlatformError> {
-        let _ = (before_ms, limit);
+        let _ = (before, limit);
         Err(PlatformError::Unsupported("call_history"))
+    }
+
+    /// The phone's call state now, to resend after events were dropped.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn call_state(&self) -> Result<CallState, PlatformError> {
+        Err(PlatformError::Unsupported("call_state"))
     }
 
     /// Whether the phone permission `p` is held.

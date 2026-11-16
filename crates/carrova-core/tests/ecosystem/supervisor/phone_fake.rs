@@ -1,10 +1,14 @@
 //! The [`Recording`] fake's scripted phone behaves as later tests rely on.
 
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use carrova_platform::Platform;
 use carrova_platform::fake::FakePlatform;
-use carrova_platform::phone::{Note, PhoneEvent, SendOutcome};
+use carrova_platform::phone::{
+    CallKind, CallRecord, CallState, Cursor, Note, PhoneEvent, SendOutcome, SmsMessage,
+};
 
 use super::recording::Recording;
 
@@ -36,6 +40,11 @@ fn events_buffer_until_watched_and_stop_on_drop() {
         .watch_phone_events(Box::new(move |e| sink.lock().unwrap().push(e)))
         .unwrap();
     p.script_event(PhoneEvent::Dropped { count: 2 });
+    // The buffered event is replayed on another thread: wait for both.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while seen.lock().unwrap().len() < 2 && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(5));
+    }
     drop(watch);
     p.script_event(PhoneEvent::Dropped { count: 3 });
     assert_eq!(
@@ -65,4 +74,91 @@ fn scripted_answers_and_content_free_actions() {
             .iter()
             .all(|a| !a.contains("secret") && !a.contains("555"))
     );
+}
+
+/// Pages through `fetch` (limit 50) until a short page; every id once each.
+fn page_all(fetch: impl Fn(Option<Cursor>) -> Vec<Cursor>) -> Vec<i64> {
+    let mut ids = Vec::new();
+    let mut before = None;
+    loop {
+        let page = fetch(before);
+        ids.extend(page.iter().map(|c| c.id));
+        if page.len() < 50 {
+            break;
+        }
+        before = page.last().copied();
+    }
+    ids.sort_unstable();
+    ids
+}
+
+#[test]
+fn paging_with_equal_timestamps_is_complete() {
+    let p = recording();
+    for id in 0..51 {
+        p.phone().messages.push(SmsMessage {
+            id,
+            thread_id: 7,
+            outgoing: false,
+            text: String::new(),
+            when_ms: 1_000,
+        });
+        p.phone().history.push(CallRecord {
+            id,
+            number: String::new(),
+            name: None,
+            when_ms: 1_000,
+            duration_s: 0,
+            kind: CallKind::Incoming,
+        });
+    }
+    let all: Vec<i64> = (0..51).collect();
+    let sms = page_all(|before| {
+        let page = p.sms_thread(7, before, 50).unwrap();
+        page.iter()
+            .map(|m| Cursor {
+                when_ms: m.when_ms,
+                id: m.id,
+            })
+            .collect()
+    });
+    assert_eq!(sms, all);
+    let calls = page_all(|before| {
+        let page = p.call_history(before, 50).unwrap();
+        page.iter()
+            .map(|c| Cursor {
+                when_ms: c.when_ms,
+                id: c.id,
+            })
+            .collect()
+    });
+    assert_eq!(calls, all);
+}
+
+#[test]
+fn call_state_is_scripted() {
+    let p = recording();
+    assert_eq!(p.call_state().unwrap(), CallState::Idle);
+    p.phone().call = CallState::Ended { missed: true };
+    assert_eq!(p.call_state().unwrap(), CallState::Ended { missed: true });
+}
+
+#[test]
+fn replay_runs_off_the_registering_thread() {
+    // A supervisor holding its own lock across watch_phone_events, whose
+    // callback takes that lock, must not deadlock on buffered events.
+    let p = recording();
+    p.script_event(PhoneEvent::Dropped { count: 1 });
+    let state = Arc::new(Mutex::new(0));
+    let held = state.lock().unwrap();
+    let cb_state = Arc::clone(&state);
+    let _watch = p
+        .watch_phone_events(Box::new(move |_| *cb_state.lock().unwrap() += 1))
+        .unwrap();
+    drop(held);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while *state.lock().unwrap() == 0 && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(5));
+    }
+    assert_eq!(*state.lock().unwrap(), 1);
 }

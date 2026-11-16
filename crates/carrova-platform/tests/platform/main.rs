@@ -122,6 +122,7 @@ fn phase2_defaults_unsupported() {
     unsupported!(p.call_dial("1"), "call_dial");
     unsupported!(p.call_speaker(true), "call_speaker");
     unsupported!(p.call_history(None, 10), "call_history");
+    unsupported!(p.call_state(), "call_state");
     unsupported!(p.phone_perm(perm), "phone_perm");
     unsupported!(p.open_perm_settings(perm), "open_perm_settings");
     unsupported!(p.call_audio_status(), "call_audio_status");

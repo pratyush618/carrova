@@ -13,8 +13,8 @@ use std::time::Duration;
 
 use carrova_platform::fake::FakePlatform;
 use carrova_platform::phone::{
-    AudioSide, CallAudioStatus, CallRecord, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch,
-    SendOutcome, SmsMessage, SmsThread,
+    AudioSide, CallAudioStatus, CallRecord, CallState, Cursor, Note, PermState, PhoneEvent,
+    PhonePerm, PhoneWatch, SendOutcome, SmsMessage, SmsThread,
 };
 use carrova_platform::{
     ClipContent, ClipboardWatch, DirEntry, DirWatch, FileLock, FileMeta, LanInterface, LinkNotice,
@@ -53,6 +53,8 @@ pub struct Phone {
     /// Permissions not listed are granted.
     pub perms: Vec<(PhonePerm, PermState)>,
     pub audio: CallAudioStatus,
+    /// What `call_state` reports.
+    pub call: CallState,
     /// Method names and ids of every phone call made, never content.
     actions: Vec<String>,
 }
@@ -67,6 +69,7 @@ impl Default for Phone {
             send_outcome: SendOutcome::Sent,
             perms: Vec::new(),
             audio: CallAudioStatus::Ready,
+            call: CallState::Idle,
             actions: Vec::new(),
         }
     }
@@ -77,6 +80,8 @@ impl Default for Phone {
 struct Events {
     on_event: Option<Box<dyn Fn(PhoneEvent) + Send>>,
     pending: Vec<PhoneEvent>,
+    /// Bumped by each watch and its drop, so a stale replay does nothing.
+    generation: u64,
 }
 
 impl fmt::Debug for Events {
@@ -92,17 +97,17 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-/// Newest first, `when_ms` before `before_ms`, at most `limit`.
+/// Newest first by `(when_ms, id)`, strictly before `before`, at most `limit`.
 fn page<T: Clone>(
     items: impl Iterator<Item = T>,
-    when: impl Fn(&T) -> i64,
-    before_ms: Option<i64>,
+    key: impl Fn(&T) -> Cursor,
+    before: Option<Cursor>,
     limit: usize,
 ) -> Vec<T> {
     let mut out: Vec<T> = items
-        .filter(|t| before_ms.is_none_or(|b| when(t) < b))
+        .filter(|t| before.is_none_or(|b| key(t) < b))
         .collect();
-    out.sort_by_key(|t| std::cmp::Reverse(when(t)));
+    out.sort_by_key(|t| std::cmp::Reverse(key(t)));
     out.truncate(limit);
     out
 }
@@ -321,13 +326,30 @@ impl Platform for Recording {
         on_event: Box<dyn Fn(PhoneEvent) + Send>,
     ) -> Result<PhoneWatch, PlatformError> {
         self.record_action("watch_phone_events")?;
-        let mut events = lock(&self.events);
-        for event in std::mem::take(&mut events.pending) {
-            on_event(event);
-        }
-        events.on_event = Some(on_event);
+        let generation = {
+            let mut events = lock(&self.events);
+            events.generation += 1;
+            events.generation
+        };
+        // Replay off the caller's thread: a supervisor may hold its own lock
+        // across this call, and its callback may need that lock.
+        let replay = Arc::clone(&self.events);
+        std::thread::spawn(move || {
+            let mut events = lock(&replay);
+            if events.generation != generation {
+                return; // dropped (or re-registered) before the replay ran
+            }
+            for event in std::mem::take(&mut events.pending) {
+                on_event(event);
+            }
+            events.on_event = Some(on_event);
+        });
         let events = Arc::clone(&self.events);
-        Ok(PhoneWatch::new(move || lock(&events).on_event = None))
+        Ok(PhoneWatch::new(move || {
+            let mut events = lock(&events);
+            events.generation += 1;
+            events.on_event = None;
+        }))
     }
     fn active_notes(&self) -> Result<Vec<Note>, PlatformError> {
         Ok(self.act("active_notes".into()).notes.clone())
@@ -347,7 +369,7 @@ impl Platform for Recording {
     }
     fn sms_threads(
         &self,
-        before_ms: Option<i64>,
+        before: Option<Cursor>,
         limit: usize,
         since_ms: Option<i64>,
     ) -> Result<Vec<SmsThread>, PlatformError> {
@@ -357,17 +379,33 @@ impl Platform for Recording {
             .iter()
             .filter(|t| since_ms.is_none_or(|s| t.when_ms > s))
             .cloned();
-        Ok(page(fresh, |t| t.when_ms, before_ms, limit))
+        Ok(page(
+            fresh,
+            |t| Cursor {
+                when_ms: t.when_ms,
+                id: t.id,
+            },
+            before,
+            limit,
+        ))
     }
     fn sms_thread(
         &self,
         id: i64,
-        before_ms: Option<i64>,
+        before: Option<Cursor>,
         limit: usize,
     ) -> Result<Vec<SmsMessage>, PlatformError> {
         let phone = self.act(format!("sms_thread {id}"));
         let thread = phone.messages.iter().filter(|m| m.thread_id == id).cloned();
-        Ok(page(thread, |m| m.when_ms, before_ms, limit))
+        Ok(page(
+            thread,
+            |m| Cursor {
+                when_ms: m.when_ms,
+                id: m.id,
+            },
+            before,
+            limit,
+        ))
     }
     fn sms_send(&self, _to: &str, _text: &str) -> Result<SendOutcome, PlatformError> {
         Ok(self.act("sms_send".into()).send_outcome)
@@ -392,16 +430,22 @@ impl Platform for Recording {
     }
     fn call_history(
         &self,
-        before_ms: Option<i64>,
+        before: Option<Cursor>,
         limit: usize,
     ) -> Result<Vec<CallRecord>, PlatformError> {
         let phone = self.act("call_history".into());
         Ok(page(
             phone.history.iter().cloned(),
-            |c| c.when_ms,
-            before_ms,
+            |c| Cursor {
+                when_ms: c.when_ms,
+                id: c.id,
+            },
+            before,
             limit,
         ))
+    }
+    fn call_state(&self) -> Result<CallState, PlatformError> {
+        Ok(self.act("call_state".into()).call.clone())
     }
     fn phone_perm(&self, p: PhonePerm) -> Result<PermState, PlatformError> {
         let phone = self.act(format!("phone_perm {p:?}"));
