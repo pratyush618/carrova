@@ -183,7 +183,8 @@ pub enum PhoneEvent {
     /// The call state changed.
     Call(CallState),
     /// The phone's event queue overflowed and dropped `count` events;
-    /// the receiver resends its snapshot.
+    /// the receiver resends its snapshot. `count` 0: nothing was lost,
+    /// but the last snapshot is stale (notification access was granted).
     Dropped {
         /// Events lost.
         count: u32,
