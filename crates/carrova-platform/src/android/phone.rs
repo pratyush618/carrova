@@ -11,8 +11,8 @@ use ::jni::objects::{JString, JValue, JValueOwned};
 use super::{events, files, jni};
 use crate::PlatformError;
 use crate::phone::{
-    CallRecord, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch, SendOutcome, SmsMessage,
-    SmsThread,
+    CallRecord, CallState, Cursor, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch, SendOutcome,
+    SmsMessage, SmsThread,
 };
 
 const STRING: &str = "Ljava/lang/String;";
@@ -75,10 +75,14 @@ fn text(
     glue(call, class, method, args, STRING, files::string)
 }
 
-/// An exclusive page bound as the glue takes it: `(date, id)` pairs before
-/// `(ms, id)` (`id` `i64::MIN`: strictly before `ms`); none is the end of time.
-fn before(ms: Option<i64>) -> [Arg<'static>; 2] {
-    [Arg::Long(ms.unwrap_or(i64::MAX)), Arg::Long(i64::MIN)]
+/// An exclusive page bound as the glue takes it: rows before `(date, id)`;
+/// none is the end of time.
+fn page_bound(cursor: Option<Cursor>) -> [Arg<'static>; 2] {
+    let cursor = cursor.unwrap_or(Cursor {
+        when_ms: i64::MAX,
+        id: i64::MIN,
+    });
+    [Arg::Long(cursor.when_ms), Arg::Long(cursor.id)]
 }
 
 fn limit(limit: usize) -> Arg<'static> {
@@ -213,11 +217,11 @@ pub(super) fn note_open(key: &str) -> Result<(), PlatformError> {
 // ---- SMS ----
 
 pub(super) fn sms_threads(
-    before_ms: Option<i64>,
+    before: Option<Cursor>,
     max: usize,
     since_ms: Option<i64>,
 ) -> Result<Vec<SmsThread>, PlatformError> {
-    let [ms, id] = before(before_ms);
+    let [ms, id] = page_bound(before);
     let args = [ms, id, limit(max), Arg::Long(since_ms.unwrap_or(i64::MIN))];
     let json = text("Sms.threads", "Sms", "threads", &args)?;
     events::list("Sms.threads", &json)
@@ -225,10 +229,10 @@ pub(super) fn sms_threads(
 
 pub(super) fn sms_thread(
     id: i64,
-    before_ms: Option<i64>,
+    before: Option<Cursor>,
     max: usize,
 ) -> Result<Vec<SmsMessage>, PlatformError> {
-    let [ms, from] = before(before_ms);
+    let [ms, from] = page_bound(before);
     let args = [Arg::Long(id), ms, from, limit(max)];
     let json = text("Sms.thread", "Sms", "thread", &args)?;
     events::list("Sms.thread", &json)
@@ -274,12 +278,17 @@ pub(super) fn call_speaker(on: bool) -> Result<(), PlatformError> {
 }
 
 pub(super) fn call_history(
-    before_ms: Option<i64>,
+    before: Option<Cursor>,
     max: usize,
 ) -> Result<Vec<CallRecord>, PlatformError> {
-    let [ms, id] = before(before_ms);
+    let [ms, id] = page_bound(before);
     let json = text("Calls.history", "Calls", "history", &[ms, id, limit(max)])?;
     events::list("Calls.history", &json)
+}
+
+/// The call now: ringing, active or idle.
+pub(super) fn call_state() -> Result<CallState, PlatformError> {
+    events::call_state(&text("Calls.state", "Calls", "state", &[])?)
 }
 
 // ---- permissions ----
