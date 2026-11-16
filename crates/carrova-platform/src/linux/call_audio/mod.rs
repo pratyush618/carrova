@@ -162,7 +162,8 @@ pub(super) fn audio_to(side: AudioSide) -> Result<(), PlatformError> {
         .ok_or(PlatformError::Unsupported("call_audio_to: no paired phone"))?;
     match side {
         // shortcut: verify in S4 that Android takes the call back to its
-        // earpiece when the hands-free link drops.
+        // earpiece when the hands-free link drops. A link already down
+        // counts as done: the audio is on the phone either way.
         AudioSide::Phone => bluez::profile(&conn, &device, false),
         // Only oFono's audio agent (PipeWire) may ask for the audio link
         // (`HandsfreeAudioCard.Connect`), and PipeWire shows the phone's
@@ -171,7 +172,9 @@ pub(super) fn audio_to(side: AudioSide) -> Result<(), PlatformError> {
         // (re)connects during a call; a link that is up without audio is
         // dropped first.
         // shortcut: unverified on hardware until spike S4, that Android
-        // routes the active call to the hands-free unit on reconnect.
+        // routes the active call to the hands-free unit on reconnect, and
+        // that one retry on BlueZ InProgress (`bluez::profile`) covers the
+        // link still tearing down.
         AudioSide::Laptop => {
             // Unlike `audio_side`, an unreadable graph is no error here: it
             // counts as "no node", and the link is reconnected.

@@ -185,7 +185,32 @@ pub(super) fn phone(conn: &Connection) -> zbus::Result<Option<(OwnedObjectPath, 
     Ok(Some((OwnedObjectPath::try_from(path)?, address.to_owned())))
 }
 
-/// Bring the hands-free link to the phone up (`connect`) or down.
+/// How BlueZ answered a link change.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Answer {
+    Done,
+    /// Still busy with the last change (e.g. a disconnect being torn down).
+    Retry,
+    Failed,
+}
+
+/// The answer to `connect` (or disconnect) ending with D-Bus `error`
+/// (`None`: success). A link already down is a done disconnect.
+pub(crate) fn answer(connect: bool, error: Option<&str>) -> Answer {
+    match error {
+        None => Answer::Done,
+        Some("org.bluez.Error.NotConnected") if !connect => Answer::Done,
+        Some("org.bluez.Error.InProgress") => Answer::Retry,
+        Some(_) => Answer::Failed,
+    }
+}
+
+/// Pause before the one retry of a link change BlueZ is still busy with.
+const SETTLE: Duration = Duration::from_millis(500);
+
+/// Bring the hands-free link to the phone up (`connect`) or down, once
+/// more after [`SETTLE`] if BlueZ is still busy.
+// shortcut: one retry after 500 ms is a guess; tune it in spike S4.
 pub(super) fn profile(
     conn: &Connection,
     device: &OwnedObjectPath,
@@ -196,9 +221,24 @@ pub(super) fn profile(
     } else {
         "DisconnectProfile"
     };
-    conn.call_method(Some(SERVICE), device, Some(DEVICE), method, &HFP_AG)
-        .map(drop)
-        .map_err(|e| bus_err(SERVICE, e))
+    let call = || {
+        conn.call_method(Some(SERVICE), device, Some(DEVICE), method, &HFP_AG)
+            .map(drop)
+    };
+    let name = |r: &zbus::Result<()>| match r {
+        Ok(()) => None,
+        Err(zbus::Error::MethodError(name, _, _)) => Some(name.to_string()),
+        Err(_) => Some(String::new()),
+    };
+    let mut result = call();
+    if answer(connect, name(&result).as_deref()) == Answer::Retry {
+        thread::sleep(SETTLE);
+        result = call();
+    }
+    match answer(connect, name(&result).as_deref()) {
+        Answer::Done => Ok(()),
+        Answer::Retry | Answer::Failed => result.map_err(|e| bus_err(SERVICE, e)),
+    }
 }
 
 /// The BlueZ agent: shows the passkey for the device being paired, rejects

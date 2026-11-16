@@ -1,4 +1,4 @@
-use super::bluez::{Seen, linked_phone, on_adapter, pair_target};
+use super::bluez::{Answer, Seen, answer, linked_phone, on_adapter, pair_target};
 use super::ofono::{card_for, live, tone_modem};
 use super::packagekit::{Outcome, outcome, supported_os};
 use super::pipewire::hands_free_up;
@@ -255,4 +255,25 @@ fn audio_moves_here_only_during_a_call() {
     assert_eq!(to_laptop(false, Some(false)), ToLaptop::NoCall);
     // Link down: oFono cannot see calls, so bring it up.
     assert_eq!(to_laptop(false, None), ToLaptop::Connect);
+}
+
+#[test]
+fn link_changes_tolerate_bluez_races() {
+    assert_eq!(answer(true, None), Answer::Done);
+    // Already down: the audio is on the phone, so the disconnect is done.
+    assert_eq!(
+        answer(false, Some("org.bluez.Error.NotConnected")),
+        Answer::Done
+    );
+    assert_eq!(
+        answer(true, Some("org.bluez.Error.NotConnected")),
+        Answer::Failed
+    );
+    // Still busy (e.g. tearing the link down): try once more.
+    assert_eq!(
+        answer(true, Some("org.bluez.Error.InProgress")),
+        Answer::Retry
+    );
+    assert_eq!(answer(true, Some("org.bluez.Error.Failed")), Answer::Failed);
+    assert_eq!(answer(false, Some("")), Answer::Failed);
 }
