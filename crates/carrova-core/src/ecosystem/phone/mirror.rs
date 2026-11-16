@@ -112,11 +112,7 @@ impl Mirror {
     ) -> Vec<Feature> {
         MIRRORED
             .into_iter()
-            .filter(|&f| {
-                let off = local.get(f) == FeatureState::Off
-                    || remote.is_some_and(|r| allowed(local, r, f) != FeatureState::On);
-                off && self.clear(f)
-            })
+            .filter(|&f| off(local, remote, f) && self.clear(f))
             .collect()
     }
 
@@ -300,6 +296,13 @@ fn is_stored_copy(p: &SmsMessage, row: &SmsMessage) -> bool {
         && row.when_ms.abs_diff(p.when_ms) <= STORED_SLACK_MS
 }
 
+/// Whether `feature` is off for a phone: here (`local`), or on both sides
+/// once the phone's policy (`remote`) arrived.
+fn off(local: &PolicyDoc, remote: Option<&PolicyDoc>, feature: Feature) -> bool {
+    local.get(feature) == FeatureState::Off
+        || remote.is_some_and(|r| allowed(local, r, feature) != FeatureState::On)
+}
+
 fn cursor(m: &SmsMessage) -> Cursor {
     Cursor {
         when_ms: m.when_ms,
@@ -345,8 +348,8 @@ pub(crate) fn cleared(shared: &Shared, device: DeviceId, features: Vec<Feature>)
 }
 
 /// Run `f` on the mirror of `device`'s link `generation`, if that link is
-/// still live and `feature` is not off here (it may have been turned off
-/// since the lane was admitted).
+/// still live and `feature` is still allowed on both sides (either may
+/// have turned it off since the lane was admitted).
 fn with_mirror<T>(
     shared: &Shared,
     device: DeviceId,
@@ -356,10 +359,10 @@ fn with_mirror<T>(
 ) -> Option<T> {
     let mut peers = shared.peers();
     let peer = peers.iter_mut().find(|p| p.id() == device)?;
-    if peer.local.get(feature) == FeatureState::Off {
+    let link = peer.link.as_mut().filter(|l| l.generation == generation)?;
+    if off(&peer.local, link.remote.as_ref(), feature) {
         return None;
     }
-    let link = peer.link.as_mut().filter(|l| l.generation == generation)?;
     Some(f(&mut link.mirror))
 }
 
