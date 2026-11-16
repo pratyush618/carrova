@@ -225,7 +225,8 @@ pub enum Event {
         device: DeviceId,
         message: SmsMessage,
     },
-    /// A linked phone's call changed.
+    /// A linked phone's call changed, as the phone reports it. Front-ends
+    /// render [`Event::CallView`] instead.
     PhoneCall {
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         device: DeviceId,

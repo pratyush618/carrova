@@ -16,6 +16,8 @@ number: string,
 name: string | null, 
 /**
  * Ring here too ("Ring on this computer"), not only show it.
+ * Decided when the phone reports the ringing, not again as the
+ * screen locks or unlocks.
  */
 ring_here: boolean, } | { "kind": "active", device: string, 
 /**

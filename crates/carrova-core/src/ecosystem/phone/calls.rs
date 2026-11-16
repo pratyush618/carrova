@@ -41,6 +41,8 @@ pub enum CallView {
         /// Caller's contact name, resolved on the phone.
         name: Option<String>,
         /// Ring here too ("Ring on this computer"), not only show it.
+        /// Decided when the phone reports the ringing, not again as the
+        /// screen locks or unlocks.
         ring_here: bool,
     },
     /// A call is in progress.
@@ -54,7 +56,9 @@ pub enum CallView {
         /// Where its audio plays now.
         audio: AudioSide,
     },
-    /// The ringing call ended unanswered.
+    /// The ringing call ended unanswered. Needs the ringing held in
+    /// memory: a link replaced between the ringing and its end shows no
+    /// missed call.
     Missed {
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         device: DeviceId,
