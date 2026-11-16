@@ -36,6 +36,56 @@ describe('the Tauri port', () => {
     ]);
   });
 
+  it('sends the linked-phone commands with their arguments by name', async () => {
+    const calls: [string, unknown][] = [];
+    mockIPC((command, args) => {
+      calls.push([command, args]);
+      return null;
+    });
+    const port = createTauriPort();
+    const clock = { now_ms: 1_000, utc_offset_min: 60 };
+    const before = { when_ms: 5, id: 7 };
+    await port.phoneNotes('p8');
+    await port.phoneNoteAction('p8', { kind: 'dismiss', key: 'k' });
+    await port.phoneThreads('p8', null, [], clock);
+    await port.phoneThread('p8', 3, before);
+    await port.sendSms('p8', '+15550101', 'hi', 42);
+    await port.phoneCall('p8', { kind: 'mute', on: true });
+    await port.callHistory('p8', before, clock);
+    await port.callWindow({ kind: 'none' }, 9);
+    await port.phoneSettings();
+    await port.setPhoneSettings({
+      ring_here: 'never',
+      only_while_active: false,
+      show_when_locked: false,
+    });
+    await port.callAudioStep();
+    await port.installCallAudio();
+    await port.setCallAudioConfig(false);
+    await port.phonePermStep('sms');
+    await port.openPermSettings('notification_access');
+    expect(calls).toEqual([
+      ['phone_notes', { id: 'p8' }],
+      ['phone_note_action', { id: 'p8', action: { kind: 'dismiss', key: 'k' } }],
+      ['phone_threads', { id: 'p8', before: null, incoming: [], clock }],
+      ['phone_thread', { id: 'p8', thread: 3, before }],
+      ['send_sms', { id: 'p8', to: '+15550101', text: 'hi', clientId: 42 }],
+      ['phone_call', { id: 'p8', action: { kind: 'mute', on: true } }],
+      ['call_history', { id: 'p8', before, clock }],
+      ['call_window', { view: { kind: 'none' }, nowMs: 9 }],
+      ['phone_settings', {}],
+      [
+        'set_phone_settings',
+        { settings: { ring_here: 'never', only_while_active: false, show_when_locked: false } },
+      ],
+      ['call_audio_step', {}],
+      ['install_call_audio', {}],
+      ['set_call_audio_config', { on: false }],
+      ['phone_perm_step', { perm: 'sms' }],
+      ['open_perm_settings', { perm: 'notification_access' }],
+    ]);
+  });
+
   it('asks the phone commands by name: LAN, QR scan and opened links', async () => {
     const calls: string[] = [];
     mockIPC((command) => {

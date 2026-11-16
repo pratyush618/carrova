@@ -111,6 +111,23 @@ export function createTauriPort(): CarrovaPort {
     setClipSettings: (settings) => call('set_clip_settings', { settings }),
     retryFile: (id) => call('retry_file', { id }),
 
+    phoneNotes: (id) => call('phone_notes', { id }),
+    phoneNoteAction: (id, action) => call('phone_note_action', { id, action }),
+    phoneThreads: (id, before, incoming, clock) =>
+      call('phone_threads', { id, before, incoming, clock }),
+    phoneThread: (id, thread, before) => call('phone_thread', { id, thread, before }),
+    sendSms: (id, to, text, clientId) => call('send_sms', { id, to, text, clientId }),
+    phoneCall: (id, action) => call('phone_call', { id, action }),
+    callHistory: (id, before, clock) => call('call_history', { id, before, clock }),
+    callWindow: (view, nowMs) => call('call_window', { view, nowMs }),
+    phoneSettings: () => call('phone_settings'),
+    setPhoneSettings: (settings) => call('set_phone_settings', { settings }),
+    callAudioStep: () => call('call_audio_step'),
+    installCallAudio: () => call('install_call_audio'),
+    setCallAudioConfig: (on) => call('set_call_audio_config', { on }),
+    phonePermStep: (perm) => call('phone_perm_step', { perm }),
+    openPermSettings: (perm) => call('open_perm_settings', { perm }),
+
     notices: () => call('notices'),
     markNoticesRead: (ids) => call('mark_notices_read', { ids: ids === 'all' ? null : ids }),
 

@@ -18,6 +18,7 @@ import { bridgeError, raise } from '../reject';
 import { fakeDevices } from './devices';
 import { fakeEcosystem } from './ecosystem';
 import * as fx from './fixtures';
+import { fakePhone } from './phone';
 import { FakeReceiver } from './receive';
 import { later, realSleep, Runtime, type Sleep } from './runtime';
 import type { Scenario } from './scenario';
@@ -184,6 +185,7 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
         unlink(which);
       }),
     ...ecosystem,
+    ...fakePhone(),
 
     cancel: (session) =>
       later(() => {

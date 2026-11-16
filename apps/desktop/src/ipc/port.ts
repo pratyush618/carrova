@@ -17,6 +17,24 @@ import type { AskId } from '../bindings/AskId';
 import type { ArchiveSummary } from '../bindings/ArchiveSummary';
 import type { BackgroundSettings } from '../bindings/BackgroundSettings';
 import type { BridgeEvent } from '../bindings/BridgeEvent';
+import type { CallAction } from '../bindings/CallAction';
+import type { CallLogView } from '../bindings/CallLogView';
+import type { CallOutcome } from '../bindings/CallOutcome';
+import type { CallSetupStep } from '../bindings/CallSetupStep';
+import type { CallView } from '../bindings/CallView';
+import type { CallWindowView } from '../bindings/CallWindowView';
+import type { Cursor } from '../bindings/Cursor';
+import type { LocalClock } from '../bindings/LocalClock';
+import type { NoteAction } from '../bindings/NoteAction';
+import type { NoteOutcome } from '../bindings/NoteOutcome';
+import type { NotesView } from '../bindings/NotesView';
+import type { PermStep } from '../bindings/PermStep';
+import type { PhonePerm } from '../bindings/PhonePerm';
+import type { PhoneSettings } from '../bindings/PhoneSettings';
+import type { SmsMessage } from '../bindings/SmsMessage';
+import type { SmsSendOutcome } from '../bindings/SmsSendOutcome';
+import type { ThreadView } from '../bindings/ThreadView';
+import type { ThreadsView } from '../bindings/ThreadsView';
 import type { CatalogEntry } from '../bindings/CatalogEntry';
 import type { ClipHistoryView } from '../bindings/ClipHistoryView';
 import type { ClipSettings } from '../bindings/ClipSettings';
@@ -254,6 +272,46 @@ export interface CarrovaPort {
   setClipSettings(settings: ClipSettings): Promise<void>;
   /** Send file `id` again, from the start: one whose device left (`file_failed` with `retry`). */
   retryFile(id: number): Promise<void>;
+
+  // --- A linked phone on this computer (memory only; events on `link`) ---
+  /** The notifications phone `id` shows: only a count while this computer is locked. */
+  phoneNotes(id: string): Promise<NotesView>;
+  /** Reply to, dismiss or open one of them on the phone. */
+  phoneNoteAction(id: string, action: NoteAction): Promise<NoteOutcome>;
+  /**
+   * A page of conversations after `before` (`null`: the newest), with the
+   * provisional texts (`phone_sms` with `id` 0) the UI holds on top of their
+   * threads, days counted on `clock`.
+   */
+  phoneThreads(
+    id: string,
+    before: Cursor | null,
+    incoming: SmsMessage[],
+    clock: LocalClock,
+  ): Promise<ThreadsView>;
+  /** A page of conversation `thread` after `before` (`null`: the newest), oldest first. */
+  phoneThread(id: string, thread: number, before: Cursor | null): Promise<ThreadView>;
+  /** Text `to` from the phone; sent at most once per `clientId` (`unknown`: check the phone before resending). */
+  sendSms(id: string, to: string, text: string, clientId: number): Promise<SmsSendOutcome>;
+  /** Answer, decline, end, mute, dial, keypad tones or move the audio of the phone's call. */
+  phoneCall(id: string, action: CallAction): Promise<CallOutcome>;
+  /** A page of the phone's call log after `before` (`null`: the newest), by day on `clock`. */
+  callHistory(id: string, before: Cursor | null, clock: LocalClock): Promise<CallLogView>;
+  /** What the call windows show of `view` (`call_view` event) at `nowMs` (timer). */
+  callWindow(view: CallView, nowMs: number): Promise<CallWindowView>;
+  /** How a linked phone shows here (Settings → Calls and Bluetooth). */
+  phoneSettings(): Promise<PhoneSettings>;
+  setPhoneSettings(settings: PhoneSettings): Promise<void>;
+  /** The call-audio setup screen this computer's Bluetooth state calls for. */
+  callAudioStep(): Promise<CallSetupStep>;
+  /** Install the package call audio needs (the OS asks for the password; can take minutes). */
+  installCallAudio(): Promise<void>;
+  /** Turn this computer's hands-free role on, or off ("Set up again", audio off); only after the user agreed. */
+  setCallAudioConfig(on: boolean): Promise<void>;
+  /** On the phone: the step to show for permission `perm`. */
+  phonePermStep(perm: PhonePerm): Promise<PermStep>;
+  /** On the phone: open the settings page that grants `perm`. */
+  openPermSettings(perm: PhonePerm): Promise<void>;
 
   // --- Notifications ------------------------------------------------------
   /** The bell's notices (kept 30 days), newest first. */
