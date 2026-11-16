@@ -612,5 +612,5 @@ Real hardware (user): Ubuntu 24.04 laptop + Android 13+ phone, plus a second Ubu
 - [ ] Android emulator smoke (controller)
 
 Notes
-- `just e2e --link` drives the real CLI as the joining computer; the other computer is the test-only example `apps/cli/examples/link_host.rs` (the CLI never offers a pair code, answers an ask or announces itself on the LAN). Clipboard and Handoff are covered by in-process tests only.
-- Open product question: `carrova link serve` does not announce presence, so two CLI-only computers link only when the one that dials (lower device key) can see the other's advert. Needs a decision before CLI-to-CLI links are advertised as working.
+- `just e2e --link` drives the real CLI as the joining computer; the other computer is the test-only example `apps/cli/examples/link_host.rs` (the CLI never offers a pair code or answers an ask). Clipboard and Handoff are covered by in-process tests only.
+- Decision: `carrova link serve` announces presence (user, 2026-11-16), under the saved visibility; so two CLI-only computers link either key order. `just e2e --link` covers it (the guest runs the real `link serve`).
