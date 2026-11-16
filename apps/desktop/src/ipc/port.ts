@@ -28,11 +28,13 @@ import type { LocalClock } from '../bindings/LocalClock';
 import type { NoteAction } from '../bindings/NoteAction';
 import type { NoteOutcome } from '../bindings/NoteOutcome';
 import type { NotesView } from '../bindings/NotesView';
+import type { NotifyAppsView } from '../bindings/NotifyAppsView';
 import type { PermStep } from '../bindings/PermStep';
 import type { PhonePerm } from '../bindings/PhonePerm';
 import type { PhoneSettings } from '../bindings/PhoneSettings';
 import type { SmsMessage } from '../bindings/SmsMessage';
 import type { SmsSendOutcome } from '../bindings/SmsSendOutcome';
+import type { SyncWindow } from '../bindings/SyncWindow';
 import type { ThreadView } from '../bindings/ThreadView';
 import type { ThreadsView } from '../bindings/ThreadsView';
 import type { CatalogEntry } from '../bindings/CatalogEntry';
@@ -312,6 +314,15 @@ export interface CarrovaPort {
   phonePermStep(perm: PhonePerm): Promise<PermStep>;
   /** On the phone: open the settings page that grants `perm`. */
   openPermSettings(perm: PhonePerm): Promise<void>;
+  /** On the phone: which apps' notifications reach the linked computers, and the two filters. */
+  notifyApps(): Promise<NotifyAppsView>;
+  /** On the phone: turn app `appId`'s notifications on or off. */
+  setNotifyApp(appId: string, on: boolean): Promise<void>;
+  /** On the phone: hide one-time codes, show message text. */
+  setNotifyFilters(hideCodes: boolean, showText: boolean): Promise<void>;
+  /** On the phone: how far back texts reach the linked computers ("Keep in sync"). */
+  messagesSync(): Promise<SyncWindow>;
+  setMessagesSync(keep: SyncWindow): Promise<void>;
 
   // --- Notifications ------------------------------------------------------
   /** The bell's notices (kept 30 days), newest first. */

@@ -127,6 +127,11 @@ export function createTauriPort(): CarrovaPort {
     setCallAudioConfig: (on) => call('set_call_audio_config', { on }),
     phonePermStep: (perm) => call('phone_perm_step', { perm }),
     openPermSettings: (perm) => call('open_perm_settings', { perm }),
+    notifyApps: () => call('notify_apps'),
+    setNotifyApp: (appId, on) => call('set_notify_app', { appId, on }),
+    setNotifyFilters: (hideCodes, showText) => call('set_notify_filters', { hideCodes, showText }),
+    messagesSync: () => call('messages_sync'),
+    setMessagesSync: (keep) => call('set_messages_sync', { keep }),
 
     notices: () => call('notices'),
     markNoticesRead: (ids) => call('mark_notices_read', { ids: ids === 'all' ? null : ids }),
