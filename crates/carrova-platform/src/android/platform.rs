@@ -13,8 +13,8 @@ use std::time::Duration;
 use super::files::{self, MediaStoreSink};
 use super::{clipboard, net, phone, ring, scan, service};
 use crate::phone::{
-    CallRecord, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch, SendOutcome, SmsMessage,
-    SmsThread,
+    CallRecord, CallState, Cursor, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch, SendOutcome,
+    SmsMessage, SmsThread,
 };
 use crate::sys;
 use crate::{
@@ -297,20 +297,20 @@ impl Platform for AndroidPlatform {
 
     fn sms_threads(
         &self,
-        before_ms: Option<i64>,
+        before: Option<Cursor>,
         limit: usize,
         since_ms: Option<i64>,
     ) -> Result<Vec<SmsThread>, PlatformError> {
-        phone::sms_threads(before_ms, limit, since_ms)
+        phone::sms_threads(before, limit, since_ms)
     }
 
     fn sms_thread(
         &self,
         id: i64,
-        before_ms: Option<i64>,
+        before: Option<Cursor>,
         limit: usize,
     ) -> Result<Vec<SmsMessage>, PlatformError> {
-        phone::sms_thread(id, before_ms, limit)
+        phone::sms_thread(id, before, limit)
     }
 
     fn sms_send(&self, to: &str, text: &str) -> Result<SendOutcome, PlatformError> {
@@ -343,10 +343,14 @@ impl Platform for AndroidPlatform {
 
     fn call_history(
         &self,
-        before_ms: Option<i64>,
+        before: Option<Cursor>,
         limit: usize,
     ) -> Result<Vec<CallRecord>, PlatformError> {
-        phone::call_history(before_ms, limit)
+        phone::call_history(before, limit)
+    }
+
+    fn call_state(&self) -> Result<CallState, PlatformError> {
+        phone::call_state()
     }
 
     fn phone_perm(&self, p: PhonePerm) -> Result<PermState, PlatformError> {

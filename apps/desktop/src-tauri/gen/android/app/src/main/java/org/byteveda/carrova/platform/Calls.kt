@@ -25,6 +25,33 @@ import org.json.JSONObject
 object Calls {
     private var listener: StateListener? = null
 
+    /** What only the listener learns: the ringing number, when the call was answered. */
+    @Volatile
+    private var ringingNumber: String? = null
+
+    @Volatile
+    private var activeSince: Long? = null
+
+    /** The call now, in the event format: ringing, active or idle. */
+    @JvmStatic
+    fun state(context: Context): String {
+        val event = JSONObject()
+        when (context.getSystemService(TelephonyManager::class.java).callState) {
+            TelephonyManager.CALL_STATE_RINGING -> {
+                val number = ringingNumber ?: ""
+                event.put("type", "call_ringing").put("number", number)
+                    .put("name", Sms.contactName(context, number) ?: JSONObject.NULL)
+            }
+            TelephonyManager.CALL_STATE_OFFHOOK ->
+                event.put("type", "call_active")
+                    // Best effort: unknown when the call began before the listener.
+                    .put("since_ms", activeSince ?: System.currentTimeMillis())
+                    .put("muted", audio(context).isMicrophoneMute)
+            else -> event.put("type", "call_idle")
+        }
+        return event.toString()
+    }
+
     /** Report call state changes to [Events] ([on]) or stop; a replaced watch's [gen] does nothing. */
     @JvmStatic
     @Synchronized
@@ -130,15 +157,20 @@ object Calls {
                     ringing = true
                     answered = false
                     val caller = number ?: ""
+                    ringingNumber = caller
                     event.put("type", "call_ringing").put("number", caller)
                         .put("name", Sms.contactName(context, caller) ?: JSONObject.NULL)
                 }
                 TelephonyManager.CALL_STATE_OFFHOOK -> {
                     answered = true
-                    event.put("type", "call_active").put("since_ms", System.currentTimeMillis())
+                    val since = System.currentTimeMillis()
+                    activeSince = since
+                    event.put("type", "call_active").put("since_ms", since)
                         .put("muted", audio(context).isMicrophoneMute)
                 }
                 else -> {
+                    ringingNumber = null
+                    activeSince = null
                     // The first report on listening is the idle phone: nothing ended.
                     if (!ringing && !answered) return
                     event.put("type", "call_ended").put("missed", ringing && !answered)

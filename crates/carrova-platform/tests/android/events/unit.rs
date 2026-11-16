@@ -106,10 +106,40 @@ fn bad_json_is_error() {
 fn lists_parse_from_glue_json() {
     let calls: Vec<CallRecord> = list(
         "CallLog.query",
-        r#"[{"number":"+1","name":"Ann","when_ms":4,"duration_s":60,"kind":"declined"}]"#,
+        r#"[{"id":3,"number":"+1","name":"Ann","when_ms":4,"duration_s":60,"kind":"declined"}]"#,
     )
     .unwrap();
     assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].kind, CallKind::Declined);
+    assert_eq!((calls[0].id, calls[0].kind), (3, CallKind::Declined));
     assert!(list::<CallRecord>("CallLog.query", "[{}]").is_err());
+}
+
+#[test]
+fn call_state_reads_glue_json() {
+    assert_eq!(
+        call_state(r#"{"type":"call_idle"}"#).unwrap(),
+        CallState::Idle
+    );
+    assert_eq!(
+        call_state(r#"{"type":"call_ringing","number":"+1","name":"Ann"}"#).unwrap(),
+        CallState::Ringing {
+            number: "+1".into(),
+            name: Some("Ann".into()),
+        }
+    );
+    assert_eq!(
+        call_state(r#"{"type":"call_active","since_ms":8,"muted":false}"#).unwrap(),
+        CallState::Active {
+            since_ms: 8,
+            muted: false,
+            on_laptop_audio: false,
+        }
+    );
+    for not_a_state in [
+        r#"{"type":"note_removed","key":"k"}"#,
+        r#"{"type":"later"}"#,
+        "{",
+    ] {
+        assert!(call_state(not_a_state).is_err(), "{not_a_state}");
+    }
 }

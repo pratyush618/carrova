@@ -62,6 +62,21 @@ pub(super) fn parse(json: &str) -> Result<Option<PhoneEvent>, PlatformError> {
     Ok(Some(event))
 }
 
+/// The call state `Calls.state()` returned (in the event format).
+///
+/// # Errors
+///
+/// [`PlatformError::Android`] if `json` is not a call event.
+pub(super) fn call_state(json: &str) -> Result<CallState, PlatformError> {
+    match parse(json)? {
+        Some(PhoneEvent::Call(state)) => Ok(state),
+        _ => Err(PlatformError::Android {
+            call: "Calls.state",
+            cause: "not a call state".into(),
+        }),
+    }
+}
+
 /// The JSON array the glue's `call` returned.
 ///
 /// # Errors
