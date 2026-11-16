@@ -216,32 +216,46 @@ impl Mirror {
             .any(|(m, at)| m.thread_id == id && *at <= since)
     }
 
-    /// Take `page`, the newest of thread `id` after it was stored: the
-    /// provisional texts it covers (none newer than its newest) go; returns
-    /// the stored ones new here, newest first (they replace those texts).
+    /// Take `page`, the newest of thread `id` after it was stored: each
+    /// provisional text it holds goes (matched to one row by content, as
+    /// the two sides' clocks differ); others stay for a later refetch.
+    /// Returns the rows new to views, newest first: the matched ones (they
+    /// replace those texts) and, if the thread is loaded, any not loaded.
     fn stored(&mut self, id: i64, page: &[SmsMessage]) -> Vec<SmsMessage> {
-        let before = self.provisional.len();
-        // A newer text is not stored yet: it stays, awaiting its own refetch.
-        let newest = page.first().map(|m| m.when_ms);
-        self.provisional
-            .retain(|(m, _)| m.thread_id != id || newest.is_none_or(|n| m.when_ms > n));
-        let replaced = before - self.provisional.len();
-        let known = self.threads.get(&id).and_then(|t| t.first()).map(cursor);
-        let new: Vec<SmsMessage> = match known {
-            Some(newest) => page
-                .iter()
-                .filter(|m| cursor(m) > newest)
+        // Rows a loaded thread lacks yet (none if it is not loaded).
+        let unseen: Vec<SmsMessage> = self.threads.get(&id).map_or_else(Vec::new, |thread| {
+            page.iter()
+                .filter(|m| m.id != 0 && !thread.iter().any(|t| t.id == m.id))
                 .cloned()
-                .collect(),
-            // Nothing loaded: the newest incoming ones stand for the
-            // provisional texts they replace.
-            None => page
+                .collect()
+        });
+        let mut free: Vec<&SmsMessage> = page.iter().filter(|m| m.id != 0).collect();
+        let mut new: Vec<SmsMessage> = Vec::new();
+        self.provisional.retain(|(p, _)| {
+            if p.thread_id != id {
+                return true;
+            }
+            let close = |m: &&SmsMessage| m.when_ms.abs_diff(p.when_ms);
+            let row = free
                 .iter()
-                .filter(|m| !m.outgoing)
-                .take(replaced)
-                .cloned()
-                .collect(),
-        };
+                .enumerate()
+                .filter(|(_, m)| is_stored_copy(p, m))
+                .min_by_key(|(_, m)| close(m))
+                .map(|(i, _)| i);
+            match row {
+                Some(i) => {
+                    new.push(free.swap_remove(i).clone());
+                    false
+                }
+                None => true,
+            }
+        });
+        for m in unseen {
+            if !new.iter().any(|n| n.id == m.id) {
+                new.push(m);
+            }
+        }
+        new.sort_by_key(|m| std::cmp::Reverse(cursor(m)));
         self.merge(id, page);
         new
     }
@@ -273,6 +287,17 @@ impl Mirror {
         shown.extend_from_slice(page);
         shown
     }
+}
+
+/// How far apart a provisional text and its stored row may be dated.
+const STORED_SLACK_MS: u64 = 60_000;
+
+/// Whether `row` is the stored copy of the provisional text `p`: same
+/// body and direction, dated close by (compared here, never logged).
+fn is_stored_copy(p: &SmsMessage, row: &SmsMessage) -> bool {
+    row.text == p.text
+        && row.outgoing == p.outgoing
+        && row.when_ms.abs_diff(p.when_ms) <= STORED_SLACK_MS
 }
 
 fn cursor(m: &SmsMessage) -> Cursor {

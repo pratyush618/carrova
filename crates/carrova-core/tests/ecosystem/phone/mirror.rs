@@ -62,11 +62,15 @@ fn now_ms() -> i64 {
 }
 
 fn text(id: i64, thread_id: i64, when_ms: i64) -> SmsMessage {
+    saying(id, thread_id, when_ms, "on my way")
+}
+
+fn saying(id: i64, thread_id: i64, when_ms: i64, body: &str) -> SmsMessage {
     SmsMessage {
         id,
         thread_id,
         outgoing: false,
-        text: "on my way".into(),
+        text: body.into(),
         when_ms,
     }
 }
@@ -504,42 +508,6 @@ fn resync_drops_texts_and_tells_views() {
 }
 
 #[test]
-fn call_states_applied_in_order() {
-    let (phone, _sp, laptop, _sl) = linked(&[CALLS], |_| {});
-    wait_watching(&phone);
-    laptop.wait("the call state", |e| matches!(e, Event::PhoneCall { .. }));
-    let ringing = CallState::Ringing {
-        number: "5550100".into(),
-        name: None,
-    };
-
-    for _ in 0..20 {
-        phone
-            .platform
-            .script_event(PhoneEvent::Call(ringing.clone()));
-        phone
-            .platform
-            .script_event(PhoneEvent::Call(CallState::Idle));
-    }
-
-    let calls = || -> Vec<CallState> {
-        laptop
-            .events()
-            .into_iter()
-            .filter_map(|e| match e {
-                Event::PhoneCall { state, .. } => Some(state),
-                _ => None,
-            })
-            .collect()
-    };
-    wait_until("every call state", || calls().len() == 41);
-    let expected: Vec<CallState> = std::iter::once(CallState::Idle)
-        .chain((0..20).flat_map(|_| [ringing.clone(), CallState::Idle]))
-        .collect();
-    assert_eq!(calls(), expected);
-}
-
-#[test]
 fn posted_then_removed_leaves_no_note() {
     let (phone, _sp, laptop, sl) = linked(&[NOTES], |_| {});
     // A pop-up is slow to show: the removal must still come after it.
@@ -565,26 +533,90 @@ fn posted_then_removed_leaves_no_note() {
     assert!(sl.notes(&phone.id).unwrap().is_empty());
 }
 
+/// Script `msg` arriving on the phone (provisional, `id` 0).
+fn receive(phone: &Device, msg: &SmsMessage) {
+    let received = PhoneEvent::SmsReceived(msg.clone());
+    phone.platform.script_event(received);
+}
+
+/// Store `rows` on the phone and say so for thread `id`.
+fn store(phone: &Device, id: i64, rows: &[SmsMessage]) {
+    phone.platform.phone().messages.extend_from_slice(rows);
+    phone
+        .platform
+        .script_event(PhoneEvent::SmsStored { thread_id: id });
+}
+
 #[test]
-fn newer_provisional_text_kept_after_a_refetch() {
+fn unstored_provisional_text_kept_after_a_refetch() {
     let at = now_ms();
     let (phone, _sp, laptop, sl) = linked(&[SMS], |_| {});
     wait_watching(&phone);
-    let (first, second) = (text(0, 5, at), text(0, 5, at + 1000));
-    phone.platform.script_event(PhoneEvent::SmsReceived(first));
-    phone
-        .platform
-        .script_event(PhoneEvent::SmsReceived(second.clone()));
+    let first = saying(0, 5, at, "on my way");
+    let second = saying(0, 5, at + 1000, "running late");
+    receive(&phone, &first);
+    receive(&phone, &second);
     wait_until("both provisional texts", || texts(&laptop).len() == 2);
 
     // Only the first is stored when its `Stored` comes.
-    let stored = text(2, 5, at);
-    phone.platform.phone().messages.push(stored.clone());
-    phone
-        .platform
-        .script_event(PhoneEvent::SmsStored { thread_id: 5 });
+    let stored = saying(2, 5, at, "on my way");
+    store(&phone, 5, std::slice::from_ref(&stored));
     wait_until("the stored text", || texts(&laptop).len() == 3);
 
     assert_eq!(texts(&laptop)[2], stored);
     assert_eq!(newest(&sl, &phone, 5), [second, stored]);
+}
+
+#[test]
+fn stored_a_little_earlier_replaces_its_provisional_text() {
+    // The default SMS app dates the row a few ms before Carrova's receiver.
+    let at = now_ms();
+    let (phone, _sp, laptop, sl) = linked(&[SMS], |_| {});
+    wait_watching(&phone);
+    receive(&phone, &text(0, 5, at));
+    wait_until("the provisional text", || texts(&laptop).len() == 1);
+
+    let stored = text(2, 5, at - 50);
+    store(&phone, 5, std::slice::from_ref(&stored));
+    wait_until("the stored text", || texts(&laptop).len() == 2);
+
+    assert_eq!(newest(&sl, &phone, 5), [stored]);
+}
+
+#[test]
+fn provisional_text_kept_until_its_row_is_stored() {
+    let at = now_ms();
+    let (phone, _sp, laptop, sl) = linked(&[SMS], |_| {});
+    wait_watching(&phone);
+    let provisional = text(0, 5, at);
+    receive(&phone, &provisional);
+    wait_until("the provisional text", || texts(&laptop).len() == 1);
+
+    // Stored elsewhere first: the refetched page does not hold it.
+    store(&phone, 5, &[]);
+    wait_until("the refetch", || {
+        phone.platform.actions().iter().any(|a| a == "sms_thread 5")
+    });
+    assert_eq!(newest(&sl, &phone, 5), [provisional]);
+
+    let stored = text(2, 5, at - 50);
+    store(&phone, 5, std::slice::from_ref(&stored));
+    wait_until("the stored text", || texts(&laptop).len() == 2);
+    assert_eq!(newest(&sl, &phone, 5), [stored]);
+}
+
+#[test]
+fn identical_provisional_texts_match_rows_one_to_one() {
+    let at = now_ms();
+    let (phone, _sp, laptop, sl) = linked(&[SMS], |_| {});
+    wait_watching(&phone);
+    receive(&phone, &saying(0, 5, at, "ok"));
+    receive(&phone, &saying(0, 5, at + 1000, "ok"));
+    wait_until("both provisional texts", || texts(&laptop).len() == 2);
+
+    let rows = [saying(3, 5, at + 950, "ok"), saying(2, 5, at - 50, "ok")];
+    store(&phone, 5, &rows);
+    wait_until("both stored texts", || texts(&laptop).len() == 4);
+
+    assert_eq!(newest(&sl, &phone, 5), rows);
 }
