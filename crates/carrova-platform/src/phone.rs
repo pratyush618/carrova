@@ -155,7 +155,7 @@ pub enum CallKind {
 }
 
 /// Something the phone reports.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum PhoneEvent {
@@ -176,6 +176,22 @@ pub enum PhoneEvent {
         /// Events lost.
         count: u32,
     },
+}
+
+// Keys can hold phone numbers, so `NoteRemoved` prints only the key length.
+impl fmt::Debug for PhoneEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotePosted(n) => f.debug_tuple("NotePosted").field(n).finish(),
+            Self::NoteRemoved { key } => f
+                .debug_struct("NoteRemoved")
+                .field("key", &len(key))
+                .finish(),
+            Self::SmsReceived(m) => f.debug_tuple("SmsReceived").field(m).finish(),
+            Self::Call(c) => f.debug_tuple("Call").field(c).finish(),
+            Self::Dropped { count } => f.debug_struct("Dropped").field("count", count).finish(),
+        }
+    }
 }
 
 /// How sending an SMS went.

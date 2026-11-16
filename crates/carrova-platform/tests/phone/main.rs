@@ -162,6 +162,7 @@ fn debug_output_hides_phone_content() {
             }
         ),
         format!("{:?}", PhoneEvent::NotePosted(note)),
+        format!("{:?}", PhoneEvent::NoteRemoved { key: s() }),
     ];
     for out in shown {
         assert!(!out.contains("SECRET"), "{out}");
