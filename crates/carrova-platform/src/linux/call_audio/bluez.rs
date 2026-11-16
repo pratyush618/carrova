@@ -318,7 +318,7 @@ fn pair_with(conn: &Connection, target: &Mutex<Option<OwnedObjectPath>>) -> zbus
             if name.as_str() == "org.bluez.Error.InProgress" => {}
         other => drop(other?),
     }
-    let seen = discover(conn);
+    let seen = discover(conn, &adapter_path);
     let _ = adapter_call("StopDiscovery");
     let device = match seen? {
         Seen::One(device) => device,
@@ -337,13 +337,13 @@ fn pair_with(conn: &Connection, target: &Mutex<Option<OwnedObjectPath>>) -> zbus
     Ok(Seen::One(()))
 }
 
-/// Poll the devices until exactly one phone shows up, or
+/// Poll `adapter`'s devices until exactly one phone shows up, or
 /// [`DISCOVERY_TIMEOUT`]; then what was seen last.
-fn discover(conn: &Connection) -> zbus::Result<Seen<OwnedObjectPath>> {
+fn discover(conn: &Connection, adapter: &OwnedObjectPath) -> zbus::Result<Seen<OwnedObjectPath>> {
     let deadline = Instant::now() + DISCOVERY_TIMEOUT;
     loop {
         let objects = objects(conn)?;
-        let devices = with(&objects, DEVICE).map(|(path, d)| {
+        let devices = devices_on(&objects, adapter).map(|(path, d)| {
             let icon = d.get("Icon").and_then(|v| v.downcast_ref::<&str>().ok());
             (path.as_str(), flag(d, "Paired"), icon)
         });
