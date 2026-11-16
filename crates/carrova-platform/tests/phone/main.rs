@@ -103,3 +103,87 @@ fn phone_types_cbor_roundtrip() {
         roundtrip(&state);
     }
 }
+
+#[test]
+fn debug_output_hides_phone_content() {
+    let s = || "SECRET-123".to_string();
+    let note = Note {
+        key: s(),
+        app_id: s(),
+        app_name: s(),
+        title: s(),
+        text: s(),
+        when_ms: 1,
+        can_reply: false,
+        icon: None,
+        hidden: None,
+    };
+    let shown = [
+        format!("{note:?}"),
+        format!(
+            "{:?}",
+            SmsThread {
+                id: 1,
+                name: Some(s()),
+                address: s(),
+                snippet: s(),
+                when_ms: 1,
+                unread: 0,
+            }
+        ),
+        format!(
+            "{:?}",
+            SmsMessage {
+                id: 1,
+                thread_id: 1,
+                outgoing: true,
+                text: s(),
+                when_ms: 1,
+            }
+        ),
+        format!(
+            "{:?}",
+            CallState::Ringing {
+                number: s(),
+                name: Some(s()),
+            }
+        ),
+        format!(
+            "{:?}",
+            CallRecord {
+                number: s(),
+                name: Some(s()),
+                when_ms: 1,
+                duration_s: 1,
+                kind: CallKind::Missed,
+            }
+        ),
+        format!("{:?}", PhoneEvent::NotePosted(note)),
+    ];
+    for out in shown {
+        assert!(!out.contains("SECRET"), "{out}");
+    }
+}
+
+#[test]
+fn icon_is_a_cbor_byte_string() {
+    let mut note = Note {
+        key: String::new(),
+        app_id: String::new(),
+        app_name: String::new(),
+        title: String::new(),
+        text: String::new(),
+        when_ms: 0,
+        can_reply: false,
+        icon: Some(vec![0xAB; 1000]),
+        hidden: None,
+    };
+    let mut bytes = Vec::new();
+    ciborium::into_writer(&note, &mut bytes).unwrap();
+    assert!(bytes.len() < 1100, "{} bytes", bytes.len());
+    note.icon = None;
+    bytes.clear();
+    ciborium::into_writer(&note, &mut bytes).unwrap();
+    let back: Note = ciborium::from_reader(bytes.as_slice()).unwrap();
+    assert_eq!(back, note);
+}

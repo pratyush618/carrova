@@ -2,10 +2,12 @@
 //! calls and the Android permissions behind them. Plain data, defined once
 //! here so the Android adapter, the link lanes and the views share it.
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 /// A notification posted on the phone.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct Note {
     /// Android notification key; identifies it for removal and actions.
@@ -45,7 +47,7 @@ pub enum Hidden {
 }
 
 /// One SMS conversation.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct SmsThread {
     /// Thread id on the phone.
@@ -63,7 +65,7 @@ pub struct SmsThread {
 }
 
 /// One SMS message.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct SmsMessage {
     /// Message id on the phone.
@@ -79,7 +81,7 @@ pub struct SmsMessage {
 }
 
 /// The phone's call, as it changes.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum CallState {
@@ -109,7 +111,7 @@ pub enum CallState {
 }
 
 /// One entry of the phone's call log.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct CallRecord {
     /// The other party's number.
@@ -217,4 +219,96 @@ pub enum PermState {
     Denied,
     /// Blocked by Android's restricted settings until the user allows them.
     Restricted,
+}
+
+// Debug for the types that carry personal content prints ids, flags and byte
+// lengths only: text, names and numbers never reach a log.
+
+/// A field standing in for private text: its length only.
+struct Len(usize);
+
+impl fmt::Debug for Len {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<{} bytes>", self.0)
+    }
+}
+
+fn len(s: &str) -> Len {
+    Len(s.len())
+}
+
+fn opt_len(s: Option<&String>) -> Option<Len> {
+    s.map(|s| Len(s.len()))
+}
+
+impl fmt::Debug for Note {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Note")
+            .field("key", &len(&self.key))
+            .field("app_id", &len(&self.app_id))
+            .field("app_name", &len(&self.app_name))
+            .field("title", &len(&self.title))
+            .field("text", &len(&self.text))
+            .field("can_reply", &self.can_reply)
+            .field("icon", &self.icon.as_deref().map(|i| Len(i.len())))
+            .field("hidden", &self.hidden)
+            .finish_non_exhaustive()
+    }
+}
+
+impl fmt::Debug for SmsThread {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SmsThread")
+            .field("id", &self.id)
+            .field("name", &opt_len(self.name.as_ref()))
+            .field("address", &len(&self.address))
+            .field("snippet", &len(&self.snippet))
+            .field("unread", &self.unread)
+            .finish_non_exhaustive()
+    }
+}
+
+impl fmt::Debug for SmsMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SmsMessage")
+            .field("id", &self.id)
+            .field("thread_id", &self.thread_id)
+            .field("outgoing", &self.outgoing)
+            .field("text", &len(&self.text))
+            .finish_non_exhaustive()
+    }
+}
+
+impl fmt::Debug for CallState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Idle => f.write_str("Idle"),
+            Self::Ringing { number, name } => f
+                .debug_struct("Ringing")
+                .field("number", &len(number))
+                .field("name", &opt_len(name.as_ref()))
+                .finish(),
+            Self::Active {
+                muted,
+                on_laptop_audio,
+                ..
+            } => f
+                .debug_struct("Active")
+                .field("muted", muted)
+                .field("on_laptop_audio", on_laptop_audio)
+                .finish_non_exhaustive(),
+            Self::Ended { missed } => f.debug_struct("Ended").field("missed", missed).finish(),
+        }
+    }
+}
+
+impl fmt::Debug for CallRecord {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CallRecord")
+            .field("number", &len(&self.number))
+            .field("name", &opt_len(self.name.as_ref()))
+            .field("duration_s", &self.duration_s)
+            .field("kind", &self.kind)
+            .finish_non_exhaustive()
+    }
 }
