@@ -232,6 +232,10 @@ pub(super) fn sms_threads(
     max: usize,
     since_ms: Option<i64>,
 ) -> Result<Vec<SmsThread>, PlatformError> {
+    // `Sms.threads` reads its last match once `limit` are found: none at 0.
+    if max == 0 {
+        return Ok(Vec::new());
+    }
     let [ms, id] = page_bound(before);
     let args = [ms, id, limit(max), Arg::Long(since_ms.unwrap_or(i64::MIN))];
     let json = text("Sms.threads", "Sms", "threads", &args)?;
