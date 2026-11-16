@@ -364,4 +364,8 @@ impl Platform for AndroidPlatform {
     fn open_perm_settings(&self, p: PhonePerm) -> Result<(), PlatformError> {
         phone::open_perm_settings(p)
     }
+
+    fn remind_access(&self, p: PhonePerm) -> Result<(), PlatformError> {
+        phone::remind_access(p)
+    }
 }

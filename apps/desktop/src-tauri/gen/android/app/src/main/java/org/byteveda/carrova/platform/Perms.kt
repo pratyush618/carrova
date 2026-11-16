@@ -2,6 +2,10 @@ package org.byteveda.carrova.platform
 
 import android.Manifest
 import android.app.AppOpsManager
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -12,6 +16,7 @@ import android.os.Process
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import org.byteveda.Carrova.R
 
 /**
  * Permission glue for `carrova-platform` (android/phone.rs). Names are
@@ -40,6 +45,39 @@ object Perms {
     /** Open the settings page where [name] is granted (App info while restricted). */
     @JvmStatic
     fun openSettings(context: Context, name: String) {
+        context.startActivity(settings(context, name))
+    }
+
+    /**
+     * Post a notification asking the user to grant [name]; a tap opens [openSettings]' page.
+     * Throws if this app may not post notifications, so the asking device hears it failed.
+     */
+    @JvmStatic
+    fun remind(context: Context, name: String) {
+        check(NotificationManagerCompat.from(context).areNotificationsEnabled()) { "notifications off" }
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(
+            NotificationChannel(REMIND_CHANNEL, context.getString(R.string.remind_channel), NotificationManager.IMPORTANCE_DEFAULT),
+        )
+        val tap = PendingIntent.getActivity(
+            context, name.hashCode(), settings(context, name),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val title = if (name == "notification_access") R.string.remind_notifications else R.string.remind_sms
+        val notice = Notification.Builder(context, REMIND_CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_link)
+            .setContentTitle(context.getString(title))
+            .setContentText(context.getString(R.string.remind_text))
+            .setContentIntent(tap)
+            .setAutoCancel(true)
+            .build()
+        manager.notify(REMIND_TAG, name.hashCode(), notice)
+    }
+
+    private const val REMIND_CHANNEL = "access"
+    private const val REMIND_TAG = "remind"
+
+    private fun settings(context: Context, name: String): Intent {
         runtime(name) // rejects unknown names
         val intent = if (name == "notification_access" && !restricted(context)) {
             Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
@@ -50,7 +88,7 @@ object Perms {
         } else {
             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
         }
-        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        return intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
     private fun runtime(name: String): Array<String> = when (name) {

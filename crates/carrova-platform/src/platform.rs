@@ -737,6 +737,17 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         Err(PlatformError::Unsupported("open_perm_settings"))
     }
 
+    /// Remind the user, with a notification on this phone, to grant `p`;
+    /// tapping it opens the screen [`Self::open_perm_settings`] opens.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise
+    /// (this app may not post notifications).
+    fn remind_access(&self, p: PhonePerm) -> Result<(), PlatformError> {
+        let _ = p;
+        Err(PlatformError::Unsupported("remind_access"))
+    }
+
     /// Whether this computer can carry a phone call's audio over Bluetooth.
     ///
     /// # Errors

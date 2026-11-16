@@ -352,3 +352,7 @@ pub(super) fn open_perm_settings(p: PhonePerm) -> Result<(), PlatformError> {
         &[Arg::Str(perm_name(p))],
     )
 }
+
+pub(super) fn remind_access(p: PhonePerm) -> Result<(), PlatformError> {
+    void("Perms.remind", "Perms", "remind", &[Arg::Str(perm_name(p))])
+}
