@@ -45,7 +45,8 @@ A Linux laptop linked to an Android phone (Phase 1 link) on which the user can:
      user allows them in App info; Play Protect warnings on install.
    - S4 Ubuntu 24.04 laptop + Android phone: oFono + PipeWire as
      Hands-Free (phone = audio gateway), 5-minute call, both directions
-     clear. If S4 fails, "Calls, optional audio" moves out of Phase 2 into
+     clear; PipeWire's Hands-Free node for the phone appears when SCO
+     connects and disappears when the phone takes the audio back. If S4 fails, "Calls, optional audio" moves out of Phase 2 into
      its own plan and the exit gate's audio check is dropped; the base
      calls ship regardless.
 
@@ -164,6 +165,18 @@ for reading or sending phone data (the CLI only switches the features, see
   each `CallRecord` carries its call-log `id`).
 - Answer from the laptop turns the phone's speaker on (unless optional
   audio is set up and connected: then audio goes to the laptop).
+  `on_laptop_audio` means a Bluetooth Hands-Free device can carry the call
+  (Android can't tell the laptop's link from a headset).
+- The laptop's audio side (`AudioSide`, shown in the call window) is the
+  active route, not setup readiness or oFono's card (a card is only an
+  attached device; the SCO audio link is separate). `Laptop` while an SCO
+  link for the linked phone is observed; `Phone` otherwise. PipeWire is
+  oFono's audio agent and owns the SCO socket, so Carrova can't take
+  `NewConnection` itself; it watches PipeWire instead: a Hands-Free node
+  for the phone's Bluetooth address appears when SCO connects and goes
+  away when SCO drops (the phone takes the audio back, or goes out of
+  range). When PipeWire can't be read, the window shows `Phone` with "Use
+  this computer's mic and speakers". To be verified in spike S4.
 - Ringing on the laptop follows the laptop setting "Ring on this
   computer": Always / While I'm using it (default) / Never (mockup
   Settings › Calls and Bluetooth). "Also ring this phone" is the phone's own
@@ -201,8 +214,12 @@ for reading or sending phone data (the CLI only switches the features, see
 - Keypad: oFono `VoiceCallManager.SendTones`. Move to phone: BlueZ
   `Device1.DisconnectProfile(HFP_AG)` on the phone (Android routes the
   call back to its earpiece when the hands-free link drops; oFono has no
-  audio disconnect). Move to laptop: `ConnectProfile(HFP_AG)` if the link
-  is down, then oFono `HandsfreeAudioCard.Connect` for that phone's card.
+  audio disconnect). Move to laptop: nothing if PipeWire already has the
+  phone's hands-free node; else `DisconnectProfile(HFP_AG)` if the link is
+  up without audio, then `ConnectProfile(HFP_AG)`, and the phone brings the
+  call's audio over on reconnect. oFono accepts
+  `HandsfreeAudioCard.Connect`/`Acquire` only from its audio agent
+  (PipeWire), which acquires the link only for a node it already has.
   Both to be verified in spike S4.
 - Pairing with several discoverable phones in range reports "several
   phones visible" (the wizard asks to make only your phone visible);

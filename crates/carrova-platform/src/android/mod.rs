@@ -2,7 +2,8 @@
 //!
 //! Filesystem primitives and `PATH` lookup are the Unix ones shared with
 //! Linux (`crate::sys`). Clipboard, Downloads, opening, ring, the
-//! multicast lock, the link service and the QR scanner go through one
+//! multicast lock, the link service, the QR scanner and the phone
+//! (notifications, SMS, calls) go through one
 //! static Kotlin method each (`org.byteveda.carrova.platform.*`), reached
 //! over JNI in [`jni`] (ADR 0003). The helpers here are pure, so they
 //! are tested on any host.
@@ -11,12 +12,15 @@ use crate::ClipKind;
 
 #[cfg(target_os = "android")]
 mod clipboard;
+mod events;
 #[cfg(target_os = "android")]
 mod files;
 #[cfg(target_os = "android")]
 mod jni;
 #[cfg(target_os = "android")]
 mod net;
+#[cfg(target_os = "android")]
+mod phone;
 #[cfg(target_os = "android")]
 mod platform;
 #[cfg(target_os = "android")]

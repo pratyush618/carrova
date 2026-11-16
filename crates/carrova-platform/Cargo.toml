@@ -30,11 +30,15 @@ arboard = { workspace = true }
 blake3 = { workspace = true }
 x11rb = { workspace = true }
 wl-clipboard-rs = { workspace = true }
+# Call audio side: PipeWire's graph from `pw-dump`.
+serde_json = { workspace = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 # Clipboard, Downloads, ring, multicast lock through Kotlin glue (ADR 0003).
 jni = { workspace = true }
 ndk-context = { workspace = true }
+# Phone events and lists arrive from the glue as JSON.
+serde_json = { workspace = true }
 
 # Directory watch (FSEvents, ReadDirectoryChangesW).
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]

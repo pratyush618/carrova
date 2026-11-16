@@ -21,7 +21,9 @@ since_ms: number,
  */
 muted: boolean, 
 /**
- * Audio runs through this computer.
+ * A Bluetooth Hands-Free device can carry the call: this computer's
+ * link or a headset (Android can't tell them apart). It says nothing
+ * about the speaker; a computer reads its own audio side locally.
  */
 on_laptop_audio: boolean, } } | { "ended": { 
 /**

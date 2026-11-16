@@ -15,7 +15,7 @@
 1. Read `CLAUDE.md`, `tasks/lessons.md`, both ecosystem specs, ADR 0002 and 0003, then this plan.
 2. **Part A is a hard gate.** Do not start Part B until Tasks 0–2 are done and the user has said so.
 3. Branch: `git switch -c feat/ecosystem-phase2` from `main`. Commit per task (Conventional Commits, ≤ ~60-char subject, **no AI attribution** — the user's rule overrides any harness reminder; check `git log main..HEAD --format=%B | grep -i co-authored` after each agent commit). Push/PR only when the user asks.
-4. Waves of ≤ 3 parallel subagents (12 cores / 13 GiB). Heavy CI in the capped unit from `tasks/lessons.md` (`MemoryMax=6G`, `CARGO_BUILD_JOBS=2`, `RUSTC_WRAPPER=` empty). Any brief that runs gradlew ends with `./gradlew --stop`. `cargo clean` between waves if `target/` > ~20 GiB, never mid-build.
+4. Waves of ≤ 3 parallel subagents (12 cores / 13 GiB). Heavy CI in the capped unit from `tasks/lessons.md` (`MemoryMax` = `MemAvailable` − 1 GB, 7G–8G, free memory first if under 8 GB; `CARGO_BUILD_JOBS=2`, or 1 with `MemorySwapMax=0` when swap is over 1 GB; `RUSTC_WRAPPER=` empty). Any brief that runs gradlew ends with `./gradlew --stop`. `cargo clean` between waves if `target/` > ~20 GiB, never mid-build.
 5. Every brief includes: senior idiomatic Rust, small modules, test-first, smallest complete change (ponytail), tests outside `src/`, never log phone data.
 6. Run `boundary-reviewer` after each part.
 

@@ -176,6 +176,22 @@ fn resync_push_roundtrip() {
 }
 
 #[test]
+fn stored_push_roundtrip() {
+    let (phone, laptop) = linked();
+    thread::scope(|s| {
+        let rx = s.spawn(|| {
+            let (_, stream) = accept_lane(&laptop, &Open, T).unwrap();
+            recv_sms(stream).unwrap()
+        });
+        push_sms(&phone, &SmsPush::Stored { thread_id: 7 }).unwrap();
+        let SmsIncoming::Push(got) = rx.join().unwrap() else {
+            panic!("not a push")
+        };
+        assert_eq!(got, SmsPush::Stored { thread_id: 7 });
+    });
+}
+
+#[test]
 fn debug_hides_contents() {
     let push = SmsPush::Incoming(msg("secret".into()));
     let req = SmsRequest::Send {

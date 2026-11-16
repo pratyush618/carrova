@@ -6,6 +6,8 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::watch::StopGuard;
+
 /// A notification posted on the phone.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -68,7 +70,9 @@ pub struct SmsThread {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct SmsMessage {
-    /// Message id on the phone.
+    /// Message id on the phone. Provisional on [`PhoneEvent::SmsReceived`]:
+    /// `0` means not stored yet, so it is never a page cursor or a dedupe
+    /// key; the laptop replaces it by refetching the thread's newest page.
     pub id: i64,
     /// The thread it belongs to.
     pub thread_id: i64,
@@ -100,7 +104,9 @@ pub enum CallState {
         since_ms: i64,
         /// The microphone is muted.
         muted: bool,
-        /// Audio runs through this computer.
+        /// A Bluetooth Hands-Free device can carry the call: this computer's
+        /// link or a headset (Android can't tell them apart). It says nothing
+        /// about the speaker; a computer reads its own audio side locally.
         on_laptop_audio: bool,
     },
     /// The call ended.
@@ -168,6 +174,12 @@ pub enum PhoneEvent {
     },
     /// An SMS arrived.
     SmsReceived(SmsMessage),
+    /// The default SMS app stored an incoming message: its thread can be
+    /// refetched now (`SmsReceived` comes before it is stored).
+    SmsStored {
+        /// The thread that got the message.
+        thread_id: i64,
+    },
     /// The call state changed.
     Call(CallState),
     /// The phone's event queue overflowed and dropped `count` events;
@@ -188,6 +200,10 @@ impl fmt::Debug for PhoneEvent {
                 .field("key", &len(key))
                 .finish(),
             Self::SmsReceived(m) => f.debug_tuple("SmsReceived").field(m).finish(),
+            Self::SmsStored { thread_id } => f
+                .debug_struct("SmsStored")
+                .field("thread_id", thread_id)
+                .finish(),
             Self::Call(c) => f.debug_tuple("Call").field(c).finish(),
             Self::Dropped { count } => f.debug_struct("Dropped").field("count", count).finish(),
         }
@@ -207,6 +223,9 @@ pub enum SendOutcome {
     NoSignal,
     /// Sending failed.
     Failed,
+    /// May have been sent (no answer in time, or only some parts went);
+    /// check the phone before resending.
+    Unknown,
 }
 
 /// Where a call's audio plays.
@@ -248,6 +267,46 @@ pub enum PermState {
     Denied,
     /// Blocked by Android's restricted settings until the user allows them.
     Restricted,
+}
+
+/// Whether this computer can carry a phone call's audio over Bluetooth,
+/// or what stands in the way.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub enum CallAudioStatus {
+    /// No Bluetooth adapter.
+    NoAdapter,
+    /// Bluetooth is switched off.
+    BluetoothOff,
+    /// The audio stack offers no hands-free role.
+    NoHandsFree,
+    /// A package providing the hands-free role is not installed.
+    NeedsPackage,
+    /// The phone is not paired over Bluetooth yet.
+    NeedsPairing,
+    /// Call audio can run here.
+    Ready,
+    /// This OS cannot carry call audio.
+    Unsupported,
+}
+
+/// The phone's events being watched, until the guard is dropped. Dropping
+/// it stops the watch, so the event callback is never called afterwards.
+#[derive(Debug)]
+#[must_use = "the watch stops as soon as the guard is dropped"]
+pub struct PhoneWatch {
+    _stop: StopGuard,
+}
+
+impl PhoneWatch {
+    /// Guard that runs `stop` (end the watch, wait for it) on drop. Public
+    /// so adapters and test fakes outside this crate can return one.
+    pub fn new(stop: impl FnOnce() + Send + 'static) -> Self {
+        Self {
+            _stop: StopGuard::new(stop),
+        }
+    }
 }
 
 // Debug for the types that carry personal content prints ids, flags and byte

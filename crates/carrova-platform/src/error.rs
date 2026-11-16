@@ -31,10 +31,20 @@ pub enum PlatformError {
     #[error("network error: {0}")]
     Network(String),
 
+    /// The user stopped it at an OS prompt (e.g. dismissed the password
+    /// request); the text names the operation.
+    #[error("cancelled: {0}")]
+    Cancelled(&'static str),
+
     /// A call into the Android (Java) side failed; `cause` names the error
     /// or exception class, never its message (it may hold names or URLs).
     #[error("Android call {call} failed: {cause}")]
     Android { call: &'static str, cause: String },
+
+    /// A phone feature needs a permission the user has not granted (or
+    /// Android's restricted settings hold back); names the kind only.
+    #[error("phone permission missing: {0:?}")]
+    PermissionDenied(crate::phone::PhonePerm),
 
     /// I/O failure on a specific path.
     #[error("I/O error on {path}: {source}")]
