@@ -1,12 +1,12 @@
 //! A linked phone's notifications, texts and calls on this computer.
 
-use carrova_core::ecosystem::{CallView, PhoneSettings};
+use carrova_core::ecosystem::{CallView, PhoneSettings, SyncWindow};
 use carrova_crypto::identity::DeviceId;
 use carrova_platform::phone::{Cursor, PhonePerm, SendOutcome, SmsMessage};
 use carrova_view::ipc::{CallAction, CallOutcome, NoteAction, NoteOutcome};
 use carrova_view::phone::{
-    CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, PermStep, ThreadView,
-    ThreadsView,
+    CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, NotifyAppsView, PermStep,
+    ThreadView, ThreadsView,
 };
 use tauri::{AppHandle, State};
 
@@ -161,4 +161,45 @@ pub async fn open_perm_settings(
     perm: PhonePerm,
 ) -> Result<(), CommandError> {
     ops::phone::open_perm_settings(&state, perm).await
+}
+
+/// `CarrovaPort.notifyApps`.
+#[tauri::command]
+pub async fn notify_apps(state: State<'_, AppState>) -> Result<NotifyAppsView, CommandError> {
+    ops::phone::notify_apps(&state).await
+}
+
+/// `CarrovaPort.setNotifyApp`.
+#[tauri::command]
+pub async fn set_notify_app(
+    state: State<'_, AppState>,
+    app_id: String,
+    on: bool,
+) -> Result<(), CommandError> {
+    ops::phone::set_notify_app(&state, app_id, on).await
+}
+
+/// `CarrovaPort.setNotifyFilters`.
+#[tauri::command]
+pub async fn set_notify_filters(
+    state: State<'_, AppState>,
+    hide_codes: bool,
+    show_text: bool,
+) -> Result<(), CommandError> {
+    ops::phone::set_notify_filters(&state, hide_codes, show_text).await
+}
+
+/// `CarrovaPort.messagesSync`.
+#[tauri::command]
+pub async fn messages_sync(state: State<'_, AppState>) -> Result<SyncWindow, CommandError> {
+    ops::phone::messages_sync(&state).await
+}
+
+/// `CarrovaPort.setMessagesSync`.
+#[tauri::command]
+pub async fn set_messages_sync(
+    state: State<'_, AppState>,
+    keep: SyncWindow,
+) -> Result<(), CommandError> {
+    ops::phone::set_messages_sync(&state, keep).await
 }

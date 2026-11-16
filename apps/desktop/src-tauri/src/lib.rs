@@ -215,6 +215,11 @@ pub fn run() -> tauri::Result<()> {
             commands::phone::set_call_audio_config,
             commands::phone::phone_perm_step,
             commands::phone::open_perm_settings,
+            commands::phone::notify_apps,
+            commands::phone::set_notify_app,
+            commands::phone::set_notify_filters,
+            commands::phone::messages_sync,
+            commands::phone::set_messages_sync,
             #[cfg(desktop)]
             updater::check_update,
             #[cfg(desktop)]

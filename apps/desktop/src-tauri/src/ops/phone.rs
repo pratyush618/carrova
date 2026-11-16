@@ -1,21 +1,22 @@
 //! A linked phone on this computer: its notifications, texts and calls,
 //! and the user's settings for showing them. Each call goes to the link
 //! supervisor (as in [`super::ecosystem`]); replies leave as the shared
-//! phone view-models. The call-audio setup and the phone's permissions
-//! are this device's own: they ask the platform directly.
+//! phone view-models. The call-audio setup, the phone's permissions, its
+//! notification app list and its messages sync window are this device's
+//! own: they ask the platform (and the files the giver reads) directly.
 
 use std::sync::Arc;
 
-use carrova_core::ecosystem::{CallView, PhoneSettings, SupervisorHandle};
+use carrova_core::ecosystem::{CallView, NotifyApps, PhoneSettings, SupervisorHandle, SyncWindow};
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{CallCommand, CallReply, SmsReply, SmsRequest};
 use carrova_platform::PlatformError;
 use carrova_platform::phone::{CallAudioStatus, Cursor, PhonePerm, SendOutcome, SmsMessage};
 use carrova_view::ipc::{CallAction, CallOutcome, ErrorCode, NoteAction, NoteOutcome};
 use carrova_view::phone::{
-    CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, PermStep, ThreadView,
-    ThreadsView, call_audio_view, call_log_view, call_view, notes_view, perm_view, thread_view,
-    threads_view, withheld_while_locked,
+    CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, NotifyAppsView, PermStep,
+    ThreadView, ThreadsView, call_audio_view, call_log_view, call_view, notes_view,
+    notify_apps_view, perm_view, thread_view, threads_view, withheld_while_locked,
 };
 
 use super::ecosystem::with_link;
@@ -239,4 +240,73 @@ pub async fn phone_perm_step(state: &AppState, perm: PhonePerm) -> Result<PermSt
 pub async fn open_perm_settings(state: &AppState, perm: PhonePerm) -> Result<(), CommandError> {
     let platform = Arc::clone(&state.platform);
     blocking(move || Ok(platform.open_perm_settings(perm)?)).await
+}
+
+/// On the phone: which apps' notifications reach linked devices, with
+/// the apps of the notes showing now (none without notification access).
+///
+/// # Errors
+///
+/// The saved list cannot be read.
+pub async fn notify_apps(state: &AppState) -> Result<NotifyAppsView, CommandError> {
+    let platform = Arc::clone(&state.platform);
+    blocking(move || {
+        let apps = NotifyApps::open(&*platform)?;
+        let showing = platform.active_notes().unwrap_or_default();
+        Ok(notify_apps_view(&apps, &showing))
+    })
+    .await
+}
+
+/// On the phone: turn app `app_id`'s notifications on or off.
+///
+/// # Errors
+///
+/// The list cannot be read or saved.
+pub async fn set_notify_app(
+    state: &AppState,
+    app_id: String,
+    on: bool,
+) -> Result<(), CommandError> {
+    let platform = Arc::clone(&state.platform);
+    blocking(move || Ok(NotifyApps::open(&*platform)?.set(&*platform, &app_id, on)?)).await
+}
+
+/// On the phone: hide one-time codes, send message text.
+///
+/// # Errors
+///
+/// As [`set_notify_app`].
+pub async fn set_notify_filters(
+    state: &AppState,
+    hide_codes: bool,
+    show_text: bool,
+) -> Result<(), CommandError> {
+    let platform = Arc::clone(&state.platform);
+    blocking(move || {
+        let mut apps = NotifyApps::open(&*platform)?;
+        apps.set_hide_codes(&*platform, hide_codes)?;
+        Ok(apps.set_show_text(&*platform, show_text)?)
+    })
+    .await
+}
+
+/// On the phone: how far back texts reach linked devices.
+///
+/// # Errors
+///
+/// The saved choice cannot be read.
+pub async fn messages_sync(state: &AppState) -> Result<SyncWindow, CommandError> {
+    let platform = Arc::clone(&state.platform);
+    blocking(move || Ok(SyncWindow::open(&*platform)?)).await
+}
+
+/// On the phone: save how far back texts reach linked devices.
+///
+/// # Errors
+///
+/// The choice cannot be saved.
+pub async fn set_messages_sync(state: &AppState, keep: SyncWindow) -> Result<(), CommandError> {
+    let platform = Arc::clone(&state.platform);
+    blocking(move || Ok(keep.save(&*platform)?)).await
 }
