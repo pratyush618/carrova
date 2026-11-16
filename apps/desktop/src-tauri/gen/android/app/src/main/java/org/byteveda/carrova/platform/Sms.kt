@@ -12,7 +12,7 @@ import android.database.ContentObserver
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
-import android.os.Looper
+import android.os.HandlerThread
 import android.provider.ContactsContract
 import android.provider.Telephony
 import android.telephony.SmsManager
@@ -30,11 +30,14 @@ import java.util.concurrent.TimeUnit
  */
 object Sms {
     private var observer: ContentObserver? = null
+    private var worker: HandlerThread? = null
 
     /**
      * Tell [Events] when an incoming SMS is stored ([on]), or stop; a replaced
      * watch's [gen] does nothing. `SMS_RECEIVED` comes before the default
      * SMS app stores the message, so the laptop refetches on this instead.
+     * Changes are debounced on the trailing edge (the last one is never lost).
+     * A sent text or a mark-read also fires it: a harmless extra refetch.
      */
     @JvmStatic
     @Synchronized
@@ -42,21 +45,23 @@ object Sms {
         if (gen != Events.generation) return
         val resolver = context.contentResolver
         observer?.let { resolver.unregisterContentObserver(it) }
+        worker?.quit()
         observer = null
+        worker = null
         if (!on) return
-        val gate = StoredGate(System::currentTimeMillis)
-        val next = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) {
-                val thread = newestInboxThread(resolver) ?: return
-                if (gate.allow(thread)) {
-                    Events.offer(
-                        JSONObject().put("type", "sms_stored").put("thread_id", thread).toString(),
-                    )
-                }
+        val thread = HandlerThread("carrova-sms-stored").also { it.start() }
+        val handler = Handler(thread.looper)
+        val debounce = Debounce(STORED_DEBOUNCE_MS, HandlerTimer(handler)) {
+            newestInboxThread(resolver)?.let {
+                Events.offer(JSONObject().put("type", "sms_stored").put("thread_id", it).toString())
             }
+        }
+        val next = object : ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean) = debounce.poke()
         }
         resolver.registerContentObserver(Telephony.Sms.CONTENT_URI, true, next)
         observer = next
+        worker = thread
     }
 
     /** The thread of the newest inbox row; reads nothing else. Null without SMS permission. */
@@ -71,6 +76,9 @@ object Sms {
 
     /** How long a send may take before it counts as failed. */
     private const val SEND_TIMEOUT_S = 60L
+
+    /** Quiet time after the last provider change before the newest thread is read. */
+    private const val STORED_DEBOUNCE_MS = 500L
     private const val NOT_DRAFT = "${Telephony.Sms.TYPE} <> ${Telephony.Sms.MESSAGE_TYPE_DRAFT}"
     private const val NEWEST_FIRST = "${Telephony.Sms.DATE} DESC, ${Telephony.Sms._ID} DESC"
 
@@ -224,20 +232,26 @@ class SmsReceiver : BroadcastReceiver() {
     }
 }
 
-/** Lets one event per thread through per [WINDOW_MS], so a burst of provider changes is one refetch. */
-class StoredGate(private val now: () -> Long) {
-    private val last = HashMap<Long, Long>()
+/** What [Debounce] needs of a looper: run later, or not. */
+interface Timer {
+    fun post(task: Runnable, delayMs: Long)
+    fun cancel(task: Runnable)
+}
 
-    @Synchronized
-    fun allow(thread: Long): Boolean {
-        val t = now()
-        val prev = last[thread]
-        if (prev != null && t - prev < WINDOW_MS) return false
-        last[thread] = t
-        return true
+class HandlerTimer(private val handler: Handler) : Timer {
+    override fun post(task: Runnable, delayMs: Long) {
+        handler.postDelayed(task, delayMs)
     }
 
-    private companion object {
-        const val WINDOW_MS = 500L
+    override fun cancel(task: Runnable) = handler.removeCallbacks(task)
+}
+
+/** Runs [action] once, [delayMs] after the last [poke]: a burst is one run. */
+class Debounce(private val delayMs: Long, private val timer: Timer, private val action: () -> Unit) {
+    private val task = Runnable { action() }
+
+    fun poke() {
+        timer.cancel(task)
+        timer.post(task, delayMs)
     }
 }
