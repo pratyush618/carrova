@@ -12,7 +12,7 @@ class PendingThreadsTest {
         pending.add(7)
         assertEquals(emptyList<Long>(), pending.resolve { _, _ -> false })
         // Still pending: asked with its receive time.
-        assertEquals(listOf(7L), pending.resolve { t, since -> t == 7L && since == 1_000L })
+        assertEquals(listOf(7L), pending.resolve { t, since -> t == 7L && since == 1_000L - 5_000L })
         assertEquals(emptyList<Long>(), pending.resolve { _, _ -> true })
     }
 
@@ -32,6 +32,13 @@ class PendingThreadsTest {
         pending.add(8)
         now += 10_001
         assertEquals(emptyList<Long>(), pending.resolve { _, _ -> true })
+    }
+
+    @Test
+    fun row_stored_2s_before_receipt_resolves() {
+        pending.add(7)
+        val rowDate = now - 2_000
+        assertEquals(listOf(7L), pending.resolve { _, since -> rowDate >= since })
     }
 
     @Test
