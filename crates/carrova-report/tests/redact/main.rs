@@ -343,3 +343,13 @@ fn phone_redaction_is_idempotent() {
     let once = redactor().redact("(415) 555-0100 and +91 98765 43210");
     assert_eq!(redactor().redact(&once), once);
 }
+
+#[test]
+fn long_digit_runs_are_scanned_in_linear_time() {
+    let text = "1 ".repeat(200_000);
+    let start = std::time::Instant::now();
+    let out = redactor().redact(&text);
+    assert!(start.elapsed() < std::time::Duration::from_secs(5));
+    // Runs over 15 digits are not a phone number; only the short tail is.
+    assert!(out.starts_with("1 1 1 ") && out.trim_end().ends_with("<phone>"));
+}

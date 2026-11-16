@@ -41,6 +41,9 @@ fn number_end(chars: &[char], start: usize) -> Option<usize> {
             '0'..='9' => {
                 digits += 1;
                 end = at + 1;
+                if digits > *DIGITS.end() {
+                    break; // too long: stops long digit runs rescanning quadratically
+                }
             }
             '+' | '(' if at == start => {}
             ' ' | '-' | '(' | ')' if at > start && !matches!(chars[at - 1], ' ' | '-') => {}
