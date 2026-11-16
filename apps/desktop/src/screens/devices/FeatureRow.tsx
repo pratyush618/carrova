@@ -13,6 +13,7 @@ export function FeatureRow({
   row,
   device,
   off,
+  body,
   onChange,
 }: {
   readonly feature: Phase2Feature;
@@ -20,6 +21,8 @@ export function FeatureRow({
   readonly device: string;
   /** The device is away: dimmed, still changeable (the choice is kept). */
   readonly off: boolean;
+  /** What the feature does, where this side words it differently (the phone). */
+  readonly body?: string;
   readonly onChange: (state: FeatureState) => void;
 }) {
   const { t } = useTranslation();
@@ -32,7 +35,7 @@ export function FeatureRow({
       sub={
         row.remote === 'off'
           ? t('ecosystem.offOn', { name: device })
-          : t(`ecosystem.features.${feature}.body`)
+          : (body ?? t(`ecosystem.features.${feature}.body`))
       }
       trail={
         row.group === 'quiet' ? (

@@ -94,3 +94,31 @@
   overflow-wrap: anywhere;
   font-size: var(--t-sm);
 }
+
+/* Numbered steps (a permission, setting calls up): bold step, quiet detail. */
+.m-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding-inline-start: var(--sp-4);
+}
+
+.m-steps li {
+  display: flex;
+  flex-direction: column;
+}
+
+.m-steps span {
+  font-size: var(--t-sm);
+  color: var(--text-muted);
+}
+
+/* The page under a permission step: no box of its own, hidden while the step shows. */
+.m-keep {
+  display: contents;
+}
+
+.m-keep[hidden] {
+  display: none;
+}
