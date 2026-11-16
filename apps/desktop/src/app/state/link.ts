@@ -1,3 +1,4 @@
+import type { SmsMessage } from '../../bindings/SmsMessage';
 import type { AskId, AskKind, ClipSkip, EngineEvent, TransferState } from '../../engine/types';
 
 /** The bridge's session for linked-device events (`carrova_view::ipc::LINK_SESSION`). */
@@ -40,6 +41,12 @@ export interface NoteAlert {
   readonly n: number;
 }
 
+/** A text a phone received that it has not stored yet (`phone_sms` with id 0). */
+export interface ProvisionalText {
+  readonly device: string;
+  readonly message: SmsMessage;
+}
+
 /** What linked devices did that the UI shows outside any page. */
 export interface LinkState {
   readonly asks: readonly PendingAsk[];
@@ -53,6 +60,10 @@ export interface LinkState {
   readonly clips: number;
   /** The last phone notification to pop up. */
   readonly note: NoteAlert | null;
+  /** Received texts the phones have not stored yet, for the conversation list. */
+  readonly sms: readonly ProvisionalText[];
+  /** Bumped when a phone's texts change: loaded conversations are stale. */
+  readonly texts: number;
 }
 
 export const emptyLink: LinkState = {
@@ -62,7 +73,18 @@ export const emptyLink: LinkState = {
   changes: 0,
   clips: 0,
   note: null,
+  sms: [],
+  texts: 0,
 };
+
+/** `link` without `device`'s provisional texts (of `thread` only, when given). */
+const dropTexts = (link: LinkState, device: string, thread?: number): LinkState => ({
+  ...link,
+  sms: link.sms.filter(
+    (p) => p.device !== device || (thread !== undefined && p.message.thread_id !== thread),
+  ),
+  texts: link.texts + 1,
+});
 
 /** Things the user did to the link state (answered, dismissed). */
 export type LinkAction =
@@ -162,6 +184,17 @@ export function applyLinkEvent(link: LinkState, event: EngineEvent): LinkState {
           n: (link.note?.n ?? 0) + 1,
         },
       };
+    case 'phone_sms':
+      // A stored text replaces its thread's provisional ones.
+      return event.message.id === 0
+        ? {
+            ...link,
+            sms: [...link.sms, { device: event.device, message: event.message }],
+            texts: link.texts + 1,
+          }
+        : dropTexts(link, event.device, event.message.thread_id);
+    case 'phone_cleared':
+      return event.feature === 'messages' ? dropTexts(link, event.device) : link;
     default:
       // Sent clips, Handoff and Ring need no note: the user just did them.
       return link;

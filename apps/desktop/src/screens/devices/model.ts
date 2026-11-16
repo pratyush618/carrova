@@ -39,7 +39,7 @@ export const FEATURE_ICON: Readonly<Record<Phase2Feature, IconName>> = {
   files: 'file',
   handoff: 'external',
   notifications: 'bell',
-  messages: 'pen',
+  messages: 'msg',
   calls: 'phone',
 };
 

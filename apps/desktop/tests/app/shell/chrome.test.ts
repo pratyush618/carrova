@@ -22,4 +22,22 @@ describe('buildChrome', () => {
     expect(live(true)).toEqual(['nearby']);
     expect(live(false)).toEqual([]);
   });
+
+  it('adds Messages after Nearby once a phone shares its texts', () => {
+    const chrome = buildChrome(
+      { kind: 'hub', page: 'messages' },
+      i18n.t,
+      () => undefined,
+      null,
+      undefined,
+      false,
+      true,
+    );
+    expect(chrome.hubLinks.map((link) => link.id).slice(0, 3)).toEqual([
+      'home',
+      'nearby',
+      'messages',
+    ]);
+    expect(chrome.hubLinks.find((link) => link.current)?.label).toBe('Messages');
+  });
 });

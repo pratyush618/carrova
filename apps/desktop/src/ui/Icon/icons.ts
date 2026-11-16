@@ -70,6 +70,7 @@ export const ICONS = {
   ring: [
     'M12 3.6v1.8M6 10.2a6 6 0 0 1 12 0v4.8l1.8 2.4H4.2l1.8-2.4zM10.2 20.4h3.6M3 8.4a9.6 9.6 0 0 1 2.4-4.2M21 8.4a9.6 9.6 0 0 0-2.4-4.2',
   ],
+  msg: ['M4.2 5.4h15.6v10.8h-8.4l-4.8 3.6v-3.6H4.2z'],
   // Phone (Android mockup `scan`, scaled from its 20-unit grid).
   camera: [
     'M3.6 7.8h3.6l1.8-2.4h6l1.8 2.4h3.6v11.4H3.6zM12 10.2a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2z',

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, type RefObject } f
 import { useTranslation } from 'react-i18next';
 import { usePort } from '../../engine/port';
 import { bundleStatus } from '../../flows/catalog/catalogViews';
+import { messagesPhone } from '../../flows/phone/messagesPhone';
 import { ChromeContext, Toast, Window } from '../../ui';
 import { useControllers } from '../controllers/Controllers';
 import type { FlowId } from '../nav/flows';
@@ -102,9 +103,10 @@ export function Shell({ initial }: { readonly initial: Nav }) {
   const bell = useBell(go);
   const visibility = controllers.devices.visibility;
   const visible = visibility !== null && visibility.choice !== 'no_one';
+  const messages = messagesPhone(controllers.linked.devices) !== undefined;
   const chrome = useMemo(
-    () => buildChrome(view, t, go, bundleStatus(recipes, t), bell, visible),
-    [view, t, go, recipes, bell, visible],
+    () => buildChrome(view, t, go, bundleStatus(recipes, t), bell, visible, messages),
+    [view, t, go, recipes, bell, visible, messages],
   );
   useScreenFocus(viewKey(view), root);
 

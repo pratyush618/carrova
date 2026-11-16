@@ -2,7 +2,7 @@ import type { SettingsSection } from '../../screens/settings/sections';
 import { flowStart, position, stepIndex, type FlowId, type FlowPosition } from './flows';
 
 /** Places reachable from the hub's top bar. */
-export type HubPage = 'home' | 'nearby' | 'history' | 'apps' | 'settings';
+export type HubPage = 'home' | 'nearby' | 'messages' | 'history' | 'apps' | 'settings';
 
 /** What fills the window. */
 export type View =

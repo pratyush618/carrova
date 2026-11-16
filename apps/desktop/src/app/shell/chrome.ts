@@ -6,6 +6,7 @@ import type { HubPage, NavEvent, View } from '../nav/navMachine';
 const HUB: readonly { page: HubPage; icon: IconName }[] = [
   { page: 'home', icon: 'home' },
   { page: 'nearby', icon: 'radar' },
+  { page: 'messages', icon: 'msg' },
   { page: 'history', icon: 'history' },
   { page: 'apps', icon: 'apps' },
   { page: 'settings', icon: 'settings' },
@@ -23,19 +24,23 @@ export function buildChrome(
   hubStatus: HubStatus | null = null,
   bell?: BellModel,
   visible = false,
+  /** A linked phone shares its texts here: Messages shows. */
+  messages = false,
 ): Chrome {
   // A device page sits under Nearby.
   const current = view.kind === 'hub' ? view.page : view.kind === 'device' ? 'nearby' : null;
-  const hubLinks: HubLink[] = HUB.map(({ page, icon }) => ({
-    id: page,
-    label: t(`nav.${page}`),
-    icon,
-    current: page === current,
-    ...(page === 'nearby' && visible && { live: true }),
-    onSelect: () => {
-      dispatch({ type: 'openHub', page });
-    },
-  }));
+  const hubLinks: HubLink[] = HUB.filter(({ page }) => messages || page !== 'messages').map(
+    ({ page, icon }) => ({
+      id: page,
+      label: t(`nav.${page}`),
+      icon,
+      current: page === current,
+      ...(page === 'nearby' && visible && { live: true }),
+      onSelect: () => {
+        dispatch({ type: 'openHub', page });
+      },
+    }),
+  );
   const flow =
     view.kind === 'flow'
       ? {

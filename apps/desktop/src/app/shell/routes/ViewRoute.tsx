@@ -2,6 +2,7 @@ import type { SettingsSection } from '../../../screens/settings/sections';
 import type { HubPage, View } from '../../nav/navMachine';
 import { DeviceRoute } from './DeviceRoutes';
 import { AppsRoute, HistoryRoute, HomeRoute, NearbyRoute, SettingsRoute } from './HubRoutes';
+import { MessagesRoute } from './PhoneRoutes';
 import { OpenRoute, ReceiveRoute } from './ReceiveRoutes';
 import { SaveRoute, SendRoute } from './SendRoutes';
 import { UndoRoute } from './UndoRoute';
@@ -18,6 +19,8 @@ function HubRoute({
       return <HomeRoute />;
     case 'nearby':
       return <NearbyRoute />;
+    case 'messages':
+      return <MessagesRoute />;
     case 'history':
       return <HistoryRoute />;
     case 'apps':

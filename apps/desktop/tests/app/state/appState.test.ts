@@ -188,6 +188,22 @@ describe('appReducer peer facts', () => {
     expect(answered.link.asks).toEqual([]);
   });
 
+  it('holds provisional texts until the phone stores their thread', () => {
+    const fold = (...events: EngineEvent[]) => feed(LINK_SESSION, ...events).link;
+    const text = (id: number, thread_id: number) => ({
+      event: 'phone_sms' as const,
+      device: 'p8',
+      message: { id, thread_id, outgoing: false, text: 'hi', when_ms: 5 },
+    });
+    expect(fold(text(0, 1), text(0, 2)).sms.map((p) => p.message.thread_id)).toEqual([1, 2]);
+    expect(fold(text(0, 1), text(0, 2), text(9, 1)).sms.map((p) => p.message.thread_id)).toEqual([
+      2,
+    ]);
+    expect(
+      fold(text(0, 1), { event: 'phone_cleared', device: 'p8', feature: 'messages' }).sms,
+    ).toEqual([]);
+  });
+
   it('pops a phone notification up by key, noting a locked screen', () => {
     const note = feed(LINK_SESSION, {
       event: 'phone_note',

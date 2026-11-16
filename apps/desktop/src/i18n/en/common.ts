@@ -18,6 +18,7 @@ export const common = {
     label: 'Main',
     home: 'Home',
     nearby: 'Nearby',
+    messages: 'Messages',
     history: 'History',
     apps: 'Apps',
     settings: 'Settings',
