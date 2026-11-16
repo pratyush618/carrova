@@ -35,10 +35,17 @@ object Sms {
     /** Threads that got an `SMS_RECEIVED` and are not yet seen stored. */
     private val pending = PendingThreads(System::currentTimeMillis)
 
+    /** The running watch's debounce; null when none. */
+    @Volatile
+    private var debounce: Debounce? = null
+
     /** Note that [thread] got an incoming SMS the default app has yet to store. */
     @JvmStatic
     fun expectStored(thread: Long) {
-        if (Events.watching) pending.add(thread)
+        if (!Events.watching) return
+        pending.add(thread)
+        // The default app may have stored it already, with no change to come.
+        debounce?.poke()
     }
 
     /**
@@ -58,23 +65,25 @@ object Sms {
         worker?.quit()
         observer = null
         worker = null
+        debounce = null
         pending.clear()
         if (!on) return
         val thread = HandlerThread("carrova-sms-stored").also { it.start() }
         val handler = Handler(thread.looper)
-        val debounce = Debounce(STORED_DEBOUNCE_MS, HandlerTimer(handler)) {
+        val next = Debounce(STORED_DEBOUNCE_MS, HandlerTimer(handler)) {
             // A replaced watch's queued emit must not reach the new one.
             if (gen != Events.generation) return@Debounce
             for (id in pending.resolve { t, since -> storedSince(resolver, t, since) }) {
                 Events.offer(JSONObject().put("type", "sms_stored").put("thread_id", id).toString())
             }
         }
-        val next = object : ContentObserver(handler) {
+        debounce = next
+        val observed = object : ContentObserver(handler) {
             // The URI may be null, so it is never relied on.
-            override fun onChange(selfChange: Boolean) = debounce.poke()
+            override fun onChange(selfChange: Boolean) = next.poke()
         }
-        resolver.registerContentObserver(Telephony.Sms.CONTENT_URI, true, next)
-        observer = next
+        resolver.registerContentObserver(Telephony.Sms.CONTENT_URI, true, observed)
+        observer = observed
         worker = thread
     }
 
