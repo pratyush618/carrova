@@ -329,6 +329,8 @@ impl Platform for Recording {
         let generation = {
             let mut events = lock(&self.events);
             events.generation += 1;
+            // The replaced watch stops now; events wait for this one's replay.
+            events.on_event = None;
             events.generation
         };
         // Replay off the caller's thread: a supervisor may hold its own lock
@@ -347,8 +349,10 @@ impl Platform for Recording {
         let events = Arc::clone(&self.events);
         Ok(PhoneWatch::new(move || {
             let mut events = lock(&events);
-            events.generation += 1;
-            events.on_event = None;
+            if events.generation == generation {
+                events.generation += 1; // a replay not yet run stays off
+                events.on_event = None;
+            }
         }))
     }
     fn active_notes(&self) -> Result<Vec<Note>, PlatformError> {

@@ -56,6 +56,45 @@ fn events_buffer_until_watched_and_stop_on_drop() {
     );
 }
 
+fn wait_len(seen: &Mutex<Vec<PhoneEvent>>, len: usize) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while seen.lock().unwrap().len() < len && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(5));
+    }
+}
+
+#[test]
+fn replacing_a_watch_moves_events_and_survives_the_old_drop() {
+    let p = recording();
+    let (a, b) = (
+        Arc::new(Mutex::new(Vec::new())),
+        Arc::new(Mutex::new(Vec::new())),
+    );
+    let sink = Arc::clone(&a);
+    let old = p
+        .watch_phone_events(Box::new(move |e| sink.lock().unwrap().push(e)))
+        .unwrap();
+    p.script_event(PhoneEvent::Dropped { count: 1 });
+    wait_len(&a, 1);
+    let sink = Arc::clone(&b);
+    let _new = p
+        .watch_phone_events(Box::new(move |e| sink.lock().unwrap().push(e)))
+        .unwrap();
+    p.script_event(PhoneEvent::Dropped { count: 2 });
+    wait_len(&b, 1);
+    drop(old);
+    p.script_event(PhoneEvent::Dropped { count: 3 });
+    wait_len(&b, 2);
+    assert_eq!(*a.lock().unwrap(), [PhoneEvent::Dropped { count: 1 }]);
+    assert_eq!(
+        *b.lock().unwrap(),
+        [
+            PhoneEvent::Dropped { count: 2 },
+            PhoneEvent::Dropped { count: 3 }
+        ]
+    );
+}
+
 #[test]
 fn scripted_answers_and_content_free_actions() {
     let p = recording();
