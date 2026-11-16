@@ -58,3 +58,7 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 ## 2026-11-16 — oomd killed Chrome while CI linked under swap thrash
 - **What happened:** `just ci` (2 jobs, cap raised to 7G) linked desktop + CLI while about 4 GB sat in swap. Memory PSI stayed around 40–50 for minutes, IO PSI reached 84, and systemd-oomd killed the user's Chrome scope (24 processes). The CI unit was under its cap, so raising the cap was the wrong fix. I watched the alerts instead of stopping CI.
 - **Rule:** sustained memory PSI ≥ 40 for 30 s, or swap in/out with IO PSI ≥ 50, means stop the CI unit at once, whatever its cap. Run CI with `CARGO_BUILD_JOBS=1` and `-p MemorySwapMax=0` when swap is above 1 GB at launch. Never let a monitor alert pass without acting or saying why not.
+
+## 2026-11-16 — Pushed commit bodies over commitlint's 100-char line limit
+- **What happened:** two agent commit bodies had lines of 102 and 107 chars; local `just ci` doesn't run commitlint, so PR #25 failed the "commit messages" job. Fixing it without force-push meant a new branch and a replacement PR (#26).
+- **Rule:** run `just commitlint` on the range before every push. Briefs tell agents to wrap commit bodies at 72 columns.
