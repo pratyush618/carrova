@@ -1,5 +1,5 @@
 use super::bluez::{Seen, linked_phone, on_adapter, pair_target};
-use super::ofono::card_for;
+use super::ofono::{card_for, tone_modem};
 use super::packagekit::{Outcome, outcome, supported_os};
 use super::wireplumber::{self, drop_in, parse_version};
 use super::{AdapterInfo, bus_err, status_from, valid_tones};
@@ -157,6 +157,16 @@ fn linked_phone_prefers_the_connected_gateway() {
     assert_eq!(linked_phone([idle, live, unpaired]), Some(("/dev_B", "BB")));
     assert_eq!(linked_phone([unpaired, idle]), Some(("/dev_A", "AA")));
     assert_eq!(linked_phone([unpaired]), None);
+}
+
+#[test]
+fn tones_go_to_the_modem_in_a_call() {
+    let pick = |a, b| tone_modem([("/hfp/a", a), ("/hfp/b", b)]);
+    assert_eq!(pick(false, true), Some("/hfp/b"));
+    assert_eq!(pick(true, true), Some("/hfp/a"));
+    // No call anywhere: the first, as before.
+    assert_eq!(pick(false, false), Some("/hfp/a"));
+    assert_eq!(tone_modem([]), None);
 }
 
 #[test]

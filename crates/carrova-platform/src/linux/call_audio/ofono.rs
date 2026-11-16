@@ -34,9 +34,9 @@ pub(super) fn start(conn: &Connection) -> zbus::Result<()> {
     Ok(())
 }
 
-/// `method` on oFono's root object, listing objects with properties.
-fn list(conn: &Connection, interface: &str, method: &str) -> zbus::Result<Objects> {
-    conn.call_method(Some(SERVICE), "/", Some(interface), method, &())?
+/// `method` on oFono's object at `path`, listing objects with properties.
+fn list(conn: &Connection, path: &str, interface: &str, method: &str) -> zbus::Result<Objects> {
+    conn.call_method(Some(SERVICE), path, Some(interface), method, &())?
         .body()
         .deserialize()
 }
@@ -45,23 +45,52 @@ fn text(props: &HashMap<String, OwnedValue>, key: &str) -> Option<String> {
     props.get(key)?.try_clone().ok()?.try_into().ok()
 }
 
-/// `VoiceCallManager.SendTones` on the first modem that has calls.
+const VOICE_CALLS: &str = "org.ofono.VoiceCallManager";
+
+/// The modem to send tones on among `(path, has an active call)`, all
+/// with voice calls: the one in a call, else the first.
+pub(crate) fn tone_modem<'a>(modems: impl IntoIterator<Item = (&'a str, bool)>) -> Option<&'a str> {
+    let modems: Vec<_> = modems.into_iter().collect();
+    modems
+        .iter()
+        .find(|&&(_, active)| active)
+        .or(modems.first())
+        .map(|&(path, _)| path)
+}
+
+/// Whether `modem` has a call in state `active` (`VoiceCallManager.GetCalls`).
+fn in_call(conn: &Connection, modem: &str) -> bool {
+    // A modem that cannot list its calls is only not preferred.
+    list(conn, modem, VOICE_CALLS, "GetCalls").is_ok_and(|calls| {
+        calls
+            .iter()
+            .any(|(_, props)| text(props, "State").as_deref() == Some("active"))
+    })
+}
+
+/// `VoiceCallManager.SendTones` on the modem in a call, else the first
+/// with voice calls.
 pub(super) fn send_tones(digits: &str) -> Result<(), PlatformError> {
     let run = || -> zbus::Result<bool> {
         let conn = system()?;
-        let modems = list(&conn, "org.ofono.Manager", "GetModems")?;
-        let Some((modem, _)) = modems.iter().find(|(_, props)| {
-            props
-                .get("Interfaces")
-                .and_then(|v| Vec::<String>::try_from(v.try_clone().ok()?).ok())
-                .is_some_and(|ifaces| ifaces.iter().any(|i| i == "org.ofono.VoiceCallManager"))
-        }) else {
+        let modems = list(&conn, "/", "org.ofono.Manager", "GetModems")?;
+        let voice: Vec<_> = modems
+            .iter()
+            .filter(|(_, props)| {
+                props
+                    .get("Interfaces")
+                    .and_then(|v| Vec::<String>::try_from(v.try_clone().ok()?).ok())
+                    .is_some_and(|ifaces| ifaces.iter().any(|i| i == VOICE_CALLS))
+            })
+            .map(|(path, _)| (path.as_str(), in_call(&conn, path.as_str())))
+            .collect();
+        let Some(modem) = tone_modem(voice) else {
             return Ok(false);
         };
         conn.call_method(
             Some(SERVICE),
             modem,
-            Some("org.ofono.VoiceCallManager"),
+            Some(VOICE_CALLS),
             "SendTones",
             &digits,
         )?;
@@ -91,7 +120,7 @@ pub(crate) fn card_for<'a>(
 
 /// The phone's (at `address`) audio card, while its hands-free link is up.
 fn card(conn: &Connection, address: &str) -> zbus::Result<Option<OwnedObjectPath>> {
-    let cards = list(conn, "org.ofono.HandsfreeAudioManager", "GetCards")?;
+    let cards = list(conn, "/", "org.ofono.HandsfreeAudioManager", "GetCards")?;
     let props: Vec<_> = cards
         .iter()
         .map(|(path, p)| (path.as_str(), text(p, "Type"), text(p, "RemoteAddress")))
