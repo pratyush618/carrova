@@ -174,7 +174,7 @@ impl Recording {
 
     /// Whether a `watch_phone_events` callback is registered now.
     pub fn watching(&self) -> bool {
-        lock(&self.events).on_event.is_some()
+        lock(&self.events).live.is_some()
     }
 
     /// Phone methods called so far: names and ids only.
