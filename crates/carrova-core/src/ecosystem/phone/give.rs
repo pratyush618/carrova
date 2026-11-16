@@ -24,8 +24,8 @@ use carrova_platform::phone::{CallState, Note, PhoneEvent, PhoneWatch};
 use carrova_platform::{Platform, PlatformError};
 use carrova_transport::{Connection, Stream};
 
-use super::NotifyApps;
 use super::apps::outgoing;
+use super::{NotifyApps, SyncWindow};
 use super::{calls, mirror};
 use crate::cancel::Cancel;
 use crate::ecosystem::supervisor::Shared;
@@ -33,11 +33,6 @@ use crate::error::Result;
 
 /// The features a phone gives.
 const PHONE: [Feature; 3] = [Feature::Notifications, Feature::Messages, Feature::Calls];
-
-/// How far back SMS pages go ("Keep in sync"), in ms.
-// shortcut: fixed at the 30-day default; read the user's choice once the
-// phone's Messages screen stores one.
-const SYNC_WINDOW_MS: i64 = 30 * 24 * 60 * 60 * 1000;
 
 /// How long an answered call may take to report itself active.
 const ANSWER_SETTLE: Duration = Duration::from_secs(2);
@@ -327,15 +322,15 @@ pub(crate) fn serve_messages(
         SmsIncoming::Request(request, responder) => (request, responder),
     };
     let platform = &**shared.platform();
-    let since = since_ms();
+    let since = since_ms(platform);
     let reply = match request {
         SmsRequest::Threads { before } => {
-            SmsReply::ThreadsPage(platform.sms_threads(before, THREAD_PAGE, Some(since))?)
+            SmsReply::ThreadsPage(platform.sms_threads(before, THREAD_PAGE, since)?)
         }
         SmsRequest::Thread { id, before } => {
             let mut page = platform.sms_thread(id, before, MESSAGE_PAGE)?;
             // Newest first: what is cut is older than the rest.
-            page.retain(|m| m.when_ms > since);
+            page.retain(|m| since.is_none_or(|s| m.when_ms > s));
             SmsReply::ThreadPage(page)
         }
         SmsRequest::Send {
@@ -375,10 +370,15 @@ pub(crate) fn serve_messages(
     Ok(responder.reply(&reply)?)
 }
 
-/// The oldest time SMS pages reach back to.
-fn since_ms() -> i64 {
+/// The oldest time SMS pages reach back to (the user's "Keep in sync");
+/// `None`: no limit. An unreadable choice falls back to the narrowest.
+fn since_ms(platform: &dyn Platform) -> Option<i64> {
+    let window = SyncWindow::open(platform).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "messages sync window unreadable; keeping 30 days");
+        SyncWindow::Days30
+    });
     let now = i64::try_from(crate::time::now_unix()).unwrap_or(i64::MAX);
-    now.saturating_mul(1000).saturating_sub(SYNC_WINDOW_MS)
+    window.since_ms(now.saturating_mul(1000))
 }
 
 /// Once the answered call is active, whether its audio runs on the laptop;

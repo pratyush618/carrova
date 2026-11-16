@@ -4,7 +4,7 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use carrova_core::ecosystem::{NotifyApps, PeerState, Supervisor};
+use carrova_core::ecosystem::{NotifyApps, PeerState, Supervisor, SyncWindow};
 use carrova_crypto::pairing::KnownSecret;
 use carrova_link::{
     ActionResult, CallCommand, CallIncoming, CallReply, Feature, FeatureState, Incoming, LaneGate,
@@ -543,8 +543,10 @@ fn send_with_same_client_id_sends_once() {
     assert_eq!(sends, 1);
 }
 
-#[test]
-fn sms_pages_stop_at_the_sync_window() {
+/// A phone with a thread from now and one from 31 days ago, linked with
+/// SMS on, keeping `window`; the thread ids and thread 1's message ids
+/// the laptop gets.
+fn sms_pages_with(window: Option<SyncWindow>) -> (Vec<i64>, Vec<i64>) {
     let now = i64::try_from(
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -554,6 +556,9 @@ fn sms_pages_stop_at_the_sync_window() {
     .unwrap();
     let old = now - 31 * 24 * 3600 * 1000;
     let (_phone, _sp, laptop) = phone_and_laptop(&[SMS], &[SMS], |p| {
+        if let Some(window) = window {
+            window.save(&*p.platform).unwrap();
+        }
         let mut phone = p.platform.phone();
         for (id, when_ms) in [(1, now), (2, old)] {
             phone.threads.push(SmsThread {
@@ -578,7 +583,6 @@ fn sms_pages_stop_at_the_sync_window() {
     let SmsReply::ThreadsPage(threads) = threads else {
         panic!("not a threads page");
     };
-    assert_eq!(threads.iter().map(|t| t.id).collect::<Vec<_>>(), [1]);
     let thread = SmsRequest::Thread {
         id: 1,
         before: None,
@@ -586,5 +590,25 @@ fn sms_pages_stop_at_the_sync_window() {
     let SmsReply::ThreadPage(messages) = request_sms(&laptop.conn, &thread).unwrap() else {
         panic!("not a thread page");
     };
-    assert_eq!(messages.iter().map(|m| m.id).collect::<Vec<_>>(), [1]);
+    (
+        threads.iter().map(|t| t.id).collect(),
+        messages.iter().map(|m| m.id).collect(),
+    )
+}
+
+#[test]
+fn sms_pages_stop_at_the_sync_window() {
+    assert_eq!(sms_pages_with(None), (vec![1], vec![1]));
+}
+
+#[test]
+fn sms_pages_follow_the_kept_window() {
+    assert_eq!(
+        sms_pages_with(Some(SyncWindow::Year)),
+        (vec![1, 2], vec![1, 2])
+    );
+    assert_eq!(
+        sms_pages_with(Some(SyncWindow::All)),
+        (vec![1, 2], vec![1, 2])
+    );
 }

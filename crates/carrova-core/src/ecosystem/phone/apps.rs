@@ -122,7 +122,8 @@ impl NotifyApps {
     }
 }
 
-fn dir(platform: &dyn Platform) -> Result<std::path::PathBuf> {
+/// `<state>/phone`, made `700` if missing.
+pub(super) fn dir(platform: &dyn Platform) -> Result<std::path::PathBuf> {
     let dir = platform.state_dir()?.join("phone");
     ensure_dir(platform, &dir, 0o700)?;
     Ok(dir)
