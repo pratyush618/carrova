@@ -71,7 +71,8 @@ for reading or sending phone data (the CLI only switches the features, see
 |---|---|
 | New lane kinds | `Notify`, `Messages`, `Calls` (all `version: 1`) |
 | Lane shape | one short-lived lane per message, as Phase 1 (`ring.rs` pattern: send, ack, finish) |
-| Snapshot on link open | phone sends active notifications (≤ 50, newest first) and the current call state; threads are pulled by the laptop on demand |
+| Snapshot on link open | phone sends active notifications (≤ 50, newest first) and the current call state; threads are pulled by the laptop on demand. Size: icons are CBOR byte strings and share a 512 KiB budget per snapshot (icons of the oldest notes dropped first), so a maximal snapshot (50 notes at full text, title and ids) encodes under the 1 MiB `MAX_FRAME_LEN`; a test encodes that worst case |
+| Paging cursor | `Cursor { when_ms, id }`; pages are newest first by (`when_ms` DESC, `id` DESC) and `before` is exclusive on the pair, so rows sharing a timestamp are neither skipped nor repeated. Used by `Threads`, `Thread` and `History` |
 | Feature groups | `notifications`, `messages`, `calls` are **quiet** (On/Off) |
 | Giving side | the phone: its switch decides what leaves it |
 | Receiving side | the laptop: its switch decides what it accepts and shows |
@@ -113,11 +114,12 @@ for reading or sending phone data (the CLI only switches the features, see
 
 ### Messages (SMS)
 
-- Laptop → phone: `Threads { before: Option<i64> }` (pages of 30),
-  `Thread { id, before }` (pages of 50 messages), `Send { to: Vec<String>
+- Laptop → phone: `Threads { before: Option<Cursor> }` (pages of 30),
+  `Thread { id, before: Option<Cursor> }` (pages of 50 messages), `Send { to: Vec<String>
   (one number in Phase 2), text, client_id }`.
 - Phone → laptop: `ThreadsPage`, `ThreadPage`, `Incoming(Message)`,
-  `SendResult { client_id, ok | NoSignal | Failed }`.
+  `Resync` (refetch threads and any open thread), `SendResult { client_id,
+  ok | NoSignal | Failed }`.
 - "Keep in sync" (phone, mockup): 30 days default / 1 year / All decides how
   far back pages go. The laptop asks for pages; nothing is pushed in bulk.
 - Contacts names resolved on the phone (`READ_CONTACTS`) and sent with the
@@ -131,7 +133,8 @@ for reading or sending phone data (the CLI only switches the features, see
 - Phone → laptop: `CallState::{ Idle, Ringing { number, name }, Active {
   since, muted, on_laptop_audio }, Ended { missed } }`, `HistoryPage`.
 - Laptop → phone: `Answer`, `Decline`, `End`, `Mute(bool)`, `Dial {
-  number }`, `History { before }` (pages of 50, `READ_CALL_LOG`).
+  number }`, `History { before: Option<Cursor> }` (pages of 50, `READ_CALL_LOG`;
+  each `CallRecord` carries its call-log `id`).
 - Answer from the laptop turns the phone's speaker on (unless optional
   audio is set up and connected: then audio goes to the laptop).
 - Ringing on the laptop follows the laptop setting "Ring on this
@@ -274,9 +277,12 @@ Real hardware (user, Ubuntu 24.04 laptop + Android 13+ phone):
   `Events.open()` clears the queue and the close sentinel when a watch
   starts (a second watch in one process would otherwise end at once); and
   on overflow Kotlin enqueues one `{"type":"dropped","count":n}` event,
-  which Rust maps to `PhoneEvent::Dropped { count }` and answers by
-  re-sending the notification `Snapshot` to linked laptops (so the laptop
-  mirror resyncs). Reference code: branch `spike/phase2` `a984c27`
+  which Rust maps to `PhoneEvent::Dropped { count }`. Any event type can be
+  lost, so the phone resyncs every feature to each linked laptop that
+  allows it: the notification `Snapshot`, the current call state (read
+  with `Platform::call_state`, so a lost `Ended` cannot leave a stale
+  call on the laptop) and `SmsPush::Resync` (the laptop refetches its
+  thread list and any open thread). Reference code: branch `spike/phase2` `a984c27`
   (never merged).
 - S2–S4: pending (real hardware, user).
 
