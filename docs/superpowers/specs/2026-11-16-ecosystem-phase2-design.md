@@ -129,10 +129,18 @@ for reading or sending phone data (the CLI only switches the features, see
   newest page of that thread. Its `when_ms` is the phone's receive time.
   The refetch runs after the message is stored, not on the broadcast:
   the phone watches the SMS provider (`ContentObserver` on
-  `content://sms`) and, when it changes, emits `PhoneEvent::SmsStored
-  { thread_id }`, which the phone forwards as `SmsPush::Stored
-  { thread_id }`; the laptop then refetches that thread's newest page
-  and drops the provisional row. If no `Stored` arrives within 10 s of
+  `content://sms`; the callback URI may be null, so it is not used to
+  find the thread). The phone keeps the set of pending threads: each
+  `SMS_RECEIVED` adds its `thread_id` (from `getOrCreateThreadId`) with
+  the receive time. 500 ms after the last provider change it queries,
+  for each pending thread, whether an inbox row dated at or after that
+  receive time now exists, and emits one `PhoneEvent::SmsStored
+  { thread_id }` per thread that has one, removing it from the set
+  (entries older than 10 s are dropped). The phone forwards each as
+  `SmsPush::Stored { thread_id }`; the laptop then refetches that
+  thread's newest page and drops its provisional rows. A `Stored` for a
+  thread with no provisional row refetches that thread only if the
+  laptop has it loaded, and is otherwise ignored. If no `Stored` arrives within 10 s of
   the provisional message, the laptop refetches once anyway. Until then
   the provisional message shows normally in the thread and the
   conversation list.
