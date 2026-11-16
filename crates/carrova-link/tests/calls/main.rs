@@ -43,11 +43,6 @@ fn dial_rejects_letters_and_long() {
             Err(LinkError::Protocol("number"))
         ));
     }
-    let tones = CallCommand::Tones("12a".into());
-    assert!(matches!(
-        call_command(&a, &tones),
-        Err(LinkError::Protocol("number"))
-    ));
 }
 
 /// Serve one command with `answer`, return what the client got and what the server saw.
@@ -117,11 +112,8 @@ fn receiver_rejects_a_bad_number() {
 }
 
 #[test]
-fn mute_and_audio_commands_roundtrip() {
-    for cmd in [
-        CallCommand::Mute(true),
-        CallCommand::AudioTo(AudioSide::Laptop),
-    ] {
+fn mute_and_end_commands_roundtrip() {
+    for cmd in [CallCommand::Mute(true), CallCommand::End] {
         let (reply, seen) = command(&cmd, &CallReply::Done);
         assert_eq!((reply, seen), (CallReply::Done, cmd));
     }
@@ -136,6 +128,45 @@ fn debug_hides_numbers() {
         number: "5551234".into(),
         name: Some("Ada".into()),
     });
-    assert!(!format!("{dial:?}{incoming:?}").contains("5551234"));
+    let tones = CallCommand::Tones("5551234".into());
+    assert!(!format!("{dial:?}{incoming:?}{tones:?}").contains("5551234"));
     assert!(!format!("{incoming:?}").contains("Ada"));
+}
+
+#[test]
+fn local_commands_never_leave_the_laptop() {
+    let (a, _b) = linked();
+    for cmd in [
+        CallCommand::Tones("123".into()),
+        CallCommand::AudioTo(AudioSide::Laptop),
+    ] {
+        assert!(matches!(
+            call_command(&a, &cmd),
+            Err(LinkError::Protocol("local"))
+        ));
+    }
+}
+
+#[test]
+fn oversized_history_page_is_refused() {
+    let rec = CallRecord {
+        number: "1".into(),
+        name: None,
+        when_ms: 0,
+        duration_s: 0,
+        kind: CallKind::Incoming,
+    };
+    let (a, b) = linked();
+    let got = thread::scope(|s| {
+        s.spawn(|| {
+            let (_, stream) = accept_lane(&b, &Open, T).unwrap();
+            let CallIncoming::Command(_, r) = recv_calls(stream).unwrap() else {
+                panic!("expected a command");
+            };
+            r.reply(&CallReply::HistoryPage(vec![rec; HISTORY_PAGE + 1]))
+                .unwrap();
+        });
+        call_command(&a, &CallCommand::History { before_ms: None })
+    });
+    assert!(matches!(got, Err(LinkError::Protocol("history"))));
 }

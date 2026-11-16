@@ -1,7 +1,7 @@
 //! Phone call state and call commands on the `Calls` lane.
 //!
 //! Wire (opener = asker), frames are length + CBOR, first frame a [`CallFrame`]:
-//! `State` (phone → laptop) is acknowledged with [`CallReply::Done`]; `Command` (laptop →
+//! `State` (phone → laptop) is acknowledged with `()`; `Command` (laptop →
 //! phone) is answered with one [`CallReply`]. Whether a command is allowed in
 //! the current call state is the controller's call, not this lane's.
 
@@ -13,7 +13,7 @@ use carrova_transport::Stream;
 use serde::{Deserialize, Serialize};
 
 use crate::LinkError;
-use crate::lane::{FRAME_TIMEOUT, LaneKind, open_lane};
+use crate::lane::{FRAME_TIMEOUT, LaneKind};
 use crate::reply::{Responder, request, serve};
 
 /// Most records in one [`CallReply::HistoryPage`].
@@ -82,7 +82,7 @@ impl fmt::Debug for CallCommand {
 /// The phone's answer to a [`CallCommand`]. `Debug` hides history entries.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CallReply {
-    /// Done.
+    /// The command was carried out.
     Done,
     /// `Answer` or `Decline` with nothing ringing.
     NotRinging,
@@ -149,23 +149,28 @@ pub fn send_call_state(
     conn: &carrova_transport::Connection,
     state: &CallState,
 ) -> Result<(), LinkError> {
-    let mut stream = open_lane(conn, LaneKind::Calls)?;
-    stream.send(&CallFrame::State(state.clone()))?;
-    stream.recv::<CallReply>(FRAME_TIMEOUT)?;
-    Ok(())
+    request(
+        conn,
+        LaneKind::Calls,
+        &CallFrame::State(state.clone()),
+        FRAME_TIMEOUT,
+    )
 }
 
 /// Ask the phone to carry out `command` and wait for its reply.
 ///
 /// # Errors
 ///
-/// [`LinkError::Protocol`] (`"number"`) for a malformed `Dial`/`Tones`
-/// number, or (`"history"`) for an oversized history page; otherwise
+/// [`LinkError::Protocol`] (`"local"`) for `Tones` and `AudioTo`, which the
+/// laptop answers itself; (`"number"`) for a malformed `Dial` number; (`"history"`) for an oversized history page; otherwise
 /// [`LinkError`] if the lane is refused or the peer is gone or silent.
 pub fn call_command(
     conn: &carrova_transport::Connection,
     command: &CallCommand,
 ) -> Result<CallReply, LinkError> {
+    if matches!(command, CallCommand::Tones(_) | CallCommand::AudioTo(_)) {
+        return Err(LinkError::Protocol("local"));
+    }
     command.check()?;
     let reply: CallReply = request(
         conn,
@@ -189,14 +194,14 @@ pub fn call_command(
 /// [`LinkError::Protocol`] (`"number"`) for a malformed `Dial`/`Tones`
 /// number; otherwise [`LinkError`] if no well-formed frame arrives in time.
 pub fn recv_calls(stream: Stream) -> Result<CallIncoming, LinkError> {
-    let (frame, responder): (CallFrame, Responder<CallReply>) = serve(stream)?;
+    let (frame, pending) = serve(stream)?;
     match frame {
         CallFrame::Command(command) => {
             command.check()?;
-            Ok(CallIncoming::Command(command, responder))
+            Ok(CallIncoming::Command(command, pending.responder()))
         }
         CallFrame::State(state) => {
-            responder.reply(&CallReply::Done)?;
+            pending.ack()?;
             Ok(CallIncoming::State(state))
         }
     }
