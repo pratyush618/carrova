@@ -216,12 +216,15 @@ impl Mirror {
             .any(|(m, at)| m.thread_id == id && *at <= since)
     }
 
-    /// Take `page`, the newest of thread `id` after it was stored: its
-    /// provisional texts go; returns the stored ones new here, newest first
-    /// (they replace the provisional ones).
+    /// Take `page`, the newest of thread `id` after it was stored: the
+    /// provisional texts it covers (none newer than its newest) go; returns
+    /// the stored ones new here, newest first (they replace those texts).
     fn stored(&mut self, id: i64, page: &[SmsMessage]) -> Vec<SmsMessage> {
         let before = self.provisional.len();
-        self.provisional.retain(|(m, _)| m.thread_id != id);
+        // A newer text is not stored yet: it stays, awaiting its own refetch.
+        let newest = page.first().map(|m| m.when_ms);
+        self.provisional
+            .retain(|(m, _)| m.thread_id != id || newest.is_none_or(|n| m.when_ms > n));
         let replaced = before - self.provisional.len();
         let known = self.threads.get(&id).and_then(|t| t.first()).map(cursor);
         let new: Vec<SmsMessage> = match known {

@@ -564,3 +564,27 @@ fn posted_then_removed_leaves_no_note() {
     assert!(at(&|e| matches!(e, Event::PhoneNote { .. })) < at(&|e| *e == gone));
     assert!(sl.notes(&phone.id).unwrap().is_empty());
 }
+
+#[test]
+fn newer_provisional_text_kept_after_a_refetch() {
+    let at = now_ms();
+    let (phone, _sp, laptop, sl) = linked(&[SMS], |_| {});
+    wait_watching(&phone);
+    let (first, second) = (text(0, 5, at), text(0, 5, at + 1000));
+    phone.platform.script_event(PhoneEvent::SmsReceived(first));
+    phone
+        .platform
+        .script_event(PhoneEvent::SmsReceived(second.clone()));
+    wait_until("both provisional texts", || texts(&laptop).len() == 2);
+
+    // Only the first is stored when its `Stored` comes.
+    let stored = text(2, 5, at);
+    phone.platform.phone().messages.push(stored.clone());
+    phone
+        .platform
+        .script_event(PhoneEvent::SmsStored { thread_id: 5 });
+    wait_until("the stored text", || texts(&laptop).len() == 3);
+
+    assert_eq!(texts(&laptop)[2], stored);
+    assert_eq!(newest(&sl, &phone, 5), [second, stored]);
+}
