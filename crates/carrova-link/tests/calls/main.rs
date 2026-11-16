@@ -89,27 +89,38 @@ fn answer_when_idle_returns_not_ringing() {
     assert_eq!(reply, CallReply::NotRinging);
 }
 
-#[test]
-fn receiver_rejects_a_bad_number() {
+/// Put `command` on the wire bypassing the sender's checks, return what the receiver made of it.
+fn recv_raw(command: CallCommand) -> Result<CallIncoming, LinkError> {
+    #[derive(serde::Serialize)]
+    enum CallFrame {
+        Command(CallCommand),
+    }
     let (a, b) = linked();
     thread::scope(|s| {
         let server = s.spawn(|| {
             let (_, stream) = accept_lane(&b, &Open, T).unwrap();
             recv_calls(stream)
         });
-        // Bypass the sender's check with a raw lane.
-        #[derive(serde::Serialize)]
-        enum CallFrame {
-            Command(CallCommand),
-        }
         let mut lane = open_lane(&a, LaneKind::Calls).unwrap();
-        lane.send(&CallFrame::Command(CallCommand::Tones("x".into())))
-            .unwrap();
-        assert!(matches!(
-            server.join().unwrap(),
-            Err(LinkError::Protocol("number"))
-        ));
-    });
+        lane.send(&CallFrame::Command(command)).unwrap();
+        server.join().unwrap()
+    })
+}
+
+#[test]
+fn receiver_rejects_a_bad_number() {
+    let dial = CallCommand::Dial { number: "x".into() };
+    assert!(matches!(recv_raw(dial), Err(LinkError::Protocol("number"))));
+}
+
+#[test]
+fn receiver_rejects_laptop_local_commands() {
+    for local in [
+        CallCommand::Tones("123".into()),
+        CallCommand::AudioTo(AudioSide::Phone),
+    ] {
+        assert!(matches!(recv_raw(local), Err(LinkError::Protocol("local"))));
+    }
 }
 
 #[test]

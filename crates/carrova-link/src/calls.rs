@@ -55,6 +55,14 @@ pub enum CallCommand {
 }
 
 impl CallCommand {
+    /// Reject a laptop-local command: it never crosses the wire.
+    fn check_remote(&self) -> Result<(), LinkError> {
+        match self {
+            Self::Tones(_) | Self::AudioTo(_) => Err(LinkError::Protocol("local")),
+            _ => Ok(()),
+        }
+    }
+
     /// Reject a malformed number before it goes anywhere.
     fn check(&self) -> Result<(), LinkError> {
         match self {
@@ -168,9 +176,7 @@ pub fn call_command(
     conn: &carrova_transport::Connection,
     command: &CallCommand,
 ) -> Result<CallReply, LinkError> {
-    if matches!(command, CallCommand::Tones(_) | CallCommand::AudioTo(_)) {
-        return Err(LinkError::Protocol("local"));
-    }
+    command.check_remote()?;
     command.check()?;
     let reply: CallReply = request(
         conn,
@@ -191,12 +197,13 @@ pub fn call_command(
 ///
 /// # Errors
 ///
-/// [`LinkError::Protocol`] (`"number"`) for a malformed `Dial`/`Tones`
-/// number; otherwise [`LinkError`] if no well-formed frame arrives in time.
+/// [`LinkError::Protocol`] (`"local"`) for `Tones` and `AudioTo`, which never
+/// cross the wire; (`"number"`) for a malformed `Dial` number; otherwise [`LinkError`] if no well-formed frame arrives in time.
 pub fn recv_calls(stream: Stream) -> Result<CallIncoming, LinkError> {
     let (frame, pending) = serve(stream)?;
     match frame {
         CallFrame::Command(command) => {
+            command.check_remote()?;
             command.check()?;
             Ok(CallIncoming::Command(command, pending.responder()))
         }
