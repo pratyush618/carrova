@@ -126,6 +126,31 @@ pub(super) fn tones(digits: &str) -> Result<(), PlatformError> {
     ofono::send_tones(digits)
 }
 
+/// What moving the call's audio to this computer takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ToLaptop {
+    /// The audio is here already.
+    Done,
+    /// The hands-free link is up and the phone has no call.
+    NoCall,
+    /// Drop the link (up without audio) and bring it back.
+    Reconnect,
+    /// Bring the link up.
+    Connect,
+}
+
+/// The step for audio `here`, given the hands-free `link`: `None` while it
+/// is down (oFono then sees no calls, so a call cannot be checked for),
+/// else whether the phone has a live call.
+pub(crate) fn to_laptop(here: bool, link: Option<bool>) -> ToLaptop {
+    match (here, link) {
+        (true, _) => ToLaptop::Done,
+        (false, Some(false)) => ToLaptop::NoCall,
+        (false, Some(true)) => ToLaptop::Reconnect,
+        (false, None) => ToLaptop::Connect,
+    }
+}
+
 /// Route the active call's audio to `side`.
 pub(super) fn audio_to(side: AudioSide) -> Result<(), PlatformError> {
     // Bringing the hands-free link up takes a few seconds.
@@ -148,13 +173,24 @@ pub(super) fn audio_to(side: AudioSide) -> Result<(), PlatformError> {
         // shortcut: unverified on hardware until spike S4, that Android
         // routes the active call to the hands-free unit on reconnect.
         AudioSide::Laptop => {
-            if pipewire::dump().is_some_and(|dump| pipewire::hands_free_up(&dump, &address)) {
-                return Ok(());
+            // Unlike `audio_side`, an unreadable graph is no error here: it
+            // counts as "no node", and the link is reconnected.
+            let here =
+                pipewire::dump().is_some_and(|dump| pipewire::hands_free_up(&dump, &address));
+            let ofono_err = |e| bus_err(ofono::SERVICE, e);
+            let link = match ofono::has_card(&conn, &address).map_err(ofono_err)? {
+                true => Some(ofono::has_call(&conn).map_err(ofono_err)?),
+                false => None,
+            };
+            match to_laptop(here, link) {
+                ToLaptop::Done => Ok(()),
+                ToLaptop::NoCall => Err(PlatformError::Unsupported("call_audio_to: no call")),
+                ToLaptop::Reconnect => {
+                    bluez::profile(&conn, &device, false)?;
+                    bluez::profile(&conn, &device, true)
+                }
+                ToLaptop::Connect => bluez::profile(&conn, &device, true),
             }
-            if ofono::has_card(&conn, &address).map_err(|e| bus_err(ofono::SERVICE, e))? {
-                bluez::profile(&conn, &device, false)?;
-            }
-            bluez::profile(&conn, &device, true)
         }
     }
 }

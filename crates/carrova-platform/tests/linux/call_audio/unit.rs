@@ -1,9 +1,9 @@
 use super::bluez::{Seen, linked_phone, on_adapter, pair_target};
-use super::ofono::{card_for, tone_modem};
+use super::ofono::{card_for, live, tone_modem};
 use super::packagekit::{Outcome, outcome, supported_os};
 use super::pipewire::hands_free_up;
 use super::wireplumber::{self, drop_in, parse_version};
-use super::{AdapterInfo, bus_err, status_from, valid_tones};
+use super::{AdapterInfo, ToLaptop, bus_err, status_from, to_laptop, valid_tones};
 use crate::PlatformError;
 use crate::linux::{LinuxEnv, LinuxPlatform};
 use crate::phone::CallAudioStatus as S;
@@ -232,4 +232,27 @@ fn no_hands_free_node_leaves_audio_on_the_phone() {
     assert!(!hands_free_up(DUMP, "AA:BB:CC:DD:EE:03"));
     assert!(!hands_free_up("not json", "AA:BB:CC:DD:EE:01"));
     assert!(!hands_free_up("{}", "AA:BB:CC:DD:EE:01"));
+}
+
+#[test]
+fn every_call_state_but_disconnected_is_live() {
+    for state in [
+        "active", "held", "dialing", "alerting", "incoming", "waiting",
+    ] {
+        assert!(live(state), "{state}");
+    }
+    assert!(!live("disconnected"));
+    assert!(!live(""));
+}
+
+#[test]
+fn audio_moves_here_only_during_a_call() {
+    // Audio here already: nothing to do, whatever oFono reports.
+    assert_eq!(to_laptop(true, None), ToLaptop::Done);
+    assert_eq!(to_laptop(true, Some(false)), ToLaptop::Done);
+    // Link up: reconnect only with a call to move.
+    assert_eq!(to_laptop(false, Some(true)), ToLaptop::Reconnect);
+    assert_eq!(to_laptop(false, Some(false)), ToLaptop::NoCall);
+    // Link down: oFono cannot see calls, so bring it up.
+    assert_eq!(to_laptop(false, None), ToLaptop::Connect);
 }

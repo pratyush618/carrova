@@ -47,7 +47,7 @@ fn text(props: &HashMap<String, OwnedValue>, key: &str) -> Option<String> {
 
 const VOICE_CALLS: &str = "org.ofono.VoiceCallManager";
 
-/// The modem to send tones on among `(path, has an active call)`, all
+/// The modem to send tones on among `(path, has a live call)`, all
 /// with voice calls: the one in a call, else the first.
 pub(crate) fn tone_modem<'a>(modems: impl IntoIterator<Item = (&'a str, bool)>) -> Option<&'a str> {
     let modems: Vec<_> = modems.into_iter().collect();
@@ -58,14 +58,48 @@ pub(crate) fn tone_modem<'a>(modems: impl IntoIterator<Item = (&'a str, bool)>) 
         .map(|&(path, _)| path)
 }
 
-/// Whether `modem` has a call in state `active` (`VoiceCallManager.GetCalls`).
+/// Whether a call in oFono's `State` is still going: every state but
+/// `disconnected` (doc/voicecall-api.txt).
+pub(crate) fn live(state: &str) -> bool {
+    matches!(
+        state,
+        "active" | "held" | "dialing" | "alerting" | "incoming" | "waiting"
+    )
+}
+
+/// Whether `modem` has a live call (`VoiceCallManager.GetCalls`).
 fn in_call(conn: &Connection, modem: &str) -> bool {
-    // A modem that cannot list its calls is only not preferred.
+    // A modem that cannot list its calls counts as having none.
     list(conn, modem, VOICE_CALLS, "GetCalls").is_ok_and(|calls| {
         calls
             .iter()
-            .any(|(_, props)| text(props, "State").as_deref() == Some("active"))
+            .any(|(_, props)| text(props, "State").is_some_and(|s| live(&s)))
     })
+}
+
+/// The modems with voice calls, each with whether it has a live call.
+/// oFono adds voice calls to the phone's modem only while the hands-free
+/// link is up.
+fn voice_modems(conn: &Connection) -> zbus::Result<Vec<(OwnedObjectPath, bool)>> {
+    let modems = list(conn, "/", "org.ofono.Manager", "GetModems")?;
+    Ok(modems
+        .into_iter()
+        .filter(|(_, props)| {
+            props
+                .get("Interfaces")
+                .and_then(|v| Vec::<String>::try_from(v.try_clone().ok()?).ok())
+                .is_some_and(|ifaces| ifaces.iter().any(|i| i == VOICE_CALLS))
+        })
+        .map(|(path, _)| {
+            let call = in_call(conn, path.as_str());
+            (path, call)
+        })
+        .collect())
+}
+
+/// Whether any hands-free modem has a live call.
+pub(super) fn has_call(conn: &Connection) -> zbus::Result<bool> {
+    Ok(voice_modems(conn)?.iter().any(|&(_, call)| call))
 }
 
 /// `VoiceCallManager.SendTones` on the modem in a call, else the first
@@ -73,17 +107,8 @@ fn in_call(conn: &Connection, modem: &str) -> bool {
 pub(super) fn send_tones(digits: &str) -> Result<(), PlatformError> {
     let run = || -> zbus::Result<bool> {
         let conn = system()?;
-        let modems = list(&conn, "/", "org.ofono.Manager", "GetModems")?;
-        let voice: Vec<_> = modems
-            .iter()
-            .filter(|(_, props)| {
-                props
-                    .get("Interfaces")
-                    .and_then(|v| Vec::<String>::try_from(v.try_clone().ok()?).ok())
-                    .is_some_and(|ifaces| ifaces.iter().any(|i| i == VOICE_CALLS))
-            })
-            .map(|(path, _)| (path.as_str(), in_call(&conn, path.as_str())))
-            .collect();
+        let modems = voice_modems(&conn)?;
+        let voice = modems.iter().map(|(path, call)| (path.as_str(), *call));
         let Some(modem) = tone_modem(voice) else {
             return Ok(false);
         };
