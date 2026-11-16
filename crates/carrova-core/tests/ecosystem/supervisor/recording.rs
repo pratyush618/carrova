@@ -39,6 +39,8 @@ pub struct Recording {
     done: Mutex<Vec<Done>>,
     /// Plays an OS without local sockets (Windows, macOS today).
     no_local_socket: AtomicBool,
+    /// Plays an OS slow to say whether the screen is locked.
+    slow_lock: AtomicBool,
     /// The scripted phone's data; tests fill it through [`Recording::phone`].
     phone: Mutex<Phone>,
     events: Arc<Mutex<Events>>,
@@ -144,6 +146,7 @@ impl Recording {
             inner,
             done: Mutex::default(),
             no_local_socket: AtomicBool::new(false),
+            slow_lock: AtomicBool::new(false),
             phone: Mutex::default(),
             events: Arc::default(),
         }
@@ -185,6 +188,11 @@ impl Recording {
     fn record_action(&self, action: &str) -> Result<(), PlatformError> {
         self.phone().actions.push(action.to_owned());
         Ok(())
+    }
+
+    /// Make `screen_lock` take 200 ms to answer.
+    pub fn slow_screen_lock(&self) {
+        self.slow_lock.store(true, Ordering::SeqCst);
     }
 
     pub fn refuse_local_sockets(&self) {
@@ -354,6 +362,9 @@ impl Platform for Recording {
         self.inner.links_paused()
     }
     fn screen_lock(&self) -> ScreenLock {
+        if self.slow_lock.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(200));
+        }
         self.inner.screen_lock()
     }
     fn watch_phone_events(

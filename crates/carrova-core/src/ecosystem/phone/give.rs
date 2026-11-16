@@ -287,8 +287,7 @@ pub(crate) fn serve_notify(
 ) -> Result<()> {
     let (action, responder) = match recv_notify(stream)? {
         Incoming::Msg(msg, ack) => {
-            ack.ack()?;
-            mirror::take_notify(shared, device, generation, msg);
+            mirror::take_notify(shared, device, generation, msg, ack);
             return Ok(());
         }
         Incoming::Action(action, responder) => (action, responder),
@@ -322,8 +321,7 @@ pub(crate) fn serve_messages(
 ) -> Result<()> {
     let (request, responder) = match recv_sms(stream)? {
         SmsIncoming::Push(push, ack) => {
-            ack.ack()?;
-            mirror::take_sms(shared, device, generation, push);
+            mirror::take_sms(shared, device, generation, push, ack);
             return Ok(());
         }
         SmsIncoming::Request(request, responder) => (request, responder),
@@ -410,8 +408,7 @@ pub(crate) fn serve_calls(
 ) -> Result<()> {
     let (command, responder) = match recv_calls(stream)? {
         CallIncoming::State(state, ack) => {
-            ack.ack()?;
-            mirror::take_call(shared, device, generation, state);
+            mirror::take_call(shared, device, generation, state, ack);
             return Ok(());
         }
         CallIncoming::Command(command, responder) => (command, responder),

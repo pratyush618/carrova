@@ -13,8 +13,8 @@ use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{
-    Feature, FeatureState, MAX_SNAPSHOT, NotifyMsg, PolicyDoc, SmsPush, SmsReply, SmsRequest,
-    allowed, request_sms,
+    Feature, FeatureState, MAX_SNAPSHOT, NotifyMsg, Pending, PolicyDoc, SmsPush, SmsReply,
+    SmsRequest, allowed, request_sms,
 };
 use carrova_platform::ScreenLock;
 use carrova_platform::phone::{CallState, Cursor, Hidden, Note, SmsMessage};
@@ -296,70 +296,125 @@ pub(crate) fn cleared(shared: &Shared, device: DeviceId, features: Vec<Feature>)
     }
 }
 
-/// Take a notification message from `device`'s link `generation`.
-pub(crate) fn take_notify(shared: &Shared, device: DeviceId, generation: u64, msg: NotifyMsg) {
-    let now = Instant::now();
-    let Some(changes) = shared.with_link(&device, generation, |l| l.mirror.notify(msg, now)) else {
-        return;
-    };
-    for key in changes.gone {
-        shared.emit(Event::PhoneNoteGone { device, key });
+/// Run `f` on the mirror of `device`'s link `generation`, if that link is
+/// still live and `feature` is not off here (it may have been turned off
+/// since the lane was admitted).
+fn with_mirror<T>(
+    shared: &Shared,
+    device: DeviceId,
+    generation: u64,
+    feature: Feature,
+    f: impl FnOnce(&mut Mirror) -> T,
+) -> Option<T> {
+    let mut peers = shared.peers();
+    let peer = peers.iter_mut().find(|p| p.id() == device)?;
+    if peer.local.get(feature) == FeatureState::Off {
+        return None;
     }
-    if changes.pop.is_empty() {
-        return;
-    }
-    // Read outside the supervisor's lock: the OS may be slow to answer.
-    let lock = shared.platform().screen_lock();
-    let settings = shared.phone_settings();
-    for note in changes.pop {
-        let note = shown(note, lock, settings);
-        shared.emit(Event::PhoneNote { device, note });
+    let link = peer.link.as_mut().filter(|l| l.generation == generation)?;
+    Some(f(&mut link.mirror))
+}
+
+/// Acknowledge a push once applied: only then does the phone send its
+/// next one, so pushes apply (and emit) in the order sent.
+fn ack(pending: Pending) {
+    if let Err(e) = pending.ack() {
+        tracing::debug!(error = %e, "phone push not acknowledged");
     }
 }
 
-/// Take the call state from `device`'s link `generation`.
-pub(crate) fn take_call(shared: &Shared, device: DeviceId, generation: u64, state: CallState) {
-    let kept = shared.with_link(&device, generation, |l| l.mirror.call = Some(state.clone()));
+/// Apply a notification message from `device`'s link `generation`, then
+/// acknowledge it.
+pub(crate) fn take_notify(
+    shared: &Shared,
+    device: DeviceId,
+    generation: u64,
+    msg: NotifyMsg,
+    pending: Pending,
+) {
+    let now = Instant::now();
+    let changes = with_mirror(shared, device, generation, Feature::Notifications, |m| {
+        m.notify(msg, now)
+    });
+    if let Some(changes) = changes {
+        for key in changes.gone {
+            shared.emit(Event::PhoneNoteGone { device, key });
+        }
+        if !changes.pop.is_empty() {
+            // Read outside the supervisor's lock: the OS may be slow to answer.
+            let lock = shared.platform().screen_lock();
+            let settings = shared.phone_settings();
+            for note in changes.pop {
+                let note = shown(note, lock, settings);
+                shared.emit(Event::PhoneNote { device, note });
+            }
+        }
+    }
+    ack(pending);
+}
+
+/// Apply the call state from `device`'s link `generation`, then
+/// acknowledge it.
+pub(crate) fn take_call(
+    shared: &Shared,
+    device: DeviceId,
+    generation: u64,
+    state: CallState,
+    pending: Pending,
+) {
+    let kept = with_mirror(shared, device, generation, Feature::Calls, |m| {
+        m.call = Some(state.clone());
+    });
     if kept.is_some() {
         shared.emit(Event::PhoneCall { device, state });
     }
+    ack(pending);
 }
 
-/// Take an SMS push from `device`'s link `generation`.
-pub(crate) fn take_sms(shared: &Arc<Shared>, device: DeviceId, generation: u64, push: SmsPush) {
+/// Apply an SMS push from `device`'s link `generation`, then acknowledge
+/// it (a `Stored` first: its refetch asks the phone, which waits for the
+/// acknowledgement before anything else).
+pub(crate) fn take_sms(
+    shared: &Arc<Shared>,
+    device: DeviceId,
+    generation: u64,
+    push: SmsPush,
+    pending: Pending,
+) {
+    const SMS: Feature = Feature::Messages;
     match push {
         SmsPush::Incoming(message) => {
             let now = Instant::now();
             let (id, provisional) = (message.thread_id, message.id == 0);
-            let kept = shared.with_link(&device, generation, |l| {
+            let kept = with_mirror(shared, device, generation, SMS, |m| {
                 if provisional {
-                    l.mirror.provisional.push((message.clone(), now));
+                    m.provisional.push((message.clone(), now));
                 } else {
-                    l.mirror.merge(id, std::slice::from_ref(&message));
+                    m.merge(id, std::slice::from_ref(&message));
                 }
             });
-            if kept.is_none() {
-                return;
+            if kept.is_some() {
+                shared.emit(Event::PhoneSms { device, message });
+                if provisional {
+                    refetch_later(shared, device, generation, id, now);
+                }
             }
-            shared.emit(Event::PhoneSms { device, message });
-            if provisional {
-                refetch_later(shared, device, generation, id, now);
-            }
+            ack(pending);
         }
         SmsPush::Stored { thread_id } => {
-            let wanted = shared.with_link(&device, generation, |l| l.mirror.wants(thread_id));
+            ack(pending);
+            let wanted = with_mirror(shared, device, generation, SMS, |m| m.wants(thread_id));
             if wanted == Some(true) {
                 refetch(shared, device, generation, thread_id);
             }
         }
         SmsPush::Resync => {
-            let held = shared.with_link(&device, generation, |l| {
-                l.mirror.clear(Feature::Messages);
-            });
+            let held = with_mirror(shared, device, generation, SMS, |m| m.clear(SMS));
             // Open views refetch on it, even with nothing held here.
             if held.is_some() {
                 cleared(shared, device, vec![Feature::Messages]);
             }
+            ack(pending);
         }
     }
 }
@@ -372,7 +427,9 @@ fn refetch_later(shared: &Arc<Shared>, device: DeviceId, generation: u64, id: i6
         if waiting.stop.sleep(STORE_WAIT).is_err() {
             return;
         }
-        let still = waiting.with_link(&device, generation, |l| l.mirror.waits_since(id, since));
+        let still = with_mirror(&waiting, device, generation, Feature::Messages, |m| {
+            m.waits_since(id, since)
+        });
         if still == Some(true) {
             refetch(&waiting, device, generation, id);
         }
@@ -397,7 +454,9 @@ fn refetch(shared: &Shared, device: DeviceId, generation: u64, id: i64) {
             return;
         }
     };
-    let new = shared.with_link(&device, generation, |l| l.mirror.stored(id, &page));
+    let new = with_mirror(shared, device, generation, Feature::Messages, |m| {
+        m.stored(id, &page)
+    });
     for message in new.into_iter().flatten() {
         shared.emit(Event::PhoneSms { device, message });
     }
@@ -415,9 +474,9 @@ pub(crate) fn take_sms_reply(
     let (&SmsRequest::Thread { id, before }, SmsReply::ThreadPage(page)) = (request, &reply) else {
         return reply;
     };
-    let shown = shared.with_link(&device, generation, |l| {
-        l.mirror.merge(id, page);
-        l.mirror.with_provisional(id, before.is_none(), page)
+    let shown = with_mirror(shared, device, generation, Feature::Messages, |m| {
+        m.merge(id, page);
+        m.with_provisional(id, before.is_none(), page)
     });
     shown.map_or(reply, SmsReply::ThreadPage)
 }

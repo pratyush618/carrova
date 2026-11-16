@@ -457,3 +457,62 @@ fn resync_drops_texts_and_tells_views() {
     wait_until("messages cleared", || cleared(&laptop, &phone, SMS));
     assert!(newest(&sl, &phone, 5).is_empty());
 }
+
+#[test]
+fn call_states_applied_in_order() {
+    let (phone, _sp, laptop, _sl) = linked(&[CALLS], |_| {});
+    wait_watching(&phone);
+    laptop.wait("the call state", |e| matches!(e, Event::PhoneCall { .. }));
+    let ringing = CallState::Ringing {
+        number: "5550100".into(),
+        name: None,
+    };
+
+    for _ in 0..20 {
+        phone
+            .platform
+            .script_event(PhoneEvent::Call(ringing.clone()));
+        phone
+            .platform
+            .script_event(PhoneEvent::Call(CallState::Idle));
+    }
+
+    let calls = || -> Vec<CallState> {
+        laptop
+            .events()
+            .into_iter()
+            .filter_map(|e| match e {
+                Event::PhoneCall { state, .. } => Some(state),
+                _ => None,
+            })
+            .collect()
+    };
+    wait_until("every call state", || calls().len() == 41);
+    let expected: Vec<CallState> = std::iter::once(CallState::Idle)
+        .chain((0..20).flat_map(|_| [ringing.clone(), CallState::Idle]))
+        .collect();
+    assert_eq!(calls(), expected);
+}
+
+#[test]
+fn posted_then_removed_leaves_no_note() {
+    let (phone, _sp, laptop, sl) = linked(&[NOTES], |_| {});
+    // A pop-up is slow to show: the removal must still come after it.
+    laptop.platform.slow_screen_lock();
+    wait_watching(&phone);
+
+    let key = "k1".to_owned();
+    let posted = note(&key, "org.example.chat");
+    phone.platform.script_event(PhoneEvent::NotePosted(posted));
+    phone
+        .platform
+        .script_event(PhoneEvent::NoteRemoved { key: key.clone() });
+
+    let device = phone.id;
+    let gone = Event::PhoneNoteGone { device, key };
+    laptop.wait("the removal", |e| *e == gone);
+    let events = laptop.events();
+    let at = |f: &dyn Fn(&Event) -> bool| events.iter().position(f).unwrap();
+    assert!(at(&|e| matches!(e, Event::PhoneNote { .. })) < at(&|e| *e == gone));
+    assert!(sl.notes(&phone.id).unwrap().is_empty());
+}
