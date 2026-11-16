@@ -52,6 +52,7 @@ class DebounceTest {
         assertEquals(2, emits)
     }
 
+    // Debounce + PendingThreads composed as `Sms` does; not the `expectStored` wiring.
     @Test
     fun receipt_of_an_already_stored_row_emits_once_with_no_provider_change() {
         val timer = FakeTimer()
