@@ -17,12 +17,14 @@ use crate::lan::CodeView;
 
 mod about;
 mod defaults;
+mod phone;
 mod recipes;
 mod reply;
 mod settings;
 
 pub use about::{About, UpdateInfo, UpdateStatus};
 pub use defaults::EngineDefaults;
+pub use phone::{CallAction, CallOutcome, NoteAction, NoteOutcome};
 pub use recipes::{
     CatalogEntry, CatalogItem, RecipeOrigin, RecipeTier, RecipesCheck, RecipesStatus, RecipesUpdate,
 };

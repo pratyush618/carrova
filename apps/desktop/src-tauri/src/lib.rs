@@ -200,6 +200,16 @@ pub fn run() -> tauri::Result<()> {
             commands::ecosystem::clip_settings,
             commands::ecosystem::set_clip_settings,
             commands::ecosystem::retry_file,
+            commands::phone::phone_notes,
+            commands::phone::phone_note_action,
+            commands::phone::phone_threads,
+            commands::phone::phone_thread,
+            commands::phone::send_sms,
+            commands::phone::phone_call,
+            commands::phone::call_history,
+            commands::phone::call_window,
+            commands::phone::phone_settings,
+            commands::phone::set_phone_settings,
             #[cfg(desktop)]
             updater::check_update,
             #[cfg(desktop)]

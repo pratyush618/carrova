@@ -43,12 +43,17 @@ use carrova_view::ecosystem::{
     PairInviteView, PairPeerView, TransferState, TransferView,
 };
 use carrova_view::ipc::{
-    About, AlertChannel, AlertSettings, BackgroundSettings, BridgeError, BridgeEvent, CatalogEntry,
-    EngineDefaults, NearbySettings, Picked, PlanReview, RecipesCheck, RecipesStatus, RecipesUpdate,
-    ScanResult, SessionOpened, Settings, UpdateStatus,
+    About, AlertChannel, AlertSettings, BackgroundSettings, BridgeError, BridgeEvent, CallAction,
+    CallOutcome, CatalogEntry, EngineDefaults, NearbySettings, NoteAction, NoteOutcome, Picked,
+    PlanReview, RecipesCheck, RecipesStatus, RecipesUpdate, ScanResult, SessionOpened, Settings,
+    UpdateStatus,
 };
 use carrova_view::lan::{CodeView, InventoryView, NearbyPeer, PauseView, SummaryView};
 use carrova_view::offer::OfferedItem;
+use carrova_view::phone::{
+    CallLogGroup, CallLogView, CallRow, CallSetupStep, CallWindowView, Caller, LocalClock,
+    MessageRow, NoteView, NotesView, PermStep, ThreadRow, ThreadView, ThreadsView,
+};
 use carrova_view::plan::{PlanView, SpaceView};
 use carrova_view::selection::SelectionView;
 use ts_rs::{Config, TS};
@@ -155,6 +160,20 @@ fn export_typescript_bindings() {
         CallAudioStatus::export_all,
         PhonePerm::export_all,
         PermState::export_all,
+        LocalClock::export_all,
+        NotesView::export_all,
+        NoteView::export_all,
+        ThreadsView::export_all,
+        ThreadRow::export_all,
+        ThreadView::export_all,
+        MessageRow::export_all,
+        CallWindowView::export_all,
+        Caller::export_all,
+        CallLogView::export_all,
+        CallLogGroup::export_all,
+        CallRow::export_all,
+        CallSetupStep::export_all,
+        PermStep::export_all,
         // Desktop IPC contract.
         BridgeEvent::export_all,
         BridgeError::export_all,
@@ -177,6 +196,10 @@ fn export_typescript_bindings() {
         FileManagerStatus::export_all,
         Notice::export_all,
         ForgetDevices::export_all,
+        NoteAction::export_all,
+        NoteOutcome::export_all,
+        CallAction::export_all,
+        CallOutcome::export_all,
         // Error reports (carrova-report).
         ErrorReport::export_all,
         ReportSummary::export_all,

@@ -13,6 +13,7 @@ pub mod devices;
 pub mod ecosystem;
 pub mod inbox;
 pub mod integration;
+pub mod phone;
 pub mod receive;
 pub mod recipes;
 pub mod send;

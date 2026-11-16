@@ -914,6 +914,7 @@ dependencies = [
  "carrova-link",
  "carrova-platform",
  "carrova-report",
+ "data-encoding",
  "qrcode",
  "serde",
  "serde_json",
