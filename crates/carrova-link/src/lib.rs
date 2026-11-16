@@ -8,6 +8,7 @@ mod handoff;
 mod lane;
 mod messages;
 mod name;
+mod notify;
 mod ping;
 mod policy;
 mod reply;
@@ -31,6 +32,10 @@ pub use messages::{
     check_sms_reply, push_sms, recv_sms, request_sms,
 };
 pub use name::safe_file_name;
+pub use notify::{
+    ActionResult, Incoming, MAX_ICON, MAX_NOTE_TEXT, MAX_NOTE_TITLE, MAX_REPLY, MAX_SNAPSHOT,
+    NotifyAction, NotifyMsg, fit_note, recv_notify, send_action, send_notify,
+};
 pub use ping::{ping, serve_ping};
 pub use policy::{
     Feature, FeatureState, Group, PolicyDoc, PolicyUpdate, allowed, recv_policy, send_policy,
