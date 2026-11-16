@@ -37,7 +37,9 @@ object Sms {
 
     /** Note that [thread] got an incoming SMS the default app has yet to store. */
     @JvmStatic
-    fun expectStored(thread: Long) = pending.add(thread)
+    fun expectStored(thread: Long) {
+        if (Events.watching) pending.add(thread)
+    }
 
     /**
      * Tell [Events] when an incoming SMS is stored ([on]), or stop; a replaced
@@ -61,6 +63,8 @@ object Sms {
         val thread = HandlerThread("carrova-sms-stored").also { it.start() }
         val handler = Handler(thread.looper)
         val debounce = Debounce(STORED_DEBOUNCE_MS, HandlerTimer(handler)) {
+            // A replaced watch's queued emit must not reach the new one.
+            if (gen != Events.generation) return@Debounce
             for (id in pending.resolve { t, since -> storedSince(resolver, t, since) }) {
                 Events.offer(JSONObject().put("type", "sms_stored").put("thread_id", id).toString())
             }
@@ -74,14 +78,15 @@ object Sms {
         worker = thread
     }
 
-    /** Whether an inbox row of [thread] dates from [sinceMs] on; reads only `_id`. False without SMS permission. */
+    /** Whether an inbox row of [thread] dates from [sinceMs] on; reads only `_id`. False without SMS permission or on a provider error. */
     private fun storedSince(resolver: android.content.ContentResolver, thread: Long, sinceMs: Long): Boolean = try {
         resolver.query(
             Telephony.Sms.Inbox.CONTENT_URI, arrayOf(Telephony.Sms._ID),
             "${Telephony.Sms.THREAD_ID} = ? AND ${Telephony.Sms.DATE} >= ?",
             arrayOf(thread.toString(), sinceMs.toString()), null,
         )?.use { it.moveToFirst() } ?: false
-    } catch (e: SecurityException) {
+    } catch (e: RuntimeException) {
+        // No permission or a provider hiccup: not stored yet; never end the thread.
         false
     }
 
@@ -261,13 +266,17 @@ class PendingThreads(private val now: () -> Long) {
     fun clear() = since.clear()
 
     /** The pending threads for which [stored] (thread, receivedAtMs - [SLACK_MS]) holds; they leave the set. */
-    @Synchronized
     fun resolve(stored: (Long, Long) -> Boolean): List<Long> {
-        val t = now()
-        since.values.removeAll { t - it > TTL_MS }
-        val done = since.filter { stored(it.key, it.value - SLACK_MS) }.keys.toList()
-        done.forEach(since::remove)
-        return done
+        val snapshot = synchronized(this) {
+            val t = now()
+            since.values.removeAll { t - it > TTL_MS }
+            since.toMap()
+        }
+        // The provider is queried outside the lock: `add` runs on the main thread.
+        val done = snapshot.filter { stored(it.key, it.value - SLACK_MS) }
+        // A re-`add` meanwhile changed the timestamp: that entry stays pending.
+        synchronized(this) { done.forEach { (k, v) -> since.remove(k, v) } }
+        return done.keys.toList()
     }
 
     private companion object {

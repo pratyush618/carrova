@@ -24,14 +24,35 @@ class PendingThreadsTest {
     }
 
     @Test
-    fun expires_after_ten_seconds() {
+    fun exactly_ten_seconds_still_resolves() {
         pending.add(7)
         now += 10_000
-        assertEquals(listOf(7L), pending.resolve { _, _ -> true }.also { pending.add(7) })
-        pending.clear()
+        assertEquals(listOf(7L), pending.resolve { _, _ -> true })
+    }
+
+    @Test
+    fun ten_seconds_and_a_millisecond_expires() {
         pending.add(8)
         now += 10_001
         assertEquals(emptyList<Long>(), pending.resolve { _, _ -> true })
+    }
+
+    @Test
+    fun re_add_refreshes_the_timestamp() {
+        pending.add(7)
+        now += 9_000
+        pending.add(7)
+        now += 9_000
+        assertEquals(listOf(7L), pending.resolve { _, _ -> true })
+    }
+
+    @Test
+    fun re_add_during_resolve_survives() {
+        pending.add(7)
+        now += 100
+        // The lookup runs outside the lock: a message arrives meanwhile.
+        assertEquals(listOf(7L), pending.resolve { _, _ -> true.also { pending.add(7) } })
+        assertEquals(listOf(7L), pending.resolve { _, _ -> true })
     }
 
     @Test
