@@ -93,7 +93,12 @@ pub(crate) fn run(shared: &Arc<Shared>, jobs: &Receiver<Job>) {
         giver.follow();
         match jobs.recv_timeout(shared.config.tick) {
             Ok(Job::Event(event)) => giver.event(event),
-            Ok(Job::Opened { device, gives }) => giver.resend(Some(device), gives),
+            Ok(Job::Opened { device, gives }) => {
+                // Watch first: a note posted while the snapshot is taken
+                // then arrives as an event, not lost in between.
+                giver.follow();
+                giver.resend(Some(device), gives);
+            }
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => return,
         }

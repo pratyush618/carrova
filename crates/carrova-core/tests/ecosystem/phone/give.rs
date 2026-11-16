@@ -179,6 +179,17 @@ fn snapshot_on_link_open() {
 }
 
 #[test]
+fn watch_starts_before_the_snapshot() {
+    // A note posted between the snapshot and the watch would be lost.
+    let (phone, _sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |_| {});
+
+    laptop.wait_got(1);
+    let actions = phone.platform.actions();
+    let at = |name: &str| actions.iter().position(|a| a == name).unwrap();
+    assert!(at("watch_phone_events") < at("active_notes"), "{actions:?}");
+}
+
+#[test]
 fn app_off_not_forwarded() {
     let (phone, _sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |p| {
         let mut apps = NotifyApps::open(&*p.platform).unwrap();
