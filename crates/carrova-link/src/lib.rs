@@ -8,6 +8,7 @@ mod lane;
 mod name;
 mod ping;
 mod policy;
+mod reply;
 mod ring;
 
 pub use carrova_platform::phone::{AudioSide, SendOutcome};
@@ -25,4 +26,5 @@ pub use ping::{ping, serve_ping};
 pub use policy::{
     Feature, FeatureState, Group, PolicyDoc, PolicyUpdate, allowed, recv_policy, send_policy,
 };
+pub use reply::{Responder, request, serve};
 pub use ring::{RING_SECONDS, RingMsg, recv_ring, send_ring};
