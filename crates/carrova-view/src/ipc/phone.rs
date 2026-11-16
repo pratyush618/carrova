@@ -1,5 +1,7 @@
 //! What the front-end asks of a linked phone and how it went: the
-//! commands' own types, mapped one to one onto the link's.
+//! commands' own types, mapped one to one onto the link's. The mapping
+//! is exhaustive one way only: a new `NotifyAction` or `CallCommand`
+//! variant is not exposed to the UI until it is added here.
 
 use carrova_link::{ActionResult, CallCommand, CallReply, NotifyAction};
 use carrova_platform::phone::AudioSide;
