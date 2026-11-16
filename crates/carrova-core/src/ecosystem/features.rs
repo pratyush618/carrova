@@ -116,6 +116,8 @@ impl LaneGate for Gate<'_> {
             LaneKind::File => off(Feature::Files) && off(Feature::Handoff),
             LaneKind::Handoff => off(Feature::Handoff),
             LaneKind::Ring => off(Feature::Ring),
+            // Not served yet: phone lanes stay refused until their handlers land.
+            LaneKind::Notify | LaneKind::Messages | LaneKind::Calls => true,
         };
         if refused {
             Err(RefuseReason::NotAllowed)
@@ -198,6 +200,8 @@ impl Lane {
             LaneKind::File => return self.file(stream),
             LaneKind::Handoff => self.handoff(stream),
             LaneKind::Ring => self.ring(stream),
+            // Refused by the gate before they get here.
+            LaneKind::Notify | LaneKind::Messages | LaneKind::Calls => return,
         };
         if let Err(e) = served {
             tracing::debug!(lane = ?kind, error = %e, "lane failed");

@@ -54,13 +54,13 @@ const row = (
   remote: FeatureState | null = local,
 ): FeatureRowView => ({
   feature,
-  group: feature === 'clipboard' || feature === 'ring' ? 'quiet' : 'ask',
+  group: feature === 'files' || feature === 'handoff' ? 'ask' : 'quiet',
   local,
   remote,
   effective: gate(local, remote),
 });
 
-/** A newly linked phone: the Phase 1 defaults on both sides. */
+/** A newly linked phone: the Phase 2 defaults on both sides. */
 const phone = (handoffOnPhone: FeatureState = 'ask'): LinkedDeviceView => ({
   id: 'p8',
   name: 'Pixel 8',
@@ -72,6 +72,9 @@ const phone = (handoffOnPhone: FeatureState = 'ask'): LinkedDeviceView => ({
     row('ring', 'on'),
     row('files', 'ask'),
     row('handoff', 'ask', handoffOnPhone),
+    row('notifications', 'on'),
+    row('messages', 'off'),
+    row('calls', 'off'),
   ],
 });
 

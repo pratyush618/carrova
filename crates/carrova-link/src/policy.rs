@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::LinkError;
 
-/// A feature a link can carry. The last five are reserved and always read `Off`.
+/// A feature a link can carry. The last two are reserved and always read `Off`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -21,11 +21,11 @@ pub enum Feature {
     Handoff,
     /// Ring a device.
     Ring,
-    /// Reserved.
+    /// Phone notifications mirrored to a computer.
     Notifications,
-    /// Reserved.
+    /// SMS read and sent from a computer.
     Messages,
-    /// Reserved.
+    /// Phone calls rung and answered on a computer.
     Calls,
     /// Reserved.
     Screen,
@@ -59,16 +59,26 @@ pub enum FeatureState {
 }
 
 impl Feature {
-    /// Features active in Phase 1.
-    pub const PHASE1: [Self; 4] = [Self::Clipboard, Self::Files, Self::Handoff, Self::Ring];
+    /// Features active in Phase 2.
+    pub const PHASE2: [Self; 7] = [
+        Self::Clipboard,
+        Self::Files,
+        Self::Handoff,
+        Self::Ring,
+        Self::Notifications,
+        Self::Messages,
+        Self::Calls,
+    ];
 
     /// The group that decides which states this feature accepts; `None` for reserved features.
     #[must_use]
     pub fn group(self) -> Option<Group> {
         match self {
-            Self::Clipboard | Self::Ring => Some(Group::Quiet),
+            Self::Clipboard | Self::Ring | Self::Notifications | Self::Messages | Self::Calls => {
+                Some(Group::Quiet)
+            }
             Self::Files | Self::Handoff => Some(Group::Ask),
-            Self::Notifications | Self::Messages | Self::Calls | Self::Screen | Self::Input => None,
+            Self::Screen | Self::Input => None,
         }
     }
 }
@@ -117,19 +127,22 @@ impl PolicyDoc {
     /// Defaults for a newly linked phone.
     #[must_use]
     pub fn phone_defaults() -> Self {
-        use FeatureState::{Ask, On};
+        use FeatureState::{Ask, Off, On};
         Self::with([
             (Feature::Clipboard, On),
             (Feature::Files, Ask),
             (Feature::Handoff, Ask),
             (Feature::Ring, On),
+            (Feature::Notifications, On),
+            (Feature::Messages, Off),
+            (Feature::Calls, Off),
         ])
     }
 
     /// Defaults for an existing known computer: everything off.
     #[must_use]
     pub fn computer_defaults() -> Self {
-        Self::with(Feature::PHASE1.map(|f| (f, FeatureState::Off)))
+        Self::with(Feature::PHASE2.map(|f| (f, FeatureState::Off)))
     }
 }
 

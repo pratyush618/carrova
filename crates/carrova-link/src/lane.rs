@@ -35,6 +35,12 @@ pub enum LaneKind {
     Ring,
     /// Round-trip probe.
     Ping,
+    /// Phone notifications and actions on them.
+    Notify,
+    /// SMS threads, messages and sends.
+    Messages,
+    /// Call state and call actions.
+    Calls,
 }
 
 /// First frame on a lane.

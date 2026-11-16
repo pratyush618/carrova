@@ -10,6 +10,7 @@ mod ping;
 mod policy;
 mod ring;
 
+pub use carrova_platform::phone::{AudioSide, SendOutcome};
 pub use clipboard::{
     ClipHistory, ClipItem, MAX_CLIP_PNG, MAX_CLIP_TEXT, ReceivedClip, recv_clip, send_clip,
 };

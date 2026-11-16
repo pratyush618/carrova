@@ -26,7 +26,7 @@ fn doc(entries: &[(Feature, FeatureState)]) -> PolicyDoc {
 }
 
 #[test]
-fn rows_list_phase_one_features_in_spec_order() {
+fn rows_list_phase_two_features_in_spec_order() {
     let rows = feature_rows(&PolicyDoc::phone_defaults(), None);
     let order: Vec<_> = rows.iter().map(|r| r.feature).collect();
     assert_eq!(
@@ -35,7 +35,10 @@ fn rows_list_phase_one_features_in_spec_order() {
             Feature::Clipboard,
             Feature::Ring,
             Feature::Files,
-            Feature::Handoff
+            Feature::Handoff,
+            Feature::Notifications,
+            Feature::Messages,
+            Feature::Calls
         ]
     );
     assert_eq!(rows[0].group, Group::Quiet);

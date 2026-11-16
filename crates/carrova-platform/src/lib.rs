@@ -19,6 +19,7 @@ mod notify_watch;
 mod open;
 mod os;
 pub mod path;
+pub mod phone;
 mod platform;
 mod root;
 #[cfg(any(test, target_os = "macos", target_os = "windows"))]

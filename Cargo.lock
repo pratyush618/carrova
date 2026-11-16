@@ -818,6 +818,7 @@ version = "0.2.3"
 dependencies = [
  "arboard",
  "blake3",
+ "ciborium",
  "if-addrs",
  "jni 0.21.1",
  "known-folders",

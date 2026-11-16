@@ -44,6 +44,24 @@ fn lane_kind_wire_names_are_pinned() {
     }
 }
 
+/// The Phase 2 lanes keep their wire names and open over a real link.
+#[test]
+fn new_lane_kinds_roundtrip() {
+    let (a, b) = linked();
+    for (kind, name) in [
+        (LaneKind::Notify, "Notify"),
+        (LaneKind::Messages, "Messages"),
+        (LaneKind::Calls, "Calls"),
+    ] {
+        assert_eq!(serde_json::to_string(&kind).unwrap(), format!("\"{name}\""));
+        thread::scope(|s| {
+            let server = s.spawn(|| accept_lane(&b, &Open, T).unwrap().0);
+            open_lane(&a, kind).unwrap();
+            assert_eq!(server.join().unwrap(), kind);
+        });
+    }
+}
+
 #[test]
 fn ping_roundtrip() {
     let (a, b) = linked();
