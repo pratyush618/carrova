@@ -47,6 +47,7 @@ object Calls {
                     // Best effort: unknown when the call began before the listener.
                     .put("since_ms", activeSince ?: System.currentTimeMillis())
                     .put("muted", audio(context).isMicrophoneMute)
+                    .put("bt", btCallAudio(context))
             else -> event.put("type", "call_idle")
         }
         return event.toString()
@@ -147,6 +148,10 @@ object Calls {
 
     private fun audio(context: Context) = context.getSystemService(AudioManager::class.java)
 
+    /** A Bluetooth SCO device can carry the call (a laptop's Hands-Free link or a headset). */
+    private fun btCallAudio(context: Context) =
+        audio(context).availableCommunicationDevices.any { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
+
     /** Android's three call states as `phone::CallState` events. */
     private class StateListener(private val context: Context) : PhoneStateListener(context.mainExecutor) {
         private var ringing = false
@@ -170,6 +175,7 @@ object Calls {
                     activeSince = since
                     event.put("type", "call_active").put("since_ms", since)
                         .put("muted", audio(context).isMicrophoneMute)
+                        .put("bt", btCallAudio(context))
                 }
                 else -> {
                     ringingNumber = null

@@ -28,6 +28,8 @@ enum Wire {
     CallActive {
         since_ms: i64,
         muted: bool,
+        #[serde(default)]
+        bt: bool,
     },
     CallEnded {
         missed: bool,
@@ -53,11 +55,15 @@ pub(super) fn parse(json: &str) -> Result<Option<PhoneEvent>, PlatformError> {
         Wire::SmsStored { thread_id } => PhoneEvent::SmsStored { thread_id },
         Wire::CallIdle => PhoneEvent::Call(CallState::Idle),
         Wire::CallRinging { number, name } => PhoneEvent::Call(CallState::Ringing { number, name }),
-        // Whether audio runs through a laptop is the link's to say, not the phone's.
-        Wire::CallActive { since_ms, muted } => PhoneEvent::Call(CallState::Active {
+        // A Bluetooth SCO device can't be told apart from a headset; either way the speaker stays off.
+        Wire::CallActive {
             since_ms,
             muted,
-            on_laptop_audio: false,
+            bt,
+        } => PhoneEvent::Call(CallState::Active {
+            since_ms,
+            muted,
+            on_laptop_audio: bt,
         }),
         Wire::CallEnded { missed } => PhoneEvent::Call(CallState::Ended { missed }),
         Wire::Dropped { count } => PhoneEvent::Dropped { count },

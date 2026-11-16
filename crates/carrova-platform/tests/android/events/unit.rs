@@ -76,6 +76,14 @@ fn parses_each_event_type() {
         })
     );
     assert_eq!(
+        event(r#"{"type":"call_active","since_ms":3,"muted":false,"bt":true}"#),
+        PhoneEvent::Call(CallState::Active {
+            since_ms: 3,
+            muted: false,
+            on_laptop_audio: true,
+        })
+    );
+    assert_eq!(
         event(r#"{"type":"call_ended","missed":true}"#),
         PhoneEvent::Call(CallState::Ended { missed: true })
     );
