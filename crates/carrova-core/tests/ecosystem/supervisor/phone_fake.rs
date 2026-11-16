@@ -1,5 +1,6 @@
 //! The [`Recording`] fake's scripted phone behaves as later tests rely on.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -254,4 +255,65 @@ fn a_callback_may_drop_its_own_watch() {
         .recv_timeout(Duration::from_secs(5))
         .expect("dropping its own watch did not deadlock");
     assert!(slot.lock().unwrap().is_none());
+}
+
+/// Stops a watch (via `stop`, on another thread) while its callback runs:
+/// the stop must not return before that callback ends, and the event
+/// queued behind it must never start.
+fn stop_waits_for_the_running_callback(stop: fn(&Recording, PhoneWatch) -> Option<PhoneWatch>) {
+    let p = Arc::new(recording());
+    let (entered_tx, entered) = mpsc::channel();
+    let (release, released) = mpsc::channel::<()>();
+    let running = Arc::new(AtomicBool::new(false));
+    let cb_running = Arc::clone(&running);
+    let watch = p
+        .watch_phone_events(Box::new(move |_| {
+            cb_running.store(true, Ordering::SeqCst);
+            let _ = entered_tx.send(());
+            let _ = released.recv_timeout(Duration::from_secs(5));
+            cb_running.store(false, Ordering::SeqCst);
+        }))
+        .unwrap();
+    p.script_event(PhoneEvent::Dropped { count: 1 });
+    entered
+        .recv_timeout(Duration::from_secs(5))
+        .expect("callback is running");
+    p.script_event(PhoneEvent::Dropped { count: 2 });
+    let (stopped_tx, stopped) = mpsc::channel();
+    let (sp, sr) = (Arc::clone(&p), Arc::clone(&running));
+    thread::spawn(move || {
+        let kept = stop(&sp, watch);
+        let _ = stopped_tx.send(sr.load(Ordering::SeqCst));
+        drop(kept);
+    });
+    assert!(
+        stopped.recv_timeout(Duration::from_millis(200)).is_err(),
+        "stop returned while its callback was running"
+    );
+    release.send(()).unwrap();
+    let still_running = stopped
+        .recv_timeout(Duration::from_secs(5))
+        .expect("stop returned once the callback ended");
+    assert!(!still_running);
+    assert!(
+        entered.recv_timeout(Duration::from_millis(200)).is_err(),
+        "a callback started after the stop returned"
+    );
+}
+
+#[test]
+fn dropping_a_watch_waits_for_its_running_callback() {
+    stop_waits_for_the_running_callback(|_, watch| {
+        drop(watch);
+        None
+    });
+}
+
+#[test]
+fn replacing_a_watch_waits_for_its_running_callback() {
+    stop_waits_for_the_running_callback(|p, old| {
+        let new = p.watch_phone_events(Box::new(|_| {})).unwrap();
+        drop(old);
+        Some(new)
+    });
 }

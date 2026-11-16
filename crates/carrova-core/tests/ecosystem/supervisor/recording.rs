@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::thread::{self, ThreadId};
 use std::time::Duration;
 
 use carrova_platform::fake::FakePlatform;
@@ -84,6 +85,26 @@ struct Events {
     pending: Vec<PhoneEvent>,
     /// Bumped by each watch and its drop, so a stale watch delivers nothing.
     generation: u64,
+    /// The live watch's thread, to wait out when the watch stops.
+    worker: Option<Worker>,
+}
+
+/// A watch's delivery thread. It holds `delivery` across each generation
+/// check and callback, so a stop that bumps the generation and then takes
+/// `delivery` knows no callback of that watch runs, now or later.
+struct Worker {
+    delivery: Arc<Mutex<()>>,
+    thread: ThreadId,
+}
+
+impl Worker {
+    /// Wait for a running callback to end, unless called from inside it
+    /// (a callback that drops or replaces its own watch).
+    fn finish(self) {
+        if thread::current().id() != self.thread {
+            drop(lock(&self.delivery));
+        }
+    }
 }
 
 impl fmt::Debug for Events {
@@ -330,34 +351,53 @@ impl Platform for Recording {
     ) -> Result<PhoneWatch, PlatformError> {
         self.record_action("watch_phone_events")?;
         let (live, queue) = mpsc::channel();
-        let generation = {
+        let delivery = Arc::new(Mutex::new(()));
+        let (generation, replaced) = {
             let mut events = lock(&self.events);
             events.generation += 1; // the replaced watch stops now
             for event in std::mem::take(&mut events.pending) {
                 let _ = live.send(event); // `queue` is alive: cannot fail
             }
             events.live = Some(live);
-            events.generation
-        };
-        // Deliver on the watch's own thread and never under `events`: the
-        // scripting thread or a supervisor may hold a lock the callback
-        // takes, and a callback may drop its own watch. The thread ends
-        // once the watch is dropped or replaced (its sender goes).
-        let gate = Arc::clone(&self.events);
-        std::thread::spawn(move || {
-            for event in queue {
-                if lock(&gate).generation != generation {
-                    return;
+            let generation = events.generation;
+            // Deliver on the watch's own thread and never under `events`:
+            // the scripting thread or a supervisor may hold a lock the
+            // callback takes, and a callback may drop its own watch. The
+            // thread ends once the watch is dropped or replaced (its
+            // sender goes).
+            let (gate, held) = (Arc::clone(&self.events), Arc::clone(&delivery));
+            let thread = thread::spawn(move || {
+                for event in queue {
+                    let _delivering = lock(&held);
+                    if lock(&gate).generation != generation {
+                        return;
+                    }
+                    on_event(event);
                 }
-                on_event(event);
-            }
-        });
+            })
+            .thread()
+            .id();
+            let replaced = events.worker.replace(Worker { delivery, thread });
+            (generation, replaced)
+        };
+        // Waited on outside `events`: the worker takes it under `delivery`.
+        if let Some(worker) = replaced {
+            worker.finish();
+        }
         let events = Arc::clone(&self.events);
         Ok(PhoneWatch::new(move || {
-            let mut events = lock(&events);
-            if events.generation == generation {
-                events.generation += 1; // queued events stay undelivered
-                events.live = None;
+            let stopped = {
+                let mut events = lock(&events);
+                if events.generation == generation {
+                    events.generation += 1; // queued events stay undelivered
+                    events.live = None;
+                    events.worker.take()
+                } else {
+                    None // replaced: the replacing call waited already
+                }
+            };
+            if let Some(worker) = stopped {
+                worker.finish();
             }
         }))
     }
