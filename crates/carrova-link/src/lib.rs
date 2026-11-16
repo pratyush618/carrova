@@ -34,7 +34,7 @@ pub use messages::{
 pub use name::safe_file_name;
 pub use notify::{
     ActionResult, Incoming, MAX_ICON, MAX_NOTE_TEXT, MAX_NOTE_TITLE, MAX_REPLY, MAX_SNAPSHOT,
-    NotifyAction, NotifyMsg, fit_note, recv_notify, send_action, send_notify,
+    NotifyAction, NotifyMsg, fit_note, fit_snapshot, recv_notify, send_action, send_notify,
 };
 pub use ping::{ping, serve_ping};
 pub use policy::{
