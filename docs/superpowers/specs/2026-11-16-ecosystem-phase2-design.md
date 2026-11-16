@@ -265,7 +265,20 @@ Real hardware (user, Ubuntu 24.04 laptop + Android 13+ phone):
 
 ## Spike results
 
-_(filled in by plan Task 1)_
+- **S1 (2026-11-16, API 34 emulator, debug build): passed.** Blocking pull
+  through the existing `jni.rs` helpers, no new export, no new `unsafe`,
+  no `jni.rs` change. 1 000 events 1 ms apart: offer→receive p50 196 µs,
+  p99 1.4 ms; `close()` unblocks the Rust thread in ~1 ms; blocked thread
+  0 CPU over 55 s idle (`futex_wait`). Class loading from the attached
+  thread works (context class loader). Two amendments, pinned:
+  `Events.open()` clears the queue and the close sentinel when a watch
+  starts (a second watch in one process would otherwise end at once); and
+  on overflow Kotlin enqueues one `{"type":"dropped","count":n}` event,
+  which Rust maps to `PhoneEvent::Dropped { count }` and answers by
+  re-sending the notification `Snapshot` to linked laptops (so the laptop
+  mirror resyncs). Reference code: branch `spike/phase2` `a984c27`
+  (never merged).
+- S2–S4: pending (real hardware, user).
 
 ## Left to the builder
 

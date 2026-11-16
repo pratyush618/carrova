@@ -85,7 +85,7 @@ Throwaway code on a `spike/phase2` branch, never merged. Results go into the spe
   - `pub struct SmsMessage { pub id: i64, pub thread_id: i64, pub outgoing: bool, pub text: String, pub when_ms: i64 }`
   - `pub enum CallState { Idle, Ringing { number: String, name: Option<String> }, Active { since_ms: i64, muted: bool, on_laptop_audio: bool }, Ended { missed: bool } }`
   - `pub struct CallRecord { pub number: String, pub name: Option<String>, pub when_ms: i64, pub duration_s: u32, pub kind: CallKind }`, `pub enum CallKind { Incoming, Outgoing, Missed, Declined }`
-  - `pub enum PhoneEvent { NotePosted(Note), NoteRemoved { key: String }, SmsReceived(SmsMessage), Call(CallState) }`
+  - `pub enum PhoneEvent { NotePosted(Note), NoteRemoved { key: String }, SmsReceived(SmsMessage), Call(CallState), Dropped { count: u32 } }` (`Dropped` = Kotlin queue overflowed; spec S1 result)
   - `pub enum SendOutcome { Sent, NoSignal, Failed }`, `pub enum AudioSide { Phone, Laptop }` (defined here once; `carrova-link` re-exports them)
   - `pub enum PhonePerm { NotificationAccess, Sms, Calls, Contacts, BluetoothConnect }`, `pub enum PermState { Granted, Denied, Restricted }`
   - `Feature::group` → `Quiet` for `Notifications | Messages | Calls`; `pub const PHASE2: [Feature; 7]`; `PolicyDoc::phone_defaults()` adds notifications On, messages Off, calls Off; `computer_defaults()` unchanged (all Off).
@@ -156,9 +156,9 @@ Throwaway code on a `spike/phase2` branch, never merged. Results go into the spe
 
 **Interfaces:**
 - Consumes: Task 7 trait, `jni.rs` call helpers (Phase 1).
-- Produces: `events::parse(json: &str) -> Result<PhoneEvent, PlatformError>` (pure, host-testable; unknown `type` → skipped with a counter, not an error). Kotlin `Events.offer(json)`, `Events.take(): String?` (`null` after `close()`), `Events.close()`; queue cap 256, oldest dropped.
+- Produces: `events::parse(json: &str) -> Result<PhoneEvent, PlatformError>` (pure, host-testable; unknown `type` → skipped with a counter, not an error). Kotlin `Events.open()` (clears queue and close sentinel; called when a watch starts), `Events.offer(json)`, `Events.take(): String?` (`null` after `close()`), `Events.close()`; queue cap 256, oldest dropped, and on overflow one `{"type":"dropped","count":n}` event is enqueued (coalesced while it is still queued). Reference implementation: branch `spike/phase2` `a984c27` (spike; rewrite, don't cherry-pick).
 - Kotlin rules: no decisions — filtering (per-app, OTP, ongoing) is Rust's job (Task 11) except dropping `FLAG_ONGOING_EVENT`, group summaries and Carrova's own notes, which Kotlin cannot defer cheaply. Speaker on at answer is Rust's call (`call_speaker`), not Kotlin's.
-- [ ] **Step 1: Failing tests:** Rust `parses_each_event_type`, `unknown_type_skipped`, `bad_json_is_error`; Kotlin `queue_drops_oldest_past_cap`, `close_unblocks_take`.
+- [ ] **Step 1: Failing tests:** Rust `parses_each_event_type`, `unknown_type_skipped`, `bad_json_is_error`; Kotlin `queue_drops_oldest_past_cap`, `overflow_enqueues_one_dropped_event`, `close_unblocks_take`, `open_after_close_resets`.
 - [ ] **Step 2–4:** FAIL → implement → PASS (`cargo test -p carrova-platform`; `./gradlew :app:testDebugUnitTest --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1536m`; then `./gradlew --stop`). `just android-check` (or the Phase 1 Android build recipe) builds.
 - [ ] **Step 5: Commit** `feat(platform): add Android phone adapter`.
 
@@ -203,7 +203,7 @@ Throwaway code on a `spike/phase2` branch, never merged. Results go into the spe
 **Interfaces:**
 - Consumes: Tasks 3–7, 10.
 - Behaviour: on link open send `Snapshot` (≤ 50) if `notifications` allowed both sides, then `Call(state)` if `calls` allowed; forward each `PhoneEvent` to every linked peer allowing that feature; serve `NotifyAction`, `SmsRequest`, `CallCommand` only if this side's policy allows the feature (else `Refused(NotAllowed)` at the lane gate); `Answer` → `call_answer` then `call_speaker(true)` unless `on_laptop_audio`; `Send` deduped by `(peer, client_id)` for the link session; sms pages respect the "Keep in sync" window (`since_ms`).
-- [ ] **Step 1: Failing tests:** `snapshot_on_link_open`, `app_off_not_forwarded`, `phone_policy_off_blocks_even_if_laptop_on`, `reply_reaches_platform`, `reply_to_removed_note_reports_gone`, `answer_turns_speaker_on`, `answer_with_laptop_audio_keeps_speaker_off`, `watch_stops_when_no_feature_on`.
+- [ ] **Step 1: Failing tests:** `snapshot_on_link_open`, `app_off_not_forwarded`, `phone_policy_off_blocks_even_if_laptop_on`, `reply_reaches_platform`, `reply_to_removed_note_reports_gone`, `answer_turns_speaker_on`, `answer_with_laptop_audio_keeps_speaker_off`, `watch_stops_when_no_feature_on`, `dropped_event_resends_snapshot`.
 - [ ] **Step 2–5:** FAIL → implement → PASS → commit `feat(core): forward phone events over the link`.
 
 ### Task 12: Laptop-side mirror (receiver)
