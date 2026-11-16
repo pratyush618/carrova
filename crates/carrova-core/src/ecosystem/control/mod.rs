@@ -20,7 +20,11 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::DeviceId;
-use carrova_link::{Feature, FeatureState, ReceivedClip};
+use carrova_link::{
+    ActionResult, CallCommand, CallReply, Feature, FeatureState, NotifyAction, ReceivedClip,
+    SmsReply, SmsRequest,
+};
+use carrova_platform::phone::Note;
 
 pub use client::ControlClient;
 use client::{CONNECT_RETRY, CONNECT_WAIT};
@@ -31,8 +35,8 @@ pub use wire::{ControlError, ControlRequest, ControlResponse, MAX_CONTROL_MESSAG
 #[cfg(doc)]
 use super::Supervisor;
 use super::{
-    Answer, AskId, ClipSettings, HandoffItem, LinkedPeer, PeerSource, PresenceSource,
-    SupervisorConfig,
+    Answer, AskId, ClipSettings, HandoffItem, LinkedPeer, PeerSource, PhoneSettings,
+    PresenceSource, SupervisorConfig,
 };
 use crate::engine::Engine;
 use crate::error::Result;
@@ -56,7 +60,7 @@ pub enum SupervisorHandle {
 }
 
 impl SupervisorHandle {
-    fn call(&self, request: ControlRequest) -> Result<ControlResponse> {
+    fn send(&self, request: ControlRequest) -> Result<ControlResponse> {
         match self {
             Self::Local(server) => server.run(request),
             Self::Remote(client) => client.request(&request),
@@ -64,7 +68,7 @@ impl SupervisorHandle {
     }
 
     fn done(&self, request: ControlRequest) -> Result<()> {
-        match self.call(request)? {
+        match self.send(request)? {
             ControlResponse::Done => Ok(()),
             _ => Err(ControlError::Unexpected.into()),
         }
@@ -76,7 +80,7 @@ impl SupervisorHandle {
     ///
     /// The control socket failed.
     pub fn status(&self) -> Result<Vec<LinkedPeer>> {
-        match self.call(ControlRequest::Status)? {
+        match self.send(ControlRequest::Status)? {
             ControlResponse::Status(peers) => Ok(peers),
             _ => Err(ControlError::Unexpected.into()),
         }
@@ -88,7 +92,7 @@ impl SupervisorHandle {
     ///
     /// As [`Supervisor::ping`], or the control socket failed.
     pub fn ping(&self, device: &DeviceId) -> Result<Duration> {
-        match self.call(ControlRequest::Ping(*device))? {
+        match self.send(ControlRequest::Ping(*device))? {
             ControlResponse::Pong(ms) => Ok(Duration::from_millis(ms)),
             _ => Err(ControlError::Unexpected.into()),
         }
@@ -209,7 +213,7 @@ impl SupervisorHandle {
     ///
     /// The control socket failed.
     pub fn clip_settings(&self) -> Result<ClipSettings> {
-        match self.call(ControlRequest::ClipSettings)? {
+        match self.send(ControlRequest::ClipSettings)? {
             ControlResponse::ClipSettings(settings) => Ok(settings),
             _ => Err(ControlError::Unexpected.into()),
         }
@@ -222,6 +226,75 @@ impl SupervisorHandle {
     /// As [`Supervisor::set_clip_settings`], or the control socket failed.
     pub fn set_clip_settings(&self, settings: ClipSettings) -> Result<()> {
         self.done(ControlRequest::SetClipSettings(settings))
+    }
+
+    /// [`Supervisor::notes`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Supervisor::notes`], or the control socket failed.
+    pub fn notes(&self, device: &DeviceId) -> Result<Vec<Note>> {
+        match self.send(ControlRequest::Notes(*device))? {
+            ControlResponse::Notes(notes) => Ok(notes),
+            _ => Err(ControlError::Unexpected.into()),
+        }
+    }
+
+    /// [`Supervisor::note_action`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Supervisor::note_action`], or the control socket failed.
+    pub fn note_action(&self, device: &DeviceId, action: NotifyAction) -> Result<ActionResult> {
+        match self.send(ControlRequest::NoteAction(*device, action))? {
+            ControlResponse::NoteAction(result) => Ok(result),
+            _ => Err(ControlError::Unexpected.into()),
+        }
+    }
+
+    /// [`Supervisor::sms`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Supervisor::sms`], or the control socket failed.
+    pub fn sms(&self, device: &DeviceId, request: SmsRequest) -> Result<SmsReply> {
+        match self.send(ControlRequest::Sms(*device, request))? {
+            ControlResponse::Sms(reply) => Ok(reply),
+            _ => Err(ControlError::Unexpected.into()),
+        }
+    }
+
+    /// [`Supervisor::call`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Supervisor::call`], or the control socket failed.
+    pub fn call(&self, device: &DeviceId, command: CallCommand) -> Result<CallReply> {
+        match self.send(ControlRequest::Call(*device, command))? {
+            ControlResponse::Call(reply) => Ok(reply),
+            _ => Err(ControlError::Unexpected.into()),
+        }
+    }
+
+    /// [`Supervisor::phone_settings`].
+    ///
+    /// # Errors
+    ///
+    /// The control socket failed.
+    pub fn phone_settings(&self) -> Result<PhoneSettings> {
+        match self.send(ControlRequest::PhoneSettings)? {
+            ControlResponse::PhoneSettings(settings) => Ok(settings),
+            _ => Err(ControlError::Unexpected.into()),
+        }
+    }
+
+    /// [`Supervisor::set_phone_settings`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Supervisor::set_phone_settings`], or the control socket failed.
+    pub fn set_phone_settings(&self, settings: PhoneSettings) -> Result<()> {
+        self.done(ControlRequest::SetPhoneSettings(settings))
     }
 
     /// The supervisor's events from now on (besides the engine's sink of

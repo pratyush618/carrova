@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use carrova_crypto::identity::DeviceId;
+use carrova_link::Feature;
+use carrova_platform::phone::{CallState, Note, SmsMessage};
 use serde::{Deserialize, Serialize};
 
 use crate::checklist::Checklist;
@@ -198,6 +200,43 @@ pub enum Event {
     RingStopped {
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         device: DeviceId,
+    },
+    /// A linked phone's notification to pop up (new or changed; at most
+    /// one per app every 2 s, all of them in
+    /// [`crate::ecosystem::Supervisor::notes`]). While this computer is
+    /// locked it carries no content (`hidden: locked`).
+    PhoneNote {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        note: Note,
+    },
+    /// A linked phone's notification `key` is gone.
+    PhoneNoteGone {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        key: String,
+    },
+    /// A text new to this computer from a linked phone. One with `id` 0 is
+    /// provisional (not stored on the phone yet); a stored one (`id` not
+    /// 0) replaces the provisional texts of its thread.
+    PhoneSms {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        message: SmsMessage,
+    },
+    /// A linked phone's call changed.
+    PhoneCall {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        state: CallState,
+    },
+    /// What this computer held of a linked phone's `feature` was dropped
+    /// (link closed, device forgotten, feature off, or the phone asked to
+    /// resync): views of it fetch again or close.
+    PhoneCleared {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        feature: Feature,
     },
 }
 

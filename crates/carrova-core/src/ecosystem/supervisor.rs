@@ -12,9 +12,11 @@ use std::time::Duration;
 
 use carrova_crypto::identity::{DeviceId, DeviceKey};
 use carrova_link::{
-    Feature, FeatureState, FileOffer, Handoff, OfferAnswer, PolicyDoc, RING_SECONDS, ReceivedClip,
-    RingMsg, allowed, offer_file, send_handoff, send_ring,
+    ActionResult, CallCommand, CallReply, Feature, FeatureState, FileOffer, Handoff, NotifyAction,
+    OfferAnswer, PolicyDoc, RING_SECONDS, ReceivedClip, RingMsg, SmsReply, SmsRequest, allowed,
+    call_command, offer_file, request_sms, send_action, send_handoff, send_ring,
 };
+use carrova_platform::phone::Note;
 use carrova_platform::{ClipContent, ClipKind, ClipboardWatch, Platform};
 use carrova_transport::Connection;
 
@@ -24,6 +26,8 @@ use super::clip_settings::ClipSettings;
 use super::features::{self, FileFailure};
 use super::peer::{Link, LinkedPeer, Peer, PeerSource};
 use super::phone::give::{self, Gives, Job};
+use super::phone::mirror;
+use super::phone::settings::{self, PhoneSettings};
 use super::retry::Retries;
 use super::{PolicyStore, dial};
 use crate::cancel::Cancel;
@@ -88,6 +92,8 @@ pub(super) struct Shared {
     peers: Mutex<Vec<Peer>>,
     pub(super) asks: Asks,
     pub(super) clips: Mutex<Clips>,
+    /// The user's settings for showing a linked phone here.
+    phone: Mutex<PhoneSettings>,
     /// The phone forwarder's queue ([`give::run`]).
     pub(super) give: Sender<Job>,
     /// Fires on [`Supervisor::stop`]: every thread and connection ends.
@@ -122,6 +128,10 @@ impl Shared {
             }
             join(threads);
         }
+    }
+
+    pub(super) fn phone_settings(&self) -> PhoneSettings {
+        *self.phone.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     pub(super) fn platform(&self) -> &Arc<dyn Platform> {
@@ -165,6 +175,11 @@ impl Shared {
     /// `device`'s live connection, if `feature` is allowed on both sides
     /// (`None`: any feature).
     fn conn(&self, device: &DeviceId, feature: Option<Feature>) -> Result<Arc<Connection>> {
+        self.live(device, feature).map(|(conn, _)| conn)
+    }
+
+    /// As [`Self::conn`], with the link's generation.
+    fn live(&self, device: &DeviceId, feature: Option<Feature>) -> Result<(Arc<Connection>, u64)> {
         let peers = self.peers();
         let peer = peers
             .iter()
@@ -178,7 +193,7 @@ impl Shared {
                 return Err(CoreError::FeatureOff(f));
             }
         }
-        Ok(Arc::clone(&link.conn))
+        Ok((Arc::clone(&link.conn), link.generation))
     }
 }
 
@@ -235,6 +250,10 @@ impl Supervisor {
             peers: Mutex::default(),
             asks: Asks::default(),
             clips: Mutex::new(Clips::load(Arc::clone(&platform))),
+            phone: Mutex::new(settings::load(&*platform).unwrap_or_else(|e| {
+                tracing::warn!(error = %e, "phone settings unreadable; using the defaults");
+                PhoneSettings::default()
+            })),
             give,
             stop: Cancel::default(),
             threads: Mutex::default(),
@@ -313,6 +332,88 @@ impl Supervisor {
     /// The settings or the history file could not be written or deleted.
     pub fn set_clip_settings(&self, settings: ClipSettings) -> Result<()> {
         clip::lock_clips(&self.shared).set_settings(settings)
+    }
+
+    /// The notifications `device`'s phone shows, newest first (none while
+    /// it is not linked). Held in memory only.
+    ///
+    /// # Errors
+    ///
+    /// [`CoreError::UnknownDevice`].
+    pub fn notes(&self, device: &DeviceId) -> Result<Vec<Note>> {
+        let peers = self.shared.peers();
+        let peer = peers.iter().find(|p| p.id() == *device);
+        let peer = peer.ok_or(CoreError::UnknownDevice)?;
+        Ok(peer
+            .link
+            .as_ref()
+            .map(|l| l.mirror.notes())
+            .unwrap_or_default())
+    }
+
+    /// Carry out `action` on a notification of `device`'s phone (reply,
+    /// dismiss, open there).
+    ///
+    /// # Errors
+    ///
+    /// [`CoreError::NotLinked`] (the phone is away),
+    /// [`CoreError::FeatureOff`], or the link failed.
+    pub fn note_action(&self, device: &DeviceId, action: &NotifyAction) -> Result<ActionResult> {
+        let conn = self.shared.conn(device, Some(Feature::Notifications))?;
+        Ok(send_action(&conn, action)?)
+    }
+
+    /// Ask `device`'s phone for SMS threads or messages, or to send a text
+    /// (sent at most once per `client_id`). The newest page of a thread
+    /// also holds its texts the phone has not stored yet (`id` 0).
+    ///
+    /// # Errors
+    ///
+    /// [`CoreError::NotLinked`] (the phone is away: nothing is sent),
+    /// [`CoreError::FeatureOff`], or the link failed.
+    pub fn sms(&self, device: &DeviceId, request: &SmsRequest) -> Result<SmsReply> {
+        let (conn, generation) = self.shared.live(device, Some(Feature::Messages))?;
+        let reply = request_sms(&conn, request)?;
+        Ok(mirror::take_sms_reply(
+            &self.shared,
+            *device,
+            generation,
+            request,
+            reply,
+        ))
+    }
+
+    /// Ask `device`'s phone to carry out `command` on its call.
+    ///
+    /// # Errors
+    ///
+    /// [`CoreError::NotLinked`], [`CoreError::FeatureOff`], a command the
+    /// phone never takes (`Tones`, `AudioTo`) or the link failed.
+    pub fn call(&self, device: &DeviceId, command: &CallCommand) -> Result<CallReply> {
+        let conn = self.shared.conn(device, Some(Feature::Calls))?;
+        Ok(call_command(&conn, command)?)
+    }
+
+    /// The user's settings for showing a linked phone here.
+    #[must_use]
+    pub fn phone_settings(&self) -> PhoneSettings {
+        self.shared.phone_settings()
+    }
+
+    /// Save `settings` and apply them from now on.
+    ///
+    /// # Errors
+    ///
+    /// The settings could not be written.
+    pub fn set_phone_settings(&self, settings: PhoneSettings) -> Result<()> {
+        let mut current = self
+            .shared
+            .phone
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        settings::save(&**self.shared.platform(), &settings)?;
+        *current = settings;
+        Ok(())
     }
 
     /// Round-trip time to `device`.
@@ -468,15 +569,24 @@ impl Supervisor {
             return Err(CoreError::UnknownDevice);
         }
         let local = PolicyStore::open(platform)?.set(platform, device, feature, state)?;
-        let (conn, gives) = {
+        let (conn, gives, cleared) = {
             let mut peers = self.shared.peers();
             let peer = peers.iter_mut().find(|p| p.id() == *device);
             let peer = peer.ok_or(CoreError::UnknownDevice)?;
             let remote = peer.link.as_ref().and_then(|l| l.remote.as_ref());
             let gives = Gives::of(&local, remote).since(Gives::of(&peer.local, remote));
+            let cleared = match peer.link.as_mut() {
+                Some(l) => l.mirror.follow_policy(&local, l.remote.as_ref()),
+                None => Vec::new(),
+            };
             peer.local = local;
-            (peer.link.as_ref().map(|l| Arc::clone(&l.conn)), gives)
+            (
+                peer.link.as_ref().map(|l| Arc::clone(&l.conn)),
+                gives,
+                cleared,
+            )
         };
+        mirror::cleared(&self.shared, *device, cleared);
         if let Some(conn) = conn {
             features::push_policy(&self.shared, device, &conn);
         }

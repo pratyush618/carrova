@@ -505,3 +505,118 @@ fn retrying_an_unknown_file_is_refused_through_a_client() {
         "{refused:?}"
     );
 }
+
+/// `value` through CBOR, as the control socket carries it.
+fn cbor<T: serde::Serialize + serde::de::DeserializeOwned>(value: &T) -> T {
+    let mut bytes = Vec::new();
+    ciborium::into_writer(value, &mut bytes).unwrap();
+    ciborium::from_reader(bytes.as_slice()).unwrap()
+}
+
+#[test]
+fn control_wire_roundtrip_phase2() {
+    use carrova_core::ecosystem::{PhoneSettings, RingHere};
+    use carrova_link::{
+        ActionResult, CallCommand, CallReply, Feature, NotifyAction, SendOutcome, SmsReply,
+        SmsRequest,
+    };
+    use carrova_platform::phone::{CallState, Note, SmsMessage};
+
+    let device = Device::new("Phone").id;
+    let settings = PhoneSettings {
+        ring_here: RingHere::Always,
+        only_while_active: true,
+        show_when_locked: false,
+    };
+    let note = Note {
+        key: "k1".into(),
+        app_id: "org.example.chat".into(),
+        app_name: "Chat".into(),
+        title: "Ana".into(),
+        text: "see you at 6".into(),
+        when_ms: 1,
+        can_reply: true,
+        icon: Some(vec![0x89, b'P', b'N', b'G']),
+        hidden: None,
+    };
+    let message = SmsMessage {
+        id: 0,
+        thread_id: 5,
+        outgoing: false,
+        text: "on my way".into(),
+        when_ms: 2,
+    };
+    let requests = [
+        ControlRequest::Notes(device),
+        ControlRequest::NoteAction(device, NotifyAction::Dismiss { key: "k1".into() }),
+        ControlRequest::Sms(
+            device,
+            SmsRequest::Send {
+                to: "5550100".into(),
+                text: "hi".into(),
+                client_id: 7,
+            },
+        ),
+        ControlRequest::Call(device, CallCommand::Mute(true)),
+        ControlRequest::PhoneSettings,
+        ControlRequest::SetPhoneSettings(settings),
+    ];
+    for request in requests {
+        assert_eq!(cbor(&request), request);
+    }
+    let responses = [
+        ControlResponse::Notes(vec![note.clone()]),
+        ControlResponse::NoteAction(ActionResult::Gone),
+        ControlResponse::Sms(SmsReply::SendResult {
+            client_id: 7,
+            outcome: SendOutcome::Unknown,
+        }),
+        ControlResponse::Call(CallReply::NotRinging),
+        ControlResponse::PhoneSettings(settings),
+    ];
+    for response in responses {
+        assert_eq!(cbor(&response), response);
+    }
+    let events = [
+        Event::PhoneNote { device, note },
+        Event::PhoneNoteGone {
+            device,
+            key: "k1".into(),
+        },
+        Event::PhoneSms { device, message },
+        Event::PhoneCall {
+            device,
+            state: CallState::Ringing {
+                number: "5550100".into(),
+                name: Some("Ana".into()),
+            },
+        },
+        Event::PhoneCleared {
+            device,
+            feature: Feature::Messages,
+        },
+    ];
+    for event in events {
+        assert_eq!(cbor(&event), event);
+    }
+}
+
+#[test]
+fn phone_requests_debug_hides_content() {
+    let device = Device::new("Phone").id;
+    let request = ControlRequest::Sms(
+        device,
+        carrova_link::SmsRequest::Send {
+            to: "5550100".into(),
+            text: "hunter2".into(),
+            client_id: 7,
+        },
+    );
+
+    let shown = format!("{request:?}");
+
+    assert!(
+        !shown.contains("5550100") && !shown.contains("hunter2"),
+        "{shown}"
+    );
+}

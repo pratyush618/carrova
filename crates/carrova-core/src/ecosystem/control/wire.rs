@@ -5,11 +5,14 @@ use std::io::{self, Read, Write};
 use std::path::PathBuf;
 
 use carrova_crypto::identity::DeviceId;
-use carrova_link::{Feature, FeatureState};
+use carrova_link::{
+    ActionResult, CallCommand, CallReply, Feature, FeatureState, NotifyAction, SmsReply, SmsRequest,
+};
+use carrova_platform::phone::Note;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::ecosystem::{Answer, AskId, ClipSettings, HandoffItem, LinkedPeer};
+use crate::ecosystem::{Answer, AskId, ClipSettings, HandoffItem, LinkedPeer, PhoneSettings};
 use crate::error::Result;
 
 /// Largest message the supervisor reads (a request), in bytes: a shared
@@ -54,6 +57,18 @@ pub enum ControlRequest {
     SetClipSettings(ClipSettings),
     /// [`crate::ecosystem::Supervisor::retry_file`].
     RetryFile(u64),
+    /// [`crate::ecosystem::Supervisor::notes`].
+    Notes(DeviceId),
+    /// [`crate::ecosystem::Supervisor::note_action`].
+    NoteAction(DeviceId, NotifyAction),
+    /// [`crate::ecosystem::Supervisor::sms`].
+    Sms(DeviceId, SmsRequest),
+    /// [`crate::ecosystem::Supervisor::call`].
+    Call(DeviceId, CallCommand),
+    /// [`crate::ecosystem::Supervisor::phone_settings`].
+    PhoneSettings,
+    /// [`crate::ecosystem::Supervisor::set_phone_settings`].
+    SetPhoneSettings(PhoneSettings),
     /// Stream the supervisor's events: answered [`ControlResponse::Done`],
     /// then the connection carries only [`crate::Event`] messages until
     /// either side closes it.
@@ -69,6 +84,13 @@ impl std::fmt::Debug for ControlRequest {
             Self::ClipSettings => f.write_str("ClipSettings"),
             Self::SetClipSettings(s) => f.debug_tuple("SetClipSettings").field(s).finish(),
             Self::RetryFile(id) => f.debug_tuple("RetryFile").field(id).finish(),
+            // The phone types' own `Debug` hides their content.
+            Self::Notes(d) => f.debug_tuple("Notes").field(d).finish(),
+            Self::NoteAction(d, a) => f.debug_tuple("NoteAction").field(d).field(a).finish(),
+            Self::Sms(d, r) => f.debug_tuple("Sms").field(d).field(r).finish(),
+            Self::Call(d, c) => f.debug_tuple("Call").field(d).field(c).finish(),
+            Self::PhoneSettings => f.write_str("PhoneSettings"),
+            Self::SetPhoneSettings(s) => f.debug_tuple("SetPhoneSettings").field(s).finish(),
             Self::Subscribe => f.write_str("Subscribe"),
             Self::Ping(d) => f.debug_tuple("Ping").field(d).finish(),
             Self::SendClipboard(d) => f.debug_tuple("SendClipboard").field(d).finish(),
@@ -101,6 +123,16 @@ pub enum ControlResponse {
     ClipHistory(u32),
     /// To [`ControlRequest::ClipSettings`].
     ClipSettings(ClipSettings),
+    /// To [`ControlRequest::Notes`].
+    Notes(Vec<Note>),
+    /// To [`ControlRequest::NoteAction`].
+    NoteAction(ActionResult),
+    /// To [`ControlRequest::Sms`].
+    Sms(SmsReply),
+    /// To [`ControlRequest::Call`].
+    Call(CallReply),
+    /// To [`ControlRequest::PhoneSettings`].
+    PhoneSettings(PhoneSettings),
     /// The request succeeded.
     Done,
     /// The request failed; the error's message.

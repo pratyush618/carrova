@@ -108,7 +108,12 @@ impl CliSink {
             | Event::FileFailed { .. }
             | Event::HandoffOpened { .. }
             | Event::RingStarted { .. }
-            | Event::RingStopped { .. } => None,
+            | Event::RingStopped { .. }
+            | Event::PhoneNote { .. }
+            | Event::PhoneNoteGone { .. }
+            | Event::PhoneSms { .. }
+            | Event::PhoneCall { .. }
+            | Event::PhoneCleared { .. } => None,
         }
     }
 

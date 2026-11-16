@@ -26,6 +26,7 @@ use carrova_transport::{Connection, Stream};
 
 use super::NotifyApps;
 use super::apps::outgoing;
+use super::mirror;
 use crate::cancel::Cancel;
 use crate::ecosystem::supervisor::Shared;
 use crate::error::Result;
@@ -276,12 +277,22 @@ fn send(targets: &Targets, f: impl Fn(&Connection) -> std::result::Result<(), Li
     }
 }
 
-/// Serve a `Notify` lane: carry out the device's action on a notification.
-pub(crate) fn serve_notify(platform: &dyn Platform, stream: Stream) -> Result<()> {
-    // A message from a phone to this side: the mirror is not built yet.
-    let Incoming::Action(action, responder) = recv_notify(stream)? else {
-        return Ok(());
+/// Serve a `Notify` lane from `device` on its link `generation`: mirror a
+/// phone's message, or carry out the device's action on a notification.
+pub(crate) fn serve_notify(
+    shared: &Shared,
+    device: DeviceId,
+    generation: u64,
+    stream: Stream,
+) -> Result<()> {
+    let (action, responder) = match recv_notify(stream)? {
+        Incoming::Msg(msg) => {
+            mirror::take_notify(shared, device, generation, msg);
+            return Ok(());
+        }
+        Incoming::Action(action, responder) => (action, responder),
     };
+    let platform = &**shared.platform();
     let done = match &action {
         NotifyAction::Reply { key, text } => platform.note_reply(key, text).map(|live| {
             if live {
@@ -303,14 +314,17 @@ pub(crate) fn serve_notify(platform: &dyn Platform, stream: Stream) -> Result<()
 /// Serve a `Messages` lane from `device` on its link `generation`: pages
 /// within the sync window, and texts sent at most once per `client_id`.
 pub(crate) fn serve_messages(
-    shared: &Shared,
+    shared: &Arc<Shared>,
     device: DeviceId,
     generation: u64,
     stream: Stream,
 ) -> Result<()> {
-    // A push from a phone to this side: the mirror is not built yet.
-    let SmsIncoming::Request(request, responder) = recv_sms(stream)? else {
-        return Ok(());
+    let (request, responder) = match recv_sms(stream)? {
+        SmsIncoming::Push(push) => {
+            mirror::take_sms(shared, device, generation, push);
+            return Ok(());
+        }
+        SmsIncoming::Request(request, responder) => (request, responder),
     };
     let platform = &**shared.platform();
     let since = since_ms();
@@ -384,14 +398,23 @@ fn answered_on_laptop(p: &dyn Platform, stop: &Cancel) -> Option<bool> {
     }
 }
 
-/// Serve a `Calls` lane: carry out the device's call command.
-/// `stop` ends a wait for an answered call.
-pub(crate) fn serve_calls(platform: &dyn Platform, stop: &Cancel, stream: Stream) -> Result<()> {
-    // A state from a phone to this side: the calls controller is not built yet.
-    let CallIncoming::Command(command, responder) = recv_calls(stream)? else {
-        return Ok(());
+/// Serve a `Calls` lane from `device` on its link `generation`: mirror a
+/// phone's call state, or carry out the device's call command.
+pub(crate) fn serve_calls(
+    shared: &Shared,
+    device: DeviceId,
+    generation: u64,
+    stream: Stream,
+) -> Result<()> {
+    let (command, responder) = match recv_calls(stream)? {
+        CallIncoming::State(state) => {
+            mirror::take_call(shared, device, generation, state);
+            return Ok(());
+        }
+        CallIncoming::Command(command, responder) => (command, responder),
     };
-    let reply = call(platform, stop, &command).unwrap_or_else(|e| {
+    // The stop ends a wait for an answered call.
+    let reply = call(&**shared.platform(), &shared.stop, &command).unwrap_or_else(|e| {
         tracing::debug!(?command, error = %e, "call command failed");
         CallReply::Failed
     });

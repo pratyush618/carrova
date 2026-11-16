@@ -1,0 +1,423 @@
+//! The laptop's side of notifications, SMS and calls: a mirror of what a
+//! linked phone pushes, held in memory on its link only (never on disk),
+//! and turned into events for the front-ends.
+//!
+//! A mirror lives and dies with its link: closing the link, forgetting
+//! the device or turning a feature off (on either side) drops that data
+//! and reports [`Event::PhoneCleared`]. Never logs keys, titles, text, app
+//! names, numbers or names: counts and ids only.
+
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use carrova_crypto::identity::DeviceId;
+use carrova_link::{
+    Feature, FeatureState, MAX_SNAPSHOT, NotifyMsg, PolicyDoc, SmsPush, SmsReply, SmsRequest,
+    allowed, request_sms,
+};
+use carrova_platform::ScreenLock;
+use carrova_platform::phone::{CallState, Cursor, Hidden, Note, SmsMessage};
+
+use super::PhoneSettings;
+use crate::ecosystem::supervisor::Shared;
+use crate::session::Event;
+
+/// At most one pop-up ([`Event::PhoneNote`]) per app this often.
+const POP_EVERY: Duration = Duration::from_secs(2);
+/// A provisional text with no `Stored` this long after it arrived has its
+/// thread refetched anyway.
+const STORE_WAIT: Duration = Duration::from_secs(10);
+
+/// The phone features a mirror holds.
+const MIRRORED: [Feature; 3] = [Feature::Notifications, Feature::Messages, Feature::Calls];
+
+/// What a linked phone showed this computer last, on one link.
+#[derive(Default)]
+pub(crate) struct Mirror {
+    /// Notifications showing on the phone, newest first, one per key.
+    notes: Vec<Note>,
+    /// When each app last popped up.
+    popped: HashMap<String, Instant>,
+    /// The phone's call, once reported.
+    call: Option<CallState>,
+    /// Stored messages of the threads loaded here, newest first.
+    threads: HashMap<i64, Vec<SmsMessage>>,
+    /// Incoming texts the phone has not stored yet (`id` 0), and when.
+    provisional: Vec<(SmsMessage, Instant)>,
+}
+
+impl std::fmt::Debug for Mirror {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Mirror")
+            .field("notes", &self.notes.len())
+            .field("call", &self.call.is_some())
+            .field("threads", &self.threads.len())
+            .field("provisional", &self.provisional.len())
+            .finish_non_exhaustive()
+    }
+}
+
+/// What a notification message changed.
+#[derive(Default)]
+struct NoteChanges {
+    /// New or changed notes to pop up.
+    pop: Vec<Note>,
+    /// Keys no longer showing.
+    gone: Vec<String>,
+}
+
+impl Mirror {
+    /// The features this mirror holds data for.
+    pub(crate) fn held(&self) -> Vec<Feature> {
+        MIRRORED.into_iter().filter(|&f| self.holds(f)).collect()
+    }
+
+    fn holds(&self, feature: Feature) -> bool {
+        match feature {
+            Feature::Notifications => !self.notes.is_empty(),
+            Feature::Messages => !self.threads.is_empty() || !self.provisional.is_empty(),
+            Feature::Calls => self.call.is_some(),
+            _ => false,
+        }
+    }
+
+    /// Drop `feature`'s data; whether there was any.
+    fn clear(&mut self, feature: Feature) -> bool {
+        let held = self.holds(feature);
+        match feature {
+            Feature::Notifications => {
+                self.notes.clear();
+                self.popped.clear();
+            }
+            Feature::Messages => {
+                self.threads.clear();
+                self.provisional.clear();
+            }
+            Feature::Calls => self.call = None,
+            _ => {}
+        }
+        held
+    }
+
+    /// Drop what is no longer on on both sides (`local` here, `remote` the
+    /// phone's, if it arrived); returns the features cleared.
+    pub(crate) fn follow_policy(
+        &mut self,
+        local: &PolicyDoc,
+        remote: Option<&PolicyDoc>,
+    ) -> Vec<Feature> {
+        MIRRORED
+            .into_iter()
+            .filter(|&f| {
+                let off = local.get(f) == FeatureState::Off
+                    || remote.is_some_and(|r| allowed(local, r, f) != FeatureState::On);
+                off && self.clear(f)
+            })
+            .collect()
+    }
+
+    /// The notes showing, newest first.
+    pub(crate) fn notes(&self) -> Vec<Note> {
+        self.notes.clone()
+    }
+
+    fn notify(&mut self, msg: NotifyMsg, now: Instant) -> NoteChanges {
+        match msg {
+            NotifyMsg::Posted(note) => NoteChanges {
+                pop: self.posted(note, now).into_iter().collect(),
+                gone: Vec::new(),
+            },
+            NotifyMsg::Removed { key } => {
+                let before = self.notes.len();
+                self.notes.retain(|n| n.key != key);
+                let gone = if self.notes.len() < before {
+                    vec![key]
+                } else {
+                    Vec::new()
+                };
+                NoteChanges {
+                    pop: Vec::new(),
+                    gone,
+                }
+            }
+            NotifyMsg::Snapshot(notes) => self.snapshot(notes, now),
+        }
+    }
+
+    /// Keep `note` (replacing one of its key); it pops up unless it is
+    /// already here unchanged (a note in a snapshot may also arrive
+    /// posted) or its app popped up within [`POP_EVERY`].
+    fn posted(&mut self, note: Note, now: Instant) -> Option<Note> {
+        if self.notes.contains(&note) {
+            return None;
+        }
+        self.notes.retain(|n| n.key != note.key);
+        self.notes.insert(0, note.clone());
+        self.notes.truncate(MAX_SNAPSHOT);
+        self.pop(&note.app_id, now).then_some(note)
+    }
+
+    /// Replace every note with `notes` (newest first).
+    fn snapshot(&mut self, mut notes: Vec<Note>, now: Instant) -> NoteChanges {
+        notes.truncate(MAX_SNAPSHOT);
+        // Duplicated keys: the first (newest) wins.
+        let mut keys = Vec::with_capacity(notes.len());
+        notes.retain(|n| {
+            let fresh = !keys.contains(&n.key);
+            keys.push(n.key.clone());
+            fresh
+        });
+        let old = std::mem::replace(&mut self.notes, notes);
+        let gone = old
+            .iter()
+            .filter(|o| !self.notes.iter().any(|n| n.key == o.key))
+            .map(|o| o.key.clone())
+            .collect();
+        let fresh: Vec<Note> = self
+            .notes
+            .iter()
+            .filter(|n| !old.contains(n))
+            .cloned()
+            .collect();
+        let pop = fresh
+            .into_iter()
+            .filter(|n| self.pop(&n.app_id, now))
+            .collect();
+        NoteChanges { pop, gone }
+    }
+
+    /// Whether `app` may pop up now (and if so, it did).
+    fn pop(&mut self, app: &str, now: Instant) -> bool {
+        self.popped
+            .retain(|_, at| now.saturating_duration_since(*at) < POP_EVERY);
+        if self.popped.contains_key(app) {
+            return false;
+        }
+        self.popped.insert(app.to_owned(), now);
+        true
+    }
+
+    /// Whether thread `id` is loaded here or waits for a stored text.
+    fn wants(&self, id: i64) -> bool {
+        self.threads.contains_key(&id) || self.provisional.iter().any(|(m, _)| m.thread_id == id)
+    }
+
+    /// Whether thread `id` still has a provisional text from `since`.
+    fn waits_since(&self, id: i64, since: Instant) -> bool {
+        self.provisional
+            .iter()
+            .any(|(m, at)| m.thread_id == id && *at <= since)
+    }
+
+    /// Take `page`, the newest of thread `id` after it was stored: its
+    /// provisional texts go; returns the stored ones new here, newest first
+    /// (they replace the provisional ones).
+    fn stored(&mut self, id: i64, page: &[SmsMessage]) -> Vec<SmsMessage> {
+        let before = self.provisional.len();
+        self.provisional.retain(|(m, _)| m.thread_id != id);
+        let replaced = before - self.provisional.len();
+        let known = self.threads.get(&id).and_then(|t| t.first()).map(cursor);
+        let new: Vec<SmsMessage> = match known {
+            Some(newest) => page
+                .iter()
+                .filter(|m| cursor(m) > newest)
+                .cloned()
+                .collect(),
+            // Nothing loaded: the newest incoming ones stand for the
+            // provisional texts they replace.
+            None => page
+                .iter()
+                .filter(|m| !m.outgoing)
+                .take(replaced)
+                .cloned()
+                .collect(),
+        };
+        self.merge(id, page);
+        new
+    }
+
+    /// Add a fetched page of thread `id` to what is loaded here.
+    fn merge(&mut self, id: i64, page: &[SmsMessage]) {
+        let thread = self.threads.entry(id).or_default();
+        for m in page.iter().filter(|m| m.id != 0) {
+            if !thread.iter().any(|t| t.id == m.id) {
+                thread.push(m.clone());
+            }
+        }
+        thread.sort_by_key(|m| std::cmp::Reverse(cursor(m)));
+    }
+
+    /// `page`, a reply about thread `id`, with the thread's provisional
+    /// texts on top when it is the newest page.
+    fn with_provisional(&self, id: i64, newest: bool, page: &[SmsMessage]) -> Vec<SmsMessage> {
+        let mut shown: Vec<SmsMessage> = Vec::new();
+        if newest {
+            shown.extend(
+                self.provisional
+                    .iter()
+                    .filter(|(m, _)| m.thread_id == id)
+                    .map(|(m, _)| m.clone()),
+            );
+            shown.sort_by_key(|m| std::cmp::Reverse(m.when_ms));
+        }
+        shown.extend_from_slice(page);
+        shown
+    }
+}
+
+fn cursor(m: &SmsMessage) -> Cursor {
+    Cursor {
+        when_ms: m.when_ms,
+        id: m.id,
+    }
+}
+
+/// `note` as this computer may show it now: with no content while the
+/// screen is (or may be) locked, unless the user shows it anyway.
+fn shown(note: Note, lock: ScreenLock, settings: PhoneSettings) -> Note {
+    if lock == ScreenLock::Unlocked || settings.show_when_locked {
+        return note;
+    }
+    Note {
+        app_name: String::new(),
+        title: String::new(),
+        text: String::new(),
+        icon: None,
+        hidden: Some(Hidden::Locked),
+        ..note
+    }
+}
+
+/// Emit [`Event::PhoneCleared`] for each of `features`.
+pub(crate) fn cleared(shared: &Shared, device: DeviceId, features: Vec<Feature>) {
+    for feature in features {
+        shared.emit(Event::PhoneCleared { device, feature });
+    }
+}
+
+/// Take a notification message from `device`'s link `generation`.
+pub(crate) fn take_notify(shared: &Shared, device: DeviceId, generation: u64, msg: NotifyMsg) {
+    let now = Instant::now();
+    let Some(changes) = shared.with_link(&device, generation, |l| l.mirror.notify(msg, now)) else {
+        return;
+    };
+    for key in changes.gone {
+        shared.emit(Event::PhoneNoteGone { device, key });
+    }
+    if changes.pop.is_empty() {
+        return;
+    }
+    // Read outside the supervisor's lock: the OS may be slow to answer.
+    let lock = shared.platform().screen_lock();
+    let settings = shared.phone_settings();
+    for note in changes.pop {
+        let note = shown(note, lock, settings);
+        shared.emit(Event::PhoneNote { device, note });
+    }
+}
+
+/// Take the call state from `device`'s link `generation`.
+pub(crate) fn take_call(shared: &Shared, device: DeviceId, generation: u64, state: CallState) {
+    let kept = shared.with_link(&device, generation, |l| l.mirror.call = Some(state.clone()));
+    if kept.is_some() {
+        shared.emit(Event::PhoneCall { device, state });
+    }
+}
+
+/// Take an SMS push from `device`'s link `generation`.
+pub(crate) fn take_sms(shared: &Arc<Shared>, device: DeviceId, generation: u64, push: SmsPush) {
+    match push {
+        SmsPush::Incoming(message) => {
+            let now = Instant::now();
+            let (id, provisional) = (message.thread_id, message.id == 0);
+            let kept = shared.with_link(&device, generation, |l| {
+                if provisional {
+                    l.mirror.provisional.push((message.clone(), now));
+                } else {
+                    l.mirror.merge(id, std::slice::from_ref(&message));
+                }
+            });
+            if kept.is_none() {
+                return;
+            }
+            shared.emit(Event::PhoneSms { device, message });
+            if provisional {
+                refetch_later(shared, device, generation, id, now);
+            }
+        }
+        SmsPush::Stored { thread_id } => {
+            let wanted = shared.with_link(&device, generation, |l| l.mirror.wants(thread_id));
+            if wanted == Some(true) {
+                refetch(shared, device, generation, thread_id);
+            }
+        }
+        SmsPush::Resync => {
+            let held = shared.with_link(&device, generation, |l| {
+                l.mirror.clear(Feature::Messages);
+            });
+            // Open views refetch on it, even with nothing held here.
+            if held.is_some() {
+                cleared(shared, device, vec![Feature::Messages]);
+            }
+        }
+    }
+}
+
+/// After [`STORE_WAIT`], refetch thread `id` if its text from `since` is
+/// still provisional (no `Stored` came).
+fn refetch_later(shared: &Arc<Shared>, device: DeviceId, generation: u64, id: i64, since: Instant) {
+    let waiting = Arc::clone(shared);
+    let started = shared.spawn("carrova-sms-wait", move || {
+        if waiting.stop.sleep(STORE_WAIT).is_err() {
+            return;
+        }
+        let still = waiting.with_link(&device, generation, |l| l.mirror.waits_since(id, since));
+        if still == Some(true) {
+            refetch(&waiting, device, generation, id);
+        }
+    });
+    if let Err(e) = started {
+        tracing::debug!(error = %e, "stored text not awaited");
+    }
+}
+
+/// Refetch the newest page of thread `id`: its provisional texts are
+/// replaced by the stored ones ([`Event::PhoneSms`] for each new one).
+fn refetch(shared: &Shared, device: DeviceId, generation: u64, id: i64) {
+    let Some(conn) = shared.with_link(&device, generation, |l| Arc::clone(&l.conn)) else {
+        return;
+    };
+    // Never under the supervisor's lock: this waits for the phone.
+    let page = match request_sms(&conn, &SmsRequest::Thread { id, before: None }) {
+        Ok(SmsReply::ThreadPage(page)) => page,
+        Ok(_) => return,
+        Err(e) => {
+            tracing::debug!(thread = id, error = %e, "stored text not fetched");
+            return;
+        }
+    };
+    let new = shared.with_link(&device, generation, |l| l.mirror.stored(id, &page));
+    for message in new.into_iter().flatten() {
+        shared.emit(Event::PhoneSms { device, message });
+    }
+}
+
+/// Take `reply` to `request`, sent on `device`'s link `generation`: a
+/// thread's page is kept, with its provisional texts on top when newest.
+pub(crate) fn take_sms_reply(
+    shared: &Shared,
+    device: DeviceId,
+    generation: u64,
+    request: &SmsRequest,
+    reply: SmsReply,
+) -> SmsReply {
+    let (&SmsRequest::Thread { id, before }, SmsReply::ThreadPage(page)) = (request, &reply) else {
+        return reply;
+    };
+    let shown = shared.with_link(&device, generation, |l| {
+        l.mirror.merge(id, page);
+        l.mirror.with_provisional(id, before.is_none(), page)
+    });
+    shown.map_or(reply, SmsReply::ThreadPage)
+}

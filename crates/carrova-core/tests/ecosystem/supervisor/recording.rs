@@ -21,7 +21,7 @@ use carrova_platform::phone::{
 use carrova_platform::{
     ClipContent, ClipboardWatch, DirEntry, DirWatch, FileLock, FileMeta, LanInterface, LinkNotice,
     LocalListener, LocalStream, OsKind, PermissionModel, Platform, PlatformError, ProcessInfo,
-    SemanticRoot, SnapshotCapability, SocketBuffers,
+    ScreenLock, SemanticRoot, SnapshotCapability, SocketBuffers,
 };
 
 /// What a [`Recording`] platform was asked to do.
@@ -352,6 +352,9 @@ impl Platform for Recording {
     }
     fn links_paused(&self) -> bool {
         self.inner.links_paused()
+    }
+    fn screen_lock(&self) -> ScreenLock {
+        self.inner.screen_lock()
     }
     fn watch_phone_events(
         &self,

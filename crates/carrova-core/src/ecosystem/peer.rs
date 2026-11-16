@@ -12,6 +12,7 @@ use carrova_link::{Feature, FeatureState, FileOffer, PolicyDoc, SendOutcome};
 use carrova_platform::{OsKind, Platform};
 use carrova_transport::{Connection, KnownPeers, browse};
 
+use super::phone::mirror::Mirror;
 use super::supervisor::Shared;
 use crate::cancel::Cancel;
 use crate::devices::DeviceRecord;
@@ -120,6 +121,8 @@ pub(super) struct Link {
     /// Texts sent for the device by its `client_id`: `None` while sending.
     /// A repeat is answered from here, never sent twice.
     pub(super) sms_sent: HashMap<u64, Option<SendOutcome>>,
+    /// What the device's phone gives this side (memory only).
+    pub(super) mirror: Mirror,
 }
 
 /// One known device.

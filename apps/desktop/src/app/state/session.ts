@@ -160,6 +160,11 @@ export function applyEvent(session: SessionProgress, event: EngineEvent): Sessio
     case 'handoff_opened':
     case 'ring_started':
     case 'ring_stopped':
+    case 'phone_note':
+    case 'phone_note_gone':
+    case 'phone_sms':
+    case 'phone_call':
+    case 'phone_cleared':
       return session;
   }
 }

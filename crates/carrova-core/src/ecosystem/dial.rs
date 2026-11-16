@@ -35,6 +35,7 @@ use super::PolicyStore;
 use super::clip::lock_clips;
 use super::features;
 use super::peer::{Link, Peer, PeerSource, dials};
+use super::phone::mirror::{self, Mirror};
 use super::supervisor::Shared;
 use crate::cancel::Cancel;
 use crate::error::Result;
@@ -182,6 +183,7 @@ pub(super) fn refresh(shared: &Shared) -> Result<()> {
                 device: peer.id(),
                 retrying: false,
             });
+            mirror::cleared(shared, peer.id(), link.mirror.held());
         }
     }
     Ok(())
@@ -223,6 +225,7 @@ fn round(shared: &Arc<Shared>, seen: &[super::SeenPeer], paused: bool) {
             device,
             retrying: false,
         });
+        mirror::cleared(shared, device, link.mirror.held());
     }
     for (device, secret, addr) in due {
         let dialer = Arc::clone(shared);
@@ -289,7 +292,7 @@ fn register(shared: &Arc<Shared>, conn: Connection) {
     let conn = Arc::new(conn);
     let generation = LINKS.fetch_add(1, Ordering::Relaxed);
     let closed = Cancel::default();
-    let fresh = {
+    let (fresh, held) = {
         let mut peers = shared.peers();
         // Checked under the lock `close_all` takes after the stop fires.
         let peer = peers.iter_mut().find(|p| p.id() == device);
@@ -306,13 +309,17 @@ fn register(shared: &Arc<Shared>, conn: Connection) {
             closed: closed.clone(),
             handoff_files: Vec::new(),
             sms_sent: HashMap::new(),
+            mirror: Mirror::default(),
         });
         if let Some(older) = &older {
             older.conn.close_superseded();
             older.closed.cancel();
         }
-        older.is_none()
+        let held = older.as_ref().map(|l| l.mirror.held()).unwrap_or_default();
+        (older.is_none(), held)
     };
+    // The newer link's phone resends its state.
+    mirror::cleared(shared, device, held);
     if fresh {
         shared.emit(Event::LinkUp { device });
     }
@@ -338,7 +345,7 @@ fn register(shared: &Arc<Shared>, conn: Connection) {
 /// link from this device lives elsewhere, which this one then replaces
 /// once, not in a loop).
 fn ended_link(shared: &Shared, device: DeviceId, generation: u64, why: &LinkError) {
-    let retrying = {
+    let (retrying, held) = {
         let mut peers = shared.peers();
         let Some(peer) = peers.iter_mut().find(|p| p.id() == device) else {
             return;
@@ -349,17 +356,19 @@ fn ended_link(shared: &Shared, device: DeviceId, generation: u64, why: &LinkErro
         {
             return;
         }
-        if let Some(link) = peer.link.take() {
+        let held = peer.link.take().map_or_else(Vec::new, |link| {
             close(&link);
-        }
+            link.mirror.held()
+        });
         if matches!(why, LinkError::Transport(TransportError::Superseded)) {
             peer.backoff = shared.config.backoff_min;
             peer.next_dial = Instant::now() + peer.backoff;
         }
-        dials(&shared.me, &device) && peer.wanted()
+        (dials(&shared.me, &device) && peer.wanted(), held)
     };
     tracing::debug!(error = %why, "link ended");
     shared.emit(Event::LinkDown { device, retrying });
+    mirror::cleared(shared, device, held);
 }
 
 /// Close `link` now: its lanes and asks end.

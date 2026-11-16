@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use super::asks::{Answer, AskKind};
 use super::clip::lock_clips;
 use super::phone::give::{self, Gives};
+use super::phone::mirror;
 use super::sink::Download;
 use super::supervisor::Shared;
 use crate::cancel::Cancel;
@@ -202,12 +203,14 @@ impl Lane {
             LaneKind::File => return self.file(stream),
             LaneKind::Handoff => self.handoff(stream),
             LaneKind::Ring => self.ring(stream),
-            LaneKind::Notify => give::serve_notify(&**self.shared.platform(), stream),
+            LaneKind::Notify => {
+                give::serve_notify(&self.shared, self.device, self.generation, stream)
+            }
             LaneKind::Messages => {
                 give::serve_messages(&self.shared, self.device, self.generation, stream)
             }
             LaneKind::Calls => {
-                give::serve_calls(&**self.shared.platform(), &self.shared.stop, stream)
+                give::serve_calls(&self.shared, self.device, self.generation, stream)
             }
         };
         if let Err(e) = served {
@@ -242,7 +245,7 @@ impl Lane {
     /// Take the device's policy; send it the phone state it now takes.
     fn policy(&self, mut stream: Stream) -> Result<()> {
         let doc = recv_policy(&mut stream, POLICY_WAIT)?;
-        let gives = {
+        let changed = {
             let mut peers = self.shared.peers();
             let peer = peers.iter_mut().find(|p| p.id() == self.device);
             peer.and_then(|p| {
@@ -252,13 +255,18 @@ impl Lane {
                     .filter(|l| l.generation == self.generation)?;
                 let before = Gives::of(&p.local, link.remote.as_ref());
                 link.remote = Some(doc);
-                Some(Gives::of(&p.local, link.remote.as_ref()).since(before))
+                let cleared = link.mirror.follow_policy(&p.local, link.remote.as_ref());
+                Some((
+                    Gives::of(&p.local, link.remote.as_ref()).since(before),
+                    cleared,
+                ))
             })
         };
-        if let Some(gives) = gives {
+        if let Some((gives, cleared)) = changed {
             self.emit(Event::PolicyChanged {
                 device: self.device,
             });
+            mirror::cleared(&self.shared, self.device, cleared);
             gives.send(&self.shared, self.device);
         }
         Ok(())
