@@ -104,8 +104,9 @@ pub(super) fn send_tones(digits: &str) -> Result<(), PlatformError> {
     }
 }
 
-/// The card among `(path, type, remote address)` whose remote is the
-/// audio gateway at `address`.
+/// The card among `(path, type, remote address)` that oFono's hands-free
+/// role made for the phone at `address` (its `hfp_hf` plugin creates
+/// "handsfree" cards; "gateway" ones belong to its audio-gateway role).
 pub(crate) fn card_for<'a>(
     cards: impl IntoIterator<Item = (&'a str, Option<&'a str>, Option<&'a str>)>,
     address: &str,
@@ -113,7 +114,7 @@ pub(crate) fn card_for<'a>(
     cards
         .into_iter()
         .find(|&(_, kind, remote)| {
-            kind == Some("gateway") && remote.is_some_and(|r| r.eq_ignore_ascii_case(address))
+            kind == Some("handsfree") && remote.is_some_and(|r| r.eq_ignore_ascii_case(address))
         })
         .map(|(path, _, _)| path)
 }

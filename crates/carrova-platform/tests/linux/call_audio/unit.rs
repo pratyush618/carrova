@@ -171,13 +171,14 @@ fn tones_go_to_the_modem_in_a_call() {
 }
 
 #[test]
-fn card_is_the_gateway_of_that_phone() {
-    // (path, type, remote address)
-    let other = ("/card_1", Some("gateway"), Some("11:22"));
-    let mine = ("/card_2", Some("gateway"), Some("aa:bb"));
-    let hf = ("/card_3", Some("handsfree"), Some("AA:BB"));
-    assert_eq!(card_for([other, hf, mine], "AA:BB"), Some("/card_2"));
-    assert_eq!(card_for([other, hf], "AA:BB"), None);
+fn card_is_the_hands_free_card_of_that_phone() {
+    // (path, type, remote address). oFono's hands-free plugin creates
+    // "handsfree" cards; "gateway" ones are its audio-gateway role.
+    let other = ("/card_1", Some("handsfree"), Some("11:22"));
+    let mine = ("/card_2", Some("handsfree"), Some("aa:bb"));
+    let ag = ("/card_3", Some("gateway"), Some("AA:BB"));
+    assert_eq!(card_for([other, ag, mine], "AA:BB"), Some("/card_2"));
+    assert_eq!(card_for([other, ag], "AA:BB"), None);
 }
 
 #[test]
