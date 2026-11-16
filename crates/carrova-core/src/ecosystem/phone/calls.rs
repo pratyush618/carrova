@@ -63,8 +63,8 @@ pub enum CallView {
         /// Caller's contact name, resolved on the phone.
         name: Option<String>,
     },
-    /// The phone's call is gone from here (link closed, calls turned off
-    /// or the device forgotten): whatever showed of it closes.
+    /// The ringing or active call showing is gone from here (link closed,
+    /// calls turned off or the device forgotten): its windows close.
     Left {
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         device: DeviceId,
@@ -142,6 +142,15 @@ impl Call {
             }
             (CallState::Idle | CallState::Ended { .. }, _) => CallView::None,
         }
+    }
+
+    /// A ringing or active call shows: dropping it shows
+    /// [`CallView::Left`]. An idle or ended call holds nothing to close.
+    pub(super) fn shown(&self) -> bool {
+        matches!(
+            self.state,
+            Some(CallState::Ringing { .. } | CallState::Active { .. })
+        )
     }
 
     fn active(&self) -> bool {

@@ -13,6 +13,14 @@ const NOTES: Feature = Feature::Notifications;
 const SMS: Feature = Feature::Messages;
 const CALLS: Feature = Feature::Calls;
 
+/// A ringing call, which the laptop shows (an idle one holds nothing).
+fn ringing() -> CallState {
+    CallState::Ringing {
+        number: "5550100".into(),
+        name: None,
+    }
+}
+
 /// Clipboard and `on` on, the rest off.
 fn doc(on: &[Feature]) -> PolicyDoc {
     let mut doc = PolicyDoc::computer_defaults();
@@ -113,6 +121,7 @@ fn cleared(laptop: &Device, phone: &Device, feature: Feature) -> bool {
 fn feature_off_clears_mirror() {
     let (phone, sp, laptop, sl) = linked(&[NOTES, CALLS], |p| {
         p.platform.phone().notes = vec![note("k1", "org.example.chat")];
+        p.platform.phone().call = ringing();
     });
     wait_notes(&sl, &phone, 1);
     laptop.wait("the call state", |e| matches!(e, Event::PhoneCall { .. }));
@@ -132,6 +141,7 @@ fn feature_off_clears_mirror() {
 fn forget_clears_all_phone_data() {
     let (phone, _sp, laptop, sl) = linked(&[NOTES, CALLS], |p| {
         p.platform.phone().notes = vec![note("k1", "org.example.chat")];
+        p.platform.phone().call = ringing();
     });
     wait_notes(&sl, &phone, 1);
     laptop.wait("the call state", |e| matches!(e, Event::PhoneCall { .. }));

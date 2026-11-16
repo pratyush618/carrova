@@ -161,6 +161,30 @@ fn ringing_clears_when_link_drops() {
 }
 
 #[test]
+fn idle_link_drop_shows_nothing() {
+    let (_phone, sp, laptop, _sl) = linked();
+    laptop.wait("the idle call state", |e| {
+        matches!(
+            e,
+            Event::PhoneCall {
+                state: CallState::Idle,
+                ..
+            }
+        )
+    });
+
+    sp.stop();
+
+    laptop.wait("the link down", |e| matches!(e, Event::LinkDown { .. }));
+    // The mirror is cleared right after the link down.
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    assert_eq!(
+        laptop.count(|e| matches!(e, Event::CallView(CallView::Left { .. }))),
+        0
+    );
+}
+
+#[test]
 fn never_setting_does_not_ring_here() {
     let (phone, _sp, laptop, sl) = linked();
     let never = PhoneSettings {

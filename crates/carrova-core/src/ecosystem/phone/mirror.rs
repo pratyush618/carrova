@@ -80,7 +80,7 @@ impl Mirror {
         match feature {
             Feature::Notifications => !self.notes.is_empty(),
             Feature::Messages => !self.threads.is_empty() || !self.provisional.is_empty(),
-            Feature::Calls => self.call.state.is_some(),
+            Feature::Calls => self.call.shown(),
             _ => false,
         }
     }
