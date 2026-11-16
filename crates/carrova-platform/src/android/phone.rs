@@ -125,6 +125,7 @@ pub(super) fn watch(on_event: Box<dyn Fn(PhoneEvent) + Send>) -> Result<PhoneWat
     let generation = open_events()?;
     // Without phone permission there are no call events; notes and SMS still flow.
     let _ = listen_calls(true, generation);
+    let _ = listen_sms(true, generation);
     let pull = std::thread::Builder::new()
         .name("carrova-phone-events".into())
         .spawn(move || {
@@ -167,11 +168,21 @@ fn listen_calls(on: bool, generation: i64) -> Result<(), PlatformError> {
     )
 }
 
-/// Stop the call listener and close the queue of watch `generation`; both
+fn listen_sms(on: bool, generation: i64) -> Result<(), PlatformError> {
+    void(
+        "Sms.listen",
+        "Sms",
+        "listen",
+        &[Arg::Bool(on), Arg::Long(generation)],
+    )
+}
+
+/// Stop the call and SMS listeners and close the queue of watch `generation`; both
 /// do nothing if a newer watch replaced it. Nothing to report to: the
 /// watch is ending.
 fn stop_events(generation: i64) {
     let _ = listen_calls(false, generation);
+    let _ = listen_sms(false, generation);
     let _ = jni::call("Events.close", |env, context| {
         jni::call_static(
             env,

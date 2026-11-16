@@ -8,8 +8,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.database.ContentObserver
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.ContactsContract
 import android.provider.Telephony
 import android.telephony.SmsManager
@@ -26,6 +29,46 @@ import java.util.concurrent.TimeUnit
  * `(date, id)`, exclusive of the `(beforeMs, beforeId)` pair.
  */
 object Sms {
+    private var observer: ContentObserver? = null
+
+    /**
+     * Tell [Events] when an incoming SMS is stored ([on]), or stop; a replaced
+     * watch's [gen] does nothing. `SMS_RECEIVED` comes before the default
+     * SMS app stores the message, so the laptop refetches on this instead.
+     */
+    @JvmStatic
+    @Synchronized
+    fun listen(context: Context, on: Boolean, gen: Long) {
+        if (gen != Events.generation) return
+        val resolver = context.contentResolver
+        observer?.let { resolver.unregisterContentObserver(it) }
+        observer = null
+        if (!on) return
+        val gate = StoredGate(System::currentTimeMillis)
+        val next = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                val thread = newestInboxThread(resolver) ?: return
+                if (gate.allow(thread)) {
+                    Events.offer(
+                        JSONObject().put("type", "sms_stored").put("thread_id", thread).toString(),
+                    )
+                }
+            }
+        }
+        resolver.registerContentObserver(Telephony.Sms.CONTENT_URI, true, next)
+        observer = next
+    }
+
+    /** The thread of the newest inbox row; reads nothing else. Null without SMS permission. */
+    private fun newestInboxThread(resolver: android.content.ContentResolver): Long? = try {
+        resolver.query(
+            Telephony.Sms.Inbox.CONTENT_URI, arrayOf(Telephony.Sms.THREAD_ID), null, null,
+            "${Telephony.Sms.DATE} DESC, ${Telephony.Sms._ID} DESC",
+        )?.use { if (it.moveToFirst()) it.getLong(0) else null }
+    } catch (e: SecurityException) {
+        null
+    }
+
     /** How long a send may take before it counts as failed. */
     private const val SEND_TIMEOUT_S = 60L
     private const val NOT_DRAFT = "${Telephony.Sms.TYPE} <> ${Telephony.Sms.MESSAGE_TYPE_DRAFT}"
@@ -178,5 +221,23 @@ class SmsReceiver : BroadcastReceiver() {
                 .put("when_ms", System.currentTimeMillis())
                 .toString(),
         )
+    }
+}
+
+/** Lets one event per thread through per [WINDOW_MS], so a burst of provider changes is one refetch. */
+class StoredGate(private val now: () -> Long) {
+    private val last = HashMap<Long, Long>()
+
+    @Synchronized
+    fun allow(thread: Long): Boolean {
+        val t = now()
+        val prev = last[thread]
+        if (prev != null && t - prev < WINDOW_MS) return false
+        last[thread] = t
+        return true
+    }
+
+    private companion object {
+        const val WINDOW_MS = 500L
     }
 }
