@@ -1,0 +1,13 @@
+# Words that make a nearby 4-8 digit number look like a one-time code.
+# One per line, case-insensitive; `#` starts a comment.
+code
+otp
+verification
+verify
+passcode
+pin
+one-time
+2fa
+login
+sign-in
+security code

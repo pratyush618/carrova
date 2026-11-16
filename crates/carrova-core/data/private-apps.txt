@@ -1,0 +1,25 @@
+# Android package ids of apps whose notifications default to off
+# (banking, payments, password managers, authenticators). One per line.
+com.google.android.apps.authenticator2
+com.azure.authenticator
+com.authy.authy
+com.twofasapp
+com.x8bit.bitwarden
+com.onepassword.android
+com.lastpass.lpandroid
+com.google.android.apps.walletnfcrel
+com.phonepe.app
+net.one97.paytm
+com.google.android.apps.nbu.paisa.user
+com.sbi.lotusintouch
+com.snapwork.hdfc
+com.csam.icici.bank.imobile
+com.axis.mobile
+com.msf.kbank.mobile
+com.paypal.android.p2pmobile
+com.venmo
+com.squareup.cash
+com.chase.sig.android
+com.wf.wellsfargomobile
+com.infonow.bofa
+com.revolut.revolut

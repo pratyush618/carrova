@@ -12,5 +12,6 @@ mod keep_running;
 #[path = "../support/lan.rs"]
 mod lan_support;
 mod pair;
+mod phone;
 mod policy;
 mod supervisor;
