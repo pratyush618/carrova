@@ -165,8 +165,15 @@ for reading or sending phone data (the CLI only switches the features, see
 - Answer from the laptop turns the phone's speaker on (unless optional
   audio is set up and connected: then audio goes to the laptop).
   `on_laptop_audio` means a Bluetooth Hands-Free device can carry the call
-  (Android can't tell the laptop's link from a headset); the laptop shows
-  its own audio side from its local call-audio status.
+  (Android can't tell the laptop's link from a headset).
+- The laptop's audio side (`AudioSide`, shown in the call window) is the
+  active route, not setup readiness: `Laptop` while oFono's hands-free
+  audio card for the linked phone is connected (after Answer with call
+  audio set up, or after `call_audio_to(Laptop)` succeeds); `Phone` after
+  `call_audio_to(Phone)` succeeds or while no audio card is connected.
+  When the route can't be read (oFono not running), the window shows
+  `Phone` with "Use this computer's mic and speakers". To be verified in
+  spike S4.
 - Ringing on the laptop follows the laptop setting "Ring on this
   computer": Always / While I'm using it (default) / Never (mockup
   Settings › Calls and Bluetooth). "Also ring this phone" is the phone's own
