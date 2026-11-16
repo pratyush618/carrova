@@ -115,11 +115,18 @@ for reading or sending phone data (the CLI only switches the features, see
 ### Messages (SMS)
 
 - Laptop → phone: `Threads { before: Option<Cursor> }` (pages of 30),
-  `Thread { id, before: Option<Cursor> }` (pages of 50 messages), `Send { to: Vec<String>
-  (one number in Phase 2), text, client_id }`.
+  `Thread { id, before: Option<Cursor> }` (pages of 50 messages), `Send { to: String
+  (one number; group SMS is out of Phase 2), text, client_id }`.
 - Phone → laptop: `ThreadsPage`, `ThreadPage`, `Incoming(Message)`,
   `Resync` (refetch threads and any open thread), `SendResult { client_id,
-  ok | NoSignal | Failed }`.
+  Sent | NoSignal | Failed | Unknown }`. `Unknown` (send timed out after
+  60 s, or only some parts of a long text went out) means "may have been
+  sent": the laptop says "Check your phone before resending" and offers
+  no one-click retry, so a person never gets a text twice.
+- Incoming texts (`PhoneEvent::SmsReceived`) carry `id: 0` until the
+  default SMS app stores them; such a message is provisional, never a page
+  cursor or dedupe key, and the laptop replaces it by refetching the
+  newest page of that thread. Its `when_ms` is the phone's receive time.
 - "Keep in sync" (phone, mockup): 30 days default / 1 year / All decides how
   far back pages go. The laptop asks for pages; nothing is pushed in bulk.
 - Contacts names resolved on the phone (`READ_CONTACTS`) and sent with the
@@ -154,7 +161,8 @@ for reading or sending phone data (the CLI only switches the features, see
   = "ofono"`, role `hfp_hf`).
 - Wizard (mockup Calls setup: intro → pair → test → done; off; nobt) plus
   two new states the plan adds to the desktop mockup:
-  - **`install` "Install one package"**: shown when oFono is missing;
+  - **`install` "Install one package"**: shown when oFono is missing or
+    Carrova's WirePlumber drop-in is not in place;
     one button installs `ofono` through PackageKit (`org.freedesktop.
     PackageKit`, the OS asks for the password); Ubuntu 24.04 LTS and newer.
     Then Carrova writes one WirePlumber drop-in (0.4: Lua file under
@@ -162,16 +170,27 @@ for reading or sending phone data (the CLI only switches the features, see
     wireplumber/wireplumber.conf.d/51-carrova-hfp.conf`) and restarts the
     user's WirePlumber service, after the user agrees on that screen.
     "Set up again" / turning calls off removes the drop-in (reversible).
+    The install gives up after 10 min ("Installing didn't finish. Try
+    again") and a dismissed password prompt reads "Install cancelled".
   - **`phone` "Talk on the phone"**: shown at the end of the wizard's intro
     as the always-available fallback ("You can answer here and talk on
     the phone, no setup needed"), and as the state of the device row when
     audio is not set up.
 - Bluetooth pairing through BlueZ D-Bus (`Adapter1.StartDiscovery`,
   `Device1.Pair`, an `Agent1` showing the passkey per mockup `pair`).
-- Keypad: oFono `VoiceCallManager.SendTones`. Move to phone / to laptop:
-  oFono `HandsfreeAudioCard` connect / disconnect.
+- Keypad: oFono `VoiceCallManager.SendTones`. Move to phone: BlueZ
+  `Device1.DisconnectProfile(HFP_AG)` on the phone (Android routes the
+  call back to its earpiece when the hands-free link drops; oFono has no
+  audio disconnect). Move to laptop: `ConnectProfile(HFP_AG)` if the link
+  is down, then oFono `HandsfreeAudioCard.Connect` for that phone's card.
+  Both verified in spike S4.
+- Pairing with several discoverable phones in range reports "several
+  phones visible" (the wizard asks to make only your phone visible);
+  targeting the linked phone directly is a later change.
 - States from `Platform::call_audio_status`: `NoAdapter`, `BluetoothOff`,
-  `NoHandsFree` (= mockup `nobt`), `NeedsPackage` (= `install`),
+  `NoHandsFree` (= mockup `nobt`; only when oFono runs and is configured
+  and the adapter still offers no Hands-Free role, never for a software
+  state), `NeedsPackage` (= `install`: oFono missing or drop-in missing),
   `NeedsPairing`, `Ready`, `Unsupported` (non-Linux).
 - D-Bus through `zbus` (already a `carrova-platform` dependency), hand-written
   proxies; no new crate.
@@ -189,7 +208,8 @@ for reading or sending phone data (the CLI only switches the features, see
 - New Kotlin glue (no decisions in it): `NotifyListener.kt`
   (`NotificationListenerService`), `Notify.kt` (reply via `RemoteInput`,
   dismiss, open), `Sms.kt` (content provider reads, `SmsManager` send,
-  `SMS_RECEIVED` receiver), `Calls.kt` (`TelephonyCallback`, `TelecomManager`,
+  `SMS_RECEIVED` receiver), `Calls.kt` (`PhoneStateListener`, which still carries the ringing
+  number that `TelephonyCallback` withholds from third-party apps; `TelecomManager`,
   `AudioManager`, `CallLog`), `Perms.kt` (status of each permission, open the
   right settings page), `Events.kt`.
 - Permissions are requested only when the matching feature is turned on:
