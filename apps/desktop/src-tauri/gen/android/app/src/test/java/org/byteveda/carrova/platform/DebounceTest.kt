@@ -51,4 +51,21 @@ class DebounceTest {
         timer.advance(600)
         assertEquals(2, emits)
     }
+
+    @Test
+    fun receipt_of_an_already_stored_row_emits_once_with_no_provider_change() {
+        val timer = FakeTimer()
+        val pending = PendingThreads { timer.now }
+        val emitted = mutableListOf<Long>()
+        val d = Debounce(500, timer) { emitted += pending.resolve { _, _ -> true } }
+        // What `expectStored` does: remember the thread, then poke.
+        pending.add(7)
+        d.poke()
+        timer.advance(499)
+        assertEquals(0, emitted.size)
+        timer.advance(1)
+        assertEquals(listOf(7L), emitted)
+        timer.advance(5_000)
+        assertEquals(listOf(7L), emitted)
+    }
 }
