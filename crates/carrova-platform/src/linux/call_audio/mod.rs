@@ -139,13 +139,22 @@ pub(super) fn audio_to(side: AudioSide) -> Result<(), PlatformError> {
         // shortcut: verify in S4 that Android takes the call back to its
         // earpiece when the hands-free link drops.
         AudioSide::Phone => bluez::profile(&conn, &device, false),
-        // shortcut: verify in S4 that the audio card shows up once the
-        // hands-free link is back.
+        // Only oFono's audio agent (PipeWire) may ask for the audio link
+        // (`HandsfreeAudioCard.Connect`), and PipeWire shows the phone's
+        // hands-free node only once the link is up, so nothing here can make
+        // it ask. The phone brings it up instead when the hands-free link
+        // (re)connects during a call; a link that is up without audio is
+        // dropped first.
+        // shortcut: unverified on hardware until spike S4, that Android
+        // routes the active call to the hands-free unit on reconnect.
         AudioSide::Laptop => {
-            if !ofono::has_card(&conn, &address).map_err(|e| bus_err(ofono::SERVICE, e))? {
-                bluez::profile(&conn, &device, true)?;
+            if pipewire::dump().is_some_and(|dump| pipewire::hands_free_up(&dump, &address)) {
+                return Ok(());
             }
-            ofono::connect_audio(&conn, &address)
+            if ofono::has_card(&conn, &address).map_err(|e| bus_err(ofono::SERVICE, e))? {
+                bluez::profile(&conn, &device, false)?;
+            }
+            bluez::profile(&conn, &device, true)
         }
     }
 }

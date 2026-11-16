@@ -16,9 +16,11 @@ pub(super) fn dump() -> Option<String> {
 
 /// Whether `dump` holds a Bluetooth hands-free node for the device at
 /// `address`.
-// shortcut: unverified on hardware until spike S4; assumes the node exists
-// only while the audio link is up and takes either HFP/HSP profile name
-// (PipeWire names it after the phone's role). Check `info.state` in S4.
+// With the phone as audio gateway PipeWire emits these nodes only while the
+// transport is pending or active, i.e. the audio link is up
+// (`dynamic_node_transport_state_changed` in spa/plugins/bluez5).
+// shortcut: unverified on hardware until spike S4; takes either HFP/HSP
+// profile name (PipeWire names it after the phone's role).
 pub(super) fn hands_free_up(dump: &str, address: &str) -> bool {
     let Ok(Value::Array(objects)) = serde_json::from_str::<Value>(dump) else {
         return false;

@@ -1,4 +1,4 @@
-//! oFono, the hands-free side: is it there, keypad tones, audio link.
+//! oFono, the hands-free side: is it there, keypad tones, audio card.
 
 use std::collections::HashMap;
 
@@ -141,36 +141,4 @@ fn card(conn: &Connection, address: &str) -> zbus::Result<Option<OwnedObjectPath
 /// Whether the phone at `address` has a hands-free link (an audio card).
 pub(super) fn has_card(conn: &Connection, address: &str) -> zbus::Result<bool> {
     Ok(card(conn, address)?.is_some())
-}
-
-/// How long the audio card may take to appear after the link comes up.
-const CARD_WAIT: std::time::Duration = std::time::Duration::from_secs(3);
-
-/// `HandsfreeAudioCard.Connect` on the card of the phone at `address`:
-/// the call's audio comes to this computer.
-pub(super) fn connect_audio(conn: &Connection, address: &str) -> Result<(), PlatformError> {
-    let run = || -> zbus::Result<bool> {
-        let deadline = std::time::Instant::now() + CARD_WAIT;
-        let card = loop {
-            match card(conn, address)? {
-                Some(card) => break card,
-                None if std::time::Instant::now() >= deadline => return Ok(false),
-                None => std::thread::sleep(std::time::Duration::from_millis(200)),
-            }
-        };
-        conn.call_method(
-            Some(SERVICE),
-            &card,
-            Some("org.ofono.HandsfreeAudioCard"),
-            "Connect",
-            &(),
-        )?;
-        Ok(true)
-    };
-    match run().map_err(|e| bus_err(SERVICE, e))? {
-        true => Ok(()),
-        false => Err(PlatformError::Unsupported(
-            "call_audio_to: no phone audio card",
-        )),
-    }
 }
