@@ -13,6 +13,7 @@ use carrova_link::{
     open_lane, recv_notify, send_action, send_notify,
 };
 use carrova_platform::phone::Note;
+use carrova_transport::MAX_FRAME_LEN;
 use serde::Serialize;
 use support::{Open, T, linked};
 
@@ -121,27 +122,49 @@ fn full_snapshot_fits_the_frame_cap() {
     let notes: Vec<Note> = (0..MAX_SNAPSHOT)
         .map(|i| {
             let mut n = note(&"a".repeat(MAX_NOTE_TEXT));
+            n.title = "t".repeat(MAX_NOTE_TITLE);
             n.when_ms = i64::try_from(i).unwrap();
-            n.icon = Some(vec![7; MAX_ICON]);
+            n.icon = Some(vec![0xAB; MAX_ICON]);
             n
         })
         .collect();
+    let fitted = NotifyMsg::Snapshot(fit_snapshot(notes.clone()));
+    let mut wire = Vec::new();
+    ciborium::into_writer(&Frame::Msg(fitted), &mut wire).unwrap();
+    assert!(wire.len() <= MAX_FRAME_LEN, "{} bytes", wire.len());
+
     let NotifyMsg::Snapshot(received) = got(&NotifyMsg::Snapshot(notes.clone())) else {
         panic!("expected a snapshot");
     };
     assert_eq!(received.len(), MAX_SNAPSHOT);
-    for (sent, recv) in notes.iter().zip(&received) {
+    // Newest first; the newest keep their icons, the oldest lose them.
+    assert_eq!(received[0].when_ms, 49);
+    assert!(received[0].icon.is_some());
+    assert!(received.last().unwrap().icon.is_none());
+    for (recv, sent) in received.iter().zip(notes.iter().rev()) {
         assert_eq!(sent.text, recv.text);
     }
-    // Newest keep their icons; the oldest lose them.
-    assert!(received.last().unwrap().icon.is_some());
-    assert!(received[0].icon.is_none());
     let total: usize = received
         .iter()
         .filter_map(|n| n.icon.as_ref())
         .map(Vec::len)
         .sum();
     assert!(total <= 512 * 1024);
+}
+
+#[test]
+fn fit_snapshot_keeps_the_newest_fifty() {
+    let notes: Vec<Note> = (0..70)
+        .map(|i| {
+            let mut n = note("x");
+            n.when_ms = i;
+            n
+        })
+        .collect();
+    let fitted = fit_snapshot(notes);
+    assert_eq!(fitted.len(), MAX_SNAPSHOT);
+    assert_eq!(fitted.first().unwrap().when_ms, 69);
+    assert_eq!(fitted.last().unwrap().when_ms, 20);
 }
 
 #[test]

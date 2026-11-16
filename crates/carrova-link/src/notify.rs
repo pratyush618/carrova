@@ -121,25 +121,25 @@ impl fmt::Debug for NotifyAction {
     }
 }
 
-/// Fit a snapshot to the wire: at most [`MAX_SNAPSHOT`] notes (the first
-/// ones), each through [`fit_note`], and at most 512 KiB
-/// bytes of icons in total, dropped from the oldest notes first, so a legal
-/// snapshot always fits the transport's frame cap.
+/// Fit a snapshot to the wire. The result is newest first and holds at most
+/// [`MAX_SNAPSHOT`] notes, each through [`fit_note`]. Icons total at most
+/// 512 KiB and are dropped from the oldest notes first, so a legal snapshot
+/// always fits the transport's frame cap.
 #[must_use]
-pub fn fit_snapshot(notes: Vec<Note>) -> Vec<Note> {
-    let mut notes: Vec<Note> = notes.into_iter().take(MAX_SNAPSHOT).map(fit_note).collect();
-    let mut by_age: Vec<usize> = (0..notes.len()).collect();
-    by_age.sort_by_key(|&i| notes[i].when_ms);
+pub fn fit_snapshot(mut notes: Vec<Note>) -> Vec<Note> {
+    notes.sort_by_key(|n| std::cmp::Reverse(n.when_ms));
+    notes.truncate(MAX_SNAPSHOT);
+    let mut notes: Vec<Note> = notes.into_iter().map(fit_note).collect();
     let mut total: usize = notes
         .iter()
         .filter_map(|n| n.icon.as_ref())
         .map(Vec::len)
         .sum();
-    for i in by_age {
+    for note in notes.iter_mut().rev() {
         if total <= SNAPSHOT_ICON_BUDGET {
             break;
         }
-        if let Some(icon) = notes[i].icon.take() {
+        if let Some(icon) = note.icon.take() {
             total -= icon.len();
         }
     }

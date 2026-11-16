@@ -23,6 +23,9 @@ pub struct Note {
     /// Whether it offers an inline reply.
     pub can_reply: bool,
     /// App icon as PNG bytes, when small enough to send.
+    // A CBOR byte string, not an int array (which would double its size).
+    #[serde(with = "serde_bytes", default)]
+    #[cfg_attr(feature = "ts", ts(type = "Array<number> | null"))]
     pub icon: Option<Vec<u8>>,
     /// Why some of it was withheld; `None` when shown in full.
     pub hidden: Option<Hidden>,
