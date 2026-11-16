@@ -86,11 +86,25 @@ impl NotifyApps {
         })
     }
 
+    /// The apps the user chose for, on or off.
+    pub fn chosen(&self) -> impl Iterator<Item = &str> {
+        self.apps.keys().map(String::as_str)
+    }
+
+    /// Whether `app_id` is a banking, payment, password or authenticator
+    /// app (off until the user turns it on).
+    #[must_use]
+    pub fn is_private(app_id: &str) -> bool {
+        is_private(app_id)
+    }
+
+    /// Whether notifications carrying a one-time code are withheld.
     #[must_use]
     pub fn hide_codes(&self) -> bool {
         self.hide_codes
     }
 
+    /// Whether message text is sent (off: the title only).
     #[must_use]
     pub fn show_text(&self) -> bool {
         self.show_text
