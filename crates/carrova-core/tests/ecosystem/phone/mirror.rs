@@ -187,8 +187,49 @@ fn note_in_snapshot_and_posted_pops_once() {
 
     let notes = wait_notes(&sl, &phone, 2);
     assert_eq!(notes[1].key, "k1");
+    laptop.wait("the pop-up", |e| matches!(e, Event::PhoneNote { .. }));
+    // The link-open snapshot fills the mirror without pop-ups.
     let keys: Vec<String> = popped(&laptop).into_iter().map(|n| n.key).collect();
-    assert_eq!(keys, ["k1", "k2"]);
+    assert_eq!(keys, ["k2"]);
+}
+
+#[test]
+fn reconnect_does_not_pop_again() {
+    let (phone, sp, laptop, sl) = linked(&[NOTES], |p| {
+        p.platform.phone().notes = vec![note("k1", "org.example.chat")];
+    });
+    wait_notes(&sl, &phone, 1);
+    sp.stop();
+    wait_until("notes cleared", || cleared(&laptop, &phone, NOTES));
+
+    let sp = phone.start(fast());
+    laptop.sees(&phone, &sp);
+    phone.sees(&laptop, &sl);
+    wait_notes(&sl, &phone, 1);
+
+    assert!(popped(&laptop).is_empty());
+}
+
+#[test]
+fn resync_pops_only_new_notes() {
+    let (phone, _sp, laptop, sl) = linked(&[NOTES], |p| {
+        p.platform.phone().notes = vec![note("k1", "org.example.chat")];
+    });
+    wait_watching(&phone);
+    wait_notes(&sl, &phone, 1);
+    phone.platform.phone().notes = vec![
+        note("k2", "org.example.mail"),
+        note("k1", "org.example.chat"),
+    ];
+
+    phone
+        .platform
+        .script_event(PhoneEvent::Dropped { count: 1 });
+
+    wait_notes(&sl, &phone, 2);
+    laptop.wait("the pop-up", |e| matches!(e, Event::PhoneNote { .. }));
+    let keys: Vec<String> = popped(&laptop).into_iter().map(|n| n.key).collect();
+    assert_eq!(keys, ["k2"]);
 }
 
 #[test]

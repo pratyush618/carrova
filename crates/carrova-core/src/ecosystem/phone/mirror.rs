@@ -37,6 +37,8 @@ const MIRRORED: [Feature; 3] = [Feature::Notifications, Feature::Messages, Featu
 pub(crate) struct Mirror {
     /// Notifications showing on the phone, newest first, one per key.
     notes: Vec<Note>,
+    /// A snapshot filled `notes` (the first only fills, without pop-ups).
+    seeded: bool,
     /// When each app last popped up.
     popped: HashMap<String, Instant>,
     /// The phone's call, once reported.
@@ -89,6 +91,7 @@ impl Mirror {
             Feature::Notifications => {
                 self.notes.clear();
                 self.popped.clear();
+                self.seeded = false;
             }
             Feature::Messages => {
                 self.threads.clear();
@@ -158,7 +161,9 @@ impl Mirror {
         self.pop(&note.app_id, now).then_some(note)
     }
 
-    /// Replace every note with `notes` (newest first).
+    /// Replace every note with `notes` (newest first). The first snapshot
+    /// holds what already showed on the phone, so nothing pops up; a later
+    /// one (a resync) pops only notes not here before.
     fn snapshot(&mut self, mut notes: Vec<Note>, now: Instant) -> NoteChanges {
         notes.truncate(MAX_SNAPSHOT);
         // Duplicated keys: the first (newest) wins.
@@ -174,10 +179,11 @@ impl Mirror {
             .filter(|o| !self.notes.iter().any(|n| n.key == o.key))
             .map(|o| o.key.clone())
             .collect();
+        let seeded = std::mem::replace(&mut self.seeded, true);
         let fresh: Vec<Note> = self
             .notes
             .iter()
-            .filter(|n| !old.contains(n))
+            .filter(|n| seeded && !old.iter().any(|o| o.key == n.key))
             .cloned()
             .collect();
         let pop = fresh
