@@ -46,3 +46,7 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 ## 2026-11-16 — Fix agent committed the user's untracked file
 - **What happened:** a mockup fix-round agent staged with a broad add and committed the user's untracked `docs/mockups/gui-v4.html` alongside its two files; caught by checking `git show --stat` (diff ballooned to 254 KB) and removed with a soft reset before anything was pushed.
 - **Rule:** every brief says "`git add <explicit paths>` only, never `-A`/`.`"; the controller checks `git show --stat` of each agent commit against the task's file list before review.
+
+## 2026-11-16 — The CI unit's own cap caused the pressure spike
+- **What happened:** during `just ci` (unit `MemoryMax=6G`, 2 jobs), system memory PSI hit 65 while `MemAvailable` was ~9.7 GB. The pressure came from inside the CI cgroup: page cache from linking counted against its cap, so the kernel reclaimed inside the unit and stalled it. Raising the cap live (`systemctl --user set-property --runtime carrova-ci MemoryMax=8G`) dropped PSI to under 1 within 30 s, with no oomd kill.
+- **Rule:** size the CI cap from free memory at launch: `MemoryMax` ≈ `MemAvailable` − 1 GB, at least 7G and at most 8G (linking desktop + CLI needs about 6 GB with page cache; 4.8G reproduced the stall). If less than 8 GB is free, close something first. On a PSI alert, first compare the CI unit's own `memory.pressure` with the system's. If they match, raise the unit's cap live before killing anything.
