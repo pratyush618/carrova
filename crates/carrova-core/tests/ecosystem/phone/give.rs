@@ -222,6 +222,28 @@ fn app_off_not_forwarded() {
 }
 
 #[test]
+fn note_of_an_app_turned_off_is_withdrawn() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |_| {});
+    wait_watching(&phone);
+    phone
+        .platform
+        .script_event(PhoneEvent::NotePosted(note("c", "org.example.chat")));
+    laptop.wait_got(2);
+
+    let mut apps = NotifyApps::open(&*phone.platform).unwrap();
+    apps.set(&*phone.platform, "org.example.chat", false)
+        .unwrap();
+    phone
+        .platform
+        .script_event(PhoneEvent::NotePosted(note("c", "org.example.chat")));
+
+    assert_eq!(
+        laptop.wait_got(3)[2],
+        Got::Notify(NotifyMsg::Removed { key: "c".into() })
+    );
+}
+
+#[test]
 fn phone_policy_off_blocks_even_if_laptop_on() {
     let (phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[NOTES, CALLS], |p| {
         p.platform.phone().notes = vec![note("k1", "org.example.chat")];

@@ -166,11 +166,16 @@ impl Giver<'_> {
                 if targets.is_empty() {
                     return;
                 }
-                let Some(note) = self.filtered(vec![note]).pop() else {
-                    return;
+                let key = note.key.clone();
+                let msg = match self.filtered(vec![note]).pop() {
+                    Some(note) => {
+                        self.sent.insert(key);
+                        NotifyMsg::Posted(fit_note(note))
+                    }
+                    // Its app was turned off since it was sent: withdraw it.
+                    None if self.sent.remove(&key) => NotifyMsg::Removed { key },
+                    None => return,
                 };
-                self.sent.insert(note.key.clone());
-                let msg = NotifyMsg::Posted(fit_note(note));
                 send(&targets, |c| send_notify(c, &msg));
             }
             PhoneEvent::NoteRemoved { key } => {
