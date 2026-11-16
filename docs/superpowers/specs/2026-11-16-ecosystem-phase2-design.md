@@ -214,8 +214,12 @@ for reading or sending phone data (the CLI only switches the features, see
 - Keypad: oFono `VoiceCallManager.SendTones`. Move to phone: BlueZ
   `Device1.DisconnectProfile(HFP_AG)` on the phone (Android routes the
   call back to its earpiece when the hands-free link drops; oFono has no
-  audio disconnect). Move to laptop: `ConnectProfile(HFP_AG)` if the link
-  is down, then oFono `HandsfreeAudioCard.Connect` for that phone's card.
+  audio disconnect). Move to laptop: nothing if PipeWire already has the
+  phone's hands-free node; else `DisconnectProfile(HFP_AG)` if the link is
+  up without audio, then `ConnectProfile(HFP_AG)`, and the phone brings the
+  call's audio over on reconnect. oFono accepts
+  `HandsfreeAudioCard.Connect`/`Acquire` only from its audio agent
+  (PipeWire), which acquires the link only for a node it already has.
   Both to be verified in spike S4.
 - Pairing with several discoverable phones in range reports "several
   phones visible" (the wizard asks to make only your phone visible);
