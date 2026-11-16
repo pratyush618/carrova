@@ -4,6 +4,10 @@ import type { DesktopHost } from './host';
 /** Carrova archive files. */
 const ARCHIVE_FILTER = { name: 'Carrova file', extensions: ['carrova'] };
 
+/** Label prefix of the phone-notification pop-up windows (`capabilities/note-popup.json`). */
+const NOTE_POPUP = 'note-popup-';
+const POPUP_SIZE = { width: 380, height: 220 };
+
 /** The Tauri host: dialog, opener and notification plugins, loaded only inside the app. */
 const tauriHost: DesktopHost = {
   pickSavePath: async (defaultPath) => {
@@ -34,6 +38,32 @@ const tauriHost: DesktopHost = {
     const { isPermissionGranted, requestPermission } =
       await import('@tauri-apps/plugin-notification');
     if (!(await isPermissionGranted())) await requestPermission();
+  },
+  showNotePopup: async (query) => {
+    const { WebviewWindow, getAllWebviewWindows } = await import('@tauri-apps/api/webviewWindow');
+    const { currentMonitor } = await import('@tauri-apps/api/window');
+    // One pop-up at a time: the newest notification replaces the last.
+    for (const old of await getAllWebviewWindows())
+      if (old.label.startsWith(NOTE_POPUP)) await old.close();
+    const monitor = await currentMonitor();
+    const right = monitor ? (monitor.position.x + monitor.size.width) / monitor.scaleFactor : 0;
+    const top = monitor ? monitor.position.y / monitor.scaleFactor : 0;
+    new WebviewWindow(`${NOTE_POPUP}${String(Date.now())}`, {
+      url: `index.html?${query}`,
+      title: 'Carrova',
+      width: POPUP_SIZE.width,
+      height: POPUP_SIZE.height,
+      ...(monitor && { x: right - POPUP_SIZE.width - 16, y: top + 16 }),
+      alwaysOnTop: true,
+      decorations: false,
+      resizable: false,
+      skipTaskbar: true,
+      focus: false,
+    });
+  },
+  notify: async (title) => {
+    const { sendNotification } = await import('@tauri-apps/plugin-notification');
+    sendNotification({ title });
   },
 };
 

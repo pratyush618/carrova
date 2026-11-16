@@ -188,6 +188,25 @@ describe('appReducer peer facts', () => {
     expect(answered.link.asks).toEqual([]);
   });
 
+  it('pops a phone notification up by key, noting a locked screen', () => {
+    const note = feed(LINK_SESSION, {
+      event: 'phone_note',
+      device: 'p8',
+      note: {
+        key: 'k',
+        app_id: '',
+        app_name: '',
+        title: '',
+        text: '',
+        when_ms: 0,
+        can_reply: false,
+        icon: null,
+        hidden: 'locked',
+      },
+    }).link.note;
+    expect(note).toEqual({ device: 'p8', key: 'k', locked: true, n: 1 });
+  });
+
   it('keeps a transfer dismissed while it runs on, and drops it once finished', () => {
     const link = (state: AppState, event: EngineEvent) =>
       appReducer(state, { type: 'engine', session: LINK_SESSION, event });

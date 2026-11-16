@@ -31,6 +31,15 @@ export type ClipNote =
   | { readonly kind: 'skipped'; readonly reason: ClipSkip }
   | { readonly kind: 'received'; readonly device: string };
 
+/** A phone notification to pop up: its key only (the pop-up fetches it); `locked`: no content may show. */
+export interface NoteAlert {
+  readonly device: string;
+  readonly key: string;
+  readonly locked: boolean;
+  /** Bumped per notification, so the same one twice pops up twice. */
+  readonly n: number;
+}
+
 /** What linked devices did that the UI shows outside any page. */
 export interface LinkState {
   readonly asks: readonly PendingAsk[];
@@ -42,9 +51,18 @@ export interface LinkState {
   readonly changes: number;
   /** Bumped when a clip arrives: the history is stale. */
   readonly clips: number;
+  /** The last phone notification to pop up. */
+  readonly note: NoteAlert | null;
 }
 
-export const emptyLink: LinkState = { asks: [], transfers: [], clip: null, changes: 0, clips: 0 };
+export const emptyLink: LinkState = {
+  asks: [],
+  transfers: [],
+  clip: null,
+  changes: 0,
+  clips: 0,
+  note: null,
+};
 
 /** Things the user did to the link state (answered, dismissed). */
 export type LinkAction =
@@ -134,6 +152,16 @@ export function applyLinkEvent(link: LinkState, event: EngineEvent): LinkState {
         ...t,
         state: { kind: 'failed', reason: event.reason, retry: event.retry },
       }));
+    case 'phone_note':
+      return {
+        ...link,
+        note: {
+          device: event.device,
+          key: event.note.key,
+          locked: event.note.hidden === 'locked',
+          n: (link.note?.n ?? 0) + 1,
+        },
+      };
     default:
       // Sent clips, Handoff and Ring need no note: the user just did them.
       return link;

@@ -67,7 +67,7 @@ export function DeviceDetails({ device, failed = false, ringing = false, on }: D
       {here && (
         <div className="s-device__acts">
           {device.os === 'android' && flows(device, 'ring') && (
-            <Button size="sm" icon="bell" onClick={ringing ? on.onStopRing : on.onRing}>
+            <Button size="sm" icon="ring" onClick={ringing ? on.onStopRing : on.onRing}>
               {t(ringing ? 'ecosystem.device.stopRing' : 'ecosystem.device.ring')}
             </Button>
           )}

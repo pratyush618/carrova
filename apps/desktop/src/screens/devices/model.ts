@@ -35,7 +35,7 @@ export const isPhase2 = (feature: Feature): feature is Phase2Feature =>
 /** Each Phase 2 feature's glyph. */
 export const FEATURE_ICON: Readonly<Record<Phase2Feature, IconName>> = {
   clipboard: 'copy',
-  ring: 'bell',
+  ring: 'ring',
   files: 'file',
   handoff: 'external',
   notifications: 'bell',
