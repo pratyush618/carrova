@@ -26,8 +26,10 @@ const EXIT_SUCCESS: u32 = 1;
 const EXIT_CANCELLED: u32 = 3;
 /// `PkErrorEnum` values that mean the user stopped it (the password
 /// prompt dismissed is `not-authorized`).
+// shortcut: PackageKit 1.2 numbering (Ubuntu); 2.0 renumbers the filter
+// and error enums, so check these when a distro ships 2.0.
 const ERROR_TRANSACTION_CANCELLED: u32 = 17;
-const ERROR_NOT_AUTHORIZED: u32 = 46;
+const ERROR_NOT_AUTHORIZED: u32 = 48;
 /// The whole install, password prompt and download included.
 const INSTALL_DEADLINE: Duration = Duration::from_secs(10 * 60);
 

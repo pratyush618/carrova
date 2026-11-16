@@ -159,7 +159,9 @@ fn install_outcome_tells_cancel_from_failure() {
     const SUCCESS: u32 = 1;
     const FAILED: u32 = 2;
     const CANCELLED: u32 = 3;
-    const NOT_AUTHORIZED: u32 = 46;
+    // PkErrorEnum in PackageKit 1.2 (what Ubuntu ships).
+    const NOT_AUTHORIZED: u32 = 48;
+    const NO_SPACE_ON_DEVICE: u32 = 46;
     const TRANSACTION_CANCELLED: u32 = 17;
     const NO_NETWORK: u32 = 2;
     assert_eq!(outcome(SUCCESS, None), Outcome::Done);
@@ -170,6 +172,7 @@ fn install_outcome_tells_cancel_from_failure() {
         Outcome::Cancelled
     );
     assert_eq!(outcome(FAILED, Some(NO_NETWORK)), Outcome::Failed);
+    assert_eq!(outcome(FAILED, Some(NO_SPACE_ON_DEVICE)), Outcome::Failed);
     assert_eq!(outcome(FAILED, None), Outcome::Failed);
 }
 
