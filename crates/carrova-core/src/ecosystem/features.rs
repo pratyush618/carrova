@@ -206,7 +206,9 @@ impl Lane {
             LaneKind::Messages => {
                 give::serve_messages(&self.shared, self.device, self.generation, stream)
             }
-            LaneKind::Calls => give::serve_calls(&**self.shared.platform(), stream),
+            LaneKind::Calls => {
+                give::serve_calls(&**self.shared.platform(), &self.shared.stop, stream)
+            }
         };
         if let Err(e) = served {
             tracing::debug!(lane = ?kind, error = %e, "lane failed");

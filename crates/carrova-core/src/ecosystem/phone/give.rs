@@ -11,7 +11,6 @@ use std::collections::HashSet;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
-use std::thread;
 use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::DeviceId;
@@ -27,6 +26,7 @@ use carrova_transport::{Connection, Stream};
 
 use super::NotifyApps;
 use super::apps::outgoing;
+use crate::cancel::Cancel;
 use crate::ecosystem::supervisor::Shared;
 use crate::error::Result;
 
@@ -368,8 +368,8 @@ fn since_ms() -> i64 {
 }
 
 /// Once the answered call is active, whether its audio runs on the laptop;
-/// `None` if it is not active within [`ANSWER_SETTLE`].
-fn answered_on_laptop(p: &dyn Platform) -> Option<bool> {
+/// `None` if it is not active within [`ANSWER_SETTLE`] or `stop` fires.
+fn answered_on_laptop(p: &dyn Platform, stop: &Cancel) -> Option<bool> {
     let until = Instant::now() + ANSWER_SETTLE;
     loop {
         if let Ok(CallState::Active {
@@ -378,27 +378,31 @@ fn answered_on_laptop(p: &dyn Platform) -> Option<bool> {
         {
             return Some(on_laptop_audio);
         }
-        if Instant::now() >= until {
+        if Instant::now() >= until || stop.sleep(ANSWER_POLL).is_err() {
             return None;
         }
-        thread::sleep(ANSWER_POLL);
     }
 }
 
 /// Serve a `Calls` lane: carry out the device's call command.
-pub(crate) fn serve_calls(platform: &dyn Platform, stream: Stream) -> Result<()> {
+/// `stop` ends a wait for an answered call.
+pub(crate) fn serve_calls(platform: &dyn Platform, stop: &Cancel, stream: Stream) -> Result<()> {
     // A state from a phone to this side: the calls controller is not built yet.
     let CallIncoming::Command(command, responder) = recv_calls(stream)? else {
         return Ok(());
     };
-    let reply = call(platform, &command).unwrap_or_else(|e| {
+    let reply = call(platform, stop, &command).unwrap_or_else(|e| {
         tracing::debug!(?command, error = %e, "call command failed");
         CallReply::Failed
     });
     Ok(responder.reply(&reply)?)
 }
 
-fn call(p: &dyn Platform, command: &CallCommand) -> std::result::Result<CallReply, PlatformError> {
+fn call(
+    p: &dyn Platform,
+    stop: &Cancel,
+    command: &CallCommand,
+) -> std::result::Result<CallReply, PlatformError> {
     // Refuse a command the call cannot take before touching it.
     if let CallCommand::Answer | CallCommand::Decline | CallCommand::End = command {
         let state = p.call_state()?;
@@ -417,7 +421,7 @@ fn call(p: &dyn Platform, command: &CallCommand) -> std::result::Result<CallRepl
             // Answered from a laptop: the phone's speaker, unless the
             // laptop carries the audio. Never active in time: unknown, so
             // the speaker is left alone.
-            if answered_on_laptop(p) == Some(false) {
+            if answered_on_laptop(p, stop) == Some(false) {
                 p.call_speaker(true)?;
             }
         }

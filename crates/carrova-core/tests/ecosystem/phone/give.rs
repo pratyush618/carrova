@@ -408,6 +408,22 @@ fn answer_still_ringing_leaves_speaker_alone() {
 }
 
 #[test]
+fn stop_does_not_wait_for_an_answered_call() {
+    let (phone, sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], answering(None));
+    let conn = Arc::clone(&laptop.conn);
+    let asking = thread::spawn(move || call_command(&conn, &CallCommand::Answer));
+    wait_until("the answer", || {
+        phone.platform.actions().contains(&"call_answer".to_owned())
+    });
+
+    let started = std::time::Instant::now();
+    sp.stop();
+
+    assert!(started.elapsed() < std::time::Duration::from_secs(1));
+    let _ = asking.join();
+}
+
+#[test]
 fn answer_or_decline_with_nothing_ringing_reports_not_ringing() {
     let (phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], |_| {});
 
