@@ -19,7 +19,7 @@
 
 use std::path::{Path, PathBuf};
 
-use carrova_core::ecosystem::{CallView, ClipSettings, PhoneSettings, RingHere};
+use carrova_core::ecosystem::{CallView, ClipSettings, PhoneSettings, RingHere, SyncWindow};
 use carrova_core::lan::{Inventory, PlanSummary};
 use carrova_core::plan::SpaceNeed;
 use carrova_core::{
@@ -52,7 +52,8 @@ use carrova_view::lan::{CodeView, InventoryView, NearbyPeer, PauseView, SummaryV
 use carrova_view::offer::OfferedItem;
 use carrova_view::phone::{
     CallLogGroup, CallLogView, CallRow, CallSetupStep, CallWindowView, Caller, LocalClock,
-    MessageRow, NoteView, NotesView, PermStep, ThreadRow, ThreadView, ThreadsView,
+    MessageRow, NoteView, NotesView, NotifyAppRow, NotifyAppsView, PermStep, ThreadRow, ThreadView,
+    ThreadsView,
 };
 use carrova_view::plan::{PlanView, SpaceView};
 use carrova_view::selection::SelectionView;
@@ -146,6 +147,7 @@ fn export_typescript_bindings() {
         ClipSettings::export_all,
         PhoneSettings::export_all,
         RingHere::export_all,
+        SyncWindow::export_all,
         CallView::export_all,
         Note::export_all,
         Hidden::export_all,
@@ -174,6 +176,8 @@ fn export_typescript_bindings() {
         CallRow::export_all,
         CallSetupStep::export_all,
         PermStep::export_all,
+        NotifyAppsView::export_all,
+        NotifyAppRow::export_all,
         // Desktop IPC contract.
         BridgeEvent::export_all,
         BridgeError::export_all,

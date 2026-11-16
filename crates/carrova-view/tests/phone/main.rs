@@ -2,6 +2,7 @@
 
 #![allow(clippy::unwrap_used, clippy::panic)]
 
+mod apps;
 mod calls;
 mod messages;
 mod notes;

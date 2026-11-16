@@ -1,11 +1,13 @@
 //! Presentation models of what a linked phone shows this computer:
 //! notifications, SMS, calls, the call-audio setup and the phone's
-//! permission steps. Pure: they return structured data (days back,
-//! steps, flags); the front-ends pick the words in their own language.
+//! permission steps; and the phone's own per-app notification list.
+//! Pure: they return structured data (days back, steps, flags); the
+//! front-ends pick the words in their own language.
 //!
 //! The views carrying a phone's content (text, names, numbers) print
 //! only their type's name in `Debug`.
 
+mod apps;
 mod calls;
 mod messages;
 mod notes;
@@ -13,6 +15,7 @@ mod setup;
 
 use serde::Deserialize;
 
+pub use apps::{NotifyAppRow, NotifyAppsView, notify_apps_view};
 pub use calls::{
     CallLogGroup, CallLogView, CallRow, CallWindowView, Caller, call_log_view, call_view,
 };
