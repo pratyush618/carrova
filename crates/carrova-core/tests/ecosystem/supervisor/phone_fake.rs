@@ -1,13 +1,13 @@
 //! The [`Recording`] fake's scripted phone behaves as later tests rely on.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use carrova_platform::Platform;
 use carrova_platform::fake::FakePlatform;
 use carrova_platform::phone::{
-    CallKind, CallRecord, CallState, Cursor, Note, PhoneEvent, SendOutcome, SmsMessage,
+    CallKind, CallRecord, CallState, Cursor, Note, PhoneEvent, PhoneWatch, SendOutcome, SmsMessage,
 };
 
 use super::recording::Recording;
@@ -200,4 +200,58 @@ fn replay_runs_off_the_registering_thread() {
         thread::sleep(Duration::from_millis(5));
     }
     assert_eq!(*state.lock().unwrap(), 1);
+}
+
+#[test]
+fn live_events_run_off_the_scripting_thread() {
+    // The scripting thread holds a lock the callback takes: delivery on
+    // that thread would deadlock. Scripted from a spawned thread so a
+    // regression fails on the timeout instead of hanging the run.
+    let p = Arc::new(recording());
+    let state = Arc::new(Mutex::new(()));
+    let (done, finished) = mpsc::channel();
+    let cb_state = Arc::clone(&state);
+    let watch = p
+        .watch_phone_events(Box::new(move |_| {
+            drop(cb_state.lock().unwrap());
+            let _ = done.send(());
+        }))
+        .unwrap();
+    // Leaked: on a regression, dropping it would wait on the stuck fake.
+    std::mem::forget(watch);
+    // A first event proves the watch live, so the next is a live delivery.
+    p.script_event(PhoneEvent::Dropped { count: 1 });
+    finished
+        .recv_timeout(Duration::from_secs(5))
+        .expect("watch is live");
+    let (script, held) = (Arc::clone(&p), Arc::clone(&state));
+    thread::spawn(move || {
+        let _held = held.lock().unwrap();
+        script.script_event(PhoneEvent::Dropped { count: 2 });
+    });
+    finished
+        .recv_timeout(Duration::from_secs(5))
+        .expect("callback ran after the scripting thread let go");
+}
+
+#[test]
+fn a_callback_may_drop_its_own_watch() {
+    let p = Arc::new(recording());
+    let slot: Arc<Mutex<Option<PhoneWatch>>> = Arc::default();
+    let (done, finished) = mpsc::channel();
+    let cb_slot = Arc::clone(&slot);
+    let watch = p
+        .watch_phone_events(Box::new(move |_| {
+            let own = cb_slot.lock().unwrap().take();
+            drop(own);
+            let _ = done.send(());
+        }))
+        .unwrap();
+    *slot.lock().unwrap() = Some(watch);
+    let script = Arc::clone(&p);
+    thread::spawn(move || script.script_event(PhoneEvent::Dropped { count: 1 }));
+    finished
+        .recv_timeout(Duration::from_secs(5))
+        .expect("dropping its own watch did not deadlock");
+    assert!(slot.lock().unwrap().is_none());
 }

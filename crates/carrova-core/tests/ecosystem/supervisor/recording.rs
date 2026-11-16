@@ -8,6 +8,7 @@ use std::io;
 use std::net::UdpSocket;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
@@ -75,19 +76,20 @@ impl Default for Phone {
     }
 }
 
-/// The phone-event callback, or the events scripted before one is set.
+/// The live watch's delivery queue, or the events scripted before one is set.
 #[derive(Default)]
 struct Events {
-    on_event: Option<Box<dyn Fn(PhoneEvent) + Send>>,
+    /// Feeds the live watch's own thread, which runs its callback.
+    live: Option<Sender<PhoneEvent>>,
     pending: Vec<PhoneEvent>,
-    /// Bumped by each watch and its drop, so a stale replay does nothing.
+    /// Bumped by each watch and its drop, so a stale watch delivers nothing.
     generation: u64,
 }
 
 impl fmt::Debug for Events {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Events")
-            .field("watched", &self.on_event.is_some())
+            .field("watched", &self.live.is_some())
             .field("pending", &self.pending.len())
             .finish()
     }
@@ -132,10 +134,11 @@ impl Recording {
     /// until one is registered.
     pub fn script_event(&self, event: PhoneEvent) {
         let mut events = lock(&self.events);
-        match &events.on_event {
-            Some(on_event) => on_event(event),
-            None => events.pending.push(event),
-        }
+        let unsent = match &events.live {
+            Some(live) => live.send(event).err().map(|e| e.0),
+            None => Some(event),
+        };
+        events.pending.extend(unsent);
     }
 
     /// Phone methods called so far: names and ids only.
@@ -326,32 +329,35 @@ impl Platform for Recording {
         on_event: Box<dyn Fn(PhoneEvent) + Send>,
     ) -> Result<PhoneWatch, PlatformError> {
         self.record_action("watch_phone_events")?;
+        let (live, queue) = mpsc::channel();
         let generation = {
             let mut events = lock(&self.events);
-            events.generation += 1;
-            // The replaced watch stops now; events wait for this one's replay.
-            events.on_event = None;
+            events.generation += 1; // the replaced watch stops now
+            for event in std::mem::take(&mut events.pending) {
+                let _ = live.send(event); // `queue` is alive: cannot fail
+            }
+            events.live = Some(live);
             events.generation
         };
-        // Replay off the caller's thread: a supervisor may hold its own lock
-        // across this call, and its callback may need that lock.
-        let replay = Arc::clone(&self.events);
+        // Deliver on the watch's own thread and never under `events`: the
+        // scripting thread or a supervisor may hold a lock the callback
+        // takes, and a callback may drop its own watch. The thread ends
+        // once the watch is dropped or replaced (its sender goes).
+        let gate = Arc::clone(&self.events);
         std::thread::spawn(move || {
-            let mut events = lock(&replay);
-            if events.generation != generation {
-                return; // dropped (or re-registered) before the replay ran
-            }
-            for event in std::mem::take(&mut events.pending) {
+            for event in queue {
+                if lock(&gate).generation != generation {
+                    return;
+                }
                 on_event(event);
             }
-            events.on_event = Some(on_event);
         });
         let events = Arc::clone(&self.events);
         Ok(PhoneWatch::new(move || {
             let mut events = lock(&events);
             if events.generation == generation {
-                events.generation += 1; // a replay not yet run stays off
-                events.on_event = None;
+                events.generation += 1; // queued events stay undelivered
+                events.live = None;
             }
         }))
     }
