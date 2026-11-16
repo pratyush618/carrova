@@ -7,9 +7,7 @@ use std::sync::{Arc, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
 
 use carrova_crypto::identity::DeviceId;
-use carrova_link::{
-    ClipHistory, ClipItem, Feature, FeatureState, ReceivedClip, allowed, send_clip,
-};
+use carrova_link::{ClipHistory, ClipItem, Feature, ReceivedClip, send_clip};
 use carrova_platform::{ClipContent, ClipKind, ClipboardWatch, Platform, PlatformError};
 use carrova_transport::Connection;
 use serde::{Deserialize, Serialize};
@@ -187,15 +185,7 @@ fn clipboard_changed(shared: &Shared) {
         }
         clips.last = Some(content.clone());
     }
-    let targets: Vec<_> = shared
-        .peers()
-        .iter()
-        .filter_map(|p| {
-            let link = p.link.as_ref()?;
-            let on = allowed(&p.local, link.remote.as_ref()?, Feature::Clipboard);
-            (on == FeatureState::On).then(|| (p.id(), Arc::clone(&link.conn)))
-        })
-        .collect();
+    let targets = shared.linked_with(Feature::Clipboard);
     if targets.is_empty() {
         return;
     }

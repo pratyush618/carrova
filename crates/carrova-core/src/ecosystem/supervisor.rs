@@ -1,9 +1,11 @@
 //! The link supervisor (spec "The link"): keeps known devices linked while
-//! a feature is on for them and carries clipboard, files, handoff and ring
-//! over their links. Runs on plain threads (the transport and link calls
-//! block, and must not run inside an async runtime).
+//! a feature is on for them and carries clipboard, files, handoff, ring and
+//! (from a phone) notifications, SMS and calls over their links. Runs on
+//! plain threads (the transport and link calls block, and must not run
+//! inside an async runtime).
 
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
@@ -20,7 +22,8 @@ use super::asks::{Answer, AskId, Asks};
 use super::clip::{self, Clips};
 use super::clip_settings::ClipSettings;
 use super::features::{self, FileFailure};
-use super::peer::{LinkedPeer, Peer, PeerSource};
+use super::peer::{Link, LinkedPeer, Peer, PeerSource};
+use super::phone::give::{self, Gives, Job};
 use super::retry::Retries;
 use super::{PolicyStore, dial};
 use crate::cancel::Cancel;
@@ -85,6 +88,8 @@ pub(super) struct Shared {
     peers: Mutex<Vec<Peer>>,
     pub(super) asks: Asks,
     pub(super) clips: Mutex<Clips>,
+    /// The phone forwarder's queue ([`give::run`]).
+    pub(super) give: Sender<Job>,
     /// Fires on [`Supervisor::stop`]: every thread and connection ends.
     pub(super) stop: Cancel,
     /// Per-link, lane and dial threads, joined on stop.
@@ -125,6 +130,36 @@ impl Shared {
 
     pub(super) fn emit(&self, event: Event) {
         self.engine.sink().emit(event);
+    }
+
+    /// The linked devices `feature` is on for, on both sides, and their
+    /// connections.
+    pub(super) fn linked_with(&self, feature: Feature) -> Vec<(DeviceId, Arc<Connection>)> {
+        self.peers()
+            .iter()
+            .filter_map(|p| {
+                let link = p.link.as_ref()?;
+                let on = allowed(&p.local, link.remote.as_ref()?, feature);
+                (on == FeatureState::On).then(|| (p.id(), Arc::clone(&link.conn)))
+            })
+            .collect()
+    }
+
+    /// Run `f` on `device`'s link `generation`, if it is still the live one.
+    pub(super) fn with_link<T>(
+        &self,
+        device: &DeviceId,
+        generation: u64,
+        f: impl FnOnce(&mut Link) -> T,
+    ) -> Option<T> {
+        let mut peers = self.peers();
+        let link = peers
+            .iter_mut()
+            .find(|p| p.id() == *device)?
+            .link
+            .as_mut()
+            .filter(|l| l.generation == generation)?;
+        Some(f(link))
     }
 
     /// `device`'s live connection, if `feature` is allowed on both sides
@@ -191,6 +226,7 @@ impl Supervisor {
     ) -> Result<Self> {
         let platform = Arc::clone(engine.platform());
         let key = Arc::new(KnownDevices::open(&*platform)?.device_key(&*platform)?);
+        let (give, jobs) = mpsc::channel();
         let shared = Arc::new(Shared {
             engine,
             config,
@@ -199,6 +235,7 @@ impl Supervisor {
             peers: Mutex::default(),
             asks: Asks::default(),
             clips: Mutex::new(Clips::load(Arc::clone(&platform))),
+            give,
             stop: Cancel::default(),
             threads: Mutex::default(),
         });
@@ -220,6 +257,11 @@ impl Supervisor {
         sup.threads.push(spawn("carrova-link-dial", move || {
             dial::maintain(&shared, &*source);
         })?);
+        // Joined after the links close: a send in progress ends with them.
+        let shared = Arc::clone(&sup.shared);
+        sup.shared.spawn("carrova-phone-give", move || {
+            give::run(&shared, &jobs);
+        })?;
         if let Some((watch, thread)) = clip::watch_clipboard(&sup.shared)? {
             sup.watch = Mutex::new(Some(watch));
             sup.threads.push(thread);
@@ -426,16 +468,19 @@ impl Supervisor {
             return Err(CoreError::UnknownDevice);
         }
         let local = PolicyStore::open(platform)?.set(platform, device, feature, state)?;
-        let conn = {
+        let (conn, gives) = {
             let mut peers = self.shared.peers();
             let peer = peers.iter_mut().find(|p| p.id() == *device);
             let peer = peer.ok_or(CoreError::UnknownDevice)?;
+            let remote = peer.link.as_ref().and_then(|l| l.remote.as_ref());
+            let gives = Gives::of(&local, remote).since(Gives::of(&peer.local, remote));
             peer.local = local;
-            peer.link.as_ref().map(|l| Arc::clone(&l.conn))
+            (peer.link.as_ref().map(|l| Arc::clone(&l.conn)), gives)
         };
         if let Some(conn) = conn {
             features::push_policy(&self.shared, device, &conn);
         }
+        gives.send(&self.shared, *device);
         Ok(())
     }
 

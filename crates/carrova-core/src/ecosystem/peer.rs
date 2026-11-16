@@ -1,13 +1,14 @@
 //! The supervisor's view of each known device: who it is, its policy here,
 //! where presence last saw it and its live link, if any.
 
+use std::collections::HashMap;
 use std::net::SocketAddrV4;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::{DeviceId, DevicePublic};
 use carrova_crypto::pairing::KnownSecret;
-use carrova_link::{Feature, FeatureState, FileOffer, PolicyDoc};
+use carrova_link::{Feature, FeatureState, FileOffer, PolicyDoc, SendOutcome};
 use carrova_platform::{OsKind, Platform};
 use carrova_transport::{Connection, KnownPeers, browse};
 
@@ -116,6 +117,9 @@ pub(super) struct Link {
     /// Accepted handoff files whose bytes are due on a `File` lane (names
     /// already safe).
     pub(super) handoff_files: Vec<FileOffer>,
+    /// Texts sent for the device by its `client_id`: `None` while sending.
+    /// A repeat is answered from here, never sent twice.
+    pub(super) sms_sent: HashMap<u64, Option<SendOutcome>>,
 }
 
 /// One known device.

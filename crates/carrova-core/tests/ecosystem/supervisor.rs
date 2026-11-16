@@ -5,7 +5,7 @@ mod clip_settings;
 pub(crate) mod device;
 mod gating;
 mod phone_fake;
-mod recording;
+pub(crate) mod recording;
 mod retry;
 
 use std::thread;

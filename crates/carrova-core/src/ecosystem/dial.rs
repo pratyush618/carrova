@@ -305,6 +305,7 @@ fn register(shared: &Arc<Shared>, conn: Connection) {
             remote: None,
             closed: closed.clone(),
             handoff_files: Vec::new(),
+            sms_sent: HashMap::new(),
         });
         if let Some(older) = &older {
             older.conn.close_superseded();

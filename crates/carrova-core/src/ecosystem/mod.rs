@@ -11,7 +11,6 @@ mod features;
 mod invite;
 mod pair;
 mod peer;
-#[expect(dead_code, reason = "the phone forwarder (next task) calls outgoing")]
 mod phone;
 mod policy;
 mod retry;

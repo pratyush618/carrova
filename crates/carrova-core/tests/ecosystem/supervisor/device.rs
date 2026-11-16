@@ -68,7 +68,7 @@ pub struct Device {
 }
 
 impl Device {
-    fn new(name: &str) -> Self {
+    pub fn new(name: &str) -> Self {
         let tmp = TempDir::new().unwrap();
         let home = tmp.path().join("home");
         std::fs::create_dir_all(&home).unwrap();
@@ -174,8 +174,15 @@ pub fn pair(doc: &PolicyDoc) -> (Device, Device, KnownSecret) {
         std::mem::swap(&mut low, &mut high);
     }
     let secret = KnownSecret::from_bytes([7; 32]);
-    for (me, other, name) in [(&low, &high, "High"), (&high, &low, "Low")] {
-        let known = KnownDevices::open(&*me.platform).unwrap();
+    low.know(&high, "High", &secret, doc);
+    high.know(&low, "Low", &secret, doc);
+    (low, high, secret)
+}
+
+impl Device {
+    /// Remember `other` as `name`, linked with `secret`, on `doc` for it.
+    pub fn know(&self, other: &Device, name: &str, secret: &KnownSecret, doc: &PolicyDoc) {
+        let known = KnownDevices::open(&*self.platform).unwrap();
         let record = DeviceRecord {
             public: other.id,
             name: name.to_owned(),
@@ -185,10 +192,9 @@ pub fn pair(doc: &PolicyDoc) -> (Device, Device, KnownSecret) {
             moves: 0,
             mac_hint: None,
         };
-        known.remember(&*me.platform, record, &secret).unwrap();
-        me.set_policy(&other.id, doc);
+        known.remember(&*self.platform, record, secret).unwrap();
+        self.set_policy(&other.id, doc);
     }
-    (low, high, secret)
 }
 
 /// Fast rounds and backoff, so the tests run in seconds.

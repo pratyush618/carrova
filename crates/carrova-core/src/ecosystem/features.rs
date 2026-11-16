@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use super::asks::{Answer, AskKind};
 use super::clip::lock_clips;
+use super::phone::give::{self, Gives};
 use super::sink::Download;
 use super::supervisor::Shared;
 use crate::cancel::Cancel;
@@ -116,8 +117,9 @@ impl LaneGate for Gate<'_> {
             LaneKind::File => off(Feature::Files) && off(Feature::Handoff),
             LaneKind::Handoff => off(Feature::Handoff),
             LaneKind::Ring => off(Feature::Ring),
-            // Not served yet: phone lanes stay refused until their handlers land.
-            LaneKind::Notify | LaneKind::Messages | LaneKind::Calls => true,
+            LaneKind::Notify => off(Feature::Notifications),
+            LaneKind::Messages => off(Feature::Messages),
+            LaneKind::Calls => off(Feature::Calls),
         };
         if refused {
             Err(RefuseReason::NotAllowed)
@@ -200,8 +202,11 @@ impl Lane {
             LaneKind::File => return self.file(stream),
             LaneKind::Handoff => self.handoff(stream),
             LaneKind::Ring => self.ring(stream),
-            // Refused by the gate before they get here.
-            LaneKind::Notify | LaneKind::Messages | LaneKind::Calls => return,
+            LaneKind::Notify => give::serve_notify(&**self.shared.platform(), stream),
+            LaneKind::Messages => {
+                give::serve_messages(&self.shared, self.device, self.generation, stream)
+            }
+            LaneKind::Calls => give::serve_calls(&**self.shared.platform(), stream),
         };
         if let Err(e) = served {
             tracing::debug!(lane = ?kind, error = %e, "lane failed");
@@ -229,22 +234,30 @@ impl Lane {
 
     /// Run `f` on this lane's link, if it is still the live one.
     fn with_link<T>(&self, f: impl FnOnce(&mut super::peer::Link) -> T) -> Option<T> {
-        let mut peers = self.shared.peers();
-        let link = peers
-            .iter_mut()
-            .find(|p| p.id() == self.device)?
-            .link
-            .as_mut()
-            .filter(|l| l.generation == self.generation)?;
-        Some(f(link))
+        self.shared.with_link(&self.device, self.generation, f)
     }
 
+    /// Take the device's policy; send it the phone state it now takes.
     fn policy(&self, mut stream: Stream) -> Result<()> {
         let doc = recv_policy(&mut stream, POLICY_WAIT)?;
-        if self.with_link(|l| l.remote = Some(doc)).is_some() {
+        let gives = {
+            let mut peers = self.shared.peers();
+            let peer = peers.iter_mut().find(|p| p.id() == self.device);
+            peer.and_then(|p| {
+                let link = p
+                    .link
+                    .as_mut()
+                    .filter(|l| l.generation == self.generation)?;
+                let before = Gives::of(&p.local, link.remote.as_ref());
+                link.remote = Some(doc);
+                Some(Gives::of(&p.local, link.remote.as_ref()).since(before))
+            })
+        };
+        if let Some(gives) = gives {
             self.emit(Event::PolicyChanged {
                 device: self.device,
             });
+            gives.send(&self.shared, self.device);
         }
         Ok(())
     }

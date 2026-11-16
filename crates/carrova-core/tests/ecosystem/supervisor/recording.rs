@@ -162,6 +162,11 @@ impl Recording {
         events.pending.extend(unsent);
     }
 
+    /// Whether a `watch_phone_events` callback is registered now.
+    pub fn watching(&self) -> bool {
+        lock(&self.events).on_event.is_some()
+    }
+
     /// Phone methods called so far: names and ids only.
     pub fn actions(&self) -> Vec<String> {
         self.phone().actions.clone()
