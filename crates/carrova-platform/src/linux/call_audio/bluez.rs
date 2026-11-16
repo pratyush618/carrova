@@ -88,10 +88,26 @@ fn adapter(objects: &Objects) -> Option<(&OwnedObjectPath, &Props)> {
     adapters.into_iter().next()
 }
 
+/// Whether the device object at `device` hangs off the adapter at
+/// `adapter` (`/org/bluez/hci0` owns `/org/bluez/hci0/dev_…`).
+pub(crate) fn on_adapter(adapter: &str, device: &str) -> bool {
+    device
+        .strip_prefix(adapter)
+        .is_some_and(|rest| rest.starts_with('/'))
+}
+
+/// The device objects on the adapter at `adapter`.
+fn devices_on<'a>(
+    objects: &'a Objects,
+    adapter: &'a OwnedObjectPath,
+) -> impl Iterator<Item = (&'a OwnedObjectPath, &'a Props)> {
+    with(objects, DEVICE).filter(|(path, _)| on_adapter(adapter.as_str(), path.as_str()))
+}
+
 /// BlueZ's state for [`super::status_from`].
 pub(super) fn snapshot(conn: &Connection) -> zbus::Result<Snapshot> {
     let objects = objects(conn)?;
-    let Some((_, props)) = adapter(&objects) else {
+    let Some((adapter_path, props)) = adapter(&objects) else {
         return Ok(Snapshot::default());
     };
     Ok(Snapshot {
@@ -99,7 +115,8 @@ pub(super) fn snapshot(conn: &Connection) -> zbus::Result<Snapshot> {
             powered: flag(props, "Powered"),
         }),
         hf_profile: has_uuid(props, HFP_HF),
-        paired_phone: with(&objects, DEVICE).any(|(_, d)| flag(d, "Paired") && has_uuid(d, HFP_AG)),
+        paired_phone: devices_on(&objects, adapter_path)
+            .any(|(_, d)| flag(d, "Paired") && has_uuid(d, HFP_AG)),
     })
 }
 
@@ -148,7 +165,10 @@ pub(crate) fn linked_phone<'a>(
 /// The paired phone's device object and address.
 pub(super) fn phone(conn: &Connection) -> zbus::Result<Option<(OwnedObjectPath, String)>> {
     let objects = objects(conn)?;
-    let devices: Vec<_> = with(&objects, DEVICE)
+    let Some((adapter_path, _)) = adapter(&objects) else {
+        return Ok(None);
+    };
+    let devices: Vec<_> = devices_on(&objects, adapter_path)
         .map(|(path, d)| {
             let address = d.get("Address").and_then(|v| v.downcast_ref::<&str>().ok());
             (

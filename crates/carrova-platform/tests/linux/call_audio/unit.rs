@@ -1,4 +1,4 @@
-use super::bluez::{Seen, linked_phone, pair_target};
+use super::bluez::{Seen, linked_phone, on_adapter, pair_target};
 use super::ofono::card_for;
 use super::packagekit::{Outcome, outcome, supported_os};
 use super::wireplumber::{self, drop_in, parse_version};
@@ -137,6 +137,15 @@ fn pair_target_is_the_only_unpaired_phone() {
     assert_eq!(pair_target([a, paired, headset, unknown]), Seen::One(a.0));
     assert_eq!(pair_target([a, b]), Seen::Several, "two phones: ambiguous");
     assert_eq!(pair_target([paired, headset]), Seen::None);
+}
+
+#[test]
+fn devices_belong_to_their_own_adapter_only() {
+    assert!(on_adapter("/org/bluez/hci0", "/org/bluez/hci0/dev_AA_BB"));
+    assert!(!on_adapter("/org/bluez/hci0", "/org/bluez/hci1/dev_AA_BB"));
+    // A prefix of the adapter's name is another adapter.
+    assert!(!on_adapter("/org/bluez/hci1", "/org/bluez/hci10/dev_AA_BB"));
+    assert!(!on_adapter("/org/bluez/hci0", "/org/bluez/hci0"));
 }
 
 #[test]
