@@ -23,8 +23,8 @@ pub use file::{
 pub use handoff::{Handoff, ReceivedHandoff, SafeUrl, check_url, recv_handoff, send_handoff};
 pub use lane::{LaneGate, LaneKind, LaneOpen, LaneReply, RefuseReason, accept_lane, open_lane};
 pub use messages::{
-    MAX_SMS_TEXT, MESSAGE_PAGE, SmsIncoming, SmsPush, SmsReply, SmsRequest, SmsResponder,
-    THREAD_PAGE, push_sms, recv_sms, request_sms,
+    MAX_SMS_TEXT, MESSAGE_PAGE, SmsIncoming, SmsPush, SmsReply, SmsRequest, THREAD_PAGE,
+    check_sms_reply, push_sms, recv_sms, request_sms,
 };
 pub use name::safe_file_name;
 pub use ping::{ping, serve_ping};

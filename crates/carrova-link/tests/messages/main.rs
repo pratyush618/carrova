@@ -7,9 +7,12 @@ mod support;
 
 use std::thread;
 
+use serde::{Deserialize, Serialize};
+
 use carrova_link::{
     LaneKind, LinkError, MAX_SMS_TEXT, MESSAGE_PAGE, SendOutcome, SmsIncoming, SmsPush, SmsReply,
-    SmsRequest, THREAD_PAGE, accept_lane, push_sms, recv_sms, request_sms,
+    SmsRequest, THREAD_PAGE, accept_lane, check_sms_reply, open_lane, push_sms, recv_sms,
+    request_sms,
 };
 use carrova_platform::phone::{SmsMessage, SmsThread};
 use support::{Open, T, linked};
@@ -36,7 +39,7 @@ fn msg(text: String) -> SmsMessage {
 }
 
 /// Phone side: answer one request with `reply`.
-fn ask(req: &SmsRequest, reply: SmsReply) -> (Result<SmsReply, LinkError>, SmsRequest) {
+fn ask(req: &SmsRequest, reply: &SmsReply) -> (Result<SmsReply, LinkError>, SmsRequest) {
     let (a, b) = linked();
     thread::scope(|s| {
         let phone = s.spawn(|| {
@@ -57,7 +60,7 @@ fn ask(req: &SmsRequest, reply: SmsReply) -> (Result<SmsReply, LinkError>, SmsRe
 fn threads_page_roundtrip() {
     let req = SmsRequest::Threads { before_ms: Some(9) };
     let page = SmsReply::ThreadsPage((0..THREAD_PAGE as i64).map(thread_row).collect());
-    let (out, got) = ask(&req, page.clone());
+    let (out, got) = ask(&req, &page);
     assert_eq!(got, req);
     assert_eq!(out.unwrap(), page);
 }
@@ -72,15 +75,22 @@ fn page_over_cap_refused() {
             let SmsIncoming::Request(_, resp) = recv_sms(stream).unwrap() else {
                 panic!("not a request")
             };
-            // The phone's own side refuses to send it ...
-            assert!(matches!(resp.reply(big), Err(LinkError::TooBig { .. })));
+            // The phone's own check catches it ...
+            assert!(matches!(
+                check_sms_reply(&big),
+                Err(LinkError::TooBig { .. })
+            ));
+            drop(resp.reply(&big));
         });
-        // ... and the lane closes without a reply.
+        // ... and the laptop refuses it too.
         let req = SmsRequest::Thread {
             id: 2,
             before_ms: None,
         };
-        assert!(request_sms(&a, &req).is_err());
+        assert!(matches!(
+            request_sms(&a, &req),
+            Err(LinkError::TooBig { .. })
+        ));
         phone.join().unwrap();
     });
 }
@@ -96,7 +106,7 @@ fn send_result_roundtrip() {
         client_id: 7,
         outcome: SendOutcome::NoSignal,
     };
-    let (out, got) = ask(&req, reply.clone());
+    let (out, got) = ask(&req, &reply);
     assert_eq!(got, req);
     assert_eq!(out.unwrap(), reply);
 }
@@ -156,11 +166,138 @@ fn debug_hides_contents() {
         client_id: 1,
     };
     let reply = SmsReply::ThreadsPage(vec![thread_row(1)]);
+    let incoming = SmsIncoming::Push(push.clone());
     for s in [
+        format!("{incoming:?}"),
         format!("{push:?}"),
         format!("{req:?}"),
         format!("{reply:?}"),
     ] {
         assert!(!s.contains("secret") && !s.contains("5550100") && !s.contains("Ann"));
     }
+}
+
+/// Test-local twin of the private wire frame: same variant names, same bytes.
+#[derive(Serialize, Deserialize)]
+enum Frame {
+    Request(SmsRequest),
+    Push(SmsPush),
+}
+
+/// A phone that answers any request with `reply`, unchecked.
+fn hostile_phone(req: &SmsRequest, reply: &SmsReply) -> Result<SmsReply, LinkError> {
+    let (a, b) = linked();
+    thread::scope(|s| {
+        s.spawn(|| {
+            let (_, mut stream) = accept_lane(&b, &Open, T).unwrap();
+            let _: Frame = stream.recv(T).unwrap();
+            stream.send(reply).unwrap();
+            stream.finish().unwrap();
+        });
+        request_sms(&a, req)
+    })
+}
+
+fn threads() -> SmsRequest {
+    SmsRequest::Threads { before_ms: None }
+}
+
+#[test]
+fn laptop_refuses_hostile_replies() {
+    let big_page = SmsReply::ThreadsPage((0..=THREAD_PAGE as i64).map(thread_row).collect());
+    assert!(matches!(
+        hostile_phone(&threads(), &big_page),
+        Err(LinkError::TooBig { .. })
+    ));
+    let big_text = SmsReply::ThreadPage(vec![msg("x".repeat(MAX_SMS_TEXT + 1))]);
+    let ask = SmsRequest::Thread {
+        id: 2,
+        before_ms: None,
+    };
+    assert!(matches!(
+        hostile_phone(&ask, &big_text),
+        Err(LinkError::TooBig { .. })
+    ));
+    let mut long = thread_row(1);
+    long.address = "9".repeat(257);
+    assert!(matches!(
+        hostile_phone(&threads(), &SmsReply::ThreadsPage(vec![long])),
+        Err(LinkError::TooBig { .. })
+    ));
+    let mut long = thread_row(1);
+    long.snippet = "x".repeat(MAX_SMS_TEXT + 1);
+    assert!(matches!(
+        hostile_phone(&threads(), &SmsReply::ThreadsPage(vec![long])),
+        Err(LinkError::TooBig { .. })
+    ));
+}
+
+#[test]
+fn reply_must_match_request() {
+    let send = SmsRequest::Send {
+        to: "+1555".into(),
+        text: "x".into(),
+        client_id: 7,
+    };
+    let wrong_id = SmsReply::SendResult {
+        client_id: 8,
+        outcome: SendOutcome::Sent,
+    };
+    for (req, reply) in [
+        (threads(), SmsReply::ThreadPage(vec![])),
+        (
+            SmsRequest::Thread {
+                id: 2,
+                before_ms: None,
+            },
+            SmsReply::ThreadsPage(vec![]),
+        ),
+        (send.clone(), SmsReply::ThreadsPage(vec![])),
+        (send, wrong_id),
+    ] {
+        assert!(matches!(
+            hostile_phone(&req, &reply),
+            Err(LinkError::Protocol("reply"))
+        ));
+    }
+}
+
+/// A laptop that opens a lane and sends `frame`; what the phone's `recv_sms` says.
+fn hostile_laptop(frame: &Frame) -> Result<(), LinkError> {
+    let (a, b) = linked();
+    thread::scope(|s| {
+        let phone = s.spawn(|| {
+            let (_, stream) = accept_lane(&b, &Open, T).unwrap();
+            recv_sms(stream).map(drop)
+        });
+        let mut stream = open_lane(&a, LaneKind::Messages).unwrap();
+        stream.send(frame).unwrap();
+        phone.join().unwrap()
+    })
+}
+
+#[test]
+fn phone_refuses_hostile_requests_and_pushes() {
+    let send = |to: &str, text: String| {
+        Frame::Request(SmsRequest::Send {
+            to: to.into(),
+            text,
+            client_id: 1,
+        })
+    };
+    for bad in ["", "+1 555", "call;rm", &"1".repeat(33)] {
+        assert!(matches!(
+            hostile_laptop(&send(bad, "x".into())),
+            Err(LinkError::Protocol("number"))
+        ));
+    }
+    assert!(matches!(
+        hostile_laptop(&send("+1555", "x".repeat(MAX_SMS_TEXT + 1))),
+        Err(LinkError::TooBig { .. })
+    ));
+    let push = Frame::Push(SmsPush::Incoming(msg("x".repeat(MAX_SMS_TEXT + 1))));
+    assert!(matches!(
+        hostile_laptop(&push),
+        Err(LinkError::TooBig { .. })
+    ));
 }

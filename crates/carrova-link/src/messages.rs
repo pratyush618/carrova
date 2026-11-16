@@ -2,8 +2,11 @@
 //! sends texts; the phone pushes incoming messages.
 //!
 //! Wire (opener = asker or pusher), frames are length + CBOR: opener →
-//! `SmsFrame`; receiver → `Wire` and finishes. `Debug` on every type here hides
-//! numbers, names and text.
+//! `SmsFrame`; receiver → `SmsReply` (request) or `()` (push) and finishes.
+//! `Debug` on every type here hides numbers, names and text. Receivers cap
+//! pages at [`THREAD_PAGE`]/[`MESSAGE_PAGE`], texts and snippets at
+//! [`MAX_SMS_TEXT`], names and addresses at 256 bytes, and a destination
+//! number at 32 characters of `[0-9+*#]`.
 
 use std::fmt;
 use std::time::Duration;
@@ -23,6 +26,8 @@ pub const THREAD_PAGE: usize = 30;
 pub const MESSAGE_PAGE: usize = 50;
 /// Longest SMS text (bytes) either side accepts.
 pub const MAX_SMS_TEXT: usize = 4096;
+/// Longest contact name or number on a thread, in bytes.
+const MAX_NAME: usize = 256;
 /// Longest destination number, in characters.
 const MAX_NUMBER: usize = 32;
 /// How long the laptop waits for the phone to answer (sending may take a while).
@@ -93,18 +98,12 @@ enum SmsFrame {
     Push(SmsPush),
 }
 
-#[derive(Serialize, Deserialize)]
-enum Wire {
-    Reply(SmsReply),
-    Ack,
-}
-
-hide!(SmsRequest, SmsReply, SmsPush, Wire);
+hide!(SmsRequest, SmsReply, SmsPush);
 
 /// What arrived on an accepted `Messages` lane.
 pub enum SmsIncoming {
     /// A request to answer through the responder.
-    Request(SmsRequest, SmsResponder),
+    Request(SmsRequest, Responder<SmsReply>),
     /// A push, already acknowledged.
     Push(SmsPush),
 }
@@ -112,23 +111,6 @@ pub enum SmsIncoming {
 impl fmt::Debug for SmsIncoming {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("SmsIncoming(..)")
-    }
-}
-
-/// The open lane a request came in on, waiting for its one reply.
-#[derive(Debug)]
-pub struct SmsResponder(Responder<Wire>);
-
-impl SmsResponder {
-    /// Send the reply and close the lane.
-    ///
-    /// # Errors
-    ///
-    /// [`LinkError::TooBig`] if the reply breaks a page or text limit;
-    /// [`LinkError`] if the peer is gone.
-    pub fn reply(self, reply: SmsReply) -> Result<(), LinkError> {
-        check_reply(&reply)?;
-        self.0.reply(&Wire::Reply(reply))
     }
 }
 
@@ -154,14 +136,39 @@ fn check_request(req: &SmsRequest) -> Result<(), LinkError> {
     Ok(())
 }
 
-fn check_reply(reply: &SmsReply) -> Result<(), LinkError> {
+/// Check a reply against the page and text limits; the phone calls this
+/// before [`Responder::reply`], and [`request_sms`] on what it receives.
+///
+/// # Errors
+///
+/// [`LinkError::TooBig`] if a page, text, snippet, name or address is over its cap.
+pub fn check_sms_reply(reply: &SmsReply) -> Result<(), LinkError> {
     match reply {
-        SmsReply::ThreadsPage(t) => cap(t.len(), THREAD_PAGE),
+        SmsReply::ThreadsPage(t) => {
+            cap(t.len(), THREAD_PAGE)?;
+            t.iter().try_for_each(|t| {
+                cap(t.name.as_deref().map_or(0, str::len), MAX_NAME)?;
+                cap(t.address.len(), MAX_NAME)?;
+                cap(t.snippet.len(), MAX_SMS_TEXT)
+            })
+        }
         SmsReply::ThreadPage(m) => {
             cap(m.len(), MESSAGE_PAGE)?;
             m.iter().try_for_each(|m| cap(m.text.len(), MAX_SMS_TEXT))
         }
         SmsReply::SendResult { .. } => Ok(()),
+    }
+}
+
+/// A reply must be the kind its request asks for.
+fn matches(req: &SmsRequest, reply: &SmsReply) -> bool {
+    match (req, reply) {
+        (SmsRequest::Threads { .. }, SmsReply::ThreadsPage(_))
+        | (SmsRequest::Thread { .. }, SmsReply::ThreadPage(_)) => true,
+        (SmsRequest::Send { client_id, .. }, SmsReply::SendResult { client_id: got, .. }) => {
+            client_id == got
+        }
+        _ => false,
     }
 }
 
@@ -174,14 +181,16 @@ fn check_push(SmsPush::Incoming(m): &SmsPush) -> Result<(), LinkError> {
 /// # Errors
 ///
 /// [`LinkError::TooBig`] or [`LinkError::Protocol`] if the request or the
-/// phone's reply breaks a limit; otherwise as [`reply::request`].
+/// phone's reply breaks a limit or is not the kind asked for; otherwise as [`reply::request`].
 pub fn request_sms(conn: &Connection, req: &SmsRequest) -> Result<SmsReply, LinkError> {
     check_request(req)?;
     let frame = SmsFrame::Request(req.clone());
-    match reply::request(conn, LaneKind::Messages, &frame, REPLY_WAIT)? {
-        Wire::Reply(r) => check_reply(&r).map(|()| r),
-        Wire::Ack => Err(LinkError::Protocol("reply")),
+    let reply: SmsReply = reply::request(conn, LaneKind::Messages, &frame, REPLY_WAIT)?;
+    check_sms_reply(&reply)?;
+    if !matches(req, &reply) {
+        return Err(LinkError::Protocol("reply"));
     }
+    Ok(reply)
 }
 
 /// Push `push` to the laptop; succeeds once it acknowledges.
@@ -193,10 +202,7 @@ pub fn request_sms(conn: &Connection, req: &SmsRequest) -> Result<SmsReply, Link
 pub fn push_sms(conn: &Connection, push: &SmsPush) -> Result<(), LinkError> {
     check_push(push)?;
     let frame = SmsFrame::Push(push.clone());
-    match reply::request(conn, LaneKind::Messages, &frame, REPLY_WAIT)? {
-        Wire::Ack => Ok(()),
-        Wire::Reply(_) => Err(LinkError::Protocol("reply")),
-    }
+    reply::request::<_, ()>(conn, LaneKind::Messages, &frame, REPLY_WAIT)
 }
 
 /// Read what the peer opened on an accepted `Messages` lane. A push is
@@ -208,15 +214,15 @@ pub fn push_sms(conn: &Connection, push: &SmsPush) -> Result<(), LinkError> {
 /// [`LinkError::Protocol`] for an implausible destination number; otherwise
 /// as [`reply::serve`].
 pub fn recv_sms(stream: Stream) -> Result<SmsIncoming, LinkError> {
-    let (frame, responder) = reply::serve::<SmsFrame, Wire>(stream)?;
+    let (frame, pending) = reply::serve::<SmsFrame>(stream)?;
     match frame {
         SmsFrame::Request(req) => {
             check_request(&req)?;
-            Ok(SmsIncoming::Request(req, SmsResponder(responder)))
+            Ok(SmsIncoming::Request(req, pending.responder()))
         }
         SmsFrame::Push(push) => {
             check_push(&push)?;
-            responder.reply(&Wire::Ack)?;
+            pending.ack()?;
             Ok(SmsIncoming::Push(push))
         }
     }
