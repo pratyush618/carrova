@@ -32,12 +32,20 @@ object Sms {
     private var observer: ContentObserver? = null
     private var worker: HandlerThread? = null
 
+    /** Threads that got an `SMS_RECEIVED` and are not yet seen stored. */
+    private val pending = PendingThreads(System::currentTimeMillis)
+
+    /** Note that [thread] got an incoming SMS the default app has yet to store. */
+    @JvmStatic
+    fun expectStored(thread: Long) = pending.add(thread)
+
     /**
      * Tell [Events] when an incoming SMS is stored ([on]), or stop; a replaced
      * watch's [gen] does nothing. `SMS_RECEIVED` comes before the default
-     * SMS app stores the message, so the laptop refetches on this instead.
-     * Changes are debounced on the trailing edge (the last one is never lost).
-     * A sent text or a mark-read also fires it: a harmless extra refetch.
+     * SMS app stores the message, so the laptop refetches on this instead:
+     * after provider changes settle (trailing-edge debounce), each pending
+     * thread with an inbox row at or after its receive time is reported once.
+     * Changes with nothing pending (a sent text, a mark-read) emit nothing.
      */
     @JvmStatic
     @Synchronized
@@ -48,15 +56,17 @@ object Sms {
         worker?.quit()
         observer = null
         worker = null
+        pending.clear()
         if (!on) return
         val thread = HandlerThread("carrova-sms-stored").also { it.start() }
         val handler = Handler(thread.looper)
         val debounce = Debounce(STORED_DEBOUNCE_MS, HandlerTimer(handler)) {
-            newestInboxThread(resolver)?.let {
-                Events.offer(JSONObject().put("type", "sms_stored").put("thread_id", it).toString())
+            for (id in pending.resolve { t, since -> storedSince(resolver, t, since) }) {
+                Events.offer(JSONObject().put("type", "sms_stored").put("thread_id", id).toString())
             }
         }
         val next = object : ContentObserver(handler) {
+            // The URI may be null, so it is never relied on.
             override fun onChange(selfChange: Boolean) = debounce.poke()
         }
         resolver.registerContentObserver(Telephony.Sms.CONTENT_URI, true, next)
@@ -64,20 +74,21 @@ object Sms {
         worker = thread
     }
 
-    /** The thread of the newest inbox row; reads nothing else. Null without SMS permission. */
-    private fun newestInboxThread(resolver: android.content.ContentResolver): Long? = try {
+    /** Whether an inbox row of [thread] dates from [sinceMs] on; reads only `_id`. False without SMS permission. */
+    private fun storedSince(resolver: android.content.ContentResolver, thread: Long, sinceMs: Long): Boolean = try {
         resolver.query(
-            Telephony.Sms.Inbox.CONTENT_URI, arrayOf(Telephony.Sms.THREAD_ID), null, null,
-            "${Telephony.Sms.DATE} DESC, ${Telephony.Sms._ID} DESC",
-        )?.use { if (it.moveToFirst()) it.getLong(0) else null }
+            Telephony.Sms.Inbox.CONTENT_URI, arrayOf(Telephony.Sms._ID),
+            "${Telephony.Sms.THREAD_ID} = ? AND ${Telephony.Sms.DATE} >= ?",
+            arrayOf(thread.toString(), sinceMs.toString()), null,
+        )?.use { it.moveToFirst() } ?: false
     } catch (e: SecurityException) {
-        null
+        false
     }
 
     /** How long a send may take before it counts as failed. */
     private const val SEND_TIMEOUT_S = 60L
 
-    /** Quiet time after the last provider change before the newest thread is read. */
+    /** Quiet time after the last provider change before pending threads are looked up. */
     private const val STORED_DEBOUNCE_MS = 500L
     private const val NOT_DRAFT = "${Telephony.Sms.TYPE} <> ${Telephony.Sms.MESSAGE_TYPE_DRAFT}"
     private const val NEWEST_FIRST = "${Telephony.Sms.DATE} DESC, ${Telephony.Sms._ID} DESC"
@@ -218,6 +229,7 @@ class SmsReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             0L
         }
+        if (thread != 0L) Sms.expectStored(thread)
         Events.offer(
             JSONObject()
                 .put("type", "sms_received")
@@ -229,6 +241,37 @@ class SmsReceiver : BroadcastReceiver() {
                 .put("when_ms", System.currentTimeMillis())
                 .toString(),
         )
+    }
+}
+
+/**
+ * Threads awaiting their stored message, each with its receive time. Entries
+ * older than [TTL_MS] are dropped. Written from main, resolved on the
+ * debounce thread.
+ */
+class PendingThreads(private val now: () -> Long) {
+    private val since = HashMap<Long, Long>()
+
+    @Synchronized
+    fun add(thread: Long) {
+        since[thread] = now()
+    }
+
+    @Synchronized
+    fun clear() = since.clear()
+
+    /** The pending threads for which [stored] (thread, receivedAtMs) holds; they leave the set. */
+    @Synchronized
+    fun resolve(stored: (Long, Long) -> Boolean): List<Long> {
+        val t = now()
+        since.values.removeAll { t - it > TTL_MS }
+        val done = since.filter { stored(it.key, it.value) }.keys.toList()
+        done.forEach(since::remove)
+        return done
+    }
+
+    private companion object {
+        const val TTL_MS = 10_000L
     }
 }
 
