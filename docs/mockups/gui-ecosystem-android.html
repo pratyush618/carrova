@@ -1385,7 +1385,7 @@ add({ id: "setup", group: "Onboarding", title: "Choose what to share", states: [
     if (st === "access") return phone({ back: "setup:start", title: "Notification access", nav: false, body: `<p class="sec" style="margin-bottom:18px">To show this phone's notifications on ${LAP}, Carrova needs notification access. Android has its own page for it.</p>
       ${ig("", [srow("bell", "Carrova", "Read notifications and reply to them", toggle(0))], "Notifications go only to your linked computers, never to a server. Turn this off any time.")}
       <div style="margin-top:14px">${btn("Open Android settings", { kind: "primary", size: "lg", cls: "wide", go: "setup:start" })}</div><p class="small muted" style="text-align:center;margin-top:12px">Toggle greyed out? <a class="link" data-go="setup:restricted">Allow restricted settings first</a>.</p>` });
-    if (st === "phoneperms") return phone({ title: "Choose what to share", nav: false, body: setupBody(), over: sysdlg(`<span class="sysdlg__ic">${icon("call", "icon--lg")}</span><h3>Allow Carrova to make and manage phone calls?</h3><p>So ${LAP} can show who is calling, answer and hang up. Next, Android asks about contacts.</p><div class="sysdlg__acts"><span class="p">Allow</span><span>Don't allow</span></div>`) });
+    if (st === "phoneperms") return phone({ title: "Choose what to share", nav: false, body: setupBody().replace('toggle(0))\n    ])}\n    ${ig("Asks', 'toggle(1))\n    ])}\n    ${ig("Asks'), over: sysdlg(`<span class="sysdlg__ic">${icon("call", "icon--lg")}</span><h3>Allow Carrova to make and manage phone calls?</h3><p>So ${LAP} can show who is calling, answer and hang up. Next, Android asks about contacts.</p><div class="sysdlg__acts"><span class="p">Allow</span><span>Don't allow</span></div>`) });
     return phone({ title: "Choose what to share", nav: false, body: setupBody(), over });
   } });
 
@@ -1499,7 +1499,7 @@ add({ id: "msgs", group: "Messages", title: "Messages", states: [["synced", "Syn
 
 /* ═══ Calls ═════════════════════════════════════════════════════════ */
 add({ id: "calls", group: "Calls", title: "Calls", states: [["setup", "Set up"], ["pairing", "Bluetooth pairing"], ["ready", "Ready"], ["active", "Call on laptop"], ["btoff", "Bluetooth off"]],
-  note: "The laptop acts as a Bluetooth headset (HFP), the way car kits do. Call audio never crosses Wi-Fi; the phone just shows where the call is. Pairing is Android's own dialog, once.",
+  note: "Base calls need no Bluetooth: the laptop rings and you answer there, talking on the phone. Bluetooth is an optional second step. The laptop acts as a Bluetooth headset (HFP), the way car kits do. Call audio never crosses Wi-Fi; the phone just shows where the call is. Pairing is Android's own dialog, once.",
   render(st) {
     if (st === "active") return phone({ nav: false, bt: 1, bare: 1, raw: `<div class="pin"><div class="callcard"><span class="av">${icon("call", "icon--xl")}</span><b>+44 7700 900123</b><span class="status status--live">On ${LAP} · 04:12</span></div>
       <div class="calltools"><span><i>${icon("mic")}</i>Mute</span><span><i>${icon("dots")}</i>Keypad</span><span class="on"><i>${icon("laptop")}</i>${LAP}</span></div><p class="small muted" style="text-align:center;margin-top:16px">Tap ${LAP} to move the call back to this phone.</p><span class="hangup">${icon("call")}</span></div>` });
