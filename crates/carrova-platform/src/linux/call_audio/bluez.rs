@@ -19,8 +19,10 @@ const DEVICE: &str = "org.bluez.Device1";
 const HFP_HF: &str = "0000111e-0000-1000-8000-00805f9b34fb";
 const HFP_AG: &str = "0000111f-0000-1000-8000-00805f9b34fb";
 const AGENT_PATH: &str = "/org/byteveda/Carrova/agent";
-/// How long pairing may wait for the phone to show up and be confirmed.
-const PAIR_TIMEOUT: Duration = Duration::from_secs(60);
+/// How long pairing looks for the phone, then waits for the user to
+/// confirm on it: about a minute in all.
+const DISCOVERY_TIMEOUT: Duration = Duration::from_secs(30);
+const PAIR_TIMEOUT: Duration = Duration::from_secs(30);
 const POLL: Duration = Duration::from_secs(1);
 
 type Props = HashMap<String, OwnedValue>;
@@ -101,18 +103,82 @@ pub(super) fn snapshot(conn: &Connection) -> zbus::Result<Snapshot> {
     })
 }
 
+/// What discovery found.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Seen<T> {
+    /// No phone to pair.
+    None,
+    /// Exactly one.
+    One(T),
+    /// Several: the user would have to pick, and confirming the wrong one
+    /// must not be possible.
+    Several,
+}
+
 /// The device to pair among `(path, paired, icon)`: the only unpaired
-/// phone in range; none while there are several (the user would have to
-/// pick, and confirming the wrong one must not be possible).
+/// phone in range.
 pub(crate) fn pair_target<'a>(
     devices: impl IntoIterator<Item = (&'a str, bool, Option<&'a str>)>,
-) -> Option<&'a str> {
+) -> Seen<&'a str> {
     let mut phones = devices
         .into_iter()
         .filter(|&(_, paired, icon)| !paired && icon == Some("phone"))
         .map(|(path, _, _)| path);
-    let first = phones.next()?;
-    phones.next().is_none().then_some(first)
+    match (phones.next(), phones.next()) {
+        (None, _) => Seen::None,
+        (Some(one), None) => Seen::One(one),
+        (Some(_), Some(_)) => Seen::Several,
+    }
+}
+
+/// The phone carrying call audio among `(path, paired with the audio
+/// gateway role, connected, address)`: a connected one first.
+// shortcut: picks any paired gateway, not the linked phone by name or
+// address; targeting it needs a trait change (deferred to a later task).
+pub(crate) fn linked_phone<'a>(
+    devices: impl IntoIterator<Item = (&'a str, bool, bool, &'a str)>,
+) -> Option<(&'a str, &'a str)> {
+    devices
+        .into_iter()
+        .filter(|&(_, gateway, _, _)| gateway)
+        .min_by_key(|&(_, _, connected, _)| !connected)
+        .map(|(path, _, _, address)| (path, address))
+}
+
+/// The paired phone's device object and address.
+pub(super) fn phone(conn: &Connection) -> zbus::Result<Option<(OwnedObjectPath, String)>> {
+    let objects = objects(conn)?;
+    let devices: Vec<_> = with(&objects, DEVICE)
+        .map(|(path, d)| {
+            let address = d.get("Address").and_then(|v| v.downcast_ref::<&str>().ok());
+            (
+                path.as_str(),
+                flag(d, "Paired") && has_uuid(d, HFP_AG),
+                flag(d, "Connected"),
+                address.unwrap_or_default(),
+            )
+        })
+        .collect();
+    let Some((path, address)) = linked_phone(devices) else {
+        return Ok(None);
+    };
+    Ok(Some((OwnedObjectPath::try_from(path)?, address.to_owned())))
+}
+
+/// Bring the hands-free link to the phone up (`connect`) or down.
+pub(super) fn profile(
+    conn: &Connection,
+    device: &OwnedObjectPath,
+    connect: bool,
+) -> Result<(), PlatformError> {
+    let method = if connect {
+        "ConnectProfile"
+    } else {
+        "DisconnectProfile"
+    };
+    conn.call_method(Some(SERVICE), device, Some(DEVICE), method, &HFP_AG)
+        .map(drop)
+        .map_err(|e| bus_err(SERVICE, e))
 }
 
 /// The BlueZ agent: shows the passkey for the device being paired, rejects
@@ -169,7 +235,11 @@ impl Agent {
 }
 
 /// Pair and trust the phone, calling `on_passkey` with the code both
-/// screens show; gives up after [`PAIR_TIMEOUT`].
+/// screens show; gives up after about a minute.
+///
+/// No phone found: an I/O error of kind `TimedOut`. Several phones
+/// visible until the end: kind `ResourceBusy` ("make only your phone
+/// visible").
 pub(crate) fn pair(on_passkey: Box<dyn Fn(u32) + Send>) -> Result<(), PlatformError> {
     let bus = |e| bus_err(SERVICE, e);
     // `Pair` returns once the user confirms on the phone.
@@ -204,42 +274,36 @@ pub(crate) fn pair(on_passkey: Box<dyn Fn(u32) + Send>) -> Result<(), PlatformEr
     .map_err(bus)?;
     let result = manager("RequestDefaultAgent").and_then(|_| pair_with(&conn, &target));
     let _ = manager("UnregisterAgent");
+    let fail = |kind, text: &str| PlatformError::io(SERVICE, std::io::Error::new(kind, text));
     match result.map_err(bus)? {
-        true => Ok(()),
-        false => Err(PlatformError::io(
-            SERVICE,
-            std::io::ErrorKind::TimedOut.into(),
+        Seen::One(()) => Ok(()),
+        Seen::None => Err(fail(std::io::ErrorKind::TimedOut, "no phone found")),
+        Seen::Several => Err(fail(
+            std::io::ErrorKind::ResourceBusy,
+            "several phones visible",
         )),
     }
 }
 
-/// Discover until one phone shows up, then `Pair` and `Trusted`; `false`
-/// on timeout.
-fn pair_with(conn: &Connection, target: &Mutex<Option<OwnedObjectPath>>) -> zbus::Result<bool> {
-    let deadline = Instant::now() + PAIR_TIMEOUT;
+/// Discover until one phone shows up, then `Pair` and `Trusted`.
+fn pair_with(conn: &Connection, target: &Mutex<Option<OwnedObjectPath>>) -> zbus::Result<Seen<()>> {
     let adapter_path = adapter(&objects(conn)?)
         .map(|(path, _)| path.clone())
         .ok_or_else(|| zbus::Error::Failure("no Bluetooth adapter".into()))?;
     let adapter_call =
         |method: &str| conn.call_method(Some(SERVICE), &adapter_path, Some(ADAPTER), method, &());
-    adapter_call("StartDiscovery")?;
-    let found = loop {
-        let objects = objects(conn)?;
-        let devices = with(&objects, DEVICE).map(|(path, d)| {
-            let icon = d.get("Icon").and_then(|v| v.downcast_ref::<&str>().ok());
-            (path.as_str(), flag(d, "Paired"), icon)
-        });
-        if let Some(path) = pair_target(devices) {
-            break Some(OwnedObjectPath::try_from(path)?);
-        }
-        if Instant::now() >= deadline {
-            break None;
-        }
-        thread::sleep(POLL);
-    };
+    match adapter_call("StartDiscovery") {
+        // Someone else is discovering already: that serves us too.
+        Err(zbus::Error::MethodError(name, _, _))
+            if name.as_str() == "org.bluez.Error.InProgress" => {}
+        other => drop(other?),
+    }
+    let seen = discover(conn);
     let _ = adapter_call("StopDiscovery");
-    let Some(device) = found else {
-        return Ok(false);
+    let device = match seen? {
+        Seen::One(device) => device,
+        Seen::None => return Ok(Seen::None),
+        Seen::Several => return Ok(Seen::Several),
     };
     *target.lock().unwrap_or_else(PoisonError::into_inner) = Some(device.clone());
     conn.call_method(Some(SERVICE), &device, Some(DEVICE), "Pair", &())?;
@@ -250,5 +314,29 @@ fn pair_with(conn: &Connection, target: &Mutex<Option<OwnedObjectPath>>) -> zbus
         "Set",
         &(DEVICE, "Trusted", Value::from(true)),
     )?;
-    Ok(true)
+    Ok(Seen::One(()))
+}
+
+/// Poll the devices until exactly one phone shows up, or
+/// [`DISCOVERY_TIMEOUT`]; then what was seen last.
+fn discover(conn: &Connection) -> zbus::Result<Seen<OwnedObjectPath>> {
+    let deadline = Instant::now() + DISCOVERY_TIMEOUT;
+    loop {
+        let objects = objects(conn)?;
+        let devices = with(&objects, DEVICE).map(|(path, d)| {
+            let icon = d.get("Icon").and_then(|v| v.downcast_ref::<&str>().ok());
+            (path.as_str(), flag(d, "Paired"), icon)
+        });
+        let seen = pair_target(devices);
+        if let Seen::One(path) = seen {
+            return Ok(Seen::One(OwnedObjectPath::try_from(path)?));
+        }
+        if Instant::now() >= deadline {
+            return Ok(match seen {
+                Seen::Several => Seen::Several,
+                _ => Seen::None,
+            });
+        }
+        thread::sleep(POLL);
+    }
 }

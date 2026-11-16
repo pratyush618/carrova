@@ -61,6 +61,11 @@ pub(super) fn write(p: &LinuxPlatform, version: &str) -> Result<(), PlatformErro
     p.write_atomic(&p.config_dir()?.join(rel), text, 0o644)
 }
 
+/// Whether the drop-in for `version` is in place.
+pub(super) fn configured(p: &LinuxPlatform, version: &str) -> Result<bool, PlatformError> {
+    Ok(p.config_dir()?.join(drop_in(version).0).exists())
+}
+
 /// Remove either drop-in; a missing one is no error.
 pub(super) fn remove(p: &LinuxPlatform) -> Result<(), PlatformError> {
     let dir = p.config_dir()?;
@@ -70,9 +75,20 @@ pub(super) fn remove(p: &LinuxPlatform) -> Result<(), PlatformError> {
     Ok(())
 }
 
-/// Restart the user's WirePlumber so it reads the drop-in.
+/// Restart the user's WirePlumber so it reads the drop-in; `--no-block`
+/// so a slow stop cannot outlast the tool deadline.
 pub(super) fn restart() -> Result<(), PlatformError> {
-    crate::tool::stdout_of(Command::new("systemctl").args(["--user", "restart", "wireplumber"]))
-        .map(drop)
-        .ok_or(PlatformError::Unsupported("restart wireplumber"))
+    crate::tool::stdout_of(Command::new("systemctl").args([
+        "--user",
+        "--no-block",
+        "restart",
+        "wireplumber",
+    ]))
+    .map(drop)
+    .ok_or_else(|| {
+        PlatformError::io(
+            "systemctl --user restart wireplumber",
+            std::io::Error::other("restart failed"),
+        )
+    })
 }
