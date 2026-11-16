@@ -1359,13 +1359,13 @@ add({ id: "pair", group: "Onboarding", title: "Linking", states: [["linking", "L
     return phone({ bare: 1, raw: `<div class="pin pin--center">${art}<h1 class="h2" style="font-size:22px">${t[0]}</h1><p class="sec" style="margin:6px 0 26px">${t[1]}</p><div class="wide">${acts}</div></div>` });
   } });
 
-function setupBody() {
+function setupBody(callsOn = false) {
   return `<p class="sec" style="margin-bottom:18px">With ${LAP}. Android asks for each permission when you turn its feature on.</p>
     ${ig("Works quietly", [
       srow("clip", "Clipboard", "From the laptop by itself, to it with a tap", toggle(1)),
       srow("bell", "Notifications", "Show this phone's notifications on the laptop", toggle(0)),
       srow("msg", "Messages", "Read and send texts from the laptop", toggle(1)),
-      srow("call", "Calls", "Ring and answer on the laptop", toggle(0)),
+      srow("call", "Calls", "Ring and answer on the laptop", toggle(callsOn ? 1 : 0)),
     ])}
     ${ig("Asks each time", [
       srow("file", "Files", "", ask("Ask")), srow("monitor", "See this screen", "", ask("Ask")),
@@ -1385,7 +1385,7 @@ add({ id: "setup", group: "Onboarding", title: "Choose what to share", states: [
     if (st === "access") return phone({ back: "setup:start", title: "Notification access", nav: false, body: `<p class="sec" style="margin-bottom:18px">To show this phone's notifications on ${LAP}, Carrova needs notification access. Android has its own page for it.</p>
       ${ig("", [srow("bell", "Carrova", "Read notifications and reply to them", toggle(0))], "Notifications go only to your linked computers, never to a server. Turn this off any time.")}
       <div style="margin-top:14px">${btn("Open Android settings", { kind: "primary", size: "lg", cls: "wide", go: "setup:start" })}</div><p class="small muted" style="text-align:center;margin-top:12px">Toggle greyed out? <a class="link" data-go="setup:restricted">Allow restricted settings first</a>.</p>` });
-    if (st === "phoneperms") return phone({ title: "Choose what to share", nav: false, body: setupBody().replace('toggle(0))\n    ])}\n    ${ig("Asks', 'toggle(1))\n    ])}\n    ${ig("Asks'), over: sysdlg(`<span class="sysdlg__ic">${icon("call", "icon--lg")}</span><h3>Allow Carrova to make and manage phone calls?</h3><p>So ${LAP} can show who is calling, answer and hang up. Next, Android asks about contacts.</p><div class="sysdlg__acts"><span class="p">Allow</span><span>Don't allow</span></div>`) });
+    if (st === "phoneperms") return phone({ title: "Choose what to share", nav: false, body: setupBody(true), over: sysdlg(`<span class="sysdlg__ic">${icon("call", "icon--lg")}</span><h3>Allow Carrova to make and manage phone calls?</h3><p>So ${LAP} can show who is calling, answer and hang up. Next, Android asks about contacts.</p><div class="sysdlg__acts"><span class="p">Allow</span><span>Don't allow</span></div>`) });
     return phone({ title: "Choose what to share", nav: false, body: setupBody(), over });
   } });
 
