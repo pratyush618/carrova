@@ -58,6 +58,9 @@ pub enum SmsRequest {
         /// Caller's id, echoed in the result.
         client_id: u64,
     },
+    /// Remind the user on the phone to grant SMS access (a local
+    /// notification that opens the permission screen).
+    Remind,
 }
 
 /// The phone's answer to an [`SmsRequest`].
@@ -74,6 +77,11 @@ pub enum SmsReply {
         /// What happened.
         outcome: SendOutcome,
     },
+    /// The answer to [`SmsRequest::Remind`].
+    Reminded {
+        /// Whether the phone showed the reminder.
+        posted: bool,
+    },
 }
 
 /// Unsolicited phone → laptop news.
@@ -89,6 +97,13 @@ pub enum SmsPush {
     /// SMS changed in ways the laptop may have missed (the phone's event
     /// queue overflowed): refetch the threads and any open thread.
     Resync,
+    /// Whether the phone has SMS access now: without it nothing can be
+    /// read or sent. Sent when it changes, and to a device that starts
+    /// taking messages while it is missing.
+    Access {
+        /// Access held.
+        granted: bool,
+    },
 }
 
 macro_rules! hide {
@@ -166,7 +181,7 @@ pub fn check_sms_reply(reply: &SmsReply) -> Result<(), LinkError> {
             cap(m.len(), MESSAGE_PAGE)?;
             m.iter().try_for_each(|m| cap(m.text.len(), MAX_SMS_TEXT))
         }
-        SmsReply::SendResult { .. } => Ok(()),
+        SmsReply::SendResult { .. } | SmsReply::Reminded { .. } => Ok(()),
     }
 }
 
@@ -174,7 +189,8 @@ pub fn check_sms_reply(reply: &SmsReply) -> Result<(), LinkError> {
 fn matches(req: &SmsRequest, reply: &SmsReply) -> bool {
     match (req, reply) {
         (SmsRequest::Threads { .. }, SmsReply::ThreadsPage(_))
-        | (SmsRequest::Thread { .. }, SmsReply::ThreadPage(_)) => true,
+        | (SmsRequest::Thread { .. }, SmsReply::ThreadPage(_))
+        | (SmsRequest::Remind, SmsReply::Reminded { .. }) => true,
         (SmsRequest::Send { client_id, .. }, SmsReply::SendResult { client_id: got, .. }) => {
             client_id == got
         }
@@ -185,7 +201,7 @@ fn matches(req: &SmsRequest, reply: &SmsReply) -> bool {
 fn check_push(push: &SmsPush) -> Result<(), LinkError> {
     match push {
         SmsPush::Incoming(m) => cap(m.text.len(), MAX_SMS_TEXT),
-        SmsPush::Stored { .. } | SmsPush::Resync => Ok(()),
+        SmsPush::Stored { .. } | SmsPush::Resync | SmsPush::Access { .. } => Ok(()),
     }
 }
 

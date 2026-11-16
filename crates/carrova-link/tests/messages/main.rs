@@ -301,6 +301,8 @@ fn reply_must_match_request() {
         ),
         (send.clone(), SmsReply::ThreadsPage(vec![])),
         (send, wrong_id),
+        (SmsRequest::Remind, SmsReply::ThreadsPage(vec![])),
+        (threads(), SmsReply::Reminded { posted: true }),
     ] {
         assert!(matches!(
             hostile_phone(&req, &reply),
@@ -347,4 +349,30 @@ fn phone_refuses_hostile_requests_and_pushes() {
         hostile_laptop(&push),
         Err(LinkError::TooBig { .. })
     ));
+}
+
+#[test]
+fn access_push_roundtrip() {
+    let (phone, laptop) = linked();
+    thread::scope(|s| {
+        let rx = s.spawn(|| {
+            let (_, stream) = accept_lane(&laptop, &Open, T).unwrap();
+            let SmsIncoming::Push(got, ack) = recv_sms(stream).unwrap() else {
+                panic!("not a push")
+            };
+            ack.ack().unwrap();
+            got
+        });
+        let push = SmsPush::Access { granted: false };
+        push_sms(&phone, &push).unwrap();
+        assert_eq!(rx.join().unwrap(), push);
+    });
+}
+
+#[test]
+fn remind_roundtrip() {
+    let reply = SmsReply::Reminded { posted: true };
+    let (out, got) = ask(&SmsRequest::Remind, &reply);
+    assert_eq!(got, SmsRequest::Remind);
+    assert_eq!(out.unwrap(), reply);
 }

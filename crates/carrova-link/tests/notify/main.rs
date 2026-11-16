@@ -8,9 +8,9 @@ mod support;
 use std::thread;
 
 use carrova_link::{
-    ActionResult, Incoming, LaneKind, LinkError, MAX_ICON, MAX_NOTE_TEXT, MAX_NOTE_TITLE,
-    MAX_REPLY, MAX_SNAPSHOT, NotifyAction, NotifyMsg, accept_lane, fit_note, fit_snapshot,
-    open_lane, recv_notify, send_action, send_notify,
+    ActionResult, AppEntry, Incoming, LaneKind, LinkError, MAX_APP_NAME, MAX_APPS, MAX_ICON,
+    MAX_NOTE_TEXT, MAX_NOTE_TITLE, MAX_REPLY, MAX_SNAPSHOT, NotifyAction, NotifyMsg, accept_lane,
+    fit_apps, fit_note, fit_snapshot, list_apps, open_lane, recv_notify, send_action, send_notify,
 };
 use carrova_platform::phone::Note;
 use carrova_transport::MAX_FRAME_LEN;
@@ -52,7 +52,7 @@ where
                     ack.ack()?;
                     Ok(m)
                 }
-                Incoming::Action(..) => panic!("expected a message"),
+                _ => panic!("expected a message"),
             }
         });
         send(&a);
@@ -374,7 +374,7 @@ fn reply_result_roundtrip() {
                     assert_eq!(got, action);
                     responder.reply(&ActionResult::Gone).unwrap();
                 }
-                Incoming::Msg(..) => panic!("expected an action"),
+                _ => panic!("expected an action"),
             }
         });
         let result = send_action(&a, &action).unwrap();
@@ -416,4 +416,105 @@ fn oversize_reply_refused_on_receive() {
 fn debug_hides_content() {
     let shown = format!("{:?}", NotifyMsg::Posted(note("secret-text")));
     assert!(!shown.contains("secret-text"));
+}
+
+#[test]
+fn access_roundtrip() {
+    for granted in [false, true] {
+        let msg = NotifyMsg::Access { granted };
+        assert_eq!(got(&msg), msg);
+    }
+}
+
+/// Phone side: answer one action with `result`; the action it got.
+fn act(action: &NotifyAction, result: ActionResult) -> (ActionResult, NotifyAction) {
+    let (a, b) = linked();
+    thread::scope(|s| {
+        let server = s.spawn(|| {
+            let (_, stream) = accept_lane(&b, &Open, T).unwrap();
+            let Incoming::Action(got, responder) = recv_notify(stream).unwrap() else {
+                panic!("expected an action")
+            };
+            responder.reply(&result).unwrap();
+            got
+        });
+        let answer = send_action(&a, action).unwrap();
+        (answer, server.join().unwrap())
+    })
+}
+
+#[test]
+fn remind_roundtrip() {
+    let (answer, got) = act(&NotifyAction::Remind, ActionResult::Done);
+    assert_eq!(got, NotifyAction::Remind);
+    assert_eq!(answer, ActionResult::Done);
+}
+
+fn app(id: &str, name: &str, on: bool) -> AppEntry {
+    AppEntry {
+        app_id: id.into(),
+        app_name: name.into(),
+        on,
+    }
+}
+
+/// A phone answering `list_apps` with `apps`, unchecked.
+fn apps_reply(apps: &[AppEntry]) -> Result<Vec<AppEntry>, LinkError> {
+    let (a, b) = linked();
+    thread::scope(|s| {
+        s.spawn(|| {
+            let (_, stream) = accept_lane(&b, &Open, T).unwrap();
+            let Incoming::ListApps(responder) = recv_notify(stream).unwrap() else {
+                panic!("expected a list request")
+            };
+            let _ = responder.reply(&apps.to_vec());
+        });
+        list_apps(&a)
+    })
+}
+
+#[test]
+fn list_apps_roundtrip() {
+    let apps = vec![
+        app("org.example.chat", "Chat", true),
+        app("com.bank", "Bank", false),
+    ];
+    assert_eq!(apps_reply(&apps).unwrap(), apps);
+}
+
+#[test]
+fn oversize_app_list_refused_on_receipt() {
+    let many: Vec<AppEntry> = (0..=MAX_APPS)
+        .map(|i| app(&format!("a{i}"), "A", true))
+        .collect();
+    let long_name = vec![app("a", &"n".repeat(MAX_APP_NAME + 1), true)];
+    let long_id = vec![app(&"i".repeat(257), "A", true)];
+    for apps in [many, long_name, long_id] {
+        assert!(matches!(apps_reply(&apps), Err(LinkError::TooBig { .. })));
+    }
+}
+
+#[test]
+fn fit_apps_caps_count_names_and_ids() {
+    let mut apps: Vec<AppEntry> = (0..MAX_APPS + 20)
+        .map(|i| app(&format!("a{i}"), "A", true))
+        .collect();
+    apps[0].app_name = "é".repeat(MAX_APP_NAME);
+    apps[1].app_id = "i".repeat(257);
+    let fitted = fit_apps(apps);
+    assert_eq!(fitted.len(), MAX_APPS);
+    assert!(fitted[0].app_name.len() <= MAX_APP_NAME);
+    assert!(fitted[0].app_name.chars().all(|c| c == 'é'));
+    assert!(fitted.iter().all(|a| a.app_id.len() <= 256));
+}
+
+#[test]
+fn debug_hides_app_names() {
+    let entry = app("org.example.secret", "Secret App", true);
+    for shown in [format!("{entry:?}"), format!("{:?}", vec![entry.clone()])] {
+        assert!(
+            !shown.contains("Secret") && !shown.contains("secret"),
+            "{shown}"
+        );
+    }
 }

@@ -33,8 +33,9 @@ pub use messages::{
 };
 pub use name::safe_file_name;
 pub use notify::{
-    ActionResult, Incoming, MAX_ICON, MAX_NOTE_TEXT, MAX_NOTE_TITLE, MAX_REPLY, MAX_SNAPSHOT,
-    NotifyAction, NotifyMsg, fit_note, fit_snapshot, recv_notify, send_action, send_notify,
+    ActionResult, AppEntry, Incoming, MAX_APP_NAME, MAX_APPS, MAX_ICON, MAX_NOTE_TEXT,
+    MAX_NOTE_TITLE, MAX_REPLY, MAX_SNAPSHOT, NotifyAction, NotifyMsg, fit_apps, fit_note,
+    fit_snapshot, list_apps, recv_notify, send_action, send_notify,
 };
 pub use ping::{ping, serve_ping};
 pub use policy::{
