@@ -57,7 +57,7 @@ fn error_report_carries_the_redacted_source_chain_outermost_first() {
 /// callers must keep content out of error messages. This pins the part the
 /// pipeline guarantees.
 #[test]
-fn report_from_phone_failure_has_no_content() {
+fn report_from_phone_failure_hides_numbers() {
     let error = Failure {
         message: "phone reply rejected: sms from +91 98765 43210 and (415) 555-0100",
         source: None,
