@@ -5,7 +5,7 @@ use std::sync::mpsc::{self, RecvTimeoutError, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use zbus::blocking::{Connection, MessageIterator};
+use zbus::blocking::{Connection, MessageIterator, connection::Builder};
 use zbus::message::Type;
 use zbus::zvariant::OwnedObjectPath;
 use zbus::{MatchRule, Message};
@@ -87,8 +87,11 @@ pub(crate) fn install() -> Result<(), PlatformError> {
     if !supported() {
         return Err(PlatformError::Unsupported("install_call_audio"));
     }
-    // No reply timeout: replies are quick, the wait is on signals.
-    let conn = Connection::system().map_err(|e| bus_err(SERVICE, e))?;
+    // Replies are quick, the wait is on signals; still, no call may
+    // outlast the whole install.
+    let conn = Builder::system()
+        .and_then(|b| b.method_timeout(INSTALL_DEADLINE).build())
+        .map_err(|e| bus_err(SERVICE, e))?;
     let deadline = Instant::now() + INSTALL_DEADLINE;
     let run = || {
         let ids = transaction(&conn, "Resolve", &(RESOLVE_FILTER, [PACKAGE]), deadline)?;
