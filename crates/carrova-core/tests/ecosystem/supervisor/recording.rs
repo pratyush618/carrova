@@ -61,6 +61,9 @@ pub struct Phone {
     pub call: CallState,
     /// What `call` becomes once `call_answer` runs (`None`: unchanged).
     pub answered: Option<CallState>,
+    /// What `call_audio_side` reports (read without being recorded: it is
+    /// polled during a call).
+    pub side: AudioSide,
     /// Method names and ids of every phone call made, never content.
     actions: Vec<String>,
 }
@@ -77,6 +80,7 @@ impl Default for Phone {
             audio: CallAudioStatus::Ready,
             call: CallState::Idle,
             answered: None,
+            side: AudioSide::Phone,
             actions: Vec::new(),
         }
     }
@@ -551,5 +555,8 @@ impl Platform for Recording {
     }
     fn call_audio_to(&self, side: AudioSide) -> Result<(), PlatformError> {
         self.record_action(&format!("call_audio_to {side:?}"))
+    }
+    fn call_audio_side(&self) -> Result<AudioSide, PlatformError> {
+        Ok(self.phone().side)
     }
 }

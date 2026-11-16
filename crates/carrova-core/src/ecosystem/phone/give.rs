@@ -26,7 +26,7 @@ use carrova_transport::{Connection, Stream};
 
 use super::NotifyApps;
 use super::apps::outgoing;
-use super::mirror;
+use super::{calls, mirror};
 use crate::cancel::Cancel;
 use crate::ecosystem::supervisor::Shared;
 use crate::error::Result;
@@ -401,14 +401,14 @@ fn answered_on_laptop(p: &dyn Platform, stop: &Cancel) -> Option<bool> {
 /// Serve a `Calls` lane from `device` on its link `generation`: mirror a
 /// phone's call state, or carry out the device's call command.
 pub(crate) fn serve_calls(
-    shared: &Shared,
+    shared: &Arc<Shared>,
     device: DeviceId,
     generation: u64,
     stream: Stream,
 ) -> Result<()> {
     let (command, responder) = match recv_calls(stream)? {
         CallIncoming::State(state, ack) => {
-            mirror::take_call(shared, device, generation, state, ack);
+            calls::take_call(shared, device, generation, state, ack);
             return Ok(());
         }
         CallIncoming::Command(command, responder) => (command, responder),

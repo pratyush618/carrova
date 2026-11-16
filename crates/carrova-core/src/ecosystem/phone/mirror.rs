@@ -17,9 +17,10 @@ use carrova_link::{
     SmsRequest, allowed, request_sms,
 };
 use carrova_platform::ScreenLock;
-use carrova_platform::phone::{CallState, Cursor, Hidden, Note, SmsMessage};
+use carrova_platform::phone::{Cursor, Hidden, Note, SmsMessage};
 
 use super::PhoneSettings;
+use super::calls::{Call, CallView};
 use crate::ecosystem::supervisor::Shared;
 use crate::session::Event;
 
@@ -41,8 +42,8 @@ pub(crate) struct Mirror {
     seeded: bool,
     /// When each app last popped up.
     popped: HashMap<String, Instant>,
-    /// The phone's call, once reported.
-    call: Option<CallState>,
+    /// The phone's call.
+    pub(super) call: Call,
     /// Stored messages of the threads loaded here, newest first.
     threads: HashMap<i64, Vec<SmsMessage>>,
     /// Incoming texts the phone has not stored yet (`id` 0), and when.
@@ -53,7 +54,7 @@ impl std::fmt::Debug for Mirror {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Mirror")
             .field("notes", &self.notes.len())
-            .field("call", &self.call.is_some())
+            .field("call", &self.call.state.is_some())
             .field("threads", &self.threads.len())
             .field("provisional", &self.provisional.len())
             .finish_non_exhaustive()
@@ -79,7 +80,7 @@ impl Mirror {
         match feature {
             Feature::Notifications => !self.notes.is_empty(),
             Feature::Messages => !self.threads.is_empty() || !self.provisional.is_empty(),
-            Feature::Calls => self.call.is_some(),
+            Feature::Calls => self.call.state.is_some(),
             _ => false,
         }
     }
@@ -97,7 +98,7 @@ impl Mirror {
                 self.threads.clear();
                 self.provisional.clear();
             }
-            Feature::Calls => self.call = None,
+            Feature::Calls => self.call = Call::default(),
             _ => {}
         }
         held
@@ -340,17 +341,21 @@ pub(crate) fn shown_now(shared: &Shared, notes: Vec<Note>) -> Vec<Note> {
         .collect()
 }
 
-/// Emit [`Event::PhoneCleared`] for each of `features`.
+/// Emit [`Event::PhoneCleared`] for each of `features` (and
+/// [`CallView::Left`] for calls).
 pub(crate) fn cleared(shared: &Shared, device: DeviceId, features: Vec<Feature>) {
     for feature in features {
         shared.emit(Event::PhoneCleared { device, feature });
+        if feature == Feature::Calls {
+            shared.emit(Event::CallView(CallView::Left { device }));
+        }
     }
 }
 
 /// Run `f` on the mirror of `device`'s link `generation`, if that link is
 /// still live and `feature` is still allowed on both sides (either may
 /// have turned it off since the lane was admitted).
-fn with_mirror<T>(
+pub(super) fn with_mirror<T>(
     shared: &Shared,
     device: DeviceId,
     generation: u64,
@@ -368,7 +373,7 @@ fn with_mirror<T>(
 
 /// Acknowledge a push once applied: only then does the phone send its
 /// next one, so pushes apply (and emit) in the order sent.
-fn ack(pending: Pending) {
+pub(super) fn ack(pending: Pending) {
     if let Err(e) = pending.ack() {
         tracing::debug!(error = %e, "phone push not acknowledged");
     }
@@ -406,24 +411,6 @@ pub(crate) fn take_notify(
                 }
             }
         }
-    }
-    ack(pending);
-}
-
-/// Apply the call state from `device`'s link `generation`, then
-/// acknowledge it.
-pub(crate) fn take_call(
-    shared: &Shared,
-    device: DeviceId,
-    generation: u64,
-    state: CallState,
-    pending: Pending,
-) {
-    let kept = with_mirror(shared, device, generation, Feature::Calls, |m| {
-        m.call = Some(state.clone());
-    });
-    if kept.is_some() {
-        shared.emit(Event::PhoneCall { device, state });
     }
     ack(pending);
 }

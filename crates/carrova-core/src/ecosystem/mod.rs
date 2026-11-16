@@ -28,7 +28,7 @@ pub use features::FileFailure;
 pub use invite::PairInvite;
 pub use pair::{PAIR_CONFIRM_WINDOW, PeerFound, accept_invite, link_with_code, offer_pairing};
 pub use peer::{LinkedPeer, PeerSource, PeerState, PresenceSource, SeenPeer};
-pub use phone::{NotifyApps, PhoneSettings, RingHere};
+pub use phone::{CallView, NotifyApps, PhoneSettings, RingHere};
 pub(crate) use policy::POLICY_DIR;
 pub use policy::PolicyStore;
 pub use supervisor::{HandoffItem, Supervisor, SupervisorConfig};

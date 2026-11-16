@@ -26,8 +26,8 @@ use super::clip_settings::ClipSettings;
 use super::features::{self, FileFailure};
 use super::peer::{Link, LinkedPeer, Peer, PeerSource};
 use super::phone::give::{self, Gives, Job};
-use super::phone::mirror;
 use super::phone::settings::{self, PhoneSettings};
+use super::phone::{calls, mirror};
 use super::retry::Retries;
 use super::{PolicyStore, dial};
 use crate::cancel::Cancel;
@@ -386,15 +386,35 @@ impl Supervisor {
         ))
     }
 
-    /// Ask `device`'s phone to carry out `command` on its call.
+    /// Carry out `command` on `device`'s phone call: keypad tones and the
+    /// audio route here, on this computer's call audio; the rest on the
+    /// phone.
     ///
     /// # Errors
     ///
-    /// [`CoreError::NotLinked`], [`CoreError::FeatureOff`], a command the
-    /// phone never takes (`Tones`, `AudioTo`) or the link failed.
+    /// [`CoreError::NotLinked`], [`CoreError::FeatureOff`] or the link
+    /// failed.
     pub fn call(&self, device: &DeviceId, command: &CallCommand) -> Result<CallReply> {
-        let conn = self.shared.conn(device, Some(Feature::Calls))?;
-        Ok(call_command(&conn, command)?)
+        let (conn, generation) = self.shared.live(device, Some(Feature::Calls))?;
+        let platform = &**self.shared.platform();
+        let done = |r: std::result::Result<(), carrova_platform::PlatformError>| match r {
+            Ok(()) => CallReply::Done,
+            Err(e) => {
+                tracing::debug!(?command, error = %e, "call command failed here");
+                CallReply::Failed
+            }
+        };
+        match command {
+            CallCommand::Tones(digits) => Ok(done(platform.call_tones(digits))),
+            CallCommand::AudioTo(side) => {
+                let reply = done(platform.call_audio_to(*side));
+                if reply == CallReply::Done {
+                    calls::reread_audio(&self.shared, *device, generation, false);
+                }
+                Ok(reply)
+            }
+            _ => Ok(call_command(&conn, command)?),
+        }
     }
 
     /// The user's settings for showing a linked phone here.

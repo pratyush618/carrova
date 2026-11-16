@@ -164,6 +164,7 @@ export function applyEvent(session: SessionProgress, event: EngineEvent): Sessio
     case 'phone_note_gone':
     case 'phone_sms':
     case 'phone_call':
+    case 'call_view':
     case 'phone_cleared':
       return session;
   }

@@ -113,6 +113,7 @@ impl CliSink {
             | Event::PhoneNoteGone { .. }
             | Event::PhoneSms { .. }
             | Event::PhoneCall { .. }
+            | Event::CallView(_)
             | Event::PhoneCleared { .. } => None,
         }
     }

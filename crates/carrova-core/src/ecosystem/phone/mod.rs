@@ -5,10 +5,12 @@
 //! what a phone gives, and the user's settings for showing it.
 
 mod apps;
+pub(super) mod calls;
 pub(super) mod give;
 pub(super) mod mirror;
 mod otp;
 pub(super) mod settings;
 
 pub use apps::NotifyApps;
+pub use calls::CallView;
 pub use settings::{PhoneSettings, RingHere};

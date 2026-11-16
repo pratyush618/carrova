@@ -7,8 +7,8 @@ use std::sync::mpsc::Receiver;
 use std::thread;
 
 use carrova_core::ecosystem::{
-    Answer, ClipSettings, ControlError, ControlRequest, ControlResponse, MAX_CONTROL_MESSAGE,
-    SeenPeer, SharedSupervisor, Supervisor, SupervisorHandle, attach_or_start,
+    Answer, CallView, ClipSettings, ControlError, ControlRequest, ControlResponse,
+    MAX_CONTROL_MESSAGE, SeenPeer, SharedSupervisor, Supervisor, SupervisorHandle, attach_or_start,
     attach_or_start_with,
 };
 use carrova_core::{CoreError, Engine, Event};
@@ -591,6 +591,13 @@ fn control_wire_roundtrip_phase2() {
                 name: Some("Ana".into()),
             },
         },
+        Event::CallView(CallView::Ringing {
+            device,
+            number: "5550100".into(),
+            name: None,
+            ring_here: true,
+        }),
+        Event::CallView(CallView::None),
         Event::PhoneCleared {
             device,
             feature: Feature::Messages,

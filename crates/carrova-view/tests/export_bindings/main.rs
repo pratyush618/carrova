@@ -19,7 +19,7 @@
 
 use std::path::{Path, PathBuf};
 
-use carrova_core::ecosystem::{ClipSettings, PhoneSettings, RingHere};
+use carrova_core::ecosystem::{CallView, ClipSettings, PhoneSettings, RingHere};
 use carrova_core::lan::{Inventory, PlanSummary};
 use carrova_core::plan::SpaceNeed;
 use carrova_core::{
@@ -141,6 +141,7 @@ fn export_typescript_bindings() {
         ClipSettings::export_all,
         PhoneSettings::export_all,
         RingHere::export_all,
+        CallView::export_all,
         Note::export_all,
         Hidden::export_all,
         SmsThread::export_all,

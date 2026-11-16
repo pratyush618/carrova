@@ -8,7 +8,7 @@ use carrova_platform::phone::{CallState, Note, SmsMessage};
 use serde::{Deserialize, Serialize};
 
 use crate::checklist::Checklist;
-use crate::ecosystem::{AskId, AskKind, ClipSkip, FileFailure};
+use crate::ecosystem::{AskId, AskKind, CallView, ClipSkip, FileFailure};
 use crate::key::ItemKey;
 use crate::lan::{Inventory, PlanSummary};
 use crate::session::{Phase, SessionId, State};
@@ -231,6 +231,10 @@ pub enum Event {
         device: DeviceId,
         state: CallState,
     },
+    /// What this computer shows of a linked phone's call now: the one
+    /// source of truth for the ringing window, call window, home bar and
+    /// tray.
+    CallView(CallView),
     /// What this computer held of a linked phone's `feature` was dropped
     /// (link closed, device forgotten, feature off, or the phone asked to
     /// resync): views of it fetch again or close.
