@@ -11,6 +11,8 @@ use std::collections::HashSet;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{
@@ -35,6 +37,11 @@ const PHONE: [Feature; 3] = [Feature::Notifications, Feature::Messages, Feature:
 // shortcut: fixed at the 30-day default; read the user's choice once the
 // phone's Messages screen stores one.
 const SYNC_WINDOW_MS: i64 = 30 * 24 * 60 * 60 * 1000;
+
+/// How long an answered call may take to report itself active.
+const ANSWER_SETTLE: Duration = Duration::from_secs(2);
+/// How often the call state is read meanwhile.
+const ANSWER_POLL: Duration = Duration::from_millis(50);
 
 /// Work for the giving thread.
 #[derive(Debug)]
@@ -352,6 +359,24 @@ fn since_ms() -> i64 {
     now.saturating_mul(1000).saturating_sub(SYNC_WINDOW_MS)
 }
 
+/// Once the answered call is active, whether its audio runs on the laptop;
+/// `None` if it is not active within [`ANSWER_SETTLE`].
+fn answered_on_laptop(p: &dyn Platform) -> Option<bool> {
+    let until = Instant::now() + ANSWER_SETTLE;
+    loop {
+        if let Ok(CallState::Active {
+            on_laptop_audio, ..
+        }) = p.call_state()
+        {
+            return Some(on_laptop_audio);
+        }
+        if Instant::now() >= until {
+            return None;
+        }
+        thread::sleep(ANSWER_POLL);
+    }
+}
+
 /// Serve a `Calls` lane: carry out the device's call command.
 pub(crate) fn serve_calls(platform: &dyn Platform, stream: Stream) -> Result<()> {
     // A state from a phone to this side: the calls controller is not built yet.
@@ -370,15 +395,9 @@ fn call(p: &dyn Platform, command: &CallCommand) -> std::result::Result<CallRepl
         CallCommand::Answer => {
             p.call_answer()?;
             // Answered from a laptop: the phone's speaker, unless the
-            // laptop carries the audio.
-            let on_laptop = matches!(
-                p.call_state(),
-                Ok(CallState::Active {
-                    on_laptop_audio: true,
-                    ..
-                })
-            );
-            if !on_laptop {
+            // laptop carries the audio. Never active in time: unknown, so
+            // the speaker is left alone.
+            if answered_on_laptop(p) == Some(false) {
                 p.call_speaker(true)?;
             }
         }

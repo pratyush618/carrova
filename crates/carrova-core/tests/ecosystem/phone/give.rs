@@ -293,11 +293,26 @@ fn after_answer(phone: &Device) -> Vec<String> {
     actions[at..].to_vec()
 }
 
+/// A phone ringing that, once answered, reports `answered`.
+fn answering(answered: Option<CallState>) -> impl FnOnce(&Device) {
+    move |p| {
+        let mut phone = p.platform.phone();
+        phone.call = ringing();
+        phone.answered = answered;
+    }
+}
+
+fn active(on_laptop_audio: bool) -> CallState {
+    CallState::Active {
+        since_ms: 1,
+        muted: false,
+        on_laptop_audio,
+    }
+}
+
 #[test]
 fn answer_turns_speaker_on() {
-    let (phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], |p| {
-        p.platform.phone().call = ringing();
-    });
+    let (phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], answering(Some(active(false))));
 
     assert_eq!(
         call_command(&laptop.conn, &CallCommand::Answer).unwrap(),
@@ -308,14 +323,23 @@ fn answer_turns_speaker_on() {
 
 #[test]
 fn answer_with_laptop_audio_keeps_speaker_off() {
-    let (phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], |p| {
-        // What the phone reports once answered with the laptop's audio.
-        p.platform.phone().call = CallState::Active {
-            since_ms: 1,
-            muted: false,
-            on_laptop_audio: true,
-        };
-    });
+    let (phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], answering(Some(active(true))));
+
+    assert_eq!(
+        call_command(&laptop.conn, &CallCommand::Answer).unwrap(),
+        CallReply::Done
+    );
+    assert!(
+        !after_answer(&phone)
+            .iter()
+            .any(|a| a.starts_with("call_speaker"))
+    );
+}
+
+#[test]
+fn answer_still_ringing_leaves_speaker_alone() {
+    // The phone never reports the call active: where audio goes is unknown.
+    let (phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], answering(None));
 
     assert_eq!(
         call_command(&laptop.conn, &CallCommand::Answer).unwrap(),

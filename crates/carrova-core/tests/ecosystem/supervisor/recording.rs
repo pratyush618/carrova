@@ -57,6 +57,8 @@ pub struct Phone {
     pub audio: CallAudioStatus,
     /// What `call_state` reports.
     pub call: CallState,
+    /// What `call` becomes once `call_answer` runs (`None`: unchanged).
+    pub answered: Option<CallState>,
     /// Method names and ids of every phone call made, never content.
     actions: Vec<String>,
 }
@@ -72,6 +74,7 @@ impl Default for Phone {
             perms: Vec::new(),
             audio: CallAudioStatus::Ready,
             call: CallState::Idle,
+            answered: None,
             actions: Vec::new(),
         }
     }
@@ -466,7 +469,11 @@ impl Platform for Recording {
         Ok(self.act("sms_send".into()).send_outcome)
     }
     fn call_answer(&self) -> Result<(), PlatformError> {
-        self.record_action("call_answer")
+        let mut phone = self.act("call_answer".into());
+        if let Some(state) = phone.answered.clone() {
+            phone.call = state;
+        }
+        Ok(())
     }
     fn call_decline(&self) -> Result<(), PlatformError> {
         self.record_action("call_decline")
