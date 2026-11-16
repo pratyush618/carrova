@@ -210,6 +210,11 @@ pub fn run() -> tauri::Result<()> {
             commands::phone::call_window,
             commands::phone::phone_settings,
             commands::phone::set_phone_settings,
+            commands::phone::call_audio_step,
+            commands::phone::install_call_audio,
+            commands::phone::set_call_audio_config,
+            commands::phone::phone_perm_step,
+            commands::phone::open_perm_settings,
             #[cfg(desktop)]
             updater::check_update,
             #[cfg(desktop)]

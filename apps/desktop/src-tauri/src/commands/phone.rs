@@ -2,10 +2,11 @@
 
 use carrova_core::ecosystem::{CallView, PhoneSettings};
 use carrova_crypto::identity::DeviceId;
-use carrova_platform::phone::{Cursor, SendOutcome, SmsMessage};
+use carrova_platform::phone::{Cursor, PhonePerm, SendOutcome, SmsMessage};
 use carrova_view::ipc::{CallAction, CallOutcome, NoteAction, NoteOutcome};
 use carrova_view::phone::{
-    CallLogView, CallWindowView, LocalClock, NotesView, ThreadView, ThreadsView,
+    CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, PermStep, ThreadView,
+    ThreadsView,
 };
 use tauri::{AppHandle, State};
 
@@ -117,4 +118,47 @@ pub async fn set_phone_settings(
     settings: PhoneSettings,
 ) -> Result<(), CommandError> {
     ops::phone::set_phone_settings(&state, settings).await
+}
+
+/// `CarrovaPort.callAudioStep`.
+#[tauri::command]
+pub async fn call_audio_step(state: State<'_, AppState>) -> Result<CallSetupStep, CommandError> {
+    ops::phone::call_audio_step(&state).await
+}
+
+/// `CarrovaPort.installCallAudio`.
+#[tauri::command]
+pub async fn install_call_audio(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), CommandError> {
+    reply(&app, ops::phone::install_call_audio(&state).await)
+}
+
+/// `CarrovaPort.setCallAudioConfig`.
+#[tauri::command]
+pub async fn set_call_audio_config(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    on: bool,
+) -> Result<(), CommandError> {
+    reply(&app, ops::phone::set_call_audio_config(&state, on).await)
+}
+
+/// `CarrovaPort.phonePermStep`.
+#[tauri::command]
+pub async fn phone_perm_step(
+    state: State<'_, AppState>,
+    perm: PhonePerm,
+) -> Result<PermStep, CommandError> {
+    ops::phone::phone_perm_step(&state, perm).await
+}
+
+/// `CarrovaPort.openPermSettings`.
+#[tauri::command]
+pub async fn open_perm_settings(
+    state: State<'_, AppState>,
+    perm: PhonePerm,
+) -> Result<(), CommandError> {
+    ops::phone::open_perm_settings(&state, perm).await
 }

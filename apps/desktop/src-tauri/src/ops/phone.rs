@@ -1,21 +1,27 @@
 //! A linked phone on this computer: its notifications, texts and calls,
 //! and the user's settings for showing them. Each call goes to the link
 //! supervisor (as in [`super::ecosystem`]); replies leave as the shared
-//! phone view-models.
+//! phone view-models. The call-audio setup and the phone's permissions
+//! are this device's own: they ask the platform directly.
+
+use std::sync::Arc;
 
 use carrova_core::ecosystem::{CallView, PhoneSettings, SupervisorHandle};
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{CallCommand, CallReply, SmsReply, SmsRequest};
-use carrova_platform::phone::{Cursor, SendOutcome, SmsMessage};
+use carrova_platform::PlatformError;
+use carrova_platform::phone::{CallAudioStatus, Cursor, PhonePerm, SendOutcome, SmsMessage};
 use carrova_view::ipc::{CallAction, CallOutcome, ErrorCode, NoteAction, NoteOutcome};
 use carrova_view::phone::{
-    CallLogView, CallWindowView, LocalClock, NotesView, ThreadView, ThreadsView, call_log_view,
-    call_view, notes_view, thread_view, threads_view, withheld_while_locked,
+    CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, PermStep, ThreadView,
+    ThreadsView, call_audio_view, call_log_view, call_view, notes_view, perm_view, thread_view,
+    threads_view, withheld_while_locked,
 };
 
 use super::ecosystem::with_link;
 use crate::command_error::CommandError;
 use crate::state::AppState;
+use crate::worker::blocking;
 
 /// The phone answered a request with a reply of another kind.
 fn unexpected_reply() -> CommandError {
@@ -172,4 +178,65 @@ pub async fn set_phone_settings(
     settings: PhoneSettings,
 ) -> Result<(), CommandError> {
     with_link(state, move |link| link.set_phone_settings(settings)).await
+}
+
+/// The call-audio setup screen this computer's state calls for. An OS
+/// whose adapter can't tell reports it as unsupported, like one that says so.
+///
+/// # Errors
+///
+/// The OS could not be asked.
+pub async fn call_audio_step(state: &AppState) -> Result<CallSetupStep, CommandError> {
+    let platform = Arc::clone(&state.platform);
+    blocking(move || {
+        let status = match platform.call_audio_status() {
+            Err(PlatformError::Unsupported(_)) => CallAudioStatus::Unsupported,
+            status => status?,
+        };
+        Ok(call_audio_view(status))
+    })
+    .await
+}
+
+/// Install what hands-free call audio needs; the OS asks for the
+/// password. Can take minutes, so it runs on the blocking pool.
+///
+/// # Errors
+///
+/// `cancelled` when the user dismissed the password prompt,
+/// `unsupported` off Linux, the install failure otherwise.
+pub async fn install_call_audio(state: &AppState) -> Result<(), CommandError> {
+    let platform = Arc::clone(&state.platform);
+    blocking(move || Ok(platform.install_call_audio()?)).await
+}
+
+/// Turn this computer's hands-free audio role on (`on`) or off (also
+/// "Set up again"), once the user agreed.
+///
+/// # Errors
+///
+/// `unsupported` off Linux, the OS failure otherwise.
+pub async fn set_call_audio_config(state: &AppState, on: bool) -> Result<(), CommandError> {
+    let platform = Arc::clone(&state.platform);
+    blocking(move || Ok(platform.set_call_audio_config(on)?)).await
+}
+
+/// What the phone shows for `perm`.
+///
+/// # Errors
+///
+/// `unsupported` off a phone, the OS failure otherwise.
+pub async fn phone_perm_step(state: &AppState, perm: PhonePerm) -> Result<PermStep, CommandError> {
+    let platform = Arc::clone(&state.platform);
+    blocking(move || Ok(perm_view(perm, platform.phone_perm(perm)?))).await
+}
+
+/// Open the settings page where the user grants `perm`.
+///
+/// # Errors
+///
+/// As [`phone_perm_step`].
+pub async fn open_perm_settings(state: &AppState, perm: PhonePerm) -> Result<(), CommandError> {
+    let platform = Arc::clone(&state.platform);
+    blocking(move || Ok(platform.open_perm_settings(perm)?)).await
 }
