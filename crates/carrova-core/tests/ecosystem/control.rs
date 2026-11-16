@@ -581,7 +581,7 @@ fn control_wire_roundtrip_phase2() {
         Event::PhoneNote { device, note },
         Event::PhoneNoteGone {
             device,
-            key: "k1".into(),
+            key: "k1".to_owned().into(),
         },
         Event::PhoneSms { device, message },
         Event::PhoneCall {
@@ -619,4 +619,18 @@ fn phone_requests_debug_hides_content() {
         !shown.contains("5550100") && !shown.contains("hunter2"),
         "{shown}"
     );
+}
+
+#[test]
+fn phone_events_debug_hides_note_keys() {
+    let device = Device::new("Phone").id;
+    let key = "0|org.example.secret|1|null|10123".to_owned();
+    let gone = Event::PhoneNoteGone {
+        device,
+        key: key.clone().into(),
+    };
+
+    let shown = format!("{gone:?}");
+
+    assert!(!shown.contains("secret"), "{shown}");
 }

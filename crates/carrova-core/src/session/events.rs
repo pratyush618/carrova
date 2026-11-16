@@ -214,7 +214,8 @@ pub enum Event {
     PhoneNoteGone {
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         device: DeviceId,
-        key: String,
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        key: NoteKey,
     },
     /// A text new to this computer from a linked phone. One with `id` 0 is
     /// provisional (not stored on the phone yet); a stored one (`id` not
@@ -238,6 +239,24 @@ pub enum Event {
         device: DeviceId,
         feature: Feature,
     },
+}
+
+/// A phone notification's key (it names the posting app). Serialised as
+/// the plain string; its `Debug` shows only the length.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct NoteKey(pub String);
+
+impl From<String> for NoteKey {
+    fn from(key: String) -> Self {
+        Self(key)
+    }
+}
+
+impl std::fmt::Debug for NoteKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "NoteKey(<{} bytes>)", self.0.len())
+    }
 }
 
 /// Why a LAN transfer paused.

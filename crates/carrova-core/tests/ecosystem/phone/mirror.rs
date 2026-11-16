@@ -249,7 +249,7 @@ fn removed_note_is_gone() {
     laptop.wait("the note gone", |e| {
         *e == Event::PhoneNoteGone {
             device,
-            key: key.clone(),
+            key: key.clone().into(),
         }
     });
     assert!(sl.notes(&phone.id).unwrap().is_empty());
@@ -279,10 +279,12 @@ fn locked_screen_hides_content() {
         shown,
         Event::PhoneNote {
             device: phone.id,
-            note: hidden
+            note: hidden.clone()
         }
     );
-    // The mirror keeps it whole, for once the screen is unlocked.
+    // The list hides it too; the mirror keeps it whole for once unlocked.
+    assert_eq!(sl.notes(&phone.id).unwrap(), [hidden]);
+    laptop.platform.inner.set_screen_lock(ScreenLock::Unlocked);
     assert_eq!(sl.notes(&phone.id).unwrap(), [posted]);
 }
 
@@ -303,12 +305,13 @@ fn show_when_locked_shows_content() {
         .script_event(PhoneEvent::NotePosted(posted.clone()));
 
     laptop.wait("the pop-up", |e| matches!(e, Event::PhoneNote { .. }));
-    assert_eq!(popped(&laptop), [posted]);
+    assert_eq!(popped(&laptop), std::slice::from_ref(&posted));
+    assert_eq!(sl.notes(&phone.id).unwrap(), [posted]);
 }
 
 #[test]
 fn unknown_lock_fails_closed() {
-    let (phone, _sp, laptop, _sl) = linked(&[NOTES], |_| {});
+    let (phone, _sp, laptop, sl) = linked(&[NOTES], |_| {});
     laptop.platform.inner.set_screen_lock(ScreenLock::Unknown);
     wait_watching(&phone);
 
@@ -320,6 +323,7 @@ fn unknown_lock_fails_closed() {
     assert_eq!(shown.hidden, Some(Hidden::Locked));
     assert!(shown.title.is_empty() && shown.text.is_empty() && shown.app_name.is_empty());
     assert!(shown.icon.is_none());
+    assert_eq!(sl.notes(&phone.id).unwrap(), [shown]);
 }
 
 #[test]
@@ -550,7 +554,10 @@ fn posted_then_removed_leaves_no_note() {
         .script_event(PhoneEvent::NoteRemoved { key: key.clone() });
 
     let device = phone.id;
-    let gone = Event::PhoneNoteGone { device, key };
+    let gone = Event::PhoneNoteGone {
+        device,
+        key: key.into(),
+    };
     laptop.wait("the removal", |e| *e == gone);
     let events = laptop.events();
     let at = |f: &dyn Fn(&Event) -> bool| events.iter().position(f).unwrap();

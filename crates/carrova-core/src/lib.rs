@@ -111,8 +111,8 @@ pub use select::{
     Selection, SelectionEdit, SelectionIssue,
 };
 pub use session::{
-    Event, EventSink, LogSink, NullSink, PauseReason, Phase, Role, RollbackOutcome, SessionId,
-    State, VecSink,
+    Event, EventSink, LogSink, NoteKey, NullSink, PauseReason, Phase, Role, RollbackOutcome,
+    SessionId, State, VecSink,
 };
 pub use store::{CorruptSession, SessionRecord, Source, Store};
 pub use transfer_control::TransferControl;

@@ -295,6 +295,20 @@ fn shown(note: Note, lock: ScreenLock, settings: PhoneSettings) -> Note {
     }
 }
 
+/// `notes` as this computer may show them now (see [`shown`]).
+pub(crate) fn shown_now(shared: &Shared, notes: Vec<Note>) -> Vec<Note> {
+    if notes.is_empty() {
+        return notes;
+    }
+    // Never under the supervisor's lock: the OS may be slow to answer.
+    let lock = shared.platform().screen_lock();
+    let settings = shared.phone_settings();
+    notes
+        .into_iter()
+        .map(|n| shown(n, lock, settings))
+        .collect()
+}
+
 /// Emit [`Event::PhoneCleared`] for each of `features`.
 pub(crate) fn cleared(shared: &Shared, device: DeviceId, features: Vec<Feature>) {
     for feature in features {
@@ -344,7 +358,10 @@ pub(crate) fn take_notify(
     });
     if let Some(changes) = changes {
         for key in changes.gone {
-            shared.emit(Event::PhoneNoteGone { device, key });
+            shared.emit(Event::PhoneNoteGone {
+                device,
+                key: key.into(),
+            });
         }
         if !changes.pop.is_empty() {
             // Read outside the supervisor's lock: the OS may be slow to answer.

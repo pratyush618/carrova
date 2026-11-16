@@ -335,20 +335,23 @@ impl Supervisor {
     }
 
     /// The notifications `device`'s phone shows, newest first (none while
-    /// it is not linked). Held in memory only.
+    /// it is not linked). Held in memory only; while this computer is (or
+    /// may be) locked they carry no content, as in [`Event::PhoneNote`].
     ///
     /// # Errors
     ///
     /// [`CoreError::UnknownDevice`].
     pub fn notes(&self, device: &DeviceId) -> Result<Vec<Note>> {
-        let peers = self.shared.peers();
-        let peer = peers.iter().find(|p| p.id() == *device);
-        let peer = peer.ok_or(CoreError::UnknownDevice)?;
-        Ok(peer
-            .link
-            .as_ref()
-            .map(|l| l.mirror.notes())
-            .unwrap_or_default())
+        let notes = {
+            let peers = self.shared.peers();
+            let peer = peers.iter().find(|p| p.id() == *device);
+            let peer = peer.ok_or(CoreError::UnknownDevice)?;
+            peer.link
+                .as_ref()
+                .map(|l| l.mirror.notes())
+                .unwrap_or_default()
+        };
+        Ok(mirror::shown_now(&self.shared, notes))
     }
 
     /// Carry out `action` on a notification of `device`'s phone (reply,
