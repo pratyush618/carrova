@@ -48,3 +48,9 @@ fn file_mode_0600_and_shape() {
     let reopened = NotifyApps::open(&p).unwrap();
     assert!(!reopened.allowed("org.example.chat") && !reopened.show_text());
 }
+
+#[test]
+fn empty_app_id_is_not_private() {
+    let tmp = tempfile::tempdir().unwrap();
+    assert!(NotifyApps::open(&platform(&tmp)).unwrap().allowed(""));
+}

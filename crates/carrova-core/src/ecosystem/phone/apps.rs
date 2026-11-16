@@ -132,7 +132,7 @@ fn is_private(app_id: &str) -> bool {
     PRIVATE_APPS
         .lines()
         .map(str::trim)
-        .any(|l| !l.starts_with('#') && l == app_id)
+        .any(|l| !l.is_empty() && !l.starts_with('#') && l == app_id)
 }
 
 /// What may leave the phone: `None` if the app is off; a code is withheld
