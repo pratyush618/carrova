@@ -1,6 +1,7 @@
 use super::bluez::{Seen, linked_phone, on_adapter, pair_target};
 use super::ofono::{card_for, tone_modem};
 use super::packagekit::{Outcome, outcome, supported_os};
+use super::pipewire::hands_free_up;
 use super::wireplumber::{self, drop_in, parse_version};
 use super::{AdapterInfo, bus_err, status_from, valid_tones};
 use crate::PlatformError;
@@ -211,4 +212,23 @@ fn bus_errors_keep_only_the_error_name() {
     let text = source.to_string();
     assert!(!text.contains("dev_AA"), "{text}");
     assert!(text.contains("AccessDenied"), "{text}");
+}
+
+/// A `pw-dump` graph: one phone with its hands-free node up, a headphone
+/// on A2DP only.
+const DUMP: &str = include_str!("pw-dump.json");
+
+#[test]
+fn hands_free_node_puts_audio_here() {
+    assert!(hands_free_up(DUMP, "AA:BB:CC:DD:EE:01"));
+    assert!(hands_free_up(DUMP, "aa:bb:cc:dd:ee:01"));
+}
+
+#[test]
+fn no_hands_free_node_leaves_audio_on_the_phone() {
+    // Only an A2DP node, a device with no node, and garbage.
+    assert!(!hands_free_up(DUMP, "AA:BB:CC:DD:EE:02"));
+    assert!(!hands_free_up(DUMP, "AA:BB:CC:DD:EE:03"));
+    assert!(!hands_free_up("not json", "AA:BB:CC:DD:EE:01"));
+    assert!(!hands_free_up("{}", "AA:BB:CC:DD:EE:01"));
 }

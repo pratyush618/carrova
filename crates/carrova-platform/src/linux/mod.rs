@@ -229,6 +229,10 @@ impl Platform for LinuxPlatform {
         call_audio::audio_to(side)
     }
 
+    fn call_audio_side(&self) -> Result<crate::phone::AudioSide, PlatformError> {
+        call_audio::audio_side()
+    }
+
     fn disk(&self, path: &Path) -> Result<DiskInfo, PlatformError> {
         crate::sys::disk(path)
     }

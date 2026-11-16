@@ -22,6 +22,12 @@ pub(crate) fn stdout_of(cmd: &mut Command) -> Option<String> {
     run_bounded(cmd, DEADLINE, OUTPUT_CAP)
 }
 
+/// [`stdout_of`] for a tool that may print up to `cap` bytes.
+#[cfg(target_os = "linux")]
+pub(crate) fn stdout_capped(cmd: &mut Command, cap: usize) -> Option<String> {
+    run_bounded(cmd, DEADLINE, cap)
+}
+
 /// [`stdout_of`] with its limits as parameters.
 fn run_bounded(cmd: &mut Command, limit: Duration, cap: usize) -> Option<String> {
     crate::sys::isolate_tool(cmd);

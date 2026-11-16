@@ -1,0 +1,52 @@
+[
+  {
+    "id": 29,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "suspended",
+      "props": { "node.name": "Dummy-Driver", "object.id": 29 }
+    }
+  },
+  {
+    "id": 61,
+    "type": "PipeWire:Interface:Device",
+    "info": {
+      "props": {
+        "api.bluez5.address": "AA:BB:CC:DD:EE:01",
+        "bluez5.profile": "audio-gateway",
+        "device.api": "bluez5",
+        "media.class": "Audio/Device"
+      }
+    }
+  },
+  {
+    "id": 62,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "running",
+      "props": {
+        "api.bluez5.address": "AA:BB:CC:DD:EE:01",
+        "api.bluez5.profile": "headset-audio-gateway",
+        "device.api": "bluez5",
+        "media.class": "Audio/Source",
+        "node.name": "bluez_input.AA_BB_CC_DD_EE_01.0"
+      }
+    }
+  },
+  {
+    "id": 70,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "suspended",
+      "props": {
+        "api.bluez5.address": "AA:BB:CC:DD:EE:02",
+        "api.bluez5.codec": "ldac",
+        "api.bluez5.profile": "a2dp-sink",
+        "device.api": "bluez5",
+        "media.class": "Audio/Sink",
+        "node.name": "bluez_output.AA_BB_CC_DD_EE_02.1"
+      }
+    }
+  },
+  { "id": 80, "type": "PipeWire:Interface:Node", "info": null }
+]

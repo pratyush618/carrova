@@ -796,4 +796,15 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         let _ = side;
         Err(PlatformError::Unsupported("call_audio_to"))
     }
+
+    /// Where the active call's audio plays now: [`AudioSide::Laptop`] while
+    /// this computer carries the phone's audio link, else
+    /// [`AudioSide::Phone`]. The live route, not whether it could.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where call audio is not supported;
+    /// OS failures otherwise (callers then show [`AudioSide::Phone`]).
+    fn call_audio_side(&self) -> Result<AudioSide, PlatformError> {
+        Err(PlatformError::Unsupported("call_audio_side"))
+    }
 }

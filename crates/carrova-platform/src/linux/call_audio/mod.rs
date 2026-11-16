@@ -16,6 +16,7 @@ use crate::{PlatformError, SemanticRoot};
 mod bluez;
 mod ofono;
 mod packagekit;
+mod pipewire;
 mod wireplumber;
 
 #[cfg(test)]
@@ -147,6 +148,22 @@ pub(super) fn audio_to(side: AudioSide) -> Result<(), PlatformError> {
             ofono::connect_audio(&conn, &address)
         }
     }
+}
+
+/// Where the active call's audio plays: here while PipeWire holds a
+/// hands-free node for the paired phone.
+pub(super) fn audio_side() -> Result<AudioSide, PlatformError> {
+    let conn = system().map_err(|e| bus_err("system bus", e))?;
+    let Some((_, address)) = bluez::phone(&conn).map_err(|e| bus_err(bluez::SERVICE, e))? else {
+        return Ok(AudioSide::Phone);
+    };
+    let dump = pipewire::dump()
+        .ok_or_else(|| PlatformError::io("pw-dump", io::Error::other("PipeWire not readable")))?;
+    Ok(if pipewire::hands_free_up(&dump, &address) {
+        AudioSide::Laptop
+    } else {
+        AudioSide::Phone
+    })
 }
 
 impl LinuxPlatform {
