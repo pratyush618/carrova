@@ -17,8 +17,9 @@ const SERVICE: &str = "org.freedesktop.PackageKit";
 const PATH: &str = "/org/freedesktop/PackageKit";
 const TRANSACTION: &str = "org.freedesktop.PackageKit.Transaction";
 const PACKAGE: &str = "ofono";
-/// Filters `not-installed | newest | arch` (bits of `PkFilterEnum`).
-const RESOLVE_FILTER: u64 = 1 << 3 | 1 << 14 | 1 << 16;
+/// Filters `not-installed | newest | arch`: bits of `PkFilterEnum`
+/// (1.2: `NOT_INSTALLED` = 3, `NEWEST` = 16, `ARCH` = 18).
+const RESOLVE_FILTER: u64 = 1 << 3 | 1 << 16 | 1 << 18;
 /// `PkTransactionFlagEnum` `only-trusted`.
 const ONLY_TRUSTED: u64 = 1 << 1;
 /// `PkExitEnum` values.
