@@ -22,7 +22,7 @@ pub mod path;
 pub mod phone;
 mod platform;
 mod root;
-#[cfg(any(test, target_os = "macos", target_os = "windows"))]
+#[cfg(any(test, target_os = "linux", target_os = "macos", target_os = "windows"))]
 mod tool;
 mod types;
 mod watch;

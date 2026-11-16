@@ -18,6 +18,7 @@ use crate::{
 };
 
 mod background;
+mod call_audio;
 mod clipboard;
 mod file_manager;
 mod mounts;
@@ -202,6 +203,30 @@ impl Platform for LinuxPlatform {
 
     fn screen_lock(&self) -> crate::ScreenLock {
         screen::lock()
+    }
+
+    fn call_audio_status(&self) -> Result<crate::phone::CallAudioStatus, PlatformError> {
+        call_audio::status()
+    }
+
+    fn install_call_audio(&self) -> Result<(), PlatformError> {
+        call_audio::install()
+    }
+
+    fn set_call_audio_config(&self, on: bool) -> Result<(), PlatformError> {
+        self.call_audio_config(on)
+    }
+
+    fn bt_pair(&self, on_passkey: Box<dyn Fn(u32) + Send>) -> Result<(), PlatformError> {
+        call_audio::pair(on_passkey)
+    }
+
+    fn call_tones(&self, digits: &str) -> Result<(), PlatformError> {
+        call_audio::tones(digits)
+    }
+
+    fn call_audio_to(&self, side: crate::phone::AudioSide) -> Result<(), PlatformError> {
+        call_audio::audio_to(side)
     }
 
     fn disk(&self, path: &Path) -> Result<DiskInfo, PlatformError> {
