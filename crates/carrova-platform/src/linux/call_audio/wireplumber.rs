@@ -15,14 +15,12 @@ const CONF: &str = "wireplumber/wireplumber.conf.d/51-carrova-hfp.conf";
 // shortcut: unverified on hardware until spike S4; update from its result
 const LUA_TEXT: &str = r#"-- Written by Carrova: phone calls through this computer (oFono hands-free).
 bluez_monitor.properties["bluez5.hfphsp-backend"] = "ofono"
-bluez_monitor.properties["bluez5.roles"] = "[ a2dp_sink a2dp_source hfp_hf hfp_ag hsp_hs hsp_ag ]"
 "#;
 
 // shortcut: unverified on hardware until spike S4; update from its result
 const CONF_TEXT: &str = r#"# Written by Carrova: phone calls through this computer (oFono hands-free).
 monitor.bluez.properties = {
   bluez5.hfphsp-backend = "ofono"
-  bluez5.roles = [ a2dp_sink a2dp_source hfp_hf hfp_ag hsp_hs hsp_ag ]
 }
 "#;
 

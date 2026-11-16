@@ -45,7 +45,6 @@ fn drop_in_for_04_is_lua() {
         Path::new("wireplumber/bluetooth.lua.d/51-carrova-hfp.lua")
     );
     assert!(text.contains(r#"bluez_monitor.properties["bluez5.hfphsp-backend"] = "ofono""#));
-    assert!(text.contains("hfp_hf"));
 }
 
 #[test]
@@ -59,7 +58,14 @@ fn drop_in_for_05_is_conf() {
         );
         assert!(text.contains("monitor.bluez.properties = {"));
         assert!(text.contains(r#"bluez5.hfphsp-backend = "ofono""#));
-        assert!(text.contains("hfp_hf"));
+    }
+}
+
+#[test]
+fn drop_in_keeps_default_bluetooth_roles() {
+    // An explicit role list is a filter: it would switch off LE Audio.
+    for version in ["0.4.17", "0.5.8"] {
+        assert!(!drop_in(version).1.contains("bluez5.roles"), "{version}");
     }
 }
 
