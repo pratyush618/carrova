@@ -15,3 +15,12 @@ fn otp_not_detected_in_prices() {
     let far = format!("code{}1234", " ".repeat(40));
     assert!(!looks_like_code(&far));
 }
+
+#[test]
+fn code_words_need_word_boundaries() {
+    assert!(!looks_like_code("Shopping total 1299"));
+    assert!(!looks_like_code("Shipping update: order 12345678"));
+    assert!(!looks_like_code("Your barcode 12345678"));
+    assert!(looks_like_code("Your security code is 123456"));
+    assert!(looks_like_code("(code)123456"));
+}
