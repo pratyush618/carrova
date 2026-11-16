@@ -54,3 +54,7 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 ## 2026-11-16 — Commit scopes outside the commitlint list
 - **What happened:** docs commits used scopes `lessons`, `mockups` and `plan`. commitlint allows only the scope-enum (crate names, `cli`, `desktop`, `tauri`, `android`, `docs`, `adr`, `spec`, `repo`, …), so 5 commits had to be re-created before the PR could be pushed.
 - **Rule:** before committing, check the scope against `commitlint.config.*` (`docs` with no scope, or `docs(spec)` for specs, plans and mockups). Put the allowed list in every brief that commits.
+
+## 2026-11-16 — oomd killed Chrome while CI linked under swap thrash
+- **What happened:** `just ci` (2 jobs, cap raised to 7G) linked desktop + CLI while about 4 GB sat in swap. Memory PSI stayed around 40–50 for minutes, IO PSI reached 84, and systemd-oomd killed the user's Chrome scope (24 processes). The CI unit was under its cap, so raising the cap was the wrong fix. I watched the alerts instead of stopping CI.
+- **Rule:** sustained memory PSI ≥ 40 for 30 s, or swap in/out with IO PSI ≥ 50, means stop the CI unit at once, whatever its cap. Run CI with `CARGO_BUILD_JOBS=1` and `-p MemorySwapMax=0` when swap is above 1 GB at launch. Never let a monitor alert pass without acting or saying why not.
