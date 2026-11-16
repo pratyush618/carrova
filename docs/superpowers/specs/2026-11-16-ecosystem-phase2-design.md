@@ -132,9 +132,12 @@ for reading or sending phone data (the CLI only switches the features, see
   `content://sms`; the callback URI may be null, so it is not used to
   find the thread). The phone keeps the set of pending threads: each
   `SMS_RECEIVED` adds its `thread_id` (from `getOrCreateThreadId`) with
-  the receive time. 500 ms after the last provider change it queries,
-  for each pending thread, whether an inbox row dated at or after that
-  receive time now exists, and emits one `PhoneEvent::SmsStored
+  the receive time, and schedules the same check, because the default
+  SMS app gets `SMS_DELIVER` first and may already have stored the row
+  (and fired its provider change) before Carrova's `SMS_RECEIVED`. 500 ms
+  after the last provider change or new pending entry it queries, for
+  each pending thread, whether an inbox row dated at or after the receive
+  time minus 5 s (slack for rows stored before the broadcast) exists, and emits one `PhoneEvent::SmsStored
   { thread_id }` per thread that has one, removing it from the set
   (entries older than 10 s are dropped). The phone forwards each as
   `SmsPush::Stored { thread_id }`; the laptop then refetches that
