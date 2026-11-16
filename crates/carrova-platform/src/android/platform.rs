@@ -280,19 +280,21 @@ impl Platform for AndroidPlatform {
     }
 
     fn active_notes(&self) -> Result<Vec<Note>, PlatformError> {
-        phone::active_notes()
+        phone::guarded(PhonePerm::NotificationAccess, phone::active_notes)
     }
 
     fn note_reply(&self, key: &str, text: &str) -> Result<bool, PlatformError> {
-        phone::note_reply(key, text)
+        phone::guarded(PhonePerm::NotificationAccess, || {
+            phone::note_reply(key, text)
+        })
     }
 
     fn note_dismiss(&self, key: &str) -> Result<(), PlatformError> {
-        phone::note_dismiss(key)
+        phone::guarded(PhonePerm::NotificationAccess, || phone::note_dismiss(key))
     }
 
     fn note_open(&self, key: &str) -> Result<(), PlatformError> {
-        phone::note_open(key)
+        phone::guarded(PhonePerm::NotificationAccess, || phone::note_open(key))
     }
 
     fn sms_threads(
@@ -301,7 +303,9 @@ impl Platform for AndroidPlatform {
         limit: usize,
         since_ms: Option<i64>,
     ) -> Result<Vec<SmsThread>, PlatformError> {
-        phone::sms_threads(before, limit, since_ms)
+        phone::guarded(PhonePerm::Sms, || {
+            phone::sms_threads(before, limit, since_ms)
+        })
     }
 
     fn sms_thread(
@@ -310,23 +314,23 @@ impl Platform for AndroidPlatform {
         before: Option<Cursor>,
         limit: usize,
     ) -> Result<Vec<SmsMessage>, PlatformError> {
-        phone::sms_thread(id, before, limit)
+        phone::guarded(PhonePerm::Sms, || phone::sms_thread(id, before, limit))
     }
 
     fn sms_send(&self, to: &str, text: &str) -> Result<SendOutcome, PlatformError> {
-        phone::sms_send(to, text)
+        phone::guarded(PhonePerm::Sms, || phone::sms_send(to, text))
     }
 
     fn call_answer(&self) -> Result<(), PlatformError> {
-        phone::call_answer()
+        phone::guarded(PhonePerm::Calls, phone::call_answer)
     }
 
     fn call_decline(&self) -> Result<(), PlatformError> {
-        phone::call_decline()
+        phone::guarded(PhonePerm::Calls, phone::call_decline)
     }
 
     fn call_end(&self) -> Result<(), PlatformError> {
-        phone::call_end()
+        phone::guarded(PhonePerm::Calls, phone::call_end)
     }
 
     fn call_mute(&self, on: bool) -> Result<(), PlatformError> {
@@ -334,7 +338,7 @@ impl Platform for AndroidPlatform {
     }
 
     fn call_dial(&self, number: &str) -> Result<(), PlatformError> {
-        phone::call_dial(number)
+        phone::guarded(PhonePerm::Calls, || phone::call_dial(number))
     }
 
     fn call_speaker(&self, on: bool) -> Result<(), PlatformError> {
@@ -346,11 +350,11 @@ impl Platform for AndroidPlatform {
         before: Option<Cursor>,
         limit: usize,
     ) -> Result<Vec<CallRecord>, PlatformError> {
-        phone::call_history(before, limit)
+        phone::guarded(PhonePerm::Calls, || phone::call_history(before, limit))
     }
 
     fn call_state(&self) -> Result<CallState, PlatformError> {
-        phone::call_state()
+        phone::guarded(PhonePerm::Calls, phone::call_state)
     }
 
     fn phone_perm(&self, p: PhonePerm) -> Result<PermState, PlatformError> {

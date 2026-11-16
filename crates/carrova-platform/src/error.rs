@@ -41,6 +41,11 @@ pub enum PlatformError {
     #[error("Android call {call} failed: {cause}")]
     Android { call: &'static str, cause: String },
 
+    /// A phone feature needs a permission the user has not granted (or
+    /// Android's restricted settings hold back); names the kind only.
+    #[error("phone permission missing: {0:?}")]
+    PermissionDenied(crate::phone::PhonePerm),
+
     /// I/O failure on a specific path.
     #[error("I/O error on {path}: {source}")]
     Io {

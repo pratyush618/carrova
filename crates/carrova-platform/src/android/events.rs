@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
 use crate::PlatformError;
-use crate::phone::{CallState, Note, PhoneEvent, SmsMessage};
+use crate::phone::{CallState, Note, PhoneEvent, PhonePerm, SmsMessage};
 
 /// An event as `Events.kt` writes it: `{"type": "...", fields...}`.
 #[derive(Deserialize)]
@@ -69,11 +69,23 @@ pub(super) fn parse(json: &str) -> Result<Option<PhoneEvent>, PlatformError> {
 /// [`PlatformError::Android`] if `json` is not a call event.
 pub(super) fn call_state(json: &str) -> Result<CallState, PlatformError> {
     match parse(json)? {
-        Some(PhoneEvent::Call(state)) => Ok(state),
+        // `Calls.state` reports what is, never a call that ended.
+        Some(PhoneEvent::Call(state)) if !matches!(state, CallState::Ended { .. }) => Ok(state),
         _ => Err(PlatformError::Android {
             call: "Calls.state",
             cause: "not a call state".into(),
         }),
+    }
+}
+
+/// `err` as [`PlatformError::PermissionDenied`] for `perm` when Java threw a
+/// `SecurityException` (a permission revoked after the check); else as is.
+pub(super) fn denied_as(perm: PhonePerm, err: PlatformError) -> PlatformError {
+    match err {
+        PlatformError::Android { ref cause, .. } if cause.ends_with("SecurityException") => {
+            PlatformError::PermissionDenied(perm)
+        }
+        err => err,
     }
 }
 
