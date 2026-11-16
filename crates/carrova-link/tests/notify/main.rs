@@ -252,6 +252,71 @@ fn sender_refuses_oversize_before_sending() {
     ));
 }
 
+fn long_key() -> String {
+    "k".repeat(257)
+}
+
+/// Every frame variant that carries a notification key, with that key over-long.
+fn long_key_messages() -> [NotifyMsg; 1] {
+    [NotifyMsg::Removed { key: long_key() }]
+}
+
+fn long_key_actions() -> [NotifyAction; 3] {
+    [
+        NotifyAction::Dismiss { key: long_key() },
+        NotifyAction::Open { key: long_key() },
+        NotifyAction::Reply {
+            key: long_key(),
+            text: "hi".into(),
+        },
+    ]
+}
+
+#[test]
+fn sender_refuses_long_keys() {
+    let (a, _b) = linked();
+    for msg in long_key_messages() {
+        assert!(matches!(
+            send_notify(&a, &msg),
+            Err(LinkError::TooBig { .. })
+        ));
+    }
+    for action in long_key_actions() {
+        assert!(matches!(
+            send_action(&a, &action),
+            Err(LinkError::TooBig { .. })
+        ));
+    }
+}
+
+#[test]
+fn receiver_refuses_long_keys() {
+    #[derive(Serialize)]
+    enum RawFrame {
+        Msg(NotifyMsg),
+        Action(NotifyAction),
+    }
+    let raw = |frame: RawFrame| {
+        let (a, b) = linked();
+        thread::scope(|s| {
+            let server = s.spawn(|| {
+                let (_, stream) = accept_lane(&b, &Open, T).unwrap();
+                recv_notify(stream)
+            });
+            let mut stream = open_lane(&a, LaneKind::Notify).unwrap();
+            stream.send(&frame).unwrap();
+            server.join().unwrap()
+        })
+    };
+    let frames = long_key_messages()
+        .map(RawFrame::Msg)
+        .into_iter()
+        .chain(long_key_actions().map(RawFrame::Action));
+    for frame in frames {
+        assert!(matches!(raw(frame), Err(LinkError::TooBig { .. })));
+    }
+}
+
 #[test]
 fn fit_cuts_on_char_boundary() {
     // 4095 ASCII bytes then a 3-byte char straddling the 4096 edge.

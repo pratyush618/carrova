@@ -194,8 +194,14 @@ fn check_frame(frame: &NotifyFrame) -> Result<(), LinkError> {
             check(notes.len(), MAX_SNAPSHOT)?;
             notes.iter().try_for_each(check_note)
         }
-        NotifyFrame::Action(NotifyAction::Reply { text, .. }) => check(text.len(), MAX_REPLY),
-        _ => Ok(()),
+        NotifyFrame::Msg(NotifyMsg::Removed { key })
+        | NotifyFrame::Action(NotifyAction::Dismiss { key } | NotifyAction::Open { key }) => {
+            check(key.len(), MAX_ID)
+        }
+        NotifyFrame::Action(NotifyAction::Reply { key, text }) => {
+            check(key.len(), MAX_ID)?;
+            check(text.len(), MAX_REPLY)
+        }
     }
 }
 
