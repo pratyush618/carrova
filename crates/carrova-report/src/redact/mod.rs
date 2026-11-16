@@ -1,7 +1,8 @@
 //! Redaction of free text (error messages, panic payloads) before it is
 //! stored or shown in a report.
 //!
-//! Text is split into words at delimiters ([`lex`]); delimiters are kept
+//! Phone numbers span words, so they are replaced first ([`phone`]). Then
+//! text is split into words at delimiters ([`lex`]); delimiters are kept
 //! verbatim. Each word is checked, in order, first match wins:
 //!
 //! 1. the value of a secret key (`password=…`, `Bearer …`) →
@@ -24,6 +25,7 @@
 mod home;
 mod keyed;
 mod lex;
+mod phone;
 mod rules;
 mod url;
 
@@ -79,6 +81,7 @@ impl Redactor {
             .map(|rule| (rule.name, rule.replacement));
         keyed
             .chain([("URL credentials", url::CREDENTIALS)])
+            .chain([("phone number", phone::PLACEHOLDER)])
             .chain([("path under the home directory", "~/<path>")])
             .chain(tokens)
             .chain([("user name", USER_PLACEHOLDER)])
@@ -87,9 +90,10 @@ impl Redactor {
     /// Returns `text` with every sensitive word replaced by a placeholder.
     #[must_use]
     pub fn redact(&self, text: &str) -> String {
+        let text = phone::redact(text);
         let mut out = String::with_capacity(text.len());
         let mut tracker = keyed::Tracker::default();
-        for piece in lex::pieces(text) {
+        for piece in lex::pieces(&text) {
             match piece {
                 Piece::Delimiter(ch) => {
                     tracker.delimiter(ch);
