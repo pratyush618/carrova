@@ -143,6 +143,9 @@ impl Giver<'_> {
         if want.is_empty() {
             self.watch = None;
             self.tried.clear();
+            // Removals go unseen while unwatched: a later one must not
+            // withdraw a note sent before.
+            self.sent.clear();
             return;
         }
         if self.watch.is_some() || want == self.tried {

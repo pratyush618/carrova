@@ -244,6 +244,39 @@ fn note_of_an_app_turned_off_is_withdrawn() {
 }
 
 #[test]
+fn notes_sent_before_the_watch_stopped_are_forgotten() {
+    let (phone, sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |_| {});
+    wait_watching(&phone);
+    let post = |key: &str, app: &str| {
+        phone
+            .platform
+            .script_event(PhoneEvent::NotePosted(note(key, app)));
+    };
+    post("c", "org.example.chat");
+    laptop.wait_got(2);
+    // Unwatched, its removal on the phone would go unseen.
+    sp.set_feature(&laptop.device.id, NOTES, FeatureState::Off)
+        .unwrap();
+    wait_until("the watch stopped", || !phone.platform.watching());
+    sp.set_feature(&laptop.device.id, NOTES, FeatureState::On)
+        .unwrap();
+    laptop.wait_got(3);
+    wait_watching(&phone);
+
+    let mut apps = NotifyApps::open(&*phone.platform).unwrap();
+    apps.set(&*phone.platform, "org.example.chat", false)
+        .unwrap();
+    post("c", "org.example.chat");
+    post("d", "org.example.mail");
+
+    let got = laptop.wait_got(4);
+    assert_eq!(
+        got[3],
+        Got::Notify(NotifyMsg::Posted(note("d", "org.example.mail")))
+    );
+}
+
+#[test]
 fn phone_policy_off_blocks_even_if_laptop_on() {
     let (phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[NOTES, CALLS], |p| {
         p.platform.phone().notes = vec![note("k1", "org.example.chat")];
