@@ -173,6 +173,9 @@ fn with_arg<T>(
     })
 }
 
-fn string(env: &mut JNIEnv<'_>, value: JValueOwned<'_>) -> ::jni::errors::Result<String> {
+pub(super) fn string(
+    env: &mut JNIEnv<'_>,
+    value: JValueOwned<'_>,
+) -> ::jni::errors::Result<String> {
     Ok(env.get_string(&JString::from(value.l()?))?.into())
 }

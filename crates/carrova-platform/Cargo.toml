@@ -35,6 +35,8 @@ wl-clipboard-rs = { workspace = true }
 # Clipboard, Downloads, ring, multicast lock through Kotlin glue (ADR 0003).
 jni = { workspace = true }
 ndk-context = { workspace = true }
+# Phone events and lists arrive from the glue as JSON.
+serde_json = { workspace = true }
 
 # Directory watch (FSEvents, ReadDirectoryChangesW).
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]

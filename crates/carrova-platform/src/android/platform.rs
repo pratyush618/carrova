@@ -11,7 +11,11 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use super::files::{self, MediaStoreSink};
-use super::{clipboard, net, ring, scan, service};
+use super::{clipboard, net, phone, ring, scan, service};
+use crate::phone::{
+    CallRecord, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch, SendOutcome, SmsMessage,
+    SmsThread,
+};
 use crate::sys;
 use crate::{
     Allocation, ClipContent, DirEntry, DiskInfo, DownloadSink, FileLock, FileMeta, FsId,
@@ -266,5 +270,90 @@ impl Platform for AndroidPlatform {
 
     fn scan_qr(&self) -> Result<Option<String>, PlatformError> {
         scan::scan_qr()
+    }
+
+    fn watch_phone_events(
+        &self,
+        on_event: Box<dyn Fn(PhoneEvent) + Send>,
+    ) -> Result<PhoneWatch, PlatformError> {
+        phone::watch(on_event)
+    }
+
+    fn active_notes(&self) -> Result<Vec<Note>, PlatformError> {
+        phone::active_notes()
+    }
+
+    fn note_reply(&self, key: &str, text: &str) -> Result<bool, PlatformError> {
+        phone::note_reply(key, text)
+    }
+
+    fn note_dismiss(&self, key: &str) -> Result<(), PlatformError> {
+        phone::note_dismiss(key)
+    }
+
+    fn note_open(&self, key: &str) -> Result<(), PlatformError> {
+        phone::note_open(key)
+    }
+
+    fn sms_threads(
+        &self,
+        before_ms: Option<i64>,
+        limit: usize,
+        since_ms: Option<i64>,
+    ) -> Result<Vec<SmsThread>, PlatformError> {
+        phone::sms_threads(before_ms, limit, since_ms)
+    }
+
+    fn sms_thread(
+        &self,
+        id: i64,
+        before_ms: Option<i64>,
+        limit: usize,
+    ) -> Result<Vec<SmsMessage>, PlatformError> {
+        phone::sms_thread(id, before_ms, limit)
+    }
+
+    fn sms_send(&self, to: &str, text: &str) -> Result<SendOutcome, PlatformError> {
+        phone::sms_send(to, text)
+    }
+
+    fn call_answer(&self) -> Result<(), PlatformError> {
+        phone::call_answer()
+    }
+
+    fn call_decline(&self) -> Result<(), PlatformError> {
+        phone::call_decline()
+    }
+
+    fn call_end(&self) -> Result<(), PlatformError> {
+        phone::call_end()
+    }
+
+    fn call_mute(&self, on: bool) -> Result<(), PlatformError> {
+        phone::call_mute(on)
+    }
+
+    fn call_dial(&self, number: &str) -> Result<(), PlatformError> {
+        phone::call_dial(number)
+    }
+
+    fn call_speaker(&self, on: bool) -> Result<(), PlatformError> {
+        phone::call_speaker(on)
+    }
+
+    fn call_history(
+        &self,
+        before_ms: Option<i64>,
+        limit: usize,
+    ) -> Result<Vec<CallRecord>, PlatformError> {
+        phone::call_history(before_ms, limit)
+    }
+
+    fn phone_perm(&self, p: PhonePerm) -> Result<PermState, PlatformError> {
+        phone::phone_perm(p)
+    }
+
+    fn open_perm_settings(&self, p: PhonePerm) -> Result<(), PlatformError> {
+        phone::open_perm_settings(p)
     }
 }
