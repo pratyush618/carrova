@@ -1,7 +1,7 @@
 //! One request, one reply on a fresh lane: the shape the phone lanes share.
 //!
 //! Wire (opener = asker), frames are length + CBOR: asker → `Q`; server acts,
-//! then → `R` and finishes.
+//! then → `R` (a reply) or `()` (an ack of a one-way frame) and finishes.
 
 use std::marker::PhantomData;
 use std::time::Duration;
@@ -30,23 +30,46 @@ pub fn request<Q: Serialize, R: DeserializeOwned>(
     Ok(stream.recv(wait)?)
 }
 
-/// Read the request on an accepted lane; answer it later through the
-/// returned [`Responder`].
+/// Read the first frame on an accepted lane. The returned [`Pending`] then
+/// either acknowledges it ([`Pending::ack`], for one-way pushes) or turns
+/// into a typed [`Responder`] (for requests), so one lane kind can carry
+/// both.
 ///
 /// # Errors
 ///
-/// [`LinkError`] if no well-formed request arrives in time.
-pub fn serve<Q: DeserializeOwned, R: Serialize>(
-    mut stream: Stream,
-) -> Result<(Q, Responder<R>), LinkError> {
-    let request = stream.recv(FRAME_TIMEOUT)?;
-    Ok((
-        request,
+/// [`LinkError`] if no well-formed frame arrives in time.
+pub fn serve<Q: DeserializeOwned>(mut stream: Stream) -> Result<(Q, Pending), LinkError> {
+    let frame = stream.recv(FRAME_TIMEOUT)?;
+    Ok((frame, Pending { stream }))
+}
+
+/// An accepted lane whose first frame was read and not yet answered.
+#[derive(Debug)]
+pub struct Pending {
+    stream: Stream,
+}
+
+impl Pending {
+    /// Acknowledge a one-way frame with `()` and close the lane; the sender
+    /// reads it with [`request`]`::<_, ()>`.
+    ///
+    /// # Errors
+    ///
+    /// [`LinkError`] if the peer is gone.
+    pub fn ack(mut self) -> Result<(), LinkError> {
+        self.stream.send(&())?;
+        self.stream.finish()?;
+        Ok(())
+    }
+
+    /// The responder for a request whose reply type is `R`.
+    #[must_use]
+    pub fn responder<R: Serialize>(self) -> Responder<R> {
         Responder {
-            stream,
+            stream: self.stream,
             reply: PhantomData,
-        },
-    ))
+        }
+    }
 }
 
 /// The open lane a request came in on, waiting for its one reply.

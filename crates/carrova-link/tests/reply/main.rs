@@ -18,11 +18,29 @@ fn request_gets_the_servers_reply() {
         let server = s.spawn(|| {
             let (kind, stream) = accept_lane(&b, &Open, T).unwrap();
             assert_eq!(kind, LaneKind::Ping);
-            let (asked, responder) = serve::<u32, String>(stream).unwrap();
-            responder.reply(&format!("got {asked}")).unwrap();
+            let (asked, pending) = serve::<u32>(stream).unwrap();
+            pending
+                .responder::<String>()
+                .reply(&format!("got {asked}"))
+                .unwrap();
         });
         let answer: String = request(&a, LaneKind::Ping, &7_u32, T).unwrap();
         server.join().unwrap();
         assert_eq!(answer, "got 7");
+    });
+}
+
+#[test]
+fn ack_answers_a_one_way_frame() {
+    let (a, b) = linked();
+    thread::scope(|s| {
+        let server = s.spawn(|| {
+            let (_, stream) = accept_lane(&b, &Open, T).unwrap();
+            let (pushed, pending) = serve::<u32>(stream).unwrap();
+            pending.ack().unwrap();
+            pushed
+        });
+        request::<u32, ()>(&a, LaneKind::Ping, &9, T).unwrap();
+        assert_eq!(server.join().unwrap(), 9);
     });
 }

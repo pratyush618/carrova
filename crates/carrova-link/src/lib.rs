@@ -26,5 +26,5 @@ pub use ping::{ping, serve_ping};
 pub use policy::{
     Feature, FeatureState, Group, PolicyDoc, PolicyUpdate, allowed, recv_policy, send_policy,
 };
-pub use reply::{Responder, request, serve};
+pub use reply::{Pending, Responder, request, serve};
 pub use ring::{RING_SECONDS, RingMsg, recv_ring, send_ring};
