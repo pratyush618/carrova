@@ -391,6 +391,18 @@ pub(crate) fn serve_calls(platform: &dyn Platform, stream: Stream) -> Result<()>
 }
 
 fn call(p: &dyn Platform, command: &CallCommand) -> std::result::Result<CallReply, PlatformError> {
+    // Refuse a command the call cannot take before touching it.
+    if let CallCommand::Answer | CallCommand::Decline | CallCommand::End = command {
+        let state = p.call_state()?;
+        let ringing = matches!(state, CallState::Ringing { .. });
+        let live = ringing || matches!(state, CallState::Active { .. });
+        if !ringing && !matches!(command, CallCommand::End) {
+            return Ok(CallReply::NotRinging);
+        }
+        if !live {
+            return Ok(CallReply::NoCall);
+        }
+    }
     match command {
         CallCommand::Answer => {
             p.call_answer()?;

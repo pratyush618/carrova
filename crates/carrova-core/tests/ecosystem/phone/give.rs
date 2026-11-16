@@ -353,6 +353,37 @@ fn answer_still_ringing_leaves_speaker_alone() {
 }
 
 #[test]
+fn answer_or_decline_with_nothing_ringing_reports_not_ringing() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], |_| {});
+
+    for command in [CallCommand::Answer, CallCommand::Decline] {
+        assert_eq!(
+            call_command(&laptop.conn, &command).unwrap(),
+            CallReply::NotRinging
+        );
+    }
+    let actions = phone.platform.actions();
+    assert!(
+        !actions
+            .iter()
+            .any(|a| a == "call_answer" || a == "call_decline")
+    );
+}
+
+#[test]
+fn end_with_no_call_reports_no_call() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], |p| {
+        p.platform.phone().call = CallState::Ended { missed: false };
+    });
+
+    assert_eq!(
+        call_command(&laptop.conn, &CallCommand::End).unwrap(),
+        CallReply::NoCall
+    );
+    assert!(!phone.platform.actions().contains(&"call_end".to_owned()));
+}
+
+#[test]
 fn watch_stops_when_no_feature_on() {
     let (phone, sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |_| {});
     wait_watching(&phone);
