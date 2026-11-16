@@ -6,6 +6,8 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::watch::StopGuard;
+
 /// A notification posted on the phone.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -248,6 +250,46 @@ pub enum PermState {
     Denied,
     /// Blocked by Android's restricted settings until the user allows them.
     Restricted,
+}
+
+/// Whether this computer can carry a phone call's audio over Bluetooth,
+/// or what stands in the way.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub enum CallAudioStatus {
+    /// No Bluetooth adapter.
+    NoAdapter,
+    /// Bluetooth is switched off.
+    BluetoothOff,
+    /// The audio stack offers no hands-free role.
+    NoHandsFree,
+    /// A package providing the hands-free role is not installed.
+    NeedsPackage,
+    /// The phone is not paired over Bluetooth yet.
+    NeedsPairing,
+    /// Call audio can run here.
+    Ready,
+    /// This OS cannot carry call audio.
+    Unsupported,
+}
+
+/// The phone's events being watched, until the guard is dropped. Dropping
+/// it stops the watch, so the event callback is never called afterwards.
+#[derive(Debug)]
+#[must_use = "the watch stops as soon as the guard is dropped"]
+pub struct PhoneWatch {
+    _stop: StopGuard,
+}
+
+impl PhoneWatch {
+    /// Guard that runs `stop` (end the watch, wait for it) on drop. Public
+    /// so adapters and test fakes outside this crate can return one.
+    pub fn new(stop: impl FnOnce() + Send + 'static) -> Self {
+        Self {
+            _stop: StopGuard::new(stop),
+        }
+    }
 }
 
 // Debug for the types that carry personal content prints ids, flags and byte

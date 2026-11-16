@@ -7,6 +7,10 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use std::time::Duration;
 
+use crate::phone::{
+    AudioSide, CallAudioStatus, CallRecord, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch,
+    SendOutcome, SmsMessage, SmsThread,
+};
 use crate::{
     Allocation, ClipContent, ClipboardWatch, DirEntry, DirWatch, DiskInfo, DownloadSink, FileLock,
     FileManagerStatus, FileMeta, FsId, LanInterface, LinkNotice, LocalListener, LocalStream,
@@ -543,5 +547,240 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     /// is; `None` if the user cancelled.
     fn scan_qr(&self) -> Result<Option<String>, PlatformError> {
         Err(PlatformError::Unsupported("scan_qr"))
+    }
+
+    // ---- Ecosystem Phase 2: phone notifications, SMS, calls, call audio ----
+    // Default bodies return `Unsupported` so stub adapters stay honest.
+
+    /// Call `on_event` (on a thread the watch owns) with each event the
+    /// phone reports, until the returned guard drops.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where there is no phone to watch.
+    fn watch_phone_events(
+        &self,
+        on_event: Box<dyn Fn(PhoneEvent) + Send>,
+    ) -> Result<PhoneWatch, PlatformError> {
+        let _ = on_event;
+        Err(PlatformError::Unsupported("watch_phone_events"))
+    }
+
+    /// The notifications posted on the phone now.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn active_notes(&self) -> Result<Vec<Note>, PlatformError> {
+        Err(PlatformError::Unsupported("active_notes"))
+    }
+
+    /// Reply `text` inline to the notification `key`; `false` when it is
+    /// gone (or no longer offers a reply).
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn note_reply(&self, key: &str, text: &str) -> Result<bool, PlatformError> {
+        let _ = (key, text);
+        Err(PlatformError::Unsupported("note_reply"))
+    }
+
+    /// Dismiss the notification `key`; a gone one is no error.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn note_dismiss(&self, key: &str) -> Result<(), PlatformError> {
+        let _ = key;
+        Err(PlatformError::Unsupported("note_dismiss"))
+    }
+
+    /// Open the notification `key` on the phone, as a tap would.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn note_open(&self, key: &str) -> Result<(), PlatformError> {
+        let _ = key;
+        Err(PlatformError::Unsupported("note_open"))
+    }
+
+    /// Up to `limit` SMS threads, newest first: only those last active
+    /// before `before_ms` (a page) and after `since_ms` (a refresh).
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn sms_threads(
+        &self,
+        before_ms: Option<i64>,
+        limit: usize,
+        since_ms: Option<i64>,
+    ) -> Result<Vec<SmsThread>, PlatformError> {
+        let _ = (before_ms, limit, since_ms);
+        Err(PlatformError::Unsupported("sms_threads"))
+    }
+
+    /// Up to `limit` messages of thread `id` sent before `before_ms`,
+    /// newest first.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn sms_thread(
+        &self,
+        id: i64,
+        before_ms: Option<i64>,
+        limit: usize,
+    ) -> Result<Vec<SmsMessage>, PlatformError> {
+        let _ = (id, before_ms, limit);
+        Err(PlatformError::Unsupported("sms_thread"))
+    }
+
+    /// Send `text` by SMS to the number `to`.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise
+    /// (a send that merely fails is [`SendOutcome::Failed`]).
+    fn sms_send(&self, to: &str, text: &str) -> Result<SendOutcome, PlatformError> {
+        let _ = (to, text);
+        Err(PlatformError::Unsupported("sms_send"))
+    }
+
+    /// Answer the ringing call.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn call_answer(&self) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported("call_answer"))
+    }
+
+    /// Decline the ringing call.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn call_decline(&self) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported("call_decline"))
+    }
+
+    /// Hang up the active call.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn call_end(&self) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported("call_end"))
+    }
+
+    /// Mute (`on`) or unmute the active call's microphone.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn call_mute(&self, on: bool) -> Result<(), PlatformError> {
+        let _ = on;
+        Err(PlatformError::Unsupported("call_mute"))
+    }
+
+    /// Place a call to `number`.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn call_dial(&self, number: &str) -> Result<(), PlatformError> {
+        let _ = number;
+        Err(PlatformError::Unsupported("call_dial"))
+    }
+
+    /// Turn the phone's speaker on (`on`) or off for the active call.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn call_speaker(&self, on: bool) -> Result<(), PlatformError> {
+        let _ = on;
+        Err(PlatformError::Unsupported("call_speaker"))
+    }
+
+    /// Up to `limit` call-log entries started before `before_ms`, newest
+    /// first.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn call_history(
+        &self,
+        before_ms: Option<i64>,
+        limit: usize,
+    ) -> Result<Vec<CallRecord>, PlatformError> {
+        let _ = (before_ms, limit);
+        Err(PlatformError::Unsupported("call_history"))
+    }
+
+    /// Whether the phone permission `p` is held.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone.
+    fn phone_perm(&self, p: PhonePerm) -> Result<PermState, PlatformError> {
+        let _ = p;
+        Err(PlatformError::Unsupported("phone_perm"))
+    }
+
+    /// Open the system settings screen where the user grants `p`.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn open_perm_settings(&self, p: PhonePerm) -> Result<(), PlatformError> {
+        let _ = p;
+        Err(PlatformError::Unsupported("open_perm_settings"))
+    }
+
+    /// Whether this computer can carry a phone call's audio over Bluetooth.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where the adapter cannot tell; OS
+    /// failures otherwise.
+    fn call_audio_status(&self) -> Result<CallAudioStatus, PlatformError> {
+        Err(PlatformError::Unsupported("call_audio_status"))
+    }
+
+    /// Install what [`CallAudioStatus::NeedsPackage`] asks for (the OS
+    /// prompts the user for authorisation).
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where call audio is not supported;
+    /// install failures otherwise.
+    fn install_call_audio(&self) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported("install_call_audio"))
+    }
+
+    /// Turn this computer's hands-free audio role on (`on`) or off.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where call audio is not supported;
+    /// OS failures otherwise.
+    fn set_call_audio_config(&self, on: bool) -> Result<(), PlatformError> {
+        let _ = on;
+        Err(PlatformError::Unsupported("set_call_audio_config"))
+    }
+
+    /// Pair the phone over Bluetooth, calling `on_passkey` with the code
+    /// both screens must show.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where call audio is not supported;
+    /// pairing failures otherwise.
+    fn bt_pair(&self, on_passkey: Box<dyn Fn(u32) + Send>) -> Result<(), PlatformError> {
+        let _ = on_passkey;
+        Err(PlatformError::Unsupported("bt_pair"))
+    }
+
+    /// Send DTMF `digits` (`0`–`9`, `*`, `#`) on the active call.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where there is no call to send them
+    /// on; OS failures otherwise.
+    fn call_tones(&self, digits: &str) -> Result<(), PlatformError> {
+        let _ = digits;
+        Err(PlatformError::Unsupported("call_tones"))
+    }
+
+    /// Route the active call's audio to `side`.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where call audio is not supported;
+    /// OS failures otherwise.
+    fn call_audio_to(&self, side: AudioSide) -> Result<(), PlatformError> {
+        let _ = side;
+        Err(PlatformError::Unsupported("call_audio_to"))
     }
 }

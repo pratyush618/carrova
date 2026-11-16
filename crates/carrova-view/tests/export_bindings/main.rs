@@ -31,8 +31,8 @@ use carrova_core::{
 use carrova_link::{Feature, FeatureState, Group};
 use carrova_platform::FileManagerStatus;
 use carrova_platform::phone::{
-    AudioSide, CallKind, CallRecord, CallState, Cursor, Hidden, Note, PermState, PhonePerm,
-    SendOutcome, SmsMessage, SmsThread,
+    AudioSide, CallAudioStatus, CallKind, CallRecord, CallState, Cursor, Hidden, Note, PermState,
+    PhonePerm, SendOutcome, SmsMessage, SmsThread,
 };
 use carrova_report::{ErrorReport, IssueDraft, ReportConsent, ReportId, ReportSummary};
 use carrova_view::devices::{
@@ -149,6 +149,7 @@ fn export_typescript_bindings() {
         Cursor::export_all,
         SendOutcome::export_all,
         AudioSide::export_all,
+        CallAudioStatus::export_all,
         PhonePerm::export_all,
         PermState::export_all,
         // Desktop IPC contract.
