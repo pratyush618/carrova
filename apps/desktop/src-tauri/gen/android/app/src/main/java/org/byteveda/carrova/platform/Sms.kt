@@ -260,18 +260,21 @@ class PendingThreads(private val now: () -> Long) {
     @Synchronized
     fun clear() = since.clear()
 
-    /** The pending threads for which [stored] (thread, receivedAtMs) holds; they leave the set. */
+    /** The pending threads for which [stored] (thread, receivedAtMs - [SLACK_MS]) holds; they leave the set. */
     @Synchronized
     fun resolve(stored: (Long, Long) -> Boolean): List<Long> {
         val t = now()
         since.values.removeAll { t - it > TTL_MS }
-        val done = since.filter { stored(it.key, it.value) }.keys.toList()
+        val done = since.filter { stored(it.key, it.value - SLACK_MS) }.keys.toList()
         done.forEach(since::remove)
         return done
     }
 
     private companion object {
         const val TTL_MS = 10_000L
+
+        /** The default app can store a row dated before our receive time (it gets `SMS_DELIVER` first). */
+        const val SLACK_MS = 5_000L
     }
 }
 
