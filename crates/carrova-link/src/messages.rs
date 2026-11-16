@@ -81,6 +81,11 @@ pub enum SmsReply {
 pub enum SmsPush {
     /// A message arrived.
     Incoming(SmsMessage),
+    /// The phone stored an incoming message: refetch that thread.
+    Stored {
+        /// The thread that got it.
+        thread_id: i64,
+    },
     /// SMS changed in ways the laptop may have missed (the phone's event
     /// queue overflowed): refetch the threads and any open thread.
     Resync,
@@ -179,7 +184,7 @@ fn matches(req: &SmsRequest, reply: &SmsReply) -> bool {
 fn check_push(push: &SmsPush) -> Result<(), LinkError> {
     match push {
         SmsPush::Incoming(m) => cap(m.text.len(), MAX_SMS_TEXT),
-        SmsPush::Resync => Ok(()),
+        SmsPush::Stored { .. } | SmsPush::Resync => Ok(()),
     }
 }
 

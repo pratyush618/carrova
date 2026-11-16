@@ -53,6 +53,10 @@ fn parses_each_event_type() {
         })
     );
     assert_eq!(
+        event(r#"{"type":"sms_stored","thread_id":7}"#),
+        PhoneEvent::SmsStored { thread_id: 7 }
+    );
+    assert_eq!(
         event(r#"{"type":"call_idle"}"#),
         PhoneEvent::Call(CallState::Idle)
     );

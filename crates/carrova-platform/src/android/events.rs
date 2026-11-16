@@ -17,6 +17,9 @@ enum Wire {
         key: String,
     },
     SmsReceived(SmsMessage),
+    SmsStored {
+        thread_id: i64,
+    },
     CallIdle,
     CallRinging {
         number: String,
@@ -47,6 +50,7 @@ pub(super) fn parse(json: &str) -> Result<Option<PhoneEvent>, PlatformError> {
         Wire::NotePosted(note) => PhoneEvent::NotePosted(note),
         Wire::NoteRemoved { key } => PhoneEvent::NoteRemoved { key },
         Wire::SmsReceived(sms) => PhoneEvent::SmsReceived(sms),
+        Wire::SmsStored { thread_id } => PhoneEvent::SmsStored { thread_id },
         Wire::CallIdle => PhoneEvent::Call(CallState::Idle),
         Wire::CallRinging { number, name } => PhoneEvent::Call(CallState::Ringing { number, name }),
         // Whether audio runs through a laptop is the link's to say, not the phone's.

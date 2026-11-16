@@ -172,6 +172,12 @@ pub enum PhoneEvent {
     },
     /// An SMS arrived.
     SmsReceived(SmsMessage),
+    /// The default SMS app stored an incoming message: its thread can be
+    /// refetched now (`SmsReceived` comes before it is stored).
+    SmsStored {
+        /// The thread that got the message.
+        thread_id: i64,
+    },
     /// The call state changed.
     Call(CallState),
     /// The phone's event queue overflowed and dropped `count` events;
@@ -192,6 +198,10 @@ impl fmt::Debug for PhoneEvent {
                 .field("key", &len(key))
                 .finish(),
             Self::SmsReceived(m) => f.debug_tuple("SmsReceived").field(m).finish(),
+            Self::SmsStored { thread_id } => f
+                .debug_struct("SmsStored")
+                .field("thread_id", thread_id)
+                .finish(),
             Self::Call(c) => f.debug_tuple("Call").field(c).finish(),
             Self::Dropped { count } => f.debug_struct("Dropped").field("count", count).finish(),
         }

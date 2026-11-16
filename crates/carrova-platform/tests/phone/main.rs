@@ -75,6 +75,7 @@ fn phone_types_cbor_roundtrip() {
         PhoneEvent::NotePosted(note),
         PhoneEvent::NoteRemoved { key: "k".into() },
         PhoneEvent::SmsReceived(message),
+        PhoneEvent::SmsStored { thread_id: 7 },
         PhoneEvent::Call(CallState::Idle),
         PhoneEvent::Dropped { count: 4 },
     ] {
