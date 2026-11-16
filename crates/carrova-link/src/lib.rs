@@ -1,5 +1,6 @@
 //! Carrova link: per-device feature policy and the two-sided gate.
 
+mod calls;
 mod clipboard;
 mod error;
 mod file;
@@ -12,6 +13,9 @@ mod policy;
 mod reply;
 mod ring;
 
+pub use calls::{
+    CallCommand, CallIncoming, CallReply, HISTORY_PAGE, call_command, recv_calls, send_call_state,
+};
 pub use carrova_platform::phone::{AudioSide, SendOutcome};
 pub use clipboard::{
     ClipHistory, ClipItem, MAX_CLIP_PNG, MAX_CLIP_TEXT, ReceivedClip, recv_clip, send_clip,
