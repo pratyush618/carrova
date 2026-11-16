@@ -1,5 +1,5 @@
 use super::*;
-use crate::phone::{CallKind, CallRecord, CallState, Note, SmsMessage};
+use crate::phone::{CallKind, CallRecord, CallState, Note, PhonePerm, SmsMessage};
 
 fn event(json: &str) -> PhoneEvent {
     match parse(json) {
@@ -135,6 +135,13 @@ fn call_state_reads_glue_json() {
             on_laptop_audio: false,
         }
     );
+    assert_eq!(
+        call_state(r#"{"type":"call_ended","missed":true}"#)
+            .unwrap_err()
+            .to_string(),
+        "Android call Calls.state failed: not a call state",
+        "an ended call is never a current state"
+    );
     for not_a_state in [
         r#"{"type":"note_removed","key":"k"}"#,
         r#"{"type":"later"}"#,
@@ -142,4 +149,26 @@ fn call_state_reads_glue_json() {
     ] {
         assert!(call_state(not_a_state).is_err(), "{not_a_state}");
     }
+}
+
+#[test]
+fn security_exception_is_permission_denied() {
+    let thrown = PlatformError::Android {
+        call: "Sms.thread",
+        cause: "java.lang.SecurityException".into(),
+    };
+    let err = denied_as(PhonePerm::Sms, thrown);
+    assert!(matches!(
+        err,
+        PlatformError::PermissionDenied(PhonePerm::Sms)
+    ));
+    assert_eq!(err.to_string(), "phone permission missing: Sms");
+    let other = PlatformError::Android {
+        call: "Sms.thread",
+        cause: "java.lang.IllegalStateException".into(),
+    };
+    assert!(matches!(
+        denied_as(PhonePerm::Sms, other),
+        PlatformError::Android { .. }
+    ));
 }

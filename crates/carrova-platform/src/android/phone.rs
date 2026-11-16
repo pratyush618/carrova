@@ -293,6 +293,18 @@ pub(super) fn call_state() -> Result<CallState, PlatformError> {
 
 // ---- permissions ----
 
+/// Run `f` only if `perm` is granted, else [`PlatformError::PermissionDenied`];
+/// a `SecurityException` from `f` (revoked meanwhile) maps to the same.
+pub(super) fn guarded<T>(
+    perm: PhonePerm,
+    f: impl FnOnce() -> Result<T, PlatformError>,
+) -> Result<T, PlatformError> {
+    if phone_perm(perm)? != PermState::Granted {
+        return Err(PlatformError::PermissionDenied(perm));
+    }
+    f().map_err(|e| events::denied_as(perm, e))
+}
+
 /// The name `Perms.kt` knows `p` by.
 fn perm_name(p: PhonePerm) -> &'static str {
     match p {

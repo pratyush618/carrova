@@ -62,6 +62,9 @@ object Calls {
             phone.listen(it, PhoneStateListener.LISTEN_NONE)
         }
         listener = null
+        // A new listener learns afresh; a stopped one knows nothing current.
+        ringingNumber = null
+        activeSince = null
         if (!on) return
         val next = StateListener(context.applicationContext)
         // PhoneStateListener, not TelephonyCallback: only it carries the ringing number.
