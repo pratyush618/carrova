@@ -35,9 +35,9 @@ object Sms {
     /** Threads that got an `SMS_RECEIVED` and are not yet seen stored. */
     private val pending = PendingThreads(System::currentTimeMillis)
 
-    /** The running watch's debounce; null when none. */
+    /** Pokes the running watch's debounce on its looper; null when none. */
     @Volatile
-    private var debounce: Debounce? = null
+    private var pokeOnLooper: (() -> Unit)? = null
 
     /** Note that [thread] got an incoming SMS the default app has yet to store. */
     @JvmStatic
@@ -45,7 +45,7 @@ object Sms {
         if (!Events.watching) return
         pending.add(thread)
         // The default app may have stored it already, with no change to come.
-        debounce?.poke()
+        pokeOnLooper?.invoke()
     }
 
     /**
@@ -54,6 +54,7 @@ object Sms {
      * SMS app stores the message, so the laptop refetches on this instead:
      * after provider changes settle (trailing-edge debounce), each pending
      * thread with an inbox row at or after its receive time is reported once.
+     * A receipt also pokes the debounce (the row may be stored already).
      * Changes with nothing pending (a sent text, a mark-read) emit nothing.
      */
     @JvmStatic
@@ -65,7 +66,7 @@ object Sms {
         worker?.quit()
         observer = null
         worker = null
-        debounce = null
+        pokeOnLooper = null
         pending.clear()
         if (!on) return
         val thread = HandlerThread("carrova-sms-stored").also { it.start() }
@@ -77,7 +78,7 @@ object Sms {
                 Events.offer(JSONObject().put("type", "sms_stored").put("thread_id", id).toString())
             }
         }
-        debounce = next
+        pokeOnLooper = { handler.post { next.poke() } }
         val observed = object : ContentObserver(handler) {
             // The URI may be null, so it is never relied on.
             override fun onChange(selfChange: Boolean) = next.poke()
@@ -238,6 +239,8 @@ class SmsReceiver : BroadcastReceiver() {
         val address = first.originatingAddress ?: ""
         // The default SMS app stores it (and gives it an id) later: id 0 is
         // provisional (`phone::SmsMessage::id`); its thread is known now.
+        // shortcut: one provider query on the main thread in the receiver; move it
+        // to `goAsync()` + a handler if it ever shows up as slow.
         val thread = try {
             Telephony.Threads.getOrCreateThreadId(context, address)
         } catch (e: Exception) {
@@ -310,7 +313,10 @@ class HandlerTimer(private val handler: Handler) : Timer {
     override fun cancel(task: Runnable) = handler.removeCallbacks(task)
 }
 
-/** Runs [action] once, [delayMs] after the last [poke]: a burst is one run. */
+/**
+ * Runs [action] once, [delayMs] after the last [poke]: a burst is one run.
+ * Not thread-safe: every call stays on the [Timer]'s looper (cancel + post are not atomic).
+ */
 class Debounce(private val delayMs: Long, private val timer: Timer, private val action: () -> Unit) {
     private val task = Runnable { action() }
 
