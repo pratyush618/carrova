@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::LinkError;
 use crate::lane::{FRAME_TIMEOUT, LaneKind};
-use crate::reply::{Responder, request, serve};
+use crate::reply::{Pending, Responder, request, serve};
 
 /// Most records in one [`CallReply::HistoryPage`].
 pub const HISTORY_PAGE: usize = 50;
@@ -123,8 +123,9 @@ enum CallFrame {
 
 /// What arrived on an accepted `Calls` lane. `Debug` hides numbers and names.
 pub enum CallIncoming {
-    /// The phone's call state changed (already acknowledged).
-    State(CallState),
+    /// The phone's call state changed; acknowledge it through the
+    /// [`Pending`] once applied, so the next state waits for this one.
+    State(CallState, Pending),
     /// The laptop asks for something; answer through the [`Responder`].
     Command(CallCommand, Responder<CallReply>),
 }
@@ -132,7 +133,7 @@ pub enum CallIncoming {
 impl fmt::Debug for CallIncoming {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
-            Self::State(_) => "CallIncoming::State(..)",
+            Self::State(..) => "CallIncoming::State(..)",
             Self::Command(..) => "CallIncoming::Command(..)",
         })
     }
@@ -192,8 +193,9 @@ pub fn call_command(
     }
 }
 
-/// Read the first frame of an accepted `Calls` lane. A state is acknowledged
-/// here; a command comes with the [`Responder`] to answer it.
+/// Read the first frame of an accepted `Calls` lane. A state comes with its
+/// [`Pending`] acknowledgement; a command with the [`Responder`] to answer
+/// it.
 ///
 /// # Errors
 ///
@@ -207,9 +209,6 @@ pub fn recv_calls(stream: Stream) -> Result<CallIncoming, LinkError> {
             command.check()?;
             Ok(CallIncoming::Command(command, pending.responder()))
         }
-        CallFrame::State(state) => {
-            pending.ack()?;
-            Ok(CallIncoming::State(state))
-        }
+        CallFrame::State(state) => Ok(CallIncoming::State(state, pending)),
     }
 }

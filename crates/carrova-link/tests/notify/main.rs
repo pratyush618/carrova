@@ -37,8 +37,8 @@ fn note(text: &str) -> Note {
     }
 }
 
-/// Run the receiving side against `send`.
-fn exchange<S>(send: S) -> Result<Incoming, LinkError>
+/// Run the receiving side against `send`; the message it got, acknowledged.
+fn exchange<S>(send: S) -> Result<NotifyMsg, LinkError>
 where
     S: FnOnce(&carrova_transport::Connection) + Send,
 {
@@ -47,7 +47,13 @@ where
         let server = s.spawn(|| {
             let (kind, stream) = accept_lane(&b, &Open, T).unwrap();
             assert_eq!(kind, LaneKind::Notify);
-            recv_notify(stream)
+            match recv_notify(stream)? {
+                Incoming::Msg(m, ack) => {
+                    ack.ack()?;
+                    Ok(m)
+                }
+                Incoming::Action(..) => panic!("expected a message"),
+            }
         });
         send(&a);
         server.join().unwrap()
@@ -55,14 +61,14 @@ where
 }
 
 /// Send `msg` through the real sender.
-fn push(msg: &NotifyMsg) -> Result<Incoming, LinkError> {
+fn push(msg: &NotifyMsg) -> Result<NotifyMsg, LinkError> {
     exchange(|a| {
         let _ = send_notify(a, msg);
     })
 }
 
 /// Put `msg` on the wire bypassing the sender's checks.
-fn push_raw(msg: NotifyMsg) -> Result<Incoming, LinkError> {
+fn push_raw(msg: NotifyMsg) -> Result<NotifyMsg, LinkError> {
     exchange(|a| {
         let mut stream = open_lane(a, LaneKind::Notify).unwrap();
         stream.send(&Frame::Msg(msg)).unwrap();
@@ -71,17 +77,11 @@ fn push_raw(msg: NotifyMsg) -> Result<Incoming, LinkError> {
 }
 
 fn got(msg: &NotifyMsg) -> NotifyMsg {
-    match push(msg).unwrap() {
-        Incoming::Msg(m) => m,
-        Incoming::Action(..) => panic!("expected a message"),
-    }
+    push(msg).unwrap()
 }
 
 fn got_raw(msg: NotifyMsg) -> NotifyMsg {
-    match push_raw(msg).unwrap() {
-        Incoming::Msg(m) => m,
-        Incoming::Action(..) => panic!("expected a message"),
-    }
+    push_raw(msg).unwrap()
 }
 
 #[test]
@@ -98,9 +98,26 @@ fn message_is_acked_with_unit() {
     thread::scope(|s| {
         s.spawn(|| {
             let (_, stream) = accept_lane(&b, &Open, T).unwrap();
-            recv_notify(stream).unwrap();
+            let Incoming::Msg(_, ack) = recv_notify(stream).unwrap() else {
+                panic!("expected a message")
+            };
+            ack.ack().unwrap();
         });
         send_notify(&a, &NotifyMsg::Removed { key: "k".into() }).unwrap();
+    });
+}
+
+#[test]
+fn message_unacknowledged_until_the_receiver_acks() {
+    // The sender's next message waits for this one to be applied.
+    let (a, b) = linked();
+    thread::scope(|s| {
+        s.spawn(|| {
+            let (_, stream) = accept_lane(&b, &Open, T).unwrap();
+            drop(recv_notify(stream).unwrap());
+        });
+        let sent = send_notify(&a, &NotifyMsg::Removed { key: "k".into() });
+        assert!(sent.is_err(), "{sent:?}");
     });
 }
 
@@ -357,7 +374,7 @@ fn reply_result_roundtrip() {
                     assert_eq!(got, action);
                     responder.reply(&ActionResult::Gone).unwrap();
                 }
-                Incoming::Msg(_) => panic!("expected an action"),
+                Incoming::Msg(..) => panic!("expected an action"),
             }
         });
         let result = send_action(&a, &action).unwrap();

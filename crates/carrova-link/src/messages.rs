@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::LinkError;
 use crate::lane::LaneKind;
-use crate::reply::{self, Responder};
+use crate::reply::{self, Pending, Responder};
 use carrova_transport::Stream;
 
 /// Threads per page.
@@ -113,8 +113,9 @@ hide!(SmsRequest, SmsReply, SmsPush);
 pub enum SmsIncoming {
     /// A request to answer through the responder.
     Request(SmsRequest, Responder<SmsReply>),
-    /// A push, already acknowledged.
-    Push(SmsPush),
+    /// A push; acknowledge it through the [`Pending`] once applied, so the
+    /// sender's next push waits for this one.
+    Push(SmsPush, Pending),
 }
 
 impl fmt::Debug for SmsIncoming {
@@ -217,8 +218,9 @@ pub fn push_sms(conn: &Connection, push: &SmsPush) -> Result<(), LinkError> {
     reply::request::<_, ()>(conn, LaneKind::Messages, &frame, REPLY_WAIT)
 }
 
-/// Read what the peer opened on an accepted `Messages` lane. A push is
-/// acknowledged here; a request is answered later through its responder.
+/// Read what the peer opened on an accepted `Messages` lane. A push comes
+/// with its [`Pending`] acknowledgement; a request is answered later
+/// through its responder.
 ///
 /// # Errors
 ///
@@ -234,8 +236,7 @@ pub fn recv_sms(stream: Stream) -> Result<SmsIncoming, LinkError> {
         }
         SmsFrame::Push(push) => {
             check_push(&push)?;
-            pending.ack()?;
-            Ok(SmsIncoming::Push(push))
+            Ok(SmsIncoming::Push(push, pending))
         }
     }
 }

@@ -82,15 +82,15 @@ fn link(
                     None
                 }
                 LaneKind::Notify => match recv_notify(stream) {
-                    Ok(Incoming::Msg(m)) => Some(Got::Notify(m)),
+                    Ok(Incoming::Msg(m, ack)) => ack.ack().ok().map(|()| Got::Notify(m)),
                     _ => None,
                 },
                 LaneKind::Messages => match recv_sms(stream) {
-                    Ok(SmsIncoming::Push(p)) => Some(Got::Sms(p)),
+                    Ok(SmsIncoming::Push(p, ack)) => ack.ack().ok().map(|()| Got::Sms(p)),
                     _ => None,
                 },
                 LaneKind::Calls => match recv_calls(stream) {
-                    Ok(CallIncoming::State(s)) => Some(Got::Call(s)),
+                    Ok(CallIncoming::State(s, ack)) => ack.ack().ok().map(|()| Got::Call(s)),
                     _ => None,
                 },
                 _ => None,

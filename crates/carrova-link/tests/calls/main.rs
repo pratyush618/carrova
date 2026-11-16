@@ -25,12 +25,22 @@ fn state_roundtrip() {
         let server = s.spawn(|| {
             let (kind, stream) = accept_lane(&b, &Open, T).unwrap();
             assert_eq!(kind, LaneKind::Calls);
-            recv_calls(stream).unwrap()
+            let incoming = recv_calls(stream).unwrap();
+            let shown = format!("{incoming:?}");
+            assert!(
+                !shown.contains("5551234") && !shown.contains("Ada"),
+                "{shown}"
+            );
+            let CallIncoming::State(got, ack) = incoming else {
+                panic!("not a state")
+            };
+            ack.ack().unwrap();
+            got
         });
         send_call_state(&a, &state).unwrap();
         server.join().unwrap()
     });
-    assert!(matches!(got, CallIncoming::State(s) if s == state));
+    assert_eq!(got, state);
 }
 
 #[test]
@@ -136,13 +146,8 @@ fn debug_hides_numbers() {
     let dial = CallCommand::Dial {
         number: "5551234".into(),
     };
-    let incoming = CallIncoming::State(CallState::Ringing {
-        number: "5551234".into(),
-        name: Some("Ada".into()),
-    });
     let tones = CallCommand::Tones("5551234".into());
-    assert!(!format!("{dial:?}{incoming:?}{tones:?}").contains("5551234"));
-    assert!(!format!("{incoming:?}").contains("Ada"));
+    assert!(!format!("{dial:?}{tones:?}").contains("5551234"));
 }
 
 #[test]

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::LinkError;
 use crate::lane::LaneKind;
-use crate::reply::{Responder, request, serve};
+use crate::reply::{Pending, Responder, request, serve};
 
 /// Longest notification text, in bytes.
 pub const MAX_NOTE_TEXT: usize = 4096;
@@ -94,8 +94,9 @@ enum NotifyFrame {
 /// What arrived on an accepted `Notify` lane.
 #[derive(Debug)]
 pub enum Incoming {
-    /// A message, already acknowledged.
-    Msg(NotifyMsg),
+    /// A message; acknowledge it through the [`Pending`] once applied, so
+    /// the sender's next message waits for this one.
+    Msg(NotifyMsg, Pending),
     /// An action to carry out, then answer through the [`Responder`].
     Action(NotifyAction, Responder<ActionResult>),
 }
@@ -235,8 +236,9 @@ pub fn send_action(conn: &Connection, action: &NotifyAction) -> Result<ActionRes
     request(conn, LaneKind::Notify, &frame, NOTIFY_TIMEOUT)
 }
 
-/// Read the one frame on an accepted `Notify` lane. A message is
-/// acknowledged here; an action comes with the [`Responder`] to answer.
+/// Read the one frame on an accepted `Notify` lane. A message comes with
+/// its [`Pending`] acknowledgement; an action with the [`Responder`] to
+/// answer.
 /// An oversize icon is dropped and the note kept.
 ///
 /// # Errors
@@ -252,10 +254,7 @@ pub fn recv_notify(stream: Stream) -> Result<Incoming, LinkError> {
         _ => {}
     }
     match frame {
-        NotifyFrame::Msg(msg) => {
-            pending.ack()?;
-            Ok(Incoming::Msg(msg))
-        }
+        NotifyFrame::Msg(msg) => Ok(Incoming::Msg(msg, pending)),
         NotifyFrame::Action(action) => Ok(Incoming::Action(action, pending.responder())),
     }
 }

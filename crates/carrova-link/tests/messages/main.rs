@@ -149,12 +149,17 @@ fn incoming_push_roundtrip() {
         let rx = s.spawn(|| {
             let (kind, stream) = accept_lane(&laptop, &Open, T).unwrap();
             assert_eq!(kind, LaneKind::Messages);
-            recv_sms(stream).unwrap()
+            let incoming = recv_sms(stream).unwrap();
+            let shown = format!("{incoming:?}");
+            assert!(!shown.contains("secret"), "{shown}");
+            let SmsIncoming::Push(got, ack) = incoming else {
+                panic!("not a push")
+            };
+            ack.ack().unwrap();
+            got
         });
         push_sms(&phone, &push).unwrap();
-        let SmsIncoming::Push(got) = rx.join().unwrap() else {
-            panic!("not a push")
-        };
+        let got = rx.join().unwrap();
         assert_eq!(got, push);
     });
 }
@@ -165,12 +170,17 @@ fn resync_push_roundtrip() {
     thread::scope(|s| {
         let rx = s.spawn(|| {
             let (_, stream) = accept_lane(&laptop, &Open, T).unwrap();
-            recv_sms(stream).unwrap()
+            let incoming = recv_sms(stream).unwrap();
+            let shown = format!("{incoming:?}");
+            assert!(!shown.contains("secret"), "{shown}");
+            let SmsIncoming::Push(got, ack) = incoming else {
+                panic!("not a push")
+            };
+            ack.ack().unwrap();
+            got
         });
         push_sms(&phone, &SmsPush::Resync).unwrap();
-        let SmsIncoming::Push(got) = rx.join().unwrap() else {
-            panic!("not a push")
-        };
+        let got = rx.join().unwrap();
         assert_eq!(got, SmsPush::Resync);
     });
 }
@@ -181,12 +191,17 @@ fn stored_push_roundtrip() {
     thread::scope(|s| {
         let rx = s.spawn(|| {
             let (_, stream) = accept_lane(&laptop, &Open, T).unwrap();
-            recv_sms(stream).unwrap()
+            let incoming = recv_sms(stream).unwrap();
+            let shown = format!("{incoming:?}");
+            assert!(!shown.contains("secret"), "{shown}");
+            let SmsIncoming::Push(got, ack) = incoming else {
+                panic!("not a push")
+            };
+            ack.ack().unwrap();
+            got
         });
         push_sms(&phone, &SmsPush::Stored { thread_id: 7 }).unwrap();
-        let SmsIncoming::Push(got) = rx.join().unwrap() else {
-            panic!("not a push")
-        };
+        let got = rx.join().unwrap();
         assert_eq!(got, SmsPush::Stored { thread_id: 7 });
     });
 }
@@ -200,9 +215,7 @@ fn debug_hides_contents() {
         client_id: 1,
     };
     let reply = SmsReply::ThreadsPage(vec![thread_row(1)]);
-    let incoming = SmsIncoming::Push(push.clone());
     for s in [
-        format!("{incoming:?}"),
         format!("{push:?}"),
         format!("{req:?}"),
         format!("{reply:?}"),
