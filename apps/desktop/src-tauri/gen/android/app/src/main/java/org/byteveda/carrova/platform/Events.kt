@@ -17,18 +17,27 @@ object Events {
     private var dropped: Dropped? = null
     private var closed = true
 
+    /** The current watch's number; a guard closes only its own watch. */
+    @JvmStatic
+    var generation = 0L
+        get() = synchronized(lock) { field }
+        private set
+
     /** Whether a watch takes events; senders skip building them otherwise. */
     @JvmStatic
     val watching: Boolean
         get() = synchronized(lock) { !closed }
 
-    /** Start a watch: an empty, open queue. */
+    /** Start a watch (replacing any): an empty, open queue; returns its generation. */
     @JvmStatic
-    fun open() {
+    fun open(): Long {
         synchronized(lock) {
             queue.clear()
             dropped = null
             closed = false
+            generation++
+            lock.notifyAll() // a replaced watch's taker ends
+            return generation
         }
     }
 
@@ -43,12 +52,12 @@ object Events {
         }
     }
 
-    /** Block for the next event; null once [close] was called. */
+    /** Block for the next event of watch [gen]; null once it is closed or replaced. */
     @JvmStatic
-    fun take(): String? {
+    fun take(gen: Long): String? {
         synchronized(lock) {
-            while (queue.isEmpty() && !closed) lock.wait()
-            if (closed) return null
+            while (gen == generation && queue.isEmpty() && !closed) lock.wait()
+            if (gen != generation || closed) return null
             val next = queue.removeFirst()
             if (next === dropped) {
                 dropped = null
@@ -58,10 +67,11 @@ object Events {
         }
     }
 
-    /** End the watch: drop what is queued and unblock [take] for good. */
+    /** End watch [gen]: drop what is queued and unblock [take]. A replaced watch's [gen] does nothing. */
     @JvmStatic
-    fun close() {
+    fun close(gen: Long) {
         synchronized(lock) {
+            if (gen != generation) return
             closed = true
             queue.clear()
             dropped = null

@@ -87,6 +87,7 @@ fn phone_types_cbor_roundtrip() {
         SendOutcome::Sent,
         SendOutcome::NoSignal,
         SendOutcome::Failed,
+        SendOutcome::Unknown,
     ] {
         roundtrip(&outcome);
     }
