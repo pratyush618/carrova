@@ -120,7 +120,7 @@ pub(crate) fn current_uid() -> u32 {
 /// The kernel host name (`uname` nodename): what `hostname` prints and
 /// what the LAN knows this machine as. Unlike `/etc/hostname` it is
 /// always set and reflects transient (DHCP, `hostnamectl`) names.
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "android")))]
 pub(crate) fn host_name() -> String {
     rustix::system::uname()
         .nodename()
