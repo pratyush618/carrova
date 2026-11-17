@@ -556,6 +556,7 @@ fn control_wire_roundtrip_phase2() {
                 to: "5550100".into(),
                 text: "hi".into(),
                 client_id: 7,
+                sim: None,
             },
         ),
         ControlRequest::Call(device, CallCommand::Mute(true)),
@@ -631,6 +632,7 @@ fn phone_requests_debug_hides_content() {
             to: "5550100".into(),
             text: "hunter2".into(),
             client_id: 7,
+            sim: None,
         },
     );
 

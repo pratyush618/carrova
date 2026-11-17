@@ -395,6 +395,7 @@ fn send(client_id: u64) -> SmsRequest {
         to: "5550100".into(),
         text: "on my way".into(),
         client_id,
+        sim: None,
     }
 }
 

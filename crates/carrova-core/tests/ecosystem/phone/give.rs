@@ -13,7 +13,7 @@ use carrova_link::{
     recv_calls, recv_notify, recv_policy, recv_sms, request_sms, send_action, send_policy,
 };
 use carrova_platform::phone::{
-    CallState, Note, PermState, PhoneEvent, PhonePerm, SendOutcome, SmsMessage, SmsThread,
+    CallState, Note, PermState, PhoneEvent, PhonePerm, SendOutcome, Sim, SmsMessage, SmsThread,
 };
 use carrova_transport::Connection;
 
@@ -533,6 +533,7 @@ fn send_with_same_client_id_sends_once() {
         to: "5550100".into(),
         text: "on my way".into(),
         client_id: 7,
+        sim: None,
     };
     let sent = SmsReply::SendResult {
         client_id: 7,
@@ -548,6 +549,106 @@ fn send_with_same_client_id_sends_once() {
         .filter(|a| *a == "sms_send")
         .count();
     assert_eq!(sends, 1);
+}
+
+/// A dual-SIM phone: subscriptions 3 (slot 0, the default) and 5.
+fn dual_sim(phone: &Device) {
+    phone.platform.phone().sims = [(3, 0), (5, 1)]
+        .map(|(id, slot)| Sim {
+            id,
+            slot,
+            name: "Carrier".into(),
+            sms_default: slot == 0,
+            voice_default: slot == 0,
+        })
+        .to_vec();
+}
+
+/// Send a text from `sim` on a phone set up by `setup`; how it went and
+/// the sends the phone made.
+fn send_from(sim: Option<i32>, setup: impl FnOnce(&Device)) -> (SendOutcome, Vec<String>) {
+    let (phone, _sp, laptop) = phone_and_laptop(&[SMS], &[SMS], setup);
+    let send = SmsRequest::Send {
+        to: "5550100".into(),
+        text: "on my way".into(),
+        client_id: 1,
+        sim,
+    };
+    let SmsReply::SendResult { outcome, .. } = request_sms(&laptop.conn, &send).unwrap() else {
+        panic!("not a send result");
+    };
+    let sends = phone
+        .platform
+        .actions()
+        .into_iter()
+        .filter(|a| a.starts_with("sms_send"))
+        .collect();
+    (outcome, sends)
+}
+
+#[test]
+fn send_goes_from_the_chosen_sim() {
+    assert_eq!(
+        send_from(Some(5), dual_sim),
+        (SendOutcome::Sent, vec!["sms_send sim 5".to_owned()])
+    );
+    assert_eq!(
+        send_from(None, dual_sim),
+        (SendOutcome::Sent, vec!["sms_send".to_owned()])
+    );
+}
+
+#[test]
+fn send_from_a_sim_not_active_is_refused() {
+    assert_eq!(send_from(Some(9), dual_sim), (SendOutcome::Failed, vec![]));
+}
+
+#[test]
+fn send_with_sims_unreadable_uses_the_default() {
+    assert_eq!(
+        send_from(Some(5), |_| {}),
+        (SendOutcome::Sent, vec!["sms_send".to_owned()])
+    );
+}
+
+#[test]
+fn dial_goes_from_the_chosen_sim_and_refuses_others() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], dual_sim);
+    let dial = |sim| CallCommand::Dial {
+        number: "5550100".into(),
+        sim,
+    };
+
+    assert_eq!(
+        call_command(&laptop.conn, &dial(Some(5))).unwrap(),
+        CallReply::Done
+    );
+    assert_eq!(
+        call_command(&laptop.conn, &dial(Some(9))).unwrap(),
+        CallReply::Failed
+    );
+    let dials: Vec<String> = phone
+        .platform
+        .actions()
+        .into_iter()
+        .filter(|a| a.starts_with("call_dial"))
+        .collect();
+    assert_eq!(dials, ["call_dial sim 5"]);
+}
+
+#[test]
+fn sims_are_listed_on_both_lanes() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[SMS, CALLS], &[SMS, CALLS], dual_sim);
+    let sims = phone.platform.phone().sims.clone();
+
+    assert_eq!(
+        request_sms(&laptop.conn, &SmsRequest::Sims).unwrap(),
+        SmsReply::Sims(sims.clone())
+    );
+    assert_eq!(
+        call_command(&laptop.conn, &CallCommand::Sims).unwrap(),
+        CallReply::Sims(sims)
+    );
 }
 
 /// A phone with a thread from now and one from 31 days ago, linked with
@@ -575,6 +676,7 @@ fn sms_pages_with(window: Option<SyncWindow>) -> (Vec<i64>, Vec<i64>) {
                 snippet: String::new(),
                 when_ms,
                 unread: 0,
+                sim: Some(5),
             });
             phone.messages.push(SmsMessage {
                 id,

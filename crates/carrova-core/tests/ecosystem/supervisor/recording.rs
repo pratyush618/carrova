@@ -16,13 +16,18 @@ use std::time::Duration;
 use carrova_platform::fake::FakePlatform;
 use carrova_platform::phone::{
     AudioSide, CallAudioStatus, CallRecord, CallState, Cursor, Note, PermState, PhoneEvent,
-    PhonePerm, PhoneWatch, SendOutcome, SmsMessage, SmsThread,
+    PhonePerm, PhoneWatch, SendOutcome, Sim, SmsMessage, SmsThread,
 };
 use carrova_platform::{
     ClipContent, ClipboardWatch, DirEntry, DirWatch, FileLock, FileMeta, LanInterface, LinkNotice,
     LocalListener, LocalStream, OsKind, PermissionModel, Platform, PlatformError, ProcessInfo,
     ScreenLock, SemanticRoot, SnapshotCapability, SocketBuffers,
 };
+
+/// `action` as recorded: with the SIM it names, if any.
+fn with_sim(action: &str, sim: Option<i32>) -> String {
+    sim.map_or_else(|| action.to_owned(), |id| format!("{action} sim {id}"))
+}
 
 /// What a [`Recording`] platform was asked to do.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,6 +59,8 @@ pub struct Phone {
     pub messages: Vec<SmsMessage>,
     pub history: Vec<CallRecord>,
     pub send_outcome: SendOutcome,
+    /// What `phone_sims` reports.
+    pub sims: Vec<Sim>,
     /// Permissions not listed are granted.
     pub perms: Vec<(PhonePerm, PermState)>,
     pub audio: CallAudioStatus,
@@ -76,6 +83,7 @@ impl Default for Phone {
             messages: Vec::new(),
             history: Vec::new(),
             send_outcome: SendOutcome::Sent,
+            sims: Vec::new(),
             perms: Vec::new(),
             audio: CallAudioStatus::Ready,
             call: CallState::Idle,
@@ -483,8 +491,16 @@ impl Platform for Recording {
             limit,
         ))
     }
-    fn sms_send(&self, _to: &str, _text: &str) -> Result<SendOutcome, PlatformError> {
-        Ok(self.act("sms_send".into()).send_outcome)
+    fn phone_sims(&self) -> Result<Vec<Sim>, PlatformError> {
+        Ok(self.act("phone_sims".into()).sims.clone())
+    }
+    fn sms_send(
+        &self,
+        _to: &str,
+        _text: &str,
+        sim: Option<i32>,
+    ) -> Result<SendOutcome, PlatformError> {
+        Ok(self.act(with_sim("sms_send", sim)).send_outcome)
     }
     fn call_answer(&self) -> Result<(), PlatformError> {
         let mut phone = self.act("call_answer".into());
@@ -502,8 +518,8 @@ impl Platform for Recording {
     fn call_mute(&self, on: bool) -> Result<(), PlatformError> {
         self.record_action(&format!("call_mute {on}"))
     }
-    fn call_dial(&self, _number: &str) -> Result<(), PlatformError> {
-        self.record_action("call_dial")
+    fn call_dial(&self, _number: &str, sim: Option<i32>) -> Result<(), PlatformError> {
+        self.record_action(&with_sim("call_dial", sim))
     }
     fn call_speaker(&self, on: bool) -> Result<(), PlatformError> {
         self.record_action(&format!("call_speaker {on}"))

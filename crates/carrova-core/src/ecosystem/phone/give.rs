@@ -18,12 +18,12 @@ use std::time::{Duration, Instant};
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{
     ActionResult, CallCommand, CallIncoming, CallReply, Feature, FeatureState, HISTORY_PAGE,
-    Incoming, LinkError, MESSAGE_PAGE, NotifyAction, NotifyMsg, PolicyDoc, SendOutcome,
+    Incoming, LinkError, MAX_SIMS, MESSAGE_PAGE, NotifyAction, NotifyMsg, PolicyDoc, SendOutcome,
     SmsIncoming, SmsPush, SmsReply, SmsRequest, THREAD_PAGE, allowed, check_sms_reply, fit_apps,
     fit_note, fit_snapshot, push_sms, recv_calls, recv_notify, recv_sms, send_call_state,
     send_notify,
 };
-use carrova_platform::phone::{CallState, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch};
+use carrova_platform::phone::{CallState, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch, Sim};
 use carrova_platform::{Platform, PlatformError};
 use carrova_transport::{Connection, Stream};
 
@@ -423,6 +423,7 @@ pub(crate) fn serve_messages(
             to,
             text,
             client_id,
+            sim,
         } => {
             let first = shared.with_link(&device, generation, |l| {
                 match l.sms_sent.entry(client_id) {
@@ -439,10 +440,13 @@ pub(crate) fn serve_messages(
                 None => SendOutcome::Failed,
                 Some(Some(again)) => again,
                 Some(None) => {
-                    let outcome = platform.sms_send(&to, &text).unwrap_or_else(|e| {
-                        tracing::debug!(error = %e, "text not sent");
-                        SendOutcome::Failed
-                    });
+                    let outcome = match sim_for(platform, sim) {
+                        Some(sim) => platform.sms_send(&to, &text, sim).unwrap_or_else(|e| {
+                            tracing::debug!(error = %e, "text not sent");
+                            SendOutcome::Failed
+                        }),
+                        None => SendOutcome::Failed,
+                    };
                     shared.with_link(&device, generation, |l| {
                         l.sms_sent.insert(client_id, Some(outcome));
                     });
@@ -451,6 +455,7 @@ pub(crate) fn serve_messages(
             };
             SmsReply::SendResult { client_id, outcome }
         }
+        SmsRequest::Sims => SmsReply::Sims(sims(platform)),
         SmsRequest::Remind => {
             let posted = platform.remind_access(PhonePerm::Sms);
             if let Err(e) = &posted {
@@ -463,6 +468,36 @@ pub(crate) fn serve_messages(
     };
     check_sms_reply(&reply)?;
     Ok(responder.reply(&reply)?)
+}
+
+/// The phone's active SIMs, at most [`MAX_SIMS`]; none if unreadable
+/// (texts and calls then use the default SIM, as on a single-SIM phone).
+fn sims(platform: &dyn Platform) -> Vec<Sim> {
+    let mut sims = platform.phone_sims().unwrap_or_else(|e| {
+        tracing::debug!(error = %e, "SIMs unreadable");
+        Vec::new()
+    });
+    sims.truncate(MAX_SIMS);
+    sims
+}
+
+/// The SIM to send or call from for a device's choice `want`, which is
+/// untrusted: `Some(None)` is the phone's default (no choice, or the SIMs
+/// are unreadable here, as without `READ_PHONE_STATE`); `None` refuses a
+/// SIM not active here rather than use one the user didn't pick.
+fn sim_for(platform: &dyn Platform, want: Option<i32>) -> Option<Option<i32>> {
+    let Some(id) = want else {
+        return Some(None);
+    };
+    let sims = sims(platform);
+    if sims.is_empty() {
+        return Some(None);
+    }
+    let active = sims.iter().any(|s| s.id == id);
+    if !active {
+        tracing::debug!(sims = sims.len(), "chosen SIM not active here");
+    }
+    active.then_some(Some(id))
 }
 
 /// The oldest time SMS pages reach back to (the user's "Keep in sync");
@@ -546,7 +581,11 @@ fn call(
         CallCommand::Decline => p.call_decline()?,
         CallCommand::End => p.call_end()?,
         CallCommand::Mute(on) => p.call_mute(*on)?,
-        CallCommand::Dial { number } => p.call_dial(number)?,
+        CallCommand::Dial { number, sim } => match sim_for(p, *sim) {
+            Some(sim) => p.call_dial(number, sim)?,
+            None => return Ok(CallReply::Failed),
+        },
+        CallCommand::Sims => return Ok(CallReply::Sims(sims(p))),
         CallCommand::History { before } => {
             return Ok(CallReply::HistoryPage(
                 p.call_history(*before, HISTORY_PAGE)?,
