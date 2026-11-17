@@ -48,13 +48,13 @@
   color: var(--text-primary);
 }
 
-/* Long texts stop at a few lines; the window grows to fit the rest. */
+/* The window grows with the text up to this many lines (in `lh`, so it
+   follows font scaling); longer texts scroll inside it. */
 .s-note__text {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-  line-clamp: 4;
-  overflow: hidden;
+  max-block-size: 10lh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  white-space: pre-line;
 }
 
 .s-note__muted {
