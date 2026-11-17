@@ -46,7 +46,7 @@ getrandom = "0.4"
 globset = "0.4"
 # Cross-platform interface enumeration (transport fallback address / broadcast targets).
 if-addrs = "0.15"
-# SHA-2 generation pinned to spake2 0.4 (digest 0.10): hkdf/hmac/sha2 share it.
+# hkdf/hmac/sha2 share one digest generation (0.11); spake2 keeps its own internally.
 hkdf = "0.13.0"
 hmac = "0.13.0"
 # Android JNI bridge (carrova-platform only); 0.21 as Tauri/tao/wry use (ADR 0003).
