@@ -100,6 +100,7 @@ fn phone_types_cbor_roundtrip() {
         PhonePerm::Calls,
         PhonePerm::Contacts,
         PhonePerm::BluetoothConnect,
+        PhonePerm::Battery,
     ] {
         roundtrip(&perm);
     }

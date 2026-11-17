@@ -17,12 +17,13 @@ fn setup_step_per_status() {
     }
 }
 
-const PERMS: [PhonePerm; 5] = [
+const PERMS: [PhonePerm; 6] = [
     PhonePerm::NotificationAccess,
     PhonePerm::Sms,
     PhonePerm::Calls,
     PhonePerm::Contacts,
     PhonePerm::BluetoothConnect,
+    PhonePerm::Battery,
 ];
 
 #[test]
@@ -47,6 +48,8 @@ fn denied_access_opens_settings_and_runtime_perms_ask() {
         (PhonePerm::Calls, PermStep::Ask),
         (PhonePerm::Contacts, PermStep::Ask),
         (PhonePerm::BluetoothConnect, PermStep::Ask),
+        // Android's own "Let app always run in background?" dialog.
+        (PhonePerm::Battery, PermStep::Ask),
     ];
     for (perm, step) in table {
         assert_eq!(perm_view(perm, PermState::Denied), step, "{perm:?}");

@@ -67,7 +67,12 @@ pub fn perm_view(perm: PhonePerm, state: PermState) -> PermStep {
         (PermState::Denied, PhonePerm::NotificationAccess) => PermStep::OpenSettings,
         (
             PermState::Denied,
-            PhonePerm::Sms | PhonePerm::Calls | PhonePerm::Contacts | PhonePerm::BluetoothConnect,
+            PhonePerm::Sms
+            | PhonePerm::Calls
+            | PhonePerm::Contacts
+            | PhonePerm::BluetoothConnect
+            // Android's own "Let app always run in background?" dialog.
+            | PhonePerm::Battery,
         ) => PermStep::Ask,
     }
 }

@@ -255,6 +255,9 @@ pub enum PhonePerm {
     Contacts,
     /// Bluetooth connection, for call audio.
     BluetoothConnect,
+    /// Exempt from battery optimisation, so the link stays up while the
+    /// app is closed ("Stay connected when closed").
+    Battery,
 }
 
 /// Whether a [`PhonePerm`] is held.

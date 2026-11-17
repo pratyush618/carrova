@@ -328,6 +328,7 @@ fn perm_name(p: PhonePerm) -> &'static str {
         PhonePerm::Calls => "calls",
         PhonePerm::Contacts => "contacts",
         PhonePerm::BluetoothConnect => "bluetooth_connect",
+        PhonePerm::Battery => "battery",
     }
 }
 
