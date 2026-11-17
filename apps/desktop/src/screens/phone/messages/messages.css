@@ -15,6 +15,11 @@
   padding: var(--sp-2) var(--sp-3);
 }
 
+.s-thread__older {
+  text-align: center;
+  padding-block-start: var(--sp-2);
+}
+
 .s-msgs__pane {
   display: flex;
   flex-direction: column;

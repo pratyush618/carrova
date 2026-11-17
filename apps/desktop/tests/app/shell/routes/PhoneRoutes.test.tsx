@@ -139,4 +139,25 @@ describe('Messages route', () => {
       screen.queryByRole('button', { name: 'Show older conversations' }),
     ).not.toBeInTheDocument();
   });
+
+  it('loads older texts of the open conversation on asking', async () => {
+    const user = userEvent.setup();
+    const { port, thread } = await phonePort();
+    thread.mockImplementation((_device, _id, before) =>
+      Promise.resolve(
+        before === null
+          ? { ...page('Hi from Sam'), next: { when_ms: 0, id: 100 } }
+          : page('Way back'),
+      ),
+    );
+    await renderApp({ port, returning: true });
+    await openMessages(user);
+    expect(screen.queryByText('Way back')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Show older messages' }));
+    expect(await screen.findByText('Way back')).toBeInTheDocument();
+    expect(screen.getByText('Hi from Sam')).toBeInTheDocument();
+    expect(thread).toHaveBeenLastCalledWith('p8', 1, { when_ms: 0, id: 100 });
+    expect(screen.queryByRole('button', { name: 'Show older messages' })).not.toBeInTheDocument();
+  });
 });

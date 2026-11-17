@@ -49,6 +49,7 @@ const intents = (): MessagesIntents => ({
   onCompose: vi.fn(),
   onSend: vi.fn(),
   onRetry: vi.fn(),
+  onOlderMessages: vi.fn(),
   onMoreThreads: vi.fn(),
 });
 

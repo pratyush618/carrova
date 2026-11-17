@@ -27,6 +27,12 @@ const joinThreads = (newer: ThreadsView, older: ThreadsView): ThreadsView => ({
   next: older.next,
 });
 
+/** `older` above `newer` (chat order: oldest first). */
+const joinMessages = (newer: ThreadView, older: ThreadView): ThreadView => ({
+  messages: [...older.messages, ...newer.messages],
+  next: older.next,
+});
+
 /** Messages: the texts of the linked phone that shares them (empty until one does). */
 export function MessagesRoute() {
   const { linked } = useControllers();
@@ -60,11 +66,22 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
   // Bumped once a sent text is out: the list shows it.
   const [sent, setSent] = useState(0);
   const open = composing ? null : (picked ?? threads?.[0]?.id ?? null);
-  // Read when a send ends: the user may have moved on since.
-  const now = useRef({ composing, open });
-  useEffect(() => {
-    now.current = { composing, open };
+  // Pages of the open conversation shown: the user asks for older texts.
+  const [older, setOlder] = useState<{ thread: number | null; pages: number }>({
+    thread: null,
+    pages: 1,
   });
+  const pages = older.thread === open ? older.pages : 1;
+  // Read when a send ends: the user may have moved on since.
+  const now = useRef({ composing, open, pages });
+  useEffect(() => {
+    now.current = { composing, open, pages };
+  });
+  const loadThread = useCallback(
+    (thread: number, count: number) =>
+      loadPages((before) => port.phoneThread(id, thread, before), count, joinMessages),
+    [port, id],
+  );
 
   useEffect(() => {
     if (away) return;
@@ -91,7 +108,7 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
   useEffect(() => {
     if (away || open === null) return;
     let live = true;
-    port.phoneThread(id, open, null).then(
+    loadThread(open, pages).then(
       (view) => {
         if (live) setThread(view);
       },
@@ -102,7 +119,7 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
     return () => {
       live = false;
     };
-  }, [port, id, away, open, texts]);
+  }, [loadThread, away, open, pages, texts]);
 
   // A sent text stays shown until its conversation, stored copy included, is here.
   const onSent = useCallback(
@@ -116,14 +133,15 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
         }
         return;
       }
+      const shown = now.current.open === s.thread;
       try {
-        const view = await port.phoneThread(id, s.thread, null);
+        const view = await loadThread(s.thread, shown ? now.current.pages : 1);
         if (now.current.open === s.thread) setThread(view);
       } catch {
         setFailed(true);
       }
     },
-    [port, id],
+    [loadThread],
   );
   const { sends, send, retry } = useSmsSends(port, id, onSent);
 
@@ -154,6 +172,9 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
           send(to, text, open);
         },
         onRetry: retry,
+        onOlderMessages: () => {
+          setOlder({ thread: open, pages: pages + 1 });
+        },
         onMoreThreads: () => {
           setListPages((n) => n + 1);
         },

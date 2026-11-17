@@ -147,6 +147,7 @@ export const ecosystem = {
     newMessage: 'New message',
     list: 'Conversations',
     olderThreads: 'Show older conversations',
+    olderMessages: 'Show older messages',
     yesterday: 'Yesterday',
     unread_one: '{{count}} unread',
     unread_other: '{{count}} unread',

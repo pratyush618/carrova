@@ -32,6 +32,8 @@ export interface MessagesIntents {
   readonly onCompose: () => void;
   readonly onSend: (to: string, text: string) => void;
   readonly onRetry: (clientId: number) => void;
+  /** Load the open conversation's next page of older texts. */
+  readonly onOlderMessages: () => void;
   /** Load the next page of older conversations. */
   readonly onMoreThreads: () => void;
 }
@@ -105,6 +107,7 @@ export function MessagesScreen({
                 away={away}
                 onSend={on.onSend}
                 onRetry={on.onRetry}
+                onOlder={on.onOlderMessages}
               />
             )
           )}
