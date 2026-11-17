@@ -7,6 +7,7 @@ const HUB: readonly { page: HubPage; icon: IconName }[] = [
   { page: 'home', icon: 'home' },
   { page: 'nearby', icon: 'radar' },
   { page: 'messages', icon: 'msg' },
+  { page: 'calls', icon: 'call' },
   { page: 'history', icon: 'history' },
   { page: 'apps', icon: 'apps' },
   { page: 'settings', icon: 'settings' },
@@ -26,21 +27,29 @@ export function buildChrome(
   visible = false,
   /** A linked phone shares its texts here: Messages shows. */
   messages = false,
+  /** A linked phone shares its calls here: Calls shows. */
+  calls = false,
 ): Chrome {
-  // A device page (and a phone's calls) sits under Nearby.
-  const current = view.kind === 'hub' ? view.page : view.kind === 'flow' ? null : 'nearby';
-  const hubLinks: HubLink[] = HUB.filter(({ page }) => messages || page !== 'messages').map(
-    ({ page, icon }) => ({
-      id: page,
-      label: t(`nav.${page}`),
-      icon,
-      current: page === current,
-      ...(page === 'nearby' && visible && { live: true }),
-      onSelect: () => {
-        dispatch({ type: 'openHub', page });
-      },
-    }),
-  );
+  // A device page sits under Nearby; a phone's calls under Calls, if shown.
+  const current =
+    view.kind === 'hub'
+      ? view.page
+      : view.kind === 'flow'
+        ? null
+        : view.kind === 'calls' && calls
+          ? 'calls'
+          : 'nearby';
+  const shown = (page: HubPage) => (page !== 'messages' || messages) && (page !== 'calls' || calls);
+  const hubLinks: HubLink[] = HUB.filter(({ page }) => shown(page)).map(({ page, icon }) => ({
+    id: page,
+    label: t(`nav.${page}`),
+    icon,
+    current: page === current,
+    ...(page === 'nearby' && visible && { live: true }),
+    onSelect: () => {
+      dispatch({ type: 'openHub', page });
+    },
+  }));
   const flow =
     view.kind === 'flow'
       ? {

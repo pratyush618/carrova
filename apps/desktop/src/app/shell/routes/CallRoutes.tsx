@@ -8,6 +8,7 @@ import { callerName } from '../../../flows/calls/callTrack';
 import { useCallTrack } from '../../../flows/calls/useCallTrack';
 import { useCallLog } from '../../../flows/calls/useCallLog';
 import { useCallsSetup } from '../../../flows/calls/useCallsSetup';
+import { callsPhone } from '../../../flows/phone/messagesPhone';
 import { usePhoneSims } from '../../../flows/phone/usePhoneSims';
 import { useCallWindowView } from '../../../flows/calls/useCallWindowView';
 import { useLinkedName } from '../../../flows/calls/useLinkedName';
@@ -140,6 +141,13 @@ export function CallsRoute({ id }: { readonly id: string }) {
       }}
     />
   );
+}
+
+/** Calls: the calls page of the linked phone that shares them (empty until one does). */
+export function CallsHubRoute() {
+  const phone = callsPhone(useControllers().linked.devices);
+  if (phone === undefined) return <HubLayout>{null}</HubLayout>;
+  return <CallsRoute key={phone.id} id={phone.id} />;
 }
 
 /** Calls setup over the page that opened it. */

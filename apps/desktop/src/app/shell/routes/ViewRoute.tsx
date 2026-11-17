@@ -1,6 +1,6 @@
 import type { SettingsSection } from '../../../screens/settings/sections';
 import type { HubPage, View } from '../../nav/navMachine';
-import { CallsRoute } from './CallRoutes';
+import { CallsHubRoute, CallsRoute } from './CallRoutes';
 import { DeviceRoute } from './DeviceRoutes';
 import { AppsRoute, HistoryRoute, HomeRoute, NearbyRoute, SettingsRoute } from './HubRoutes';
 import { MessagesRoute } from './PhoneRoutes';
@@ -22,6 +22,8 @@ function HubRoute({
       return <NearbyRoute />;
     case 'messages':
       return <MessagesRoute />;
+    case 'calls':
+      return <CallsHubRoute />;
     case 'history':
       return <HistoryRoute />;
     case 'apps':
