@@ -101,6 +101,9 @@ pub(super) struct Shared {
     pub(super) stop: Cancel,
     /// Per-link, lane and dial threads, joined on stop.
     threads: Mutex<Vec<JoinHandle<()>>>,
+    /// Held from a call view's change to its emit, so views show in the
+    /// order they changed. Taken before `peers`, never across a platform call.
+    calls: Mutex<()>,
 }
 
 impl Shared {
@@ -129,6 +132,11 @@ impl Shared {
             }
             join(threads);
         }
+    }
+
+    /// Serialise call view changes with their emits (see `calls`).
+    pub(super) fn call_views(&self) -> MutexGuard<'_, ()> {
+        self.calls.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     pub(super) fn phone_settings(&self) -> PhoneSettings {
@@ -258,6 +266,7 @@ impl Supervisor {
             give,
             stop: Cancel::default(),
             threads: Mutex::default(),
+            calls: Mutex::default(),
         });
         dial::refresh(&shared)?;
         let listener = dial::bind(&shared)?;

@@ -327,6 +327,23 @@ fn redacts_phone_numbers() {
 }
 
 #[test]
+fn redacts_phone_numbers_after_a_field_name() {
+    assert_eq!(redactor().redact("sender:4155550100"), "sender:<phone>");
+    assert_eq!(redactor().redact("tel:+14155550100"), "tel:<phone>");
+}
+
+#[test]
+fn digits_inside_emails_do_not_hide_the_email() {
+    for email in ["alice+4155550100@example.com", "4155550100@example.com"] {
+        assert_eq!(
+            redactor().redact(&format!("to {email}")),
+            "to <email>",
+            "{email}"
+        );
+    }
+}
+
+#[test]
 fn keeps_short_numbers_and_versions() {
     for text in [
         "carrova v0.2.0 on port 4433",
@@ -352,4 +369,12 @@ fn long_digit_runs_are_scanned_in_linear_time() {
     assert!(start.elapsed() < std::time::Duration::from_secs(5));
     // Runs over 15 digits are not a phone number; only the short tail is.
     assert!(out.starts_with("1 1 1 ") && out.trim_end().ends_with("<phone>"));
+}
+
+#[test]
+fn separator_runs_are_scanned_in_linear_time() {
+    let text = "(".repeat(200_000);
+    let start = std::time::Instant::now();
+    assert_eq!(redactor().redact(&text), text);
+    assert!(start.elapsed() < std::time::Duration::from_secs(5));
 }

@@ -183,7 +183,8 @@ pub(super) fn outgoing(mut note: Note, apps: &NotifyApps) -> Option<Note> {
     if !apps.allowed(&note.app_id) {
         return None;
     }
-    if apps.hide_codes && (otp::looks_like_code(&note.text) || otp::looks_like_code(&note.title)) {
+    // Title and text together: the code word and digits may be split across them.
+    if apps.hide_codes && otp::looks_like_code(&format!("{}\n{}", note.title, note.text)) {
         note.title.clear();
         note.text.clear();
         note.hidden = Some(Hidden::Code);

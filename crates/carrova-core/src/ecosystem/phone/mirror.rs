@@ -7,7 +7,7 @@
 //! and reports [`Event::PhoneCleared`]. Never logs keys, titles, text, app
 //! names, numbers or names: counts and ids only.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -50,6 +50,9 @@ pub(crate) struct Mirror {
     provisional: Vec<(SmsMessage, Instant)>,
     /// Features the phone lacks the access for (notifications, texts).
     missing: Vec<Feature>,
+    /// Ids of the stored rows that replaced a provisional text: never
+    /// matched to another (a later page may hold them again).
+    matched: HashSet<i64>,
 }
 
 impl std::fmt::Debug for Mirror {
@@ -120,6 +123,7 @@ impl Mirror {
             Feature::Messages => {
                 self.threads.clear();
                 self.provisional.clear();
+                self.matched.clear();
             }
             Feature::Calls => self.call = Call::default(),
             _ => {}
@@ -259,7 +263,25 @@ impl Mirror {
                 .cloned()
                 .collect()
         });
-        let mut free: Vec<&SmsMessage> = page.iter().filter(|m| m.id != 0).collect();
+        let mut new = self.reconcile(id, page);
+        for m in unseen {
+            if !new.iter().any(|n| n.id == m.id) {
+                new.push(m);
+            }
+        }
+        new.sort_by_key(|m| std::cmp::Reverse(cursor(m)));
+        self.merge(id, page);
+        new
+    }
+
+    /// Drop each provisional text of thread `id` whose stored row `page`
+    /// holds (matched by content, as the two sides' clocks differ, each
+    /// row at most once ever); returns those rows.
+    fn reconcile(&mut self, id: i64, page: &[SmsMessage]) -> Vec<SmsMessage> {
+        let mut free: Vec<&SmsMessage> = page
+            .iter()
+            .filter(|m| m.id != 0 && !self.matched.contains(&m.id))
+            .collect();
         let mut new: Vec<SmsMessage> = Vec::new();
         self.provisional.retain(|(p, _)| {
             if p.thread_id != id {
@@ -280,13 +302,7 @@ impl Mirror {
                 None => true,
             }
         });
-        for m in unseen {
-            if !new.iter().any(|n| n.id == m.id) {
-                new.push(m);
-            }
-        }
-        new.sort_by_key(|m| std::cmp::Reverse(cursor(m)));
-        self.merge(id, page);
+        self.matched.extend(new.iter().map(|m| m.id));
         new
     }
 
@@ -577,3 +593,7 @@ pub(crate) fn take_sms_reply(
     });
     shown.map_or(reply, SmsReply::ThreadPage)
 }
+
+#[cfg(test)]
+#[path = "../../../tests/ecosystem/phone/mirror/unit.rs"]
+mod tests;
