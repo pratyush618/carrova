@@ -2,8 +2,11 @@ import type { TFunction } from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CallLogView } from '../../../bindings/CallLogView';
+import type { SimChoice } from '../../../bindings/SimChoice';
+import { presetSim } from '../../../flows/phone/usePhoneSims';
 import { Banner, Button, Empty, Field, Head, HubLayout, Input, LinkButton } from '../../../ui';
 import { Group } from '../../settings/Group';
+import { SimPicker } from '../SimPicker';
 import { CallLogRow } from './CallLogRow';
 import './calls.css';
 
@@ -15,11 +18,13 @@ export interface CallsModel {
   readonly log: CallLogView | null;
   /** The log couldn't be read. */
   readonly failed: boolean;
+  /** The SIMs a call can go from; none with one SIM. */
+  readonly sims: readonly SimChoice[];
 }
 
 export interface CallsIntents {
-  /** Call `number` from the phone. */
-  readonly onDial: (number: string) => void;
+  /** Call `number` from the phone, from SIM `sim` (`null`: its default). */
+  readonly onDial: (number: string, sim: number | null) => void;
   readonly onTurnOn: () => void;
   readonly onMore: () => void;
 }
@@ -41,7 +46,9 @@ export function CallsScreen({
 }) {
   const { t } = useTranslation();
   const [number, setNumber] = useState('');
+  const [picked, setPicked] = useState<number | null>(null);
   const { phone, log } = model;
+  const sim = presetSim(model.sims, picked);
   if (!model.on)
     return (
       <HubLayout variant="center">
@@ -59,7 +66,7 @@ export function CallsScreen({
     );
   const dial = number.trim();
   const call = () => {
-    if (dial !== '') on.onDial(dial);
+    if (dial !== '') on.onDial(dial, sim);
   };
   return (
     <HubLayout>
@@ -84,6 +91,12 @@ export function CallsScreen({
             />
           )}
         </Field>
+        <SimPicker
+          label={t('calls.log.callFrom')}
+          sims={model.sims}
+          value={sim}
+          onChange={setPicked}
+        />
         <Button kind="primary" icon="call" disabled={dial === ''} onClick={call}>
           {t('calls.log.call')}
         </Button>
@@ -106,7 +119,7 @@ export function CallsScreen({
               key={row.id}
               row={row}
               onCallBack={() => {
-                on.onDial(row.caller.number);
+                on.onDial(row.caller.number, sim);
               }}
             />
           ))}

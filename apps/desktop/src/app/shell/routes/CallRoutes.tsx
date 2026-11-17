@@ -8,6 +8,7 @@ import { callerName } from '../../../flows/calls/callTrack';
 import { useCallTrack } from '../../../flows/calls/useCallTrack';
 import { useCallLog } from '../../../flows/calls/useCallLog';
 import { useCallsSetup } from '../../../flows/calls/useCallsSetup';
+import { usePhoneSims } from '../../../flows/phone/usePhoneSims';
 import { useCallWindowView } from '../../../flows/calls/useCallWindowView';
 import { useLinkedName } from '../../../flows/calls/useLinkedName';
 import { useRingtone } from '../../../flows/calls/useRingtone';
@@ -72,7 +73,8 @@ export function CallWindowRoute() {
           send({ kind: 'end' });
         },
         onCallBack: () => {
-          if (track.caller !== null) send({ kind: 'dial', number: track.caller.number });
+          // The phone's default SIM: this window offers no choice.
+          if (track.caller !== null) send({ kind: 'dial', number: track.caller.number, sim: null });
         },
         onClose: dismiss,
       }}
@@ -120,14 +122,16 @@ export function CallsRoute({ id }: { readonly id: string }) {
   const { linked } = useControllers();
   const device = linked.devices.find((d) => d.id === id);
   const on = device?.features.some((f) => f.feature === 'calls' && f.local === 'on') ?? false;
-  const { log, failed, more } = useCallLog(port, id, on && device?.state === 'linked');
+  const live = on && device?.state === 'linked';
+  const { log, failed, more } = useCallLog(port, id, live);
+  const sims = usePhoneSims(port, id, 'calls', live);
   if (device === undefined) return <HubLayout>{null}</HubLayout>;
   return (
     <CallsScreen
-      model={{ phone: device.name, on, log, failed }}
+      model={{ phone: device.name, on, log, failed, sims }}
       on={{
-        onDial: (number) => {
-          act(port, id, { kind: 'dial', number });
+        onDial: (number, sim) => {
+          act(port, id, { kind: 'dial', number, sim });
         },
         onTurnOn: () => {
           linked.setFeature(id, 'calls', 'on');

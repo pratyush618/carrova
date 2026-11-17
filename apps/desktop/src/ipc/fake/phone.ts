@@ -29,6 +29,7 @@ type PhonePort = Pick<
   | 'phoneThreads'
   | 'phoneThread'
   | 'sendSms'
+  | 'phoneSims'
   | 'phoneCall'
   | 'callHistory'
   | 'callWindow'
@@ -88,6 +89,7 @@ const threads = (now: number): ThreadsView => ({
       when_ms: now - 2 * MINUTE,
       days_ago: 0,
       unread: 1,
+      sim: null,
     },
     {
       id: 2,
@@ -97,6 +99,7 @@ const threads = (now: number): ThreadsView => ({
       when_ms: now - 26 * 60 * MINUTE,
       days_ago: 1,
       unread: 0,
+      sim: null,
     },
   ],
   next: null,
@@ -227,6 +230,8 @@ export function fakePhone(): PhonePort {
     phoneThreads: () => later(() => threads(Date.now())),
     phoneThread: () => later(() => thread(Date.now())),
     sendSms: () => later(() => 'sent' as const),
+    // One SIM: no picker.
+    phoneSims: () => later(() => []),
     phoneCall: () => later(() => 'done' as const),
     callHistory: () => later(() => history(Date.now())),
     callWindow: (view, nowMs) => later(() => callWindow(view, nowMs)),

@@ -51,7 +51,8 @@ describe('the Tauri port', () => {
     await port.remindPhone('p8', 'messages');
     await port.phoneThreads('p8', null, [], clock);
     await port.phoneThread('p8', 3, before);
-    await port.sendSms('p8', '+15550101', 'hi', 42);
+    await port.sendSms('p8', '+15550101', 'hi', 42, 5);
+    await port.phoneSims('p8', 'calls');
     await port.phoneCall('p8', { kind: 'mute', on: true });
     await port.callHistory('p8', before, clock);
     await port.callWindow({ kind: 'none' }, 9);
@@ -75,7 +76,8 @@ describe('the Tauri port', () => {
       ['remind_phone', { id: 'p8', feature: 'messages' }],
       ['phone_threads', { id: 'p8', before: null, incoming: [], clock }],
       ['phone_thread', { id: 'p8', thread: 3, before }],
-      ['send_sms', { id: 'p8', to: '+15550101', text: 'hi', clientId: 42 }],
+      ['send_sms', { id: 'p8', to: '+15550101', text: 'hi', clientId: 42, sim: 5 }],
+      ['phone_sims', { id: 'p8', feature: 'calls' }],
       ['phone_call', { id: 'p8', action: { kind: 'mute', on: true } }],
       ['call_history', { id: 'p8', before, clock }],
       ['call_window', { view: { kind: 'none' }, nowMs: 9 }],

@@ -34,6 +34,7 @@ import type { PermStep } from '../bindings/PermStep';
 import type { PhonePerm } from '../bindings/PhonePerm';
 import type { PhoneSettings } from '../bindings/PhoneSettings';
 import type { SmsMessage } from '../bindings/SmsMessage';
+import type { SimChoice } from '../bindings/SimChoice';
 import type { SmsSendOutcome } from '../bindings/SmsSendOutcome';
 import type { SyncWindow } from '../bindings/SyncWindow';
 import type { ThreadView } from '../bindings/ThreadView';
@@ -298,8 +299,19 @@ export interface CarrovaPort {
   ): Promise<ThreadsView>;
   /** A page of conversation `thread` after `before` (`null`: the newest), oldest first. */
   phoneThread(id: string, thread: number, before: Cursor | null): Promise<ThreadView>;
-  /** Text `to` from the phone; sent at most once per `clientId` (`unknown`: check the phone before resending). */
-  sendSms(id: string, to: string, text: string, clientId: number): Promise<SmsSendOutcome>;
+  /**
+   * Text `to` from the phone, from SIM `sim` (`null`: the phone's default); sent at most once
+   * per `clientId` (`unknown`: check the phone before resending).
+   */
+  sendSms(
+    id: string,
+    to: string,
+    text: string,
+    clientId: number,
+    sim: number | null,
+  ): Promise<SmsSendOutcome>;
+  /** The SIMs the phone offers to text (`messages`) or call (`calls`) from; none with one SIM. */
+  phoneSims(id: string, feature: Feature): Promise<SimChoice[]>;
   /** Answer, decline, end, mute, dial, keypad tones or move the audio of the phone's call. */
   phoneCall(id: string, action: CallAction): Promise<CallOutcome>;
   /** A page of the phone's call log after `before` (`null`: the newest), by day on `clock`. */

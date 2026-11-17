@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import type { SimChoice } from '../../../bindings/SimChoice';
 import type { ThreadRow } from '../../../bindings/ThreadRow';
 import type { ThreadView } from '../../../bindings/ThreadView';
 import type { SmsSend } from '../../../flows/phone/useSmsSends';
@@ -14,6 +15,7 @@ export function ThreadPane({
   sends,
   phone,
   away,
+  sims,
   onSend,
   onRetry,
 }: {
@@ -23,7 +25,8 @@ export function ThreadPane({
   readonly sends: readonly SmsSend[];
   readonly phone: string;
   readonly away: boolean;
-  readonly onSend: (to: string, text: string) => void;
+  readonly sims: readonly SimChoice[];
+  readonly onSend: (to: string, text: string, sim: number | null) => void;
   readonly onRetry: (clientId: number) => void;
 }) {
   const { t } = useTranslation();
@@ -49,8 +52,10 @@ export function ThreadPane({
       <Composer
         phone={phone}
         away={away}
-        onSend={(text) => {
-          onSend(row.address, text);
+        sims={sims}
+        preferredSim={row.sim}
+        onSend={(text, sim) => {
+          onSend(row.address, text, sim);
         }}
       />
     </section>

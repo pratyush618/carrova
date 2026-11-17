@@ -35,6 +35,7 @@ export const calls = {
     title: 'Calls',
     dial: 'Call a name or number',
     call: 'Call',
+    callFrom: 'Call from',
     callBack: 'Call back {{who}}',
     today: 'Today',
     yesterday: 'Yesterday',

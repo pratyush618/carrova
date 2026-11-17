@@ -5,6 +5,7 @@ import type { ThreadView } from '../../../bindings/ThreadView';
 import { usePort } from '../../../engine/port';
 import type { LinkedDeviceView } from '../../../engine/types';
 import { messagesPhone } from '../../../flows/phone/messagesPhone';
+import { usePhoneSims } from '../../../flows/phone/usePhoneSims';
 import { useSmsSends, type SmsSend } from '../../../flows/phone/useSmsSends';
 import { MessagesScreen } from '../../../screens/phone/messages/MessagesScreen';
 import { HubLayout } from '../../../ui';
@@ -92,6 +93,7 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
     return Promise.resolve();
   }, []);
   const { sends, send, retry } = useSmsSends(port, id, onSent);
+  const sims = usePhoneSims(port, id, 'messages', !away);
 
   return (
     <MessagesScreen
@@ -104,6 +106,7 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
         thread,
         sends: sends.filter((s) => s.thread === open),
         composing,
+        sims,
       }}
       on={{
         onSelect: (thread) => {
@@ -114,8 +117,8 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
         onCompose: () => {
           setComposing(true);
         },
-        onSend: (to, text) => {
-          send(to, text, open);
+        onSend: (to, text, sim) => {
+          send(to, text, open, sim);
         },
         onRetry: retry,
       }}

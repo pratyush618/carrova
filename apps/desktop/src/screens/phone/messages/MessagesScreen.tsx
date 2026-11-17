@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import type { SimChoice } from '../../../bindings/SimChoice';
 import type { ThreadRow } from '../../../bindings/ThreadRow';
 import type { ThreadView } from '../../../bindings/ThreadView';
 import type { SmsSend } from '../../../flows/phone/useSmsSends';
@@ -23,12 +24,14 @@ export interface MessagesModel {
   readonly sends: readonly SmsSend[];
   /** Writing a new message. */
   readonly composing: boolean;
+  /** The SIMs a text can go from; none with one SIM. */
+  readonly sims: readonly SimChoice[];
 }
 
 export interface MessagesIntents {
   readonly onSelect: (id: number) => void;
   readonly onCompose: () => void;
-  readonly onSend: (to: string, text: string) => void;
+  readonly onSend: (to: string, text: string, sim: number | null) => void;
   readonly onRetry: (clientId: number) => void;
 }
 
@@ -85,6 +88,7 @@ export function MessagesScreen({
               sends={model.sends}
               phone={phone}
               away={away}
+              sims={model.sims}
               onSelect={on.onSelect}
               onSend={on.onSend}
               onRetry={on.onRetry}
@@ -98,6 +102,7 @@ export function MessagesScreen({
                 sends={model.sends}
                 phone={phone}
                 away={away}
+                sims={model.sims}
                 onSend={on.onSend}
                 onRetry={on.onRetry}
               />

@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { renderScreen } from '../../../support/render';
+import type { SimChoice } from '@/bindings/SimChoice';
 import type { SmsSendOutcome } from '@/bindings/SmsSendOutcome';
 import type { ThreadRow } from '@/bindings/ThreadRow';
 import { useSmsSends } from '@/flows/phone/useSmsSends';
@@ -19,7 +20,13 @@ const sam: ThreadRow = {
   when_ms: Date.now(),
   days_ago: 0,
   unread: 1,
+  sim: null,
 };
+
+const sims: SimChoice[] = [
+  { id: 3, slot: 1, name: 'Jio', default: true },
+  { id: 7, slot: 2, name: 'Airtel', default: false },
+];
 
 const model: MessagesModel = {
   phone: 'Pixel 8',
@@ -41,6 +48,7 @@ const model: MessagesModel = {
   },
   sends: [],
   composing: false,
+  sims: [],
 };
 
 const intents = (): MessagesIntents => ({
@@ -51,15 +59,21 @@ const intents = (): MessagesIntents => ({
 });
 
 /** The screen over the real send hook, as the route wires them. */
-function Sending({ sendSms }: { readonly sendSms: (...args: never[]) => Promise<SmsSendOutcome> }) {
+function Sending({
+  sendSms,
+  over = {},
+}: {
+  readonly sendSms: (...args: never[]) => Promise<SmsSendOutcome>;
+  readonly over?: Partial<MessagesModel>;
+}) {
   const { sends, send, retry } = useSmsSends({ sendSms }, 'p8', () => Promise.resolve());
   return (
     <MessagesScreen
-      model={{ ...model, sends: sends.filter((s) => s.thread === sam.id) }}
+      model={{ ...model, ...over, sends: sends.filter((s) => s.thread === sam.id) }}
       on={{
         ...intents(),
-        onSend: (to, text) => {
-          send(to, text, sam.id);
+        onSend: (to, text, sim) => {
+          send(to, text, sam.id, sim);
         },
         onRetry: retry,
       }}
@@ -81,7 +95,15 @@ describe('Messages', () => {
   it('thread_send_shows_failed_then_retry', async () => {
     const user = userEvent.setup();
     const sendSms = vi
-      .fn<(id: string, to: string, text: string, clientId: number) => Promise<SmsSendOutcome>>()
+      .fn<
+        (
+          id: string,
+          to: string,
+          text: string,
+          clientId: number,
+          sim: number | null,
+        ) => Promise<SmsSendOutcome>
+      >()
       .mockResolvedValueOnce('no_signal')
       .mockResolvedValueOnce('sent');
     renderScreen(<Sending sendSms={sendSms} />);
@@ -99,6 +121,26 @@ describe('Messages', () => {
     expect(first?.slice(0, 3)).toEqual(['p8', '+15550101', 'Running late']);
     // A retry is the same send: the phone sends at most once per client id.
     expect(second?.[3]).toBe(first?.[3]);
+    // One SIM: no choice shown, the phone's default used.
+    expect(first?.[4]).toBeNull();
+    expect(screen.queryByRole('radiogroup', { name: 'Send from' })).not.toBeInTheDocument();
+  });
+
+  it('replies from the SIM the conversation last used, or the one picked', async () => {
+    const user = userEvent.setup();
+    const sendSms = vi.fn(() => Promise.resolve<SmsSendOutcome>('unknown'));
+    const thread = { ...sam, sim: 7 };
+    renderScreen(
+      <Sending sendSms={sendSms} over={{ sims, selected: thread, threads: [thread] }} />,
+    );
+    expect(screen.getByRole('radio', { name: 'SIM 2 · Airtel' })).toBeChecked();
+    await user.type(screen.getByRole('textbox', { name: 'Text message' }), 'Hi');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(sendSms).toHaveBeenLastCalledWith('p8', '+15550101', 'Hi', expect.any(Number), 7);
+    await user.click(screen.getByRole('radio', { name: 'SIM 1 · Jio' }));
+    await user.type(screen.getByRole('textbox', { name: 'Text message' }), 'Again');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(sendSms).toHaveBeenLastCalledWith('p8', '+15550101', 'Again', expect.any(Number), 3);
   });
 
   it('says an unknown send may have gone, with no one-click retry', async () => {
@@ -148,6 +190,22 @@ describe('Messages', () => {
     await user.type(screen.getByRole('textbox', { name: 'To' }), '+15550177');
     await user.type(screen.getByRole('textbox', { name: 'Text message' }), 'Hi');
     await user.click(screen.getByRole('button', { name: 'Send' }));
-    expect(on.onSend).toHaveBeenCalledWith('+15550177', 'Hi');
+    expect(on.onSend).toHaveBeenCalledWith('+15550177', 'Hi', null);
+  });
+
+  it('starts a new text from the default SIM on a dual-SIM phone', async () => {
+    const user = userEvent.setup();
+    const on = intents();
+    renderScreen(
+      <MessagesScreen
+        model={{ ...model, selected: null, thread: null, composing: true, sims }}
+        on={on}
+      />,
+    );
+    expect(screen.getByRole('radio', { name: 'SIM 1 · Jio' })).toBeChecked();
+    await user.type(screen.getByRole('textbox', { name: 'To' }), '+15550177');
+    await user.type(screen.getByRole('textbox', { name: 'Text message' }), 'Hi');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(on.onSend).toHaveBeenCalledWith('+15550177', 'Hi', 3);
   });
 });

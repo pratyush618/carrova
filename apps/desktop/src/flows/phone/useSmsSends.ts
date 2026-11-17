@@ -12,6 +12,8 @@ export interface SmsSend {
   readonly thread: number | null;
   readonly to: string;
   readonly text: string;
+  /** The SIM it goes from; `null`: the phone's default. */
+  readonly sim: number | null;
   readonly state: SmsSendState;
 }
 
@@ -33,7 +35,7 @@ export function useSmsSends(
   onSent: (send: SmsSend) => Promise<void>,
 ): {
   readonly sends: readonly SmsSend[];
-  readonly send: (to: string, text: string, thread: number | null) => void;
+  readonly send: (to: string, text: string, thread: number | null, sim: number | null) => void;
   readonly retry: (clientId: number) => void;
 } {
   const [sends, setSends] = useState<readonly SmsSend[]>([]);
@@ -46,7 +48,7 @@ export function useSmsSends(
   }, []);
   const run = useCallback(
     (s: SmsSend) => {
-      port.sendSms(device, s.to, s.text, s.clientId).then(
+      port.sendSms(device, s.to, s.text, s.clientId, s.sim).then(
         (outcome) => {
           if (outcome !== 'sent') settle(s.clientId, outcome);
           else
@@ -64,8 +66,8 @@ export function useSmsSends(
     [port, device, onSent, settle],
   );
   const send = useCallback(
-    (to: string, text: string, thread: number | null) => {
-      const s: SmsSend = { clientId: newClientId(), thread, to, text, state: 'sending' };
+    (to: string, text: string, thread: number | null, sim: number | null) => {
+      const s: SmsSend = { clientId: newClientId(), thread, to, text, sim, state: 'sending' };
       setSends((all) => [...all, s]);
       run(s);
     },

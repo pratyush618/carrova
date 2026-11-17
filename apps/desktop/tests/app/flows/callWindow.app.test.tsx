@@ -123,7 +123,7 @@ describe('the call window', () => {
     emit({ kind: 'missed', device: 'p8', number: '+15550101', name: 'Sam Rivera' });
     emit({ kind: 'none' });
     await user.click(await screen.findByRole('button', { name: 'Call back' }));
-    expect(phoneCall).toHaveBeenCalledWith('p8', { kind: 'dial', number: '+15550101' });
+    expect(phoneCall).toHaveBeenCalledWith('p8', { kind: 'dial', number: '+15550101', sim: null });
     expect(closeWindow).not.toHaveBeenCalled();
   });
 });

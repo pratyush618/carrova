@@ -1,6 +1,8 @@
 /** Linked devices: their pages, pairing, asks, clipboard and file notes, and their Settings. */
 export const ecosystem = {
   unknownDevice: 'A linked device',
+  /** A phone's SIM, as Android names it. */
+  sim: 'SIM {{slot}} · {{name}}',
   features: {
     clipboard: { title: 'Shared clipboard', body: 'Copy on one, paste on the other.' },
     ring: { title: 'Ring', body: 'Find the phone, even on silent.' },
@@ -178,6 +180,7 @@ export const ecosystem = {
     toHint: 'Name or number',
     field: 'Text message',
     send: 'Send',
+    sendFrom: 'Send from',
     awayHint: 'Sending works when {{name}} is back',
     awayBody: "Showing the texts loaded before it left. New ones arrive when it's back.",
     emptyTitle: 'Texts from {{name}} show up here',

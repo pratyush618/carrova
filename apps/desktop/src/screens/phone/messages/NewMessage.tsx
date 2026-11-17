@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { SimChoice } from '../../../bindings/SimChoice';
 import type { ThreadRow } from '../../../bindings/ThreadRow';
 import type { SmsSend } from '../../../flows/phone/useSmsSends';
 import { Input } from '../../../ui';
@@ -16,6 +17,7 @@ export function NewMessage({
   sends,
   phone,
   away,
+  sims,
   onSelect,
   onSend,
   onRetry,
@@ -24,8 +26,9 @@ export function NewMessage({
   readonly sends: readonly SmsSend[];
   readonly phone: string;
   readonly away: boolean;
+  readonly sims: readonly SimChoice[];
   readonly onSelect: (id: number) => void;
-  readonly onSend: (to: string, text: string) => void;
+  readonly onSend: (to: string, text: string, sim: number | null) => void;
   readonly onRetry: (clientId: number) => void;
 }) {
   const { t } = useTranslation();
@@ -82,8 +85,9 @@ export function NewMessage({
         phone={phone}
         away={away}
         disabled={query === ''}
-        onSend={(text) => {
-          onSend(to.trim(), text);
+        sims={sims}
+        onSend={(text, sim) => {
+          onSend(to.trim(), text, sim);
         }}
       />
     </section>
