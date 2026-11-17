@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '@/app/App';
 import type { CallView } from '@/bindings/CallView';
+import type { SimChoice } from '@/bindings/SimChoice';
 import type { BridgeEvent, CarrovaPort } from '@/engine/types';
 import { LEFT_GRACE_MS } from '@/flows/calls/callTrack';
 import { createFakePort } from '@/ipc/fake';
@@ -23,7 +24,7 @@ const active = (audio: 'phone' | 'laptop'): CallView => ({
 });
 
 /** The call window over the fake port, with the engine's call events in the test's hands. */
-function renderCallWindow(now: CallView = { kind: 'none' }) {
+function renderCallWindow(now: CallView = { kind: 'none' }, sims: SimChoice[] = []) {
   const port: CarrovaPort = createFakePort({ stepMs: 0 });
   const listeners: ((event: BridgeEvent) => void)[] = [];
   vi.spyOn(port, 'subscribe').mockImplementation((listener) => {
@@ -31,6 +32,7 @@ function renderCallWindow(now: CallView = { kind: 'none' }) {
     return Promise.resolve(() => undefined);
   });
   vi.spyOn(port, 'callNow').mockResolvedValue(now);
+  vi.spyOn(port, 'phoneSims').mockResolvedValue(sims);
   const phoneCall = vi.spyOn(port, 'phoneCall');
   const closeWindow = vi.fn(() => Promise.resolve());
   render(<App port={port} host={{ window: 'call', closeWindow }} />);
@@ -126,5 +128,23 @@ describe('the call window', () => {
     await user.click(await screen.findByRole('button', { name: 'Call back' }));
     expect(phoneCall).toHaveBeenCalledWith('p8', { kind: 'dial', number: '+15550101', sim: null });
     expect(closeWindow).not.toHaveBeenCalled();
+    // One SIM: no choice shown, the phone's default used.
+    expect(screen.queryByRole('radiogroup', { name: 'Call from' })).not.toBeInTheDocument();
+  });
+
+  it('calls back from the SIM picked, the default preselected', async () => {
+    const user = userEvent.setup();
+    const sims: SimChoice[] = [
+      { id: 3, slot: 1, name: 'Jio', default: false },
+      { id: 7, slot: 2, name: 'airtel', default: true },
+    ];
+    const { phoneCall } = renderCallWindow(
+      { kind: 'missed', device: 'p8', number: '+15550101', name: 'Sam Rivera' },
+      sims,
+    );
+    expect(await screen.findByRole('radio', { name: 'SIM 2 · airtel' })).toBeChecked();
+    await user.click(screen.getByRole('radio', { name: 'SIM 1 · Jio' }));
+    await user.click(screen.getByRole('button', { name: 'Call back' }));
+    expect(phoneCall).toHaveBeenCalledWith('p8', { kind: 'dial', number: '+15550101', sim: 3 });
   });
 });

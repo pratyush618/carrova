@@ -43,6 +43,12 @@ export function CallWindowRoute() {
   const device = deviceOf(track.view);
   const phone = useLinkedName(port, device);
   useRingtone(shown?.kind === 'ringing' && shown.ring_here);
+  const sims = usePhoneSims(
+    port,
+    device ?? '',
+    'calls',
+    device !== null && shown?.kind === 'missed',
+  );
   const over = ready && track.view.kind === 'none';
   useEffect(() => {
     if (over) void closeWindow?.();
@@ -57,6 +63,7 @@ export function CallWindowRoute() {
         who={callerName(track.caller)}
         name={track.caller?.name ?? null}
         phone={phone}
+        sims={sims}
         on={{
           onAnswer: () => {
             send({ kind: 'answer' });
@@ -76,10 +83,8 @@ export function CallWindowRoute() {
           onEnd: () => {
             send({ kind: 'end' });
           },
-          onCallBack: () => {
-            // The phone's default SIM: this window offers no choice.
-            if (track.caller !== null)
-              send({ kind: 'dial', number: track.caller.number, sim: null });
+          onCallBack: (sim) => {
+            if (track.caller !== null) send({ kind: 'dial', number: track.caller.number, sim });
           },
           onClose: dismiss,
         }}

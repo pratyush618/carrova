@@ -1,5 +1,6 @@
 import type { AudioSide } from '../../../bindings/AudioSide';
 import type { CallWindowView } from '../../../bindings/CallWindowView';
+import type { SimChoice } from '../../../bindings/SimChoice';
 import { IncomingCall } from './IncomingCall';
 import { InCall } from './InCall';
 import { MissedCall } from './MissedCall';
@@ -11,7 +12,7 @@ export interface CallWindowIntents {
   readonly onTone: (digit: string) => void;
   readonly onAudioTo: (side: AudioSide) => void;
   readonly onEnd: () => void;
-  readonly onCallBack: () => void;
+  readonly onCallBack: (sim: number | null) => void;
   /** Close the window (the call goes on, or rings on, on the phone). */
   readonly onClose: () => void;
 }
@@ -22,6 +23,7 @@ export function CallWindowScreen({
   who,
   name,
   phone,
+  sims,
   on,
 }: {
   readonly view: CallWindowView | null;
@@ -30,6 +32,8 @@ export function CallWindowScreen({
   /** The caller's contact name, when known (for the initials). */
   readonly name: string | null;
   readonly phone: string;
+  /** The SIMs a call back can go from (none with one SIM). */
+  readonly sims: readonly SimChoice[];
   readonly on: CallWindowIntents;
 }) {
   switch (view?.kind) {
@@ -50,6 +54,7 @@ export function CallWindowScreen({
           who={who ?? view.caller.number}
           name={view.caller.name}
           phone={phone}
+          sims={sims}
           on={{ onCallBack: on.onCallBack, onClose: on.onClose }}
         />
       );
