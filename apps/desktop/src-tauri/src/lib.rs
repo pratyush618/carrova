@@ -214,6 +214,7 @@ pub fn run() -> tauri::Result<()> {
             commands::phone::phone_thread,
             commands::phone::send_sms,
             commands::phone::phone_sims,
+            commands::phone::phone_contacts,
             commands::phone::phone_call,
             commands::phone::call_history,
             commands::phone::call_window,

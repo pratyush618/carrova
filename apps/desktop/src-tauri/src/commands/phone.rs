@@ -3,7 +3,7 @@
 use carrova_core::ecosystem::{CallView, PhoneSettings, SyncWindow};
 use carrova_crypto::identity::DeviceId;
 use carrova_link::Feature;
-use carrova_platform::phone::{Cursor, PhonePerm, SendOutcome, SmsMessage};
+use carrova_platform::phone::{Contact, Cursor, PhonePerm, SendOutcome, SmsMessage};
 use carrova_view::ipc::{CallAction, CallOutcome, NoteAction, NoteOutcome};
 use carrova_view::phone::{
     CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, NotifyAppRow,
@@ -107,6 +107,16 @@ pub async fn phone_sims(
     feature: Feature,
 ) -> Result<Vec<SimChoice>, CommandError> {
     ops::phone::phone_sims(&state, id, feature).await
+}
+
+/// `CarrovaPort.phoneContacts`.
+#[tauri::command]
+pub async fn phone_contacts(
+    state: State<'_, AppState>,
+    id: DeviceId,
+    query: String,
+) -> Result<Vec<Contact>, CommandError> {
+    ops::phone::phone_contacts(&state, id, query).await
 }
 
 /// `CarrovaPort.phoneCall`.

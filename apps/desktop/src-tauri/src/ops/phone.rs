@@ -11,7 +11,9 @@ use carrova_core::ecosystem::{CallView, NotifyApps, PhoneSettings, SupervisorHan
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{CallCommand, CallReply, Feature, SmsReply, SmsRequest};
 use carrova_platform::PlatformError;
-use carrova_platform::phone::{CallAudioStatus, Cursor, PhonePerm, SendOutcome, SmsMessage};
+use carrova_platform::phone::{
+    CallAudioStatus, Contact, Cursor, PhonePerm, SendOutcome, SmsMessage,
+};
 use carrova_view::ipc::{CallAction, CallOutcome, ErrorCode, NoteAction, NoteOutcome};
 use carrova_view::phone::{
     CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, NotifyAppRow,
@@ -176,6 +178,25 @@ pub async fn phone_sims(
         }
     };
     Ok(sim_choices(&sims, feature))
+}
+
+/// At most [`MAX_CONTACTS`](carrova_link::MAX_CONTACTS) of `device`'s
+/// contact numbers matching `query`.
+///
+/// # Errors
+///
+/// Not linked, calls off for it, a malformed query, or the link failed
+/// (as with a phone too old to search its contacts).
+pub async fn phone_contacts(
+    state: &AppState,
+    device: DeviceId,
+    query: String,
+) -> Result<Vec<Contact>, CommandError> {
+    let command = CallCommand::Contacts { query };
+    match with_link(state, move |link| link.call(&device, command.clone())).await? {
+        CallReply::Contacts(found) => Ok(found),
+        _ => Err(unexpected_reply()),
+    }
 }
 
 /// Carry out `action` on `device`'s call.
