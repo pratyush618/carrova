@@ -10,7 +10,6 @@
 //! feature. Never logs keys, titles, text, app names, numbers or names.
 
 use std::collections::HashSet;
-use std::collections::hash_map::Entry;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::{Duration, Instant};
@@ -371,6 +370,18 @@ pub(crate) fn serve_notify(
         }
     };
     let platform = &**shared.platform();
+    let note = match &action {
+        NotifyAction::Reply { key, .. }
+        | NotifyAction::Dismiss { key }
+        | NotifyAction::Open { key } => Some(key),
+        NotifyAction::Remind => None,
+    };
+    // Only a note the device may see can be acted on.
+    if let Some(key) = note
+        && !forwarded(platform, key)
+    {
+        return Ok(responder.reply(&ActionResult::Gone)?);
+    }
     let done = match &action {
         NotifyAction::Reply { key, text } => platform.note_reply(key, text).map(|live| {
             if live {
@@ -390,6 +401,17 @@ pub(crate) fn serve_notify(
         ActionResult::Failed
     });
     Ok(responder.reply(&result)?)
+}
+
+/// Whether the note `key` is showing and may leave the phone (fail closed
+/// if either is unreadable).
+fn forwarded(platform: &dyn Platform, key: &str) -> bool {
+    let (Ok(apps), Ok(notes)) = (NotifyApps::open(platform), platform.active_notes()) else {
+        return false;
+    };
+    notes
+        .into_iter()
+        .any(|n| n.key == key && outgoing(n, &apps).is_some())
 }
 
 /// Serve a `Messages` lane from `device` on its link `generation`: pages
@@ -424,16 +446,14 @@ pub(crate) fn serve_messages(
             text,
             client_id,
         } => {
-            let first = shared.with_link(&device, generation, |l| {
-                match l.sms_sent.entry(client_id) {
-                    // Still sending: it may yet go out.
-                    Entry::Occupied(o) => Some(o.get().unwrap_or(SendOutcome::Unknown)),
-                    Entry::Vacant(v) => {
-                        v.insert(None);
-                        None
-                    }
-                }
-            });
+            // Kept on the device, not the link: a retry on a newer link after
+            // a lost reply must not send again.
+            let first = shared
+                .peers()
+                .iter_mut()
+                .find(|p| p.id() == device)
+                .filter(|p| p.link.as_ref().is_some_and(|l| l.generation == generation))
+                .map(|p| p.sms_sent.begin(client_id));
             let outcome = match first {
                 // The link closed: the answer could not arrive, so do not send.
                 None => SendOutcome::Failed,
@@ -443,9 +463,9 @@ pub(crate) fn serve_messages(
                         tracing::debug!(error = %e, "text not sent");
                         SendOutcome::Failed
                     });
-                    shared.with_link(&device, generation, |l| {
-                        l.sms_sent.insert(client_id, Some(outcome));
-                    });
+                    if let Some(p) = shared.peers().iter_mut().find(|p| p.id() == device) {
+                        p.sms_sent.finish(client_id, outcome);
+                    }
                     outcome
                 }
             };
@@ -539,8 +559,12 @@ fn call(
             // Answered from a laptop: the phone's speaker, unless the
             // laptop carries the audio. Never active in time: unknown, so
             // the speaker is left alone.
-            if answered_on_laptop(p, stop) == Some(false) {
-                p.call_speaker(true)?;
+            // The call is answered either way: a speaker failure is not
+            // reported as a failed answer.
+            if answered_on_laptop(p, stop) == Some(false)
+                && let Err(e) = p.call_speaker(true)
+            {
+                tracing::debug!(error = %e, "speaker not turned on");
             }
         }
         CallCommand::Decline => p.call_decline()?,
