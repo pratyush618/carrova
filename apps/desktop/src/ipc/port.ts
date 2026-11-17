@@ -23,6 +23,7 @@ import type { CallOutcome } from '../bindings/CallOutcome';
 import type { CallSetupStep } from '../bindings/CallSetupStep';
 import type { CallView } from '../bindings/CallView';
 import type { CallWindowView } from '../bindings/CallWindowView';
+import type { Contact } from '../bindings/Contact';
 import type { Cursor } from '../bindings/Cursor';
 import type { LocalClock } from '../bindings/LocalClock';
 import type { NoteAction } from '../bindings/NoteAction';
@@ -312,6 +313,8 @@ export interface CarrovaPort {
   ): Promise<SmsSendOutcome>;
   /** The SIMs the phone offers to text (`messages`) or call (`calls`) from; none with one SIM. */
   phoneSims(id: string, feature: Feature): Promise<SimChoice[]>;
+  /** At most 10 of the phone's contact numbers whose name or number matches `query`. */
+  phoneContacts(id: string, query: string): Promise<Contact[]>;
   /** Answer, decline, end, mute, dial, keypad tones or move the audio of the phone's call. */
   phoneCall(id: string, action: CallAction): Promise<CallOutcome>;
   /** A page of the phone's call log after `before` (`null`: the newest), by day on `clock`. */

@@ -30,6 +30,7 @@ type PhonePort = Pick<
   | 'phoneThread'
   | 'sendSms'
   | 'phoneSims'
+  | 'phoneContacts'
   | 'phoneCall'
   | 'callHistory'
   | 'callWindow'
@@ -232,6 +233,7 @@ export function fakePhone(): PhonePort {
     sendSms: () => later(() => 'sent' as const),
     // One SIM: no picker.
     phoneSims: () => later(() => []),
+    phoneContacts: () => later(() => []),
     phoneCall: () => later(() => 'done' as const),
     callHistory: () => later(() => history(Date.now())),
     callWindow: (view, nowMs) => later(() => callWindow(view, nowMs)),

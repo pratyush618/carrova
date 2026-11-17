@@ -120,6 +120,7 @@ export function createTauriPort(): CarrovaPort {
     phoneThread: (id, thread, before) => call('phone_thread', { id, thread, before }),
     sendSms: (id, to, text, clientId, sim) => call('send_sms', { id, to, text, clientId, sim }),
     phoneSims: (id, feature) => call('phone_sims', { id, feature }),
+    phoneContacts: (id, query) => call('phone_contacts', { id, query }),
     phoneCall: (id, action) => call('phone_call', { id, action }),
     callHistory: (id, before, clock) => call('call_history', { id, before, clock }),
     callWindow: (view, nowMs) => call('call_window', { view, nowMs }),
