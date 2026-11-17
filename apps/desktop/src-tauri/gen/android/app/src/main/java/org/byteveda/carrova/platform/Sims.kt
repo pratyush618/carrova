@@ -34,11 +34,13 @@ object Sims {
         } catch (e: SecurityException) {
             null
         } ?: return sims.toString()
+        val phone = context.getSystemService(TelephonyManager::class.java)
         val sms = SubscriptionManager.getDefaultSmsSubscriptionId()
         val voice = SubscriptionManager.getDefaultVoiceSubscriptionId()
         // A slot of -1 is no SIM card in this phone (e.g. a remote SIM): not offered.
         for (sub in subs.filter { it.simSlotIndex >= 0 }.sortedBy { it.simSlotIndex }) {
-            val name = sub.displayName?.toString().orEmpty().ifEmpty { sub.carrierName?.toString().orEmpty() }
+            val sim = phone.createForSubscriptionId(sub.subscriptionId)
+            val name = name(sub.displayName?.toString(), sim.simOperatorName, sim.simCarrierIdName?.toString())
             sims.put(
                 JSONObject()
                     .put("id", sub.subscriptionId)
@@ -50,6 +52,20 @@ object Sims {
         }
         return sims.toString()
     }
+
+    /**
+     * What a SIM is called: the user's own name for it, unless it is a
+     * placeholder ("SIM1", which some builds set), else the SIM's operator
+     * (SPN, e.g. "Jio"), else Android's carrier name for it; "" if none.
+     * Not `carrierName`: it is the status bar's text ("No service" off-network).
+     */
+    internal fun name(display: String?, operator: String?, carrierId: String?): String =
+        listOf(display?.takeUnless { PLACEHOLDER.matches(it) }, operator, carrierId)
+            .map { it.orEmpty().trim() }
+            .firstOrNull { it.isNotEmpty() && !PLACEHOLDER.matches(it) }
+            .orEmpty()
+
+    private val PLACEHOLDER = Regex("""(?i)\s*sim\s*\d*\s*""")
 
     /** The [SmsManager] that sends from subscription [sub] (-1: the default). */
     fun smsManager(context: Context, sub: Int): SmsManager = if (Build.VERSION.SDK_INT >= 31) {

@@ -21,4 +21,13 @@ class SimsTest {
         assertArrayEquals(sms + Manifest.permission.READ_PHONE_STATE, Perms.asked("sms", 2))
         assertArrayEquals(arrayOf(Manifest.permission.READ_CONTACTS), Perms.asked("contacts", 2))
     }
+
+    @Test
+    fun names_a_sim_by_its_operator_when_the_display_name_is_a_placeholder() {
+        assertEquals("Jio", Sims.name("SIM1", "Jio", "JIO — Jio"))
+        assertEquals("airtel", Sims.name("SIM 2", "airtel", "No services"))
+        assertEquals("Work", Sims.name("Work", "Jio", "Jio"))
+        assertEquals("BSNL", Sims.name("", "", "BSNL"))
+        assertEquals("", Sims.name("SIM1", "", "SIM1"))
+    }
 }
