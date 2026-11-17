@@ -7,7 +7,7 @@ const ARCHIVE_FILTER = { name: 'Carrova file', extensions: ['carrova'] };
 
 /** Label prefix of the phone-notification pop-up windows (`capabilities/note-popup.json`). */
 const NOTE_POPUP = 'note-popup-';
-const POPUP_SIZE = { width: 380, height: 220 };
+const POPUP_SIZE = { width: 380, height: 140 };
 
 /** The Tauri host: dialog, opener and notification plugins, loaded only inside the app. */
 const tauriHost: DesktopHost = {
@@ -57,7 +57,8 @@ const tauriHost: DesktopHost = {
       ...(monitor && { x: right - POPUP_SIZE.width - 16, y: top + 16 }),
       alwaysOnTop: true,
       decorations: false,
-      resizable: false,
+      // GTK ignores resize requests on a fixed-size window; the pop-up fits its content.
+      resizable: true,
       skipTaskbar: true,
       focus: false,
     });
