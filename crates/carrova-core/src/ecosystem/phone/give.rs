@@ -301,6 +301,14 @@ impl Giver<'_> {
                 tracing::debug!(?feature, granted = now, "phone access changed");
                 self.seen.insert(feature, now);
                 tell_access(&targets, feature, now);
+                // Notes that showed while access was missing were never sent.
+                if now && feature == Feature::Notifications {
+                    let notes = Gives {
+                        notes: true,
+                        ..Gives::default()
+                    };
+                    self.resend(None, notes);
+                }
             }
         }
     }

@@ -731,6 +731,24 @@ fn missing_sms_access_reported_until_granted() {
 }
 
 #[test]
+fn notes_showing_sent_once_access_is_granted() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |p| {
+        without(PhonePerm::NotificationAccess)(p);
+        p.platform.phone().notes = vec![note("k1", "org.example.chat")];
+    });
+    laptop.wait_got(1);
+
+    phone.platform.phone().perms.clear();
+    assert_eq!(
+        laptop.wait_got(3)[1..],
+        [
+            Got::Notify(NotifyMsg::Access { granted: true }),
+            Got::Notify(NotifyMsg::Snapshot(vec![note("k1", "org.example.chat")])),
+        ]
+    );
+}
+
+#[test]
 fn access_revoked_while_linked_is_reported() {
     let (phone, _sp, laptop) = phone_and_laptop(&[NOTES, SMS], &[NOTES, SMS], |_| {});
     assert_eq!(
