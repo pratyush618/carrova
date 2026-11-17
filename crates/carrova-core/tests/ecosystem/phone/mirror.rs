@@ -64,7 +64,7 @@ fn note(key: &str, app_id: &str) -> Note {
         can_reply: true,
         icon: Some(vec![1, 2, 3]),
         hidden: None,
-        sms_app: false,
+        sms_app: true,
     }
 }
 
@@ -343,6 +343,7 @@ fn unknown_lock_fails_closed() {
     assert_eq!(shown.hidden, Some(Hidden::Locked));
     assert!(shown.title.is_empty() && shown.text.is_empty() && shown.app_name.is_empty());
     assert!(shown.icon.is_none());
+    assert!(shown.sms_app, "the SMS-app mark outlives the lock");
     assert_eq!(sl.notes(&phone.id).unwrap(), [shown]);
 }
 
