@@ -103,7 +103,7 @@ export const mobile = {
     notifications: 'Notifications',
     notificationsSub: 'Choose which apps show on {{name}}',
     messages: 'Messages',
-    messagesSub: 'Keep in sync, sending',
+    messagesSub: 'How far back texts reach {{name}}',
     calls: 'Calls',
     callsSub: 'Ring and answer on {{name}}',
   },
