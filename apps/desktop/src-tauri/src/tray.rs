@@ -20,6 +20,7 @@ use carrova_link::Feature;
 use carrova_platform::DirWatch;
 use carrova_view::devices::VisibilityChoice;
 use carrova_view::ecosystem::LinkedDeviceView;
+use carrova_view::ipc::CallAction;
 use carrova_view::ipc::EVENT_CHANNEL;
 use carrova_view::notice::POPUP_TITLE;
 use carrova_view::tray::{
@@ -33,7 +34,8 @@ use tauri::{
 };
 use tauri_plugin_dialog::DialogExt;
 
-use crate::ops::{background, devices, ecosystem};
+use crate::call_window::LastCall;
+use crate::ops::{background, devices, ecosystem, phone};
 use crate::send_request;
 use crate::state::AppState;
 
@@ -48,6 +50,10 @@ const CLIP_ITEM: &str = "clip:";
 
 /// Id prefix of a "Ring <device>" item, before the device's id.
 const RING_ITEM: &str = "ring:";
+
+/// Ids of the running call's Mute (or Unmute) and End items.
+const CALL_MUTE: &str = "call_mute";
+const CALL_END: &str = "call_end";
 
 /// Whether the tray icon shows, whether its menu says a move runs, and how
 /// many devices it last found nearby. It is built once, then only hidden:
@@ -150,6 +156,10 @@ pub fn on_window_event(window: &Window, event: &WindowEvent) {
     let WindowEvent::CloseRequested { api, .. } = event else {
         return;
     };
+    // Other windows (a call's) just close.
+    if window.label() != MAIN_WINDOW {
+        return;
+    }
     let app = window.app_handle();
     let Some(state) = app.try_state::<AppState>() else {
         return;
@@ -293,7 +303,7 @@ pub fn on_main(app: &AppHandle, f: impl FnOnce(&AppHandle) + Send + 'static) {
 
 /// Refresh the tray menu if the tray still shows (on the main thread, see
 /// [`on_main`]).
-fn refresh_shown_tray(app: &AppHandle) {
+pub fn refresh_shown_tray(app: &AppHandle) {
     if let Some(state) = app.try_state::<AppState>()
         && tray_shown(app)
     {
@@ -414,6 +424,7 @@ fn menu(
     linked: &[LinkedDeviceView],
 ) -> tauri::Result<Menu<tauri::Wry>> {
     let menu = Menu::new(app)?;
+    append_call_items(app, &menu)?;
     for item in tray_menu(model) {
         if item.separated {
             menu.append(&PredefinedMenuItem::separator(app)?)?;
@@ -464,6 +475,66 @@ fn append_link_items(
     Ok(())
 }
 
+/// A call in progress goes to the top: who, Mute or Unmute, and End.
+fn append_call_items(app: &AppHandle, menu: &Menu<tauri::Wry>) -> tauri::Result<()> {
+    let Some(call) = app.try_state::<LastCall>().and_then(|last| last.running()) else {
+        return Ok(());
+    };
+    let status = call.who.map_or_else(
+        || "On a call".to_owned(),
+        |who| format!("On a call · {who}"),
+    );
+    let mute = if call.muted { "Unmute" } else { "Mute" };
+    menu.append(&MenuItem::with_id(
+        app,
+        "call",
+        escaped(&status),
+        false,
+        None::<&str>,
+    )?)?;
+    menu.append(&MenuItem::with_id(
+        app,
+        CALL_MUTE,
+        mute,
+        true,
+        None::<&str>,
+    )?)?;
+    menu.append(&MenuItem::with_id(
+        app,
+        CALL_END,
+        "End",
+        true,
+        None::<&str>,
+    )?)?;
+    menu.append(&PredefinedMenuItem::separator(app)?)
+}
+
+/// The call's Mute (or Unmute) and End: sent to the phone off the main
+/// thread. Returns whether `id` was one.
+fn on_call_item(app: &AppHandle, id: &str) -> bool {
+    if id != CALL_MUTE && id != CALL_END {
+        return false;
+    }
+    let (Some(state), Some(call)) = (
+        app.try_state::<AppState>(),
+        app.try_state::<LastCall>().and_then(|last| last.running()),
+    ) else {
+        return true;
+    };
+    let action = if id == CALL_END {
+        CallAction::End
+    } else {
+        CallAction::Mute { on: !call.muted }
+    };
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(error) = phone::phone_call(&state, call.device, action).await {
+            tracing::warn!(%error, "a tray call action failed");
+        }
+    });
+    true
+}
+
 /// A plain or check menu item for `item`.
 fn entry(app: &AppHandle, item: &TrayItem) -> tauri::Result<Box<dyn IsMenuItem<tauri::Wry>>> {
     Ok(match item.checked {
@@ -497,7 +568,7 @@ fn escaped(text: &str) -> String {
 }
 
 fn on_menu(app: &AppHandle, id: &str) {
-    if on_link_item(app, id) {
+    if on_link_item(app, id) || on_call_item(app, id) {
         return;
     }
     if let Some(choice) = tray_visibility(id) {

@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "call",
+  "description": "The call window: core IPC (events) and closing itself once the call is over.",
+  "platforms": ["linux", "windows", "macOS"],
+  "windows": ["call"],
+  "permissions": ["core:default", "core:window:allow-close"]
+}

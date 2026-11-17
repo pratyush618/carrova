@@ -24,6 +24,8 @@
 //! - [`tray`]: the window in background mode (closed to the tray,
 //!   minimised or quit) and the tray menu.
 //! - [`presence`]: this computer's advert on the LAN while the app runs.
+//! - [`call_window`] (desktop): the always-on-top window of a linked
+//!   phone's call, and the last call shown.
 //! - [`ops::ecosystem`]: the link supervisor of linked devices, started
 //!   with the app; its events go out as engine events of the link session.
 //! - [`opened`]: links the app was opened with (a phone's share sheet,
@@ -34,6 +36,8 @@
 //!   services.
 //! - [`command_error`]: the one mapping of every failure to `BridgeError`.
 
+#[cfg(desktop)]
+pub mod call_window;
 pub mod command_error;
 pub mod commands;
 pub mod error_report;
@@ -119,6 +123,8 @@ pub fn run() -> tauri::Result<()> {
             app.manage(state.clone());
             #[cfg(desktop)]
             tray::start(app.handle(), &state, launched_in_background());
+            #[cfg(desktop)]
+            call_window::start(app.handle());
             #[cfg(mobile)]
             mobile::open_main_window(app.handle())?;
             Ok(())
@@ -210,6 +216,8 @@ pub fn run() -> tauri::Result<()> {
             commands::phone::phone_call,
             commands::phone::call_history,
             commands::phone::call_window,
+            #[cfg(desktop)]
+            call_window::call_now,
             commands::phone::phone_settings,
             commands::phone::set_phone_settings,
             commands::phone::call_audio_step,
