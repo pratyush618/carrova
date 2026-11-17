@@ -37,6 +37,13 @@ use crate::error::Result;
 /// The features a phone gives.
 const PHONE: [Feature; 3] = [Feature::Notifications, Feature::Messages, Feature::Calls];
 
+/// The watch's listeners that arm only while their permission is held,
+/// with the feature each serves.
+const LISTENERS: [(PhonePerm, Feature); 2] = [
+    (PhonePerm::Calls, Feature::Calls),
+    (PhonePerm::Sms, Feature::Messages),
+];
+
 /// How long an answered call may take to report itself active.
 const ANSWER_SETTLE: Duration = Duration::from_secs(2);
 /// How often the call state is read meanwhile.
@@ -96,6 +103,7 @@ pub(crate) fn run(shared: &Arc<Shared>, jobs: &Receiver<Job>) {
     let mut giver = Giver {
         shared,
         watch: None,
+        unarmed: Vec::new(),
         tried: Vec::new(),
         sent: HashSet::new(),
         missing: Vec::new(),
@@ -122,6 +130,10 @@ type Targets = Vec<(DeviceId, Arc<Connection>)>;
 struct Giver<'a> {
     shared: &'a Arc<Shared>,
     watch: Option<PhoneWatch>,
+    /// The watch's listeners whose permission was missing as it opened:
+    /// rechecked each tick while a device takes their feature, and armed
+    /// once granted (Android says nothing when a permission is granted).
+    unarmed: Vec<PhonePerm>,
     /// The device features the last watch attempt was for: a failed one is
     /// tried again only once these change, never in a loop.
     tried: Vec<(DeviceId, Feature)>,
@@ -150,23 +162,64 @@ impl Giver<'_> {
             .collect();
         if want.is_empty() {
             self.watch = None;
+            self.unarmed.clear();
             self.tried.clear();
             // Removals go unseen while unwatched: a later one must not
             // withdraw a note sent before.
             self.sent.clear();
             return;
         }
-        if self.watch.is_some() || want == self.tried {
+        if self.watch.is_some() {
+            self.rearm(&want);
+            return;
+        }
+        if want == self.tried {
             return;
         }
         self.tried = want;
+        // Read before the watch arms its listeners: one granted in between
+        // is armed again, never missed.
+        let unarmed = LISTENERS
+            .iter()
+            .map(|&(perm, _)| perm)
+            .filter(|&perm| !self.held(perm))
+            .collect();
         let jobs = self.shared.give.clone();
         let on_event = Box::new(move |e| {
             let _ = jobs.send(Job::Event(e));
         });
         match self.platform().watch_phone_events(on_event) {
-            Ok(watch) => self.watch = Some(watch),
+            Ok(watch) => {
+                self.watch = Some(watch);
+                self.unarmed = unarmed;
+            }
             Err(e) => tracing::debug!(error = %e, "phone events not watched"),
+        }
+    }
+
+    /// Arm each listener of the open watch whose permission is granted
+    /// now, while a device in `want` takes its feature.
+    fn rearm(&mut self, want: &[(DeviceId, Feature)]) {
+        for perm in std::mem::take(&mut self.unarmed) {
+            let feature = LISTENERS
+                .iter()
+                .find_map(|&(p, f)| (p == perm).then_some(f));
+            let wanted = want.iter().any(|&(_, f)| Some(f) == feature);
+            let armed = wanted
+                && self.held(perm)
+                && self.watch.as_ref().is_some_and(|w| match w.rearm(perm) {
+                    Ok(()) => {
+                        tracing::debug!(?perm, "phone listener armed");
+                        true
+                    }
+                    Err(e) => {
+                        tracing::debug!(?perm, error = %e, "phone listener not armed");
+                        false
+                    }
+                });
+            if !armed {
+                self.unarmed.push(perm);
+            }
         }
     }
 
@@ -298,8 +351,13 @@ impl Giver<'_> {
     }
 
     fn access(&self, feature: Feature) -> bool {
+        self.held(perm(feature))
+    }
+
+    /// Whether the phone holds `perm` (unreadable: assumed held).
+    fn held(&self, perm: PhonePerm) -> bool {
         self.platform()
-            .phone_perm(perm(feature))
+            .phone_perm(perm)
             .map_or(true, |state| state == PermState::Granted)
     }
 

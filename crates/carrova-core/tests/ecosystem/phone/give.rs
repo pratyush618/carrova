@@ -759,6 +759,79 @@ fn missing_sms_access_reported_until_granted() {
     );
 }
 
+/// How many times the phone's events were watched.
+fn watches(phone: &Device) -> usize {
+    let actions = phone.platform.actions();
+    actions
+        .iter()
+        .filter(|a| *a == "watch_phone_events")
+        .count()
+}
+
+#[test]
+fn call_permission_granted_after_the_watch_arms_calls() {
+    // Notifications opened the watch before calls could arm (Android
+    // arms the call listener only with its permission).
+    let (phone, _sp, laptop) =
+        phone_and_laptop(&[NOTES, CALLS], &[NOTES, CALLS], without(PhonePerm::Calls));
+    laptop.wait_got(2);
+    wait_watching(&phone);
+    assert!(!phone.platform.armed(PhonePerm::Calls));
+
+    phone.platform.phone().perms.clear();
+    wait_until("calls armed", || phone.platform.armed(PhonePerm::Calls));
+    phone.platform.script_event(PhoneEvent::Call(ringing()));
+
+    assert_eq!(laptop.wait_got(3)[2], Got::Call(ringing()));
+    // Armed in place: no new watch, so no snapshot sent again.
+    assert_eq!(watches(&phone), 1);
+    thread::sleep(fast().tick * 4);
+    assert_eq!(laptop.got().len(), 3);
+}
+
+#[test]
+fn calls_turned_on_after_the_watch_arm_once_permitted() {
+    let (phone, _sp, laptop) =
+        phone_and_laptop(&[NOTES, CALLS], &[NOTES], without(PhonePerm::Calls));
+    laptop.wait_got(1);
+    wait_watching(&phone);
+    phone.platform.phone().perms.clear();
+    // No device takes calls: their permission is not even read.
+    thread::sleep(fast().tick * 4);
+    assert!(!phone.platform.armed(PhonePerm::Calls));
+
+    let mut lane = open_lane(&laptop.conn, LaneKind::Policy).unwrap();
+    let update = PolicyUpdate {
+        doc: doc(&[NOTES, CALLS]),
+        name: None,
+    };
+    send_policy(&mut lane, &update).unwrap();
+    wait_until("calls armed", || phone.platform.armed(PhonePerm::Calls));
+    phone.platform.script_event(PhoneEvent::Call(ringing()));
+
+    assert!(laptop.wait_got(3).contains(&Got::Call(ringing())));
+    assert_eq!(watches(&phone), 1);
+}
+
+#[test]
+fn sms_permission_granted_after_the_watch_arms_texts() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[SMS], &[SMS], without(PhonePerm::Sms));
+    laptop.wait_got(1);
+    wait_watching(&phone);
+
+    phone.platform.phone().perms.clear();
+    wait_until("texts armed", || phone.platform.armed(PhonePerm::Sms));
+    phone
+        .platform
+        .script_event(PhoneEvent::SmsStored { thread_id: 7 });
+
+    assert!(
+        laptop
+            .wait_got(3)
+            .contains(&Got::Sms(SmsPush::Stored { thread_id: 7 }))
+    );
+}
+
 #[test]
 fn remind_asks_the_phone() {
     let (phone, _sp, laptop) = phone_and_laptop(&[NOTES, SMS], &[NOTES, SMS], |_| {});

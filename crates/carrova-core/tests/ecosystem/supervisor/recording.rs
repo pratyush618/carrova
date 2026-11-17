@@ -104,6 +104,18 @@ struct Events {
     generation: u64,
     /// The live watch's thread, to wait out when the watch stops.
     worker: Option<Worker>,
+    /// The live watch's listeners not armed: their permission was missing
+    /// as it opened (as on Android), so their events never come.
+    unarmed: Vec<PhonePerm>,
+}
+
+/// The listener `event` comes from, if it needs a permission to arm.
+fn listener(event: &PhoneEvent) -> Option<PhonePerm> {
+    match event {
+        PhoneEvent::Call(_) => Some(PhonePerm::Calls),
+        PhoneEvent::SmsStored { .. } => Some(PhonePerm::Sms),
+        _ => None,
+    }
 }
 
 /// A watch's delivery thread. It holds `delivery` across each generation
@@ -129,6 +141,7 @@ impl fmt::Debug for Events {
         f.debug_struct("Events")
             .field("watched", &self.live.is_some())
             .field("pending", &self.pending.len())
+            .field("unarmed", &self.unarmed)
             .finish()
     }
 }
@@ -173,11 +186,20 @@ impl Recording {
     /// until one is registered.
     pub fn script_event(&self, event: PhoneEvent) {
         let mut events = lock(&self.events);
+        if events.live.is_some() && listener(&event).is_some_and(|p| events.unarmed.contains(&p)) {
+            return;
+        }
         let unsent = match &events.live {
             Some(live) => live.send(event).err().map(|e| e.0),
             None => Some(event),
         };
         events.pending.extend(unsent);
+    }
+
+    /// Whether the live watch's listener needing `perm` is armed.
+    pub fn armed(&self, perm: PhonePerm) -> bool {
+        let events = lock(&self.events);
+        events.live.is_some() && !events.unarmed.contains(&perm)
     }
 
     /// Whether a `watch_phone_events` callback is registered now.
@@ -384,6 +406,18 @@ impl Platform for Recording {
         on_event: Box<dyn Fn(PhoneEvent) + Send>,
     ) -> Result<PhoneWatch, PlatformError> {
         self.record_action("watch_phone_events")?;
+        let unarmed: Vec<PhonePerm> = {
+            let phone = self.phone();
+            [PhonePerm::Calls, PhonePerm::Sms]
+                .into_iter()
+                .filter(|p| {
+                    phone
+                        .perms
+                        .iter()
+                        .any(|&(q, s)| q == *p && s != PermState::Granted)
+                })
+                .collect()
+        };
         let (live, queue) = mpsc::channel();
         let delivery = Arc::new(Mutex::new(()));
         let (generation, replaced) = {
@@ -393,6 +427,7 @@ impl Platform for Recording {
                 let _ = live.send(event); // `queue` is alive: cannot fail
             }
             events.live = Some(live);
+            events.unarmed = unarmed;
             let generation = events.generation;
             // Deliver on the watch's own thread and never under `events`:
             // the scripting thread or a supervisor may hold a lock the
@@ -432,6 +467,16 @@ impl Platform for Recording {
             };
             if let Some(worker) = stopped {
                 worker.finish();
+            }
+        })
+        .with_rearm({
+            let events = Arc::clone(&self.events);
+            move |perm| {
+                let mut events = lock(&events);
+                if events.generation == generation {
+                    events.unarmed.retain(|&p| p != perm);
+                }
+                Ok(())
             }
         }))
     }
