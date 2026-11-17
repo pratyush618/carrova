@@ -59,17 +59,12 @@ pub(crate) fn outcome(exit: u32, error: Option<u32>) -> Outcome {
 /// Whether `os_release` (the text of `/etc/os-release`) is Ubuntu 24.04 or
 /// newer.
 pub(crate) fn supported_os(os_release: &str) -> bool {
-    let field = |key: &str| {
-        os_release.lines().find_map(|l| {
-            let value = l.strip_prefix(key)?.strip_prefix('=')?;
-            Some(value.trim().trim_matches('"'))
-        })
-    };
+    let field = |key| super::super::name::env_value(os_release, key);
     let version = field("VERSION_ID").and_then(|v| {
         let (major, minor) = v.split_once('.')?;
         Some((major.parse::<u32>().ok()?, minor.parse::<u32>().ok()?))
     });
-    field("ID") == Some("ubuntu") && version.is_some_and(|v| v >= (24, 4))
+    field("ID").as_deref() == Some("ubuntu") && version.is_some_and(|v| v >= (24, 4))
 }
 
 /// [`supported_os`] for this machine.

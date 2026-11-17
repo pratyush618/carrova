@@ -505,10 +505,12 @@ fn disk_names_the_mount_holding_a_path_and_its_capacity() {
 }
 
 #[test]
-fn device_name_is_the_sanitised_kernel_host_name() {
-    let kernel = fs::read_to_string("/proc/sys/kernel/hostname").unwrap();
-    let p = LinuxPlatform::new(env_home("/home/u"));
-    assert_eq!(p.device_name(), Some(kernel.trim().to_owned()));
+fn device_name_is_a_sanitised_name() {
+    // Which source wins depends on the machine (tests/linux/name).
+    let name = LinuxPlatform::new(env_home("/home/u"))
+        .device_name()
+        .unwrap();
+    assert_eq!(crate::device::sanitize_device_name(&name), Some(name));
 }
 
 #[test]
