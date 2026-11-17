@@ -90,7 +90,7 @@ fn debug_output_has_no_secret_or_tag_bytes() {
 /// advertiser public key)[..8]`.
 #[test]
 fn discovery_tag_matches_known_answer() {
-    let mut mac = <HmacSha256 as hmac::Mac>::new_from_slice(&[0x33; 32]).unwrap();
+    let mut mac = <HmacSha256 as hmac::KeyInit>::new_from_slice(&[0x33; 32]).unwrap();
     hmac::Mac::update(&mut mac, b"carrova/1/known-discovery");
     hmac::Mac::update(&mut mac, &[0x44; TAG_NONCE_LEN]);
     hmac::Mac::update(&mut mac, device(1).as_bytes());
@@ -144,7 +144,7 @@ fn link_tag_not_discovery_tag() {
 /// dialer public key)[..16]` (both peers recompute it).
 #[test]
 fn link_tag_matches_construction() {
-    let mut mac = <HmacSha256 as hmac::Mac>::new_from_slice(&[0x33; 32]).unwrap();
+    let mut mac = <HmacSha256 as hmac::KeyInit>::new_from_slice(&[0x33; 32]).unwrap();
     hmac::Mac::update(&mut mac, b"carrova/1/known-link");
     hmac::Mac::update(&mut mac, &[0x44; TAG_NONCE_LEN]);
     hmac::Mac::update(&mut mac, device(1).as_bytes());
@@ -211,7 +211,7 @@ fn link_proof_is_not_a_resume_proof_of_the_same_key() {
 /// identity ‖ binding)`.
 #[test]
 fn link_proof_matches_construction() {
-    let mut mac = <HmacSha256 as hmac::Mac>::new_from_slice(&[0x33; 32]).unwrap();
+    let mut mac = <HmacSha256 as hmac::KeyInit>::new_from_slice(&[0x33; 32]).unwrap();
     hmac::Mac::update(&mut mac, b"carrova/1/link-confirm");
     hmac::Mac::update(&mut mac, PakeRole::Receiver.identity());
     hmac::Mac::update(&mut mac, binding(7).as_bytes());
