@@ -149,6 +149,11 @@
   padding-block: var(--sp-1);
 }
 
+/* No sends yet: the suggestions keep the room. */
+.s-thread__sugg + .s-bubbles:empty {
+  flex: 0;
+}
+
 .s-bubbles {
   display: flex;
   flex: 1;

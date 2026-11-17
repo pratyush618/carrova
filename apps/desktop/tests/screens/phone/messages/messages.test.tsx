@@ -150,4 +150,23 @@ describe('Messages', () => {
     await user.click(screen.getByRole('button', { name: 'Send' }));
     expect(on.onSend).toHaveBeenCalledWith('+15550177', 'Hi');
   });
+
+  it('shows how a new text went while the recipient matches a conversation', async () => {
+    const user = userEvent.setup();
+    renderScreen(
+      <MessagesScreen
+        model={{
+          ...model,
+          selected: null,
+          thread: null,
+          composing: true,
+          sends: [{ clientId: 1, thread: null, to: '+15550101', text: 'Hi', state: 'failed' }],
+        }}
+        on={intents()}
+      />,
+    );
+    await user.type(screen.getByRole('textbox', { name: 'To' }), '+1555');
+    expect(screen.getAllByRole('button', { name: /Sam Rivera/ })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
 });
