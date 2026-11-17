@@ -17,9 +17,9 @@ use std::time::{Duration, Instant};
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{
     ActionResult, CallCommand, CallIncoming, CallReply, Feature, FeatureState, HISTORY_PAGE,
-    Incoming, LinkError, MESSAGE_PAGE, NotifyAction, NotifyMsg, PolicyDoc, SendOutcome,
-    SmsIncoming, SmsPush, SmsReply, SmsRequest, THREAD_PAGE, allowed, check_sms_reply, fit_apps,
-    fit_note, fit_snapshot, push_sms, recv_calls, recv_notify, recv_sms, send_call_state,
+    Incoming, LinkError, MESSAGE_PAGE, NotifyAction, NotifyMsg, PolicyDoc, RefuseReason,
+    SendOutcome, SmsIncoming, SmsPush, SmsReply, SmsRequest, THREAD_PAGE, allowed, check_sms_reply,
+    fit_apps, fit_note, fit_snapshot, push_sms, recv_calls, recv_notify, recv_sms, send_call_state,
     send_notify,
 };
 use carrova_platform::phone::{CallState, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch};
@@ -30,6 +30,7 @@ use super::apps::outgoing;
 use super::{NotifyApps, SyncWindow};
 use super::{calls, mirror};
 use crate::cancel::Cancel;
+use crate::ecosystem::features;
 use crate::ecosystem::supervisor::Shared;
 use crate::error::Result;
 
@@ -369,6 +370,7 @@ pub(crate) fn serve_notify(
             return Ok(responder.reply(&fit_apps(apps.entries(&showing)))?);
         }
     };
+    still_on(shared, &device, Feature::Notifications)?;
     let platform = &**shared.platform();
     let note = match &action {
         NotifyAction::Reply { key, .. }
@@ -403,6 +405,15 @@ pub(crate) fn serve_notify(
     Ok(responder.reply(&result)?)
 }
 
+/// Refuse a request on a lane admitted before `feature` was turned off
+/// here for `device` (the lane waited for its request meanwhile).
+fn still_on(shared: &Shared, device: &DeviceId, feature: Feature) -> Result<()> {
+    if features::local(shared, device, feature) == FeatureState::Off {
+        return Err(LinkError::Refused(RefuseReason::NotAllowed).into());
+    }
+    Ok(())
+}
+
 /// Whether the note `key` is showing and may leave the phone (fail closed
 /// if either is unreadable).
 fn forwarded(platform: &dyn Platform, key: &str) -> bool {
@@ -429,6 +440,7 @@ pub(crate) fn serve_messages(
         }
         SmsIncoming::Request(request, responder) => (request, responder),
     };
+    still_on(shared, &device, Feature::Messages)?;
     let platform = &**shared.platform();
     let since = since_ms(platform);
     let reply = match request {
@@ -528,6 +540,7 @@ pub(crate) fn serve_calls(
         }
         CallIncoming::Command(command, responder) => (command, responder),
     };
+    still_on(shared, &device, Feature::Calls)?;
     // The stop ends a wait for an answered call.
     let reply = call(&**shared.platform(), &shared.stop, &command).unwrap_or_else(|e| {
         tracing::debug!(?command, error = %e, "call command failed");
