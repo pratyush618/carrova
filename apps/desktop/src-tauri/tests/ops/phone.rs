@@ -4,7 +4,10 @@
 use std::sync::Arc;
 
 use carrova_core::ecosystem::{NotifyApps, SyncWindow};
+use carrova_crypto::identity::DeviceKey;
+use carrova_link::Feature;
 use carrova_platform::fake::FakePlatform;
+use carrova_view::ipc::ErrorCode;
 use tauri::async_runtime::block_on;
 
 use crate::ops::phone;
@@ -51,4 +54,14 @@ fn notify_choices_reach_the_list_the_giver_reads() {
     assert!(!view.apps[0].on && !view.hide_codes && !view.show_text);
     let saved = NotifyApps::open(&platform).unwrap();
     assert!(!saved.allowed("org.chat") && !saved.hide_codes() && !saved.show_text());
+}
+
+#[test]
+fn reminders_only_for_notifications_and_messages() {
+    let machine = Machine::new();
+    let (state, _) = with_fake(&machine);
+    let device = DeviceKey::from_bytes(&[7; 32]).public();
+
+    let err = block_on(phone::remind_phone(&state, device, Feature::Calls)).unwrap_err();
+    assert_eq!(err.bridge().code, ErrorCode::Unsupported);
 }

@@ -2,11 +2,12 @@
 
 use carrova_core::ecosystem::{CallView, PhoneSettings, SyncWindow};
 use carrova_crypto::identity::DeviceId;
+use carrova_link::Feature;
 use carrova_platform::phone::{Cursor, PhonePerm, SendOutcome, SmsMessage};
 use carrova_view::ipc::{CallAction, CallOutcome, NoteAction, NoteOutcome};
 use carrova_view::phone::{
-    CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, NotifyAppsView, PermStep,
-    ThreadView, ThreadsView,
+    CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, NotifyAppRow,
+    NotifyAppsView, PermStep, ThreadView, ThreadsView,
 };
 use tauri::{AppHandle, State};
 
@@ -36,6 +37,26 @@ pub async fn phone_note_action(
         &app,
         ops::phone::phone_note_action(&state, id, action).await,
     )
+}
+
+/// `CarrovaPort.phoneApps`.
+#[tauri::command]
+pub async fn phone_apps(
+    state: State<'_, AppState>,
+    id: DeviceId,
+) -> Result<Vec<NotifyAppRow>, CommandError> {
+    ops::phone::phone_apps(&state, id).await
+}
+
+/// `CarrovaPort.remindPhone`.
+#[tauri::command]
+pub async fn remind_phone(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: DeviceId,
+    feature: Feature,
+) -> Result<bool, CommandError> {
+    reply(&app, ops::phone::remind_phone(&state, id, feature).await)
 }
 
 /// `CarrovaPort.phoneThreads`.

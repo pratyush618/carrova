@@ -9,14 +9,17 @@ use std::sync::Arc;
 
 use carrova_core::ecosystem::{CallView, NotifyApps, PhoneSettings, SupervisorHandle, SyncWindow};
 use carrova_crypto::identity::DeviceId;
-use carrova_link::{CallCommand, CallReply, SmsReply, SmsRequest};
+use carrova_link::{
+    ActionResult, CallCommand, CallReply, Feature, NotifyAction, SmsReply, SmsRequest,
+};
 use carrova_platform::PlatformError;
 use carrova_platform::phone::{CallAudioStatus, Cursor, PhonePerm, SendOutcome, SmsMessage};
 use carrova_view::ipc::{CallAction, CallOutcome, ErrorCode, NoteAction, NoteOutcome};
 use carrova_view::phone::{
-    CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, NotifyAppsView, PermStep,
-    ThreadView, ThreadsView, call_audio_view, call_log_view, call_view, notes_view,
-    notify_apps_view, perm_view, thread_view, threads_view, withheld_while_locked,
+    CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, NotifyAppRow,
+    NotifyAppsView, PermStep, ThreadView, ThreadsView, call_audio_view, call_log_view, call_view,
+    notes_view, notify_apps_view, perm_view, phone_apps_view, thread_view, threads_view,
+    withheld_while_locked,
 };
 
 use super::ecosystem::with_link;
@@ -54,6 +57,53 @@ pub async fn phone_note_action(
     })
     .await
     .map(NoteOutcome::from)
+}
+
+/// `device`'s per-app notification list, read only (it is changed on
+/// the phone).
+///
+/// # Errors
+///
+/// Not linked, notifications off for it, or the link failed.
+pub async fn phone_apps(
+    state: &AppState,
+    device: DeviceId,
+) -> Result<Vec<NotifyAppRow>, CommandError> {
+    let apps = with_link(state, move |link| link.phone_apps(&device)).await?;
+    Ok(phone_apps_view(&apps))
+}
+
+/// Have `device` remind its user to grant the access `feature` needs;
+/// whether the reminder showed.
+///
+/// # Errors
+///
+/// `unsupported` for a feature other than notifications and messages;
+/// not linked, the feature off for it, or the link failed.
+pub async fn remind_phone(
+    state: &AppState,
+    device: DeviceId,
+    feature: Feature,
+) -> Result<bool, CommandError> {
+    match feature {
+        Feature::Notifications => {
+            let done = with_link(state, move |link| {
+                link.note_action(&device, NotifyAction::Remind)
+            })
+            .await?;
+            Ok(done == ActionResult::Done)
+        }
+        Feature::Messages => {
+            match with_link(state, move |link| link.sms(&device, SmsRequest::Remind)).await? {
+                SmsReply::Reminded { posted } => Ok(posted),
+                _ => Err(unexpected_reply()),
+            }
+        }
+        _ => Err(CommandError::new(
+            ErrorCode::Unsupported,
+            "only notifications and messages need access on the phone",
+        )),
+    }
 }
 
 /// A page of `device`'s conversations after `before` (`None`: the

@@ -202,6 +202,8 @@ pub fn run() -> tauri::Result<()> {
             commands::ecosystem::retry_file,
             commands::phone::phone_notes,
             commands::phone::phone_note_action,
+            commands::phone::phone_apps,
+            commands::phone::remind_phone,
             commands::phone::phone_threads,
             commands::phone::phone_thread,
             commands::phone::send_sms,
