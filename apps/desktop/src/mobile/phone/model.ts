@@ -10,6 +10,11 @@ export const FEATURE_PERMS: Readonly<Partial<Record<Phase2Feature, readonly Phon
   calls: ['calls', 'contacts'],
 };
 
+/** The permissions `features` need, each once, in the order they are asked. */
+export const permsFor = (features: readonly Phase2Feature[]): readonly PhonePerm[] => [
+  ...new Set(features.flatMap((f) => FEATURE_PERMS[f] ?? [])),
+];
+
 /** The first of `perms` not granted yet, with the step it needs; `null` once all are. */
 export function pendingPerm(
   perms: readonly PhonePerm[],

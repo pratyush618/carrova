@@ -88,6 +88,37 @@ describe('Choose what to share asks for permissions', () => {
   });
 });
 
+describe('Done asks for what the choices need', () => {
+  it('Done with the defaults asks for notification access', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderPhone();
+    const step = vi.spyOn(port, 'phonePermStep');
+    await scanToLinked(user);
+    await user.click(screen.getByRole('button', { name: 'Choose what to share' }));
+
+    await user.click(await screen.findByRole('button', { name: 'Done' }));
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Notification access' }),
+    ).toBeInTheDocument();
+    expect(step).toHaveBeenCalledWith('notification_access');
+  });
+
+  it('Done with every phone feature off asks nothing', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderPhone();
+    const step = vi.spyOn(port, 'phonePermStep');
+    await scanToLinked(user);
+    await user.click(screen.getByRole('button', { name: 'Choose what to share' }));
+    await user.click(await screen.findByRole('switch', { name: 'Phone notifications' }));
+
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+
+    expect(await screen.findByText('Desk PC')).toBeInTheDocument();
+    expect(step).not.toHaveBeenCalledWith('notification_access');
+  });
+});
+
 describe('Stay connected when closed', () => {
   it('Allow opens Android’s battery request and reads the answer back', async () => {
     const user = userEvent.setup();

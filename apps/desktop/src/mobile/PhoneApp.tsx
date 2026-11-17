@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useControllers } from '../app/controllers/Controllers';
 import { EcosystemToasts } from '../app/shell/EcosystemToasts';
 import type { Feature, LinkedDeviceView } from '../engine/types';
-import type { Phase2Feature } from '../screens/devices/model';
+import { PHASE2_FEATURES, type Phase2Feature } from '../screens/devices/model';
 import { Toast, Window } from '../ui';
 import { PhoneDevice, type PhoneScreen } from './home/PhoneDevice';
 import { PhoneHome } from './home/PhoneHome';
@@ -14,7 +14,7 @@ import { Welcome } from './pairing/Welcome';
 import { PhoneActivity } from './PhoneActivity';
 import { Calls } from './phone/Calls';
 import { Messages } from './phone/Messages';
-import { FEATURE_PERMS } from './phone/model';
+import { FEATURE_PERMS, permsFor } from './phone/model';
 import { NotifyApps } from './phone/NotifyApps';
 import { PermStep } from './phone/PermStep';
 import { usePermGate } from './phone/usePermGate';
@@ -103,6 +103,8 @@ export function PhoneApp() {
             onDone={(choices) => {
               for (const [feature, state] of shareChanges(view.device, choices))
                 setFeature(view.device.id, feature, state);
+              // Preselected features never turned on here: ask for theirs now.
+              gate.ask(permsFor(PHASE2_FEATURES.filter((f) => choices[f] === 'on')));
               setView({ kind: 'home' });
             }}
           />
