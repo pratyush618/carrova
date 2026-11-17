@@ -15,11 +15,14 @@ export function usePermSteps(perms: readonly PhonePerm[]): readonly PermStep[] |
   const key = perms.join(',');
   useEffect(() => {
     let live = true;
+    // Reads may finish out of order: only the latest one shows.
+    let latest = 0;
     const list = key === '' ? [] : (key.split(',') as PhonePerm[]);
     const load = () => {
+      const at = ++latest;
       Promise.all(list.map((perm) => port.phonePermStep(perm))).then(
         (next) => {
-          if (live) setRead({ key, steps: next });
+          if (live && at === latest) setRead({ key, steps: next });
         },
         // Unreadable: keep what shows; the next return to the app tries again.
         () => undefined,
