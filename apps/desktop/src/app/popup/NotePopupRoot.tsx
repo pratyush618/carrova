@@ -1,11 +1,16 @@
 import { isTauri } from '@tauri-apps/api/core';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type FocusEvent } from 'react';
 import type { NoteAction } from '../../bindings/NoteAction';
 import type { NotesView } from '../../bindings/NotesView';
 import { PortProvider, usePort } from '../../engine/port';
 import type { CarrovaPort } from '../../engine/types';
 import { PreferencesProvider } from '../../preferences/preferences';
 import { NotePopup, type NotePopupModel } from '../../screens/phone/notes/NotePopup';
+import { useReducedMotion } from '../../ui';
+import { cx } from '../../ui/cx';
+
+/** How long a pop-up stays while left alone, then how long it fades out. */
+export const NOTE_POPUP_TIMING = { showMs: 5_000, fadeMs: 250 } as const;
 
 /** What the main window asked this pop-up to show (`PhoneNotePopups`). */
 export interface NotePopupTarget {
@@ -53,6 +58,54 @@ function popupModel(view: NotesView, key: string, phone: string): NotePopupModel
   if (view.kind === 'locked') return { kind: 'locked', phone, count: view.count };
   const note = view.notes.find((n) => n.key === key);
   return note === undefined ? null : { kind: 'note', phone, note };
+}
+
+/**
+ * Closes the pop-up once left alone for `showMs`: fades out first unless
+ * motion is reduced. Held while the pointer is over it or focus is in it
+ * (a reply being typed). Closing only hides it: the note stays unread.
+ */
+function useAutoDismiss(shown: boolean, close: () => void) {
+  const reduce = useReducedMotion();
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [fading, setFading] = useState(false);
+  const held = hovered || focused;
+  useEffect(() => {
+    if (!shown || held) return;
+    const timer = setTimeout(() => {
+      if (reduce) close();
+      else setFading(true);
+    }, NOTE_POPUP_TIMING.showMs);
+    return () => {
+      clearTimeout(timer);
+      setFading(false);
+    };
+  }, [shown, held, reduce, close]);
+  useEffect(() => {
+    if (!fading) return;
+    const timer = setTimeout(close, NOTE_POPUP_TIMING.fadeMs);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [fading, close]);
+  return {
+    fading,
+    hold: {
+      onPointerEnter: () => {
+        setHovered(true);
+      },
+      onPointerLeave: () => {
+        setHovered(false);
+      },
+      onFocus: () => {
+        setFocused(true);
+      },
+      onBlur: (e: FocusEvent) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false);
+      },
+    },
+  };
 }
 
 /** Fits this pop-up window's height to `content` as it renders (fonts scale; text wraps). */
@@ -103,6 +156,7 @@ export function NotePopupRoute({ target }: { readonly target: NotePopupTarget })
   useEffect(() => {
     if (gone) void closeWindow().catch(() => undefined);
   }, [gone]);
+  const { fading, hold } = useAutoDismiss(model !== null, close);
   if (closed || model === null) return null;
   const act = (action: NoteAction) => {
     setProblem(null);
@@ -117,7 +171,12 @@ export function NotePopupRoute({ target }: { readonly target: NotePopupTarget })
     );
   };
   return (
-    <div ref={fitWindow}>
+    <div
+      ref={fitWindow}
+      className={cx('s-note-window', fading && 'is-out')}
+      style={{ transitionDuration: `${String(NOTE_POPUP_TIMING.fadeMs)}ms` }}
+      {...hold}
+    >
       <NotePopup
         model={model}
         problem={problem}

@@ -1,5 +1,14 @@
 /* A phone notification in its own small always-on-top window, sized to
-   this content (`NotePopupRoot`). */
+   this content (`NotePopupRoot`); it fades out when left alone. */
+.s-note-window {
+  transition-property: opacity;
+  transition-timing-function: ease-out;
+}
+
+.s-note-window.is-out {
+  opacity: 0;
+}
+
 .s-note {
   position: relative;
   display: flex;
