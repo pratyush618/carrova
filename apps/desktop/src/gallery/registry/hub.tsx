@@ -81,6 +81,13 @@ const settingsOn = noops(
 );
 /** Clipboard settings as a new user has them. */
 const CLIP = { share: true, show_note: false, history_file: false } as const;
+
+/** Settings › Calls and Bluetooth with the defaults loaded. */
+const CALLS = {
+  phone: { ring_here: 'while_active', only_while_active: true, show_when_locked: false },
+  failed: false,
+  on: noops('onPhone', 'onAudioAgain', 'onAudioOff'),
+} as const;
 const SETTINGS = {
   notes: settingsFileManagerNotes,
   unsupported: settingsNoFileManager,
@@ -206,6 +213,7 @@ export const hubScreens: readonly GalleryScreen[] = [
             on={settingsOn}
             linked={[pixel]}
             clip={CLIP}
+            calls={CALLS}
           />
         ),
       };
