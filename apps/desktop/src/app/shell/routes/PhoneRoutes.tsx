@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LocalClock } from '../../../bindings/LocalClock';
-import type { ThreadRow } from '../../../bindings/ThreadRow';
 import type { ThreadView } from '../../../bindings/ThreadView';
+import type { ThreadsView } from '../../../bindings/ThreadsView';
 import { usePort } from '../../../engine/port';
 import type { LinkedDeviceView } from '../../../engine/types';
 import { messagesPhone } from '../../../flows/phone/messagesPhone';
+import { loadPages } from '../../../flows/phone/pages';
 import { useSmsSends, type SmsSend } from '../../../flows/phone/useSmsSends';
 import { MessagesScreen } from '../../../screens/phone/messages/MessagesScreen';
 import { HubLayout } from '../../../ui';
@@ -15,6 +16,15 @@ import { useLink } from '../../state/EngineState';
 const localClock = (): LocalClock => ({
   now_ms: Date.now(),
   utc_offset_min: -new Date().getTimezoneOffset(),
+});
+
+/** `older` below `newer`, without a conversation that moved up between the two loads. */
+const joinThreads = (newer: ThreadsView, older: ThreadsView): ThreadsView => ({
+  threads: [
+    ...newer.threads,
+    ...older.threads.filter((o) => !newer.threads.some((n) => n.id === o.id)),
+  ],
+  next: older.next,
 });
 
 /** Messages: the texts of the linked phone that shares them (empty until one does). */
@@ -39,7 +49,10 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
     () => sms.filter((p) => p.device === id).map((p) => p.message),
     [sms, id],
   );
-  const [threads, setThreads] = useState<readonly ThreadRow[] | null>(null);
+  const [list, setList] = useState<ThreadsView | null>(null);
+  const threads = list?.threads ?? null;
+  // Pages of conversations shown: the user asks for older ones.
+  const [listPages, setListPages] = useState(1);
   const [thread, setThread] = useState<ThreadView | null>(null);
   const [failed, setFailed] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
@@ -56,10 +69,14 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
   useEffect(() => {
     if (away) return;
     let live = true;
-    port.phoneThreads(id, null, incoming, localClock()).then(
+    loadPages(
+      (before) => port.phoneThreads(id, before, incoming, localClock()),
+      listPages,
+      joinThreads,
+    ).then(
       (view) => {
         if (!live) return;
-        setThreads(view.threads);
+        setList(view);
         setFailed(false);
       },
       () => {
@@ -69,7 +86,7 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
     return () => {
       live = false;
     };
-  }, [port, id, away, incoming, texts, sent]);
+  }, [port, id, away, incoming, texts, sent, listPages]);
 
   useEffect(() => {
     if (away || open === null) return;
@@ -117,6 +134,7 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
         away,
         failed,
         threads,
+        moreThreads: (list?.next ?? null) !== null,
         selected: threads?.find((row) => row.id === open) ?? null,
         thread,
         sends: sends.filter((s) => s.thread === open),
@@ -136,6 +154,9 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
           send(to, text, open);
         },
         onRetry: retry,
+        onMoreThreads: () => {
+          setListPages((n) => n + 1);
+        },
       }}
     />
   );

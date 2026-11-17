@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { SmsSendOutcome } from '@/bindings/SmsSendOutcome';
+import type { ThreadRow } from '@/bindings/ThreadRow';
 import type { ThreadView } from '@/bindings/ThreadView';
 import { createFakePort } from '@/ipc/fake';
 import { renderApp } from '../../../support/app';
@@ -103,5 +104,39 @@ describe('Messages route', () => {
     await vi.waitFor(() => {
       expect(screen.getAllByText('On my way')).toHaveLength(1);
     });
+  });
+
+  it('loads older conversations on asking, after the newest page', async () => {
+    const user = userEvent.setup();
+    const { port } = await phonePort();
+    const first = await port.phoneThreads('p8', null, [], { now_ms: 0, utc_offset_min: 0 });
+    const old: ThreadRow = {
+      id: 3,
+      name: 'Old friend',
+      address: '+15550999',
+      snippet: 'Long time',
+      when_ms: 0,
+      days_ago: 40,
+      unread: 0,
+    };
+    const threads = vi
+      .spyOn(port, 'phoneThreads')
+      .mockImplementation((_device, before) =>
+        Promise.resolve(
+          before === null
+            ? { ...first, next: { when_ms: 1, id: 2 } }
+            : { threads: [old], next: null },
+        ),
+      );
+    await renderApp({ port, returning: true });
+    await openMessages(user);
+    expect(within(list()).queryByText('Old friend')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Show older conversations' }));
+    expect(await within(list()).findByText('Old friend')).toBeInTheDocument();
+    expect(threads).toHaveBeenLastCalledWith('p8', { when_ms: 1, id: 2 }, [], expect.anything());
+    expect(
+      screen.queryByRole('button', { name: 'Show older conversations' }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -11,6 +11,10 @@
   border-inline-end: 1px solid var(--border);
 }
 
+.s-msgs__more {
+  padding: var(--sp-2) var(--sp-3);
+}
+
 .s-msgs__pane {
   display: flex;
   flex-direction: column;

@@ -26,6 +26,7 @@ const model: MessagesModel = {
   away: false,
   failed: false,
   threads: [sam],
+  moreThreads: false,
   selected: sam,
   thread: {
     messages: [
@@ -48,6 +49,7 @@ const intents = (): MessagesIntents => ({
   onCompose: vi.fn(),
   onSend: vi.fn(),
   onRetry: vi.fn(),
+  onMoreThreads: vi.fn(),
 });
 
 /** The screen over the real send hook, as the route wires them. */
