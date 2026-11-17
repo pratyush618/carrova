@@ -69,6 +69,8 @@ object Sms {
         pending.clear()
         if (!on) return
         val thread = HandlerThread("carrova-sms-stored").also { it.start() }
+        // Kept before registering: without READ_SMS that throws, and the next listen quits it.
+        worker = thread
         val handler = Handler(thread.looper)
         val next = Debounce(STORED_DEBOUNCE_MS, HandlerTimer(handler)) {
             // A replaced watch's queued emit must not reach the new one.
@@ -84,7 +86,6 @@ object Sms {
         }
         resolver.registerContentObserver(Telephony.Sms.CONTENT_URI, true, observed)
         observer = observed
-        worker = thread
     }
 
     /** Whether an inbox row of [thread] dates from [sinceMs] on; reads only `_id`. False without SMS permission or on a provider error. */
