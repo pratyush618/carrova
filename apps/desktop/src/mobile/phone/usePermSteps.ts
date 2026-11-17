@@ -5,10 +5,13 @@ import { usePort } from '../../engine/port';
 
 /**
  * The step each of `perms` needs (`null` until read), read again whenever
- * the app comes back to the front: the user may have granted one in
- * Android's settings meanwhile.
+ * the app comes back to the front (the user may have granted one in
+ * Android's settings meanwhile) or `attempt` changes.
  */
-export function usePermSteps(perms: readonly PhonePerm[]): readonly PermStep[] | null {
+export function usePermSteps(
+  perms: readonly PhonePerm[],
+  attempt = 0,
+): readonly PermStep[] | null {
   const port = usePort();
   // Tagged with the perms they were read for: other perms' steps read as unread.
   const [read, setRead] = useState<{ key: string; steps: readonly PermStep[] } | null>(null);
@@ -37,6 +40,6 @@ export function usePermSteps(perms: readonly PhonePerm[]): readonly PermStep[] |
       live = false;
       document.removeEventListener('visibilitychange', back);
     };
-  }, [port, key]);
+  }, [port, key, attempt]);
   return read?.key === key ? read.steps : null;
 }
