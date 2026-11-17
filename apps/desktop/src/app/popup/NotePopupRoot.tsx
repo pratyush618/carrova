@@ -11,7 +11,7 @@ import { NotePopup, type NotePopupModel } from '../../screens/phone/notes/NotePo
 export interface NotePopupTarget {
   readonly device: string;
   readonly key: string;
-  /** The phone's name. */
+  /** The phone's name when the window opened; the linked device's current name wins. */
   readonly name: string;
 }
 
@@ -49,10 +49,10 @@ export function NotePopupRoot({
 }
 
 /** The model for `view`; `null` once the notification is gone (nothing to show). */
-function popupModel(view: NotesView, target: NotePopupTarget): NotePopupModel | null {
-  if (view.kind === 'locked') return { kind: 'locked', phone: target.name, count: view.count };
-  const note = view.notes.find((n) => n.key === target.key);
-  return note === undefined ? null : { kind: 'note', phone: target.name, note };
+function popupModel(view: NotesView, key: string, phone: string): NotePopupModel | null {
+  if (view.kind === 'locked') return { kind: 'locked', phone, count: view.count };
+  const note = view.notes.find((n) => n.key === key);
+  return note === undefined ? null : { kind: 'note', phone, note };
 }
 
 /**
@@ -68,11 +68,19 @@ export function NotePopupRoute({ target }: { readonly target: NotePopupTarget })
     setClosed(true);
     void closeWindow().catch(() => undefined);
   }, []);
-  const { device } = target;
+  const { device, key } = target;
+  const [phone, setPhone] = useState(target.name);
   useEffect(() => {
     port.phoneNotes(device).then(setView, close);
+    port.linkedDevices().then(
+      (devices) => {
+        const linked = devices.find((d) => d.id === device);
+        if (linked !== undefined) setPhone(linked.name);
+      },
+      () => undefined,
+    );
   }, [port, device, close]);
-  const model = view === null ? null : popupModel(view, target);
+  const model = view === null ? null : popupModel(view, key, phone);
   // Gone from the phone before it showed: nothing to pop up.
   const gone = view !== null && model === null;
   useEffect(() => {
@@ -91,7 +99,6 @@ export function NotePopupRoute({ target }: { readonly target: NotePopupTarget })
       },
     );
   };
-  const { key } = target;
   return (
     <NotePopup
       model={model}

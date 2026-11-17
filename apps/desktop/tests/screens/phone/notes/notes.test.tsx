@@ -38,6 +38,21 @@ describe('Phone notification pop-up', () => {
     expect(on.onDismiss).toHaveBeenCalledOnce();
   });
 
+  it('names the app by its label, never its package id', () => {
+    renderScreen(
+      <NotePopup
+        model={{
+          kind: 'note',
+          phone: 'Pixel 8',
+          note: { ...note, app_id: 'com.discord', app_name: 'Discord' },
+        }}
+        on={intents()}
+      />,
+    );
+    expect(screen.getByText('Discord · Pixel 8')).toBeInTheDocument();
+    expect(screen.queryByText(/com\.discord/)).not.toBeInTheDocument();
+  });
+
   it('offers no reply where the app has none, and masks codes', () => {
     renderScreen(
       <NotePopup

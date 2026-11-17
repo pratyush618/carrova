@@ -37,4 +37,10 @@ describe('Notification pop-up window', () => {
       'This notification is gone from Pixel 8.',
     );
   });
+
+  it('names the phone as it is linked now, not as the window was opened', async () => {
+    const port: CarrovaPort = createFakePort({ scenario: 'linked' });
+    render(<NotePopupRoot port={port} target={{ ...target, name: 'localhost' }} />);
+    expect(await screen.findByText('Chat · Pixel 8')).toBeInTheDocument();
+  });
 });
