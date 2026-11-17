@@ -587,6 +587,41 @@ fn send_with_same_client_id_sends_once() {
 }
 
 #[test]
+fn send_retried_on_a_new_link_sends_once() {
+    let (laptop, phone, secret) = pair(&PolicyDoc::computer_defaults());
+    let mut phone_doc = doc(&[SMS]);
+    phone_doc
+        .features
+        .insert(Feature::Clipboard, FeatureState::On);
+    phone.set_policy(&laptop.id, &phone_doc);
+    let sp = phone.start(fast());
+    let first = link(&phone, &sp, laptop, &secret, &doc(&[SMS]));
+    let send = SmsRequest::Send {
+        to: "5550100".into(),
+        text: "on my way".into(),
+        client_id: 7,
+    };
+    let sent = SmsReply::SendResult {
+        client_id: 7,
+        outcome: SendOutcome::Sent,
+    };
+    assert_eq!(request_sms(&first.conn, &send).unwrap(), sent);
+
+    // The reply was lost with the link: the laptop retries on a new one.
+    let second = link(&phone, &sp, first.device, &secret, &doc(&[SMS]));
+    wait_until("the retry answered", || {
+        request_sms(&second.conn, &send).ok() == Some(sent.clone())
+    });
+    let sends = phone
+        .platform
+        .actions()
+        .iter()
+        .filter(|a| *a == "sms_send")
+        .count();
+    assert_eq!(sends, 1);
+}
+
+#[test]
 fn sms_pages_stop_at_the_sync_window() {
     let now = i64::try_from(
         std::time::SystemTime::now()

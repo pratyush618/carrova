@@ -8,7 +8,6 @@
 //! feature. Never logs keys, titles, text, app names, numbers or names.
 
 use std::collections::HashSet;
-use std::collections::hash_map::Entry;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::{Duration, Instant};
@@ -361,16 +360,14 @@ pub(crate) fn serve_messages(
             text,
             client_id,
         } => {
-            let first = shared.with_link(&device, generation, |l| {
-                match l.sms_sent.entry(client_id) {
-                    // Still sending: it may yet go out.
-                    Entry::Occupied(o) => Some(o.get().unwrap_or(SendOutcome::Unknown)),
-                    Entry::Vacant(v) => {
-                        v.insert(None);
-                        None
-                    }
-                }
-            });
+            // Kept on the device, not the link: a retry on a newer link after
+            // a lost reply must not send again.
+            let first = shared
+                .peers()
+                .iter_mut()
+                .find(|p| p.id() == device)
+                .filter(|p| p.link.as_ref().is_some_and(|l| l.generation == generation))
+                .map(|p| p.sms_sent.begin(client_id));
             let outcome = match first {
                 // The link closed: the answer could not arrive, so do not send.
                 None => SendOutcome::Failed,
@@ -380,9 +377,9 @@ pub(crate) fn serve_messages(
                         tracing::debug!(error = %e, "text not sent");
                         SendOutcome::Failed
                     });
-                    shared.with_link(&device, generation, |l| {
-                        l.sms_sent.insert(client_id, Some(outcome));
-                    });
+                    if let Some(p) = shared.peers().iter_mut().find(|p| p.id() == device) {
+                        p.sms_sent.finish(client_id, outcome);
+                    }
                     outcome
                 }
             };

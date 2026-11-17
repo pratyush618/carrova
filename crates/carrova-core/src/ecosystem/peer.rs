@@ -1,7 +1,7 @@
 //! The supervisor's view of each known device: who it is, its policy here,
 //! where presence last saw it and its live link, if any.
 
-use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::net::SocketAddrV4;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -118,11 +118,39 @@ pub(super) struct Link {
     /// Accepted handoff files whose bytes are due on a `File` lane (names
     /// already safe).
     pub(super) handoff_files: Vec<FileOffer>,
-    /// Texts sent for the device by its `client_id`: `None` while sending.
-    /// A repeat is answered from here, never sent twice.
-    pub(super) sms_sent: HashMap<u64, Option<SendOutcome>>,
     /// What the device's phone gives this side (memory only).
     pub(super) mirror: Mirror,
+}
+
+/// How many texts [`SentTexts`] remembers.
+const SENT_KEPT: usize = 256;
+
+/// Texts sent for a device by their `client_id`, newest last: `None` while
+/// sending. Kept across its links, so a repeat after a lost reply is
+/// answered from here, never sent twice.
+#[derive(Debug, Default)]
+pub(super) struct SentTexts(VecDeque<(u64, Option<SendOutcome>)>);
+
+impl SentTexts {
+    /// Start sending `client_id`: `None` if it is new, else its outcome so
+    /// far (`Unknown` while still sending, as it may yet go out).
+    pub(super) fn begin(&mut self, client_id: u64) -> Option<SendOutcome> {
+        if let Some((_, outcome)) = self.0.iter().find(|(id, _)| *id == client_id) {
+            return Some(outcome.unwrap_or(SendOutcome::Unknown));
+        }
+        if self.0.len() == SENT_KEPT {
+            self.0.pop_front();
+        }
+        self.0.push_back((client_id, None));
+        None
+    }
+
+    /// Record how sending `client_id` went.
+    pub(super) fn finish(&mut self, client_id: u64, outcome: SendOutcome) {
+        if let Some(entry) = self.0.iter_mut().find(|(id, _)| *id == client_id) {
+            entry.1 = Some(outcome);
+        }
+    }
 }
 
 /// One known device.
@@ -138,6 +166,7 @@ pub(super) struct Peer {
     /// Wait before the next dial after a failure.
     pub(super) backoff: Duration,
     pub(super) next_dial: Instant,
+    pub(super) sms_sent: SentTexts,
 }
 
 impl Peer {
@@ -151,6 +180,7 @@ impl Peer {
             dialing: false,
             backoff: Duration::ZERO,
             next_dial: Instant::now(),
+            sms_sent: SentTexts::default(),
         }
     }
 
@@ -200,3 +230,7 @@ impl KnownPeers for Shared {
             .collect()
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/ecosystem/peer/unit.rs"]
+mod tests;
