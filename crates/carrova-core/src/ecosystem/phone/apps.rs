@@ -4,6 +4,7 @@
 
 use std::collections::BTreeMap;
 
+use carrova_link::AppEntry;
 use carrova_platform::Platform;
 use carrova_platform::phone::{Hidden, Note};
 use serde::{Deserialize, Serialize};
@@ -89,6 +90,28 @@ impl NotifyApps {
     /// The apps the user chose for, on or off.
     pub fn chosen(&self) -> impl Iterator<Item = &str> {
         self.apps.keys().map(String::as_str)
+    }
+
+    /// The per-app list as the phone shows it: the apps of the notes
+    /// `showing` (by their names), then every other app the user chose
+    /// for (named by id), each once.
+    #[must_use]
+    pub fn entries(&self, showing: &[Note]) -> Vec<AppEntry> {
+        let named = showing
+            .iter()
+            .map(|n| (n.app_id.as_str(), n.app_name.as_str()));
+        let chosen = self.chosen().map(|id| (id, id));
+        let mut entries: Vec<AppEntry> = Vec::new();
+        for (id, name) in named.chain(chosen) {
+            if !id.is_empty() && entries.iter().all(|e| e.app_id != id) {
+                entries.push(AppEntry {
+                    app_id: id.to_owned(),
+                    app_name: name.to_owned(),
+                    on: self.allowed(id),
+                });
+            }
+        }
+        entries
     }
 
     /// Whether `app_id` is a banking, payment, password or authenticator

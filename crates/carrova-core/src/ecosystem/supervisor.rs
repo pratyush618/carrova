@@ -12,9 +12,10 @@ use std::time::Duration;
 
 use carrova_crypto::identity::{DeviceId, DeviceKey};
 use carrova_link::{
-    ActionResult, CallCommand, CallReply, Feature, FeatureState, FileOffer, Handoff, NotifyAction,
-    OfferAnswer, PolicyDoc, RING_SECONDS, ReceivedClip, RingMsg, SmsReply, SmsRequest, allowed,
-    call_command, offer_file, request_sms, send_action, send_handoff, send_ring,
+    ActionResult, AppEntry, CallCommand, CallReply, Feature, FeatureState, FileOffer, Handoff,
+    NotifyAction, OfferAnswer, PolicyDoc, RING_SECONDS, ReceivedClip, RingMsg, SmsReply,
+    SmsRequest, allowed, call_command, list_apps, offer_file, request_sms, send_action,
+    send_handoff, send_ring,
 };
 use carrova_platform::phone::Note;
 use carrova_platform::{ClipContent, ClipKind, ClipboardWatch, Platform};
@@ -355,7 +356,8 @@ impl Supervisor {
     }
 
     /// Carry out `action` on a notification of `device`'s phone (reply,
-    /// dismiss, open there).
+    /// dismiss, open there), or have the phone remind its user to grant
+    /// notification access.
     ///
     /// # Errors
     ///
@@ -366,8 +368,21 @@ impl Supervisor {
         Ok(send_action(&conn, action)?)
     }
 
-    /// Ask `device`'s phone for SMS threads or messages, or to send a text
-    /// (sent at most once per `client_id`). The newest page of a thread
+    /// `device`'s phone's per-app notification list (which apps reach
+    /// linked devices), to show; it is changed on the phone only.
+    ///
+    /// # Errors
+    ///
+    /// [`CoreError::NotLinked`], [`CoreError::FeatureOff`], or the link
+    /// failed.
+    pub fn phone_apps(&self, device: &DeviceId) -> Result<Vec<AppEntry>> {
+        let conn = self.shared.conn(device, Some(Feature::Notifications))?;
+        Ok(list_apps(&conn)?)
+    }
+
+    /// Ask `device`'s phone for SMS threads or messages, to send a text
+    /// (sent at most once per `client_id`), or to remind its user to grant
+    /// SMS access. The newest page of a thread
     /// also holds its texts the phone has not stored yet (`id` 0).
     ///
     /// # Errors

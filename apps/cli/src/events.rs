@@ -114,7 +114,8 @@ impl CliSink {
             | Event::PhoneSms { .. }
             | Event::PhoneCall { .. }
             | Event::CallView(_)
-            | Event::PhoneCleared { .. } => None,
+            | Event::PhoneCleared { .. }
+            | Event::PhoneAccess { .. } => None,
         }
     }
 

@@ -48,6 +48,8 @@ pub(crate) struct Mirror {
     threads: HashMap<i64, Vec<SmsMessage>>,
     /// Incoming texts the phone has not stored yet (`id` 0), and when.
     provisional: Vec<(SmsMessage, Instant)>,
+    /// Features the phone lacks the access for (notifications, texts).
+    missing: Vec<Feature>,
 }
 
 impl std::fmt::Debug for Mirror {
@@ -57,6 +59,7 @@ impl std::fmt::Debug for Mirror {
             .field("call", &self.call.state.is_some())
             .field("threads", &self.threads.len())
             .field("provisional", &self.provisional.len())
+            .field("missing", &self.missing)
             .finish_non_exhaustive()
     }
 }
@@ -68,6 +71,8 @@ struct NoteChanges {
     pop: Vec<Note>,
     /// Keys no longer showing.
     gone: Vec<String>,
+    /// Notification access, when the phone reported it changed.
+    access: Option<bool>,
 }
 
 impl Mirror {
@@ -85,8 +90,26 @@ impl Mirror {
         }
     }
 
+    /// The features the phone lacks the access for.
+    pub(crate) fn missing(&self) -> Vec<Feature> {
+        self.missing.clone()
+    }
+
+    /// Note whether the phone holds `feature`'s access; whether that
+    /// changed.
+    fn set_access(&mut self, feature: Feature, granted: bool) -> bool {
+        let was = !self.missing.contains(&feature);
+        if granted {
+            self.missing.retain(|&f| f != feature);
+        } else if was {
+            self.missing.push(feature);
+        }
+        was != granted
+    }
+
     /// Drop `feature`'s data; whether there was any.
     fn clear(&mut self, feature: Feature) -> bool {
+        self.missing.retain(|&f| f != feature);
         let held = self.holds(feature);
         match feature {
             Feature::Notifications => {
@@ -126,7 +149,7 @@ impl Mirror {
         match msg {
             NotifyMsg::Posted(note) => NoteChanges {
                 pop: self.posted(note, now).into_iter().collect(),
-                gone: Vec::new(),
+                ..NoteChanges::default()
             },
             NotifyMsg::Removed { key } => {
                 let before = self.notes.len();
@@ -137,11 +160,17 @@ impl Mirror {
                     Vec::new()
                 };
                 NoteChanges {
-                    pop: Vec::new(),
                     gone,
+                    ..NoteChanges::default()
                 }
             }
             NotifyMsg::Snapshot(notes) => self.snapshot(notes, now),
+            NotifyMsg::Access { granted } => NoteChanges {
+                access: self
+                    .set_access(Feature::Notifications, granted)
+                    .then_some(granted),
+                ..NoteChanges::default()
+            },
         }
     }
 
@@ -187,7 +216,11 @@ impl Mirror {
             .into_iter()
             .filter(|n| self.pop(&n.app_id, now))
             .collect();
-        NoteChanges { pop, gone }
+        NoteChanges {
+            pop,
+            gone,
+            access: None,
+        }
     }
 
     /// Whether `app` may pop up now (and if so, it did).
@@ -393,6 +426,13 @@ pub(crate) fn take_notify(
         m.notify(msg, now)
     });
     if let Some(changes) = changes {
+        if let Some(granted) = changes.access {
+            shared.emit(Event::PhoneAccess {
+                device,
+                feature: Feature::Notifications,
+                granted,
+            });
+        }
         for key in changes.gone {
             shared.emit(Event::PhoneNoteGone {
                 device,
@@ -451,6 +491,19 @@ pub(crate) fn take_sms(
             if wanted == Some(true) {
                 refetch(shared, device, generation, thread_id);
             }
+        }
+        SmsPush::Access { granted } => {
+            let changed = with_mirror(shared, device, generation, SMS, |m| {
+                m.set_access(SMS, granted)
+            });
+            if changed == Some(true) {
+                shared.emit(Event::PhoneAccess {
+                    device,
+                    feature: SMS,
+                    granted,
+                });
+            }
+            ack(pending);
         }
         SmsPush::Resync => {
             let held = with_mirror(shared, device, generation, SMS, |m| m.clear(SMS));

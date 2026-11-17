@@ -538,6 +538,9 @@ impl Platform for Recording {
     fn open_perm_settings(&self, p: PhonePerm) -> Result<(), PlatformError> {
         self.record_action(&format!("open_perm_settings {p:?}"))
     }
+    fn remind_access(&self, p: PhonePerm) -> Result<(), PlatformError> {
+        self.record_action(&format!("remind_access {p:?}"))
+    }
     fn call_audio_status(&self) -> Result<CallAudioStatus, PlatformError> {
         Ok(self.act("call_audio_status".into()).audio)
     }

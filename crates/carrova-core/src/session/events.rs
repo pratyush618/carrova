@@ -244,6 +244,15 @@ pub enum Event {
         device: DeviceId,
         feature: Feature,
     },
+    /// A linked phone lost (`granted` false) or regained the access its
+    /// `feature` needs (notification access, SMS permission): device
+    /// views refresh ([`crate::ecosystem::LinkedPeer::missing`]).
+    PhoneAccess {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        feature: Feature,
+        granted: bool,
+    },
 }
 
 /// A phone notification's key (it names the posting app). Serialised as

@@ -7,12 +7,14 @@ use std::thread;
 use carrova_core::ecosystem::{NotifyApps, PeerState, Supervisor, SyncWindow};
 use carrova_crypto::pairing::KnownSecret;
 use carrova_link::{
-    ActionResult, CallCommand, CallIncoming, CallReply, Feature, FeatureState, Incoming, LaneGate,
-    LaneKind, LinkError, NotifyAction, NotifyMsg, PolicyDoc, RefuseReason, SmsIncoming, SmsPush,
-    SmsReply, SmsRequest, accept_lane, call_command, open_lane, recv_calls, recv_notify,
-    recv_policy, recv_sms, request_sms, send_action, send_policy,
+    ActionResult, AppEntry, CallCommand, CallIncoming, CallReply, Feature, FeatureState, Incoming,
+    LaneGate, LaneKind, LinkError, NotifyAction, NotifyMsg, PolicyDoc, RefuseReason, SmsIncoming,
+    SmsPush, SmsReply, SmsRequest, accept_lane, call_command, list_apps, open_lane, recv_calls,
+    recv_notify, recv_policy, recv_sms, request_sms, send_action, send_policy,
 };
-use carrova_platform::phone::{CallState, Note, PhoneEvent, SendOutcome, SmsMessage, SmsThread};
+use carrova_platform::phone::{
+    CallState, Note, PermState, PhoneEvent, PhonePerm, SendOutcome, SmsMessage, SmsThread,
+};
 use carrova_transport::Connection;
 
 use crate::supervisor::device::{Device, T, fast, pair, wait_until};
@@ -610,5 +612,82 @@ fn sms_pages_follow_the_kept_window() {
     assert_eq!(
         sms_pages_with(Some(SyncWindow::All)),
         (vec![1, 2], vec![1, 2])
+    );
+}
+
+/// Scripts the phone without `perm`.
+fn without(perm: PhonePerm) -> impl FnOnce(&Device) {
+    move |p| p.platform.phone().perms = vec![(perm, PermState::Denied)]
+}
+
+#[test]
+fn missing_notification_access_reported_until_granted() {
+    let (phone, _sp, laptop) =
+        phone_and_laptop(&[NOTES], &[NOTES], without(PhonePerm::NotificationAccess));
+    // No snapshot: the phone cannot read its notifications.
+    assert_eq!(
+        laptop.wait_got(1),
+        [Got::Notify(NotifyMsg::Access { granted: false })]
+    );
+
+    phone.platform.phone().perms.clear();
+    assert_eq!(
+        laptop.wait_got(2)[1],
+        Got::Notify(NotifyMsg::Access { granted: true })
+    );
+}
+
+#[test]
+fn missing_sms_access_reported_until_granted() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[SMS], &[SMS], without(PhonePerm::Sms));
+    assert_eq!(
+        laptop.wait_got(1),
+        [Got::Sms(SmsPush::Access { granted: false })]
+    );
+
+    phone.platform.phone().perms.clear();
+    assert_eq!(
+        laptop.wait_got(2)[1],
+        Got::Sms(SmsPush::Access { granted: true })
+    );
+}
+
+#[test]
+fn remind_asks_the_phone() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[NOTES, SMS], &[NOTES, SMS], |_| {});
+
+    assert_eq!(
+        send_action(&laptop.conn, &NotifyAction::Remind).unwrap(),
+        ActionResult::Done
+    );
+    assert_eq!(
+        request_sms(&laptop.conn, &SmsRequest::Remind).unwrap(),
+        SmsReply::Reminded { posted: true }
+    );
+    let actions = phone.platform.actions();
+    for asked in ["remind_access NotificationAccess", "remind_access Sms"] {
+        assert!(actions.contains(&asked.to_owned()), "{actions:?}");
+    }
+}
+
+#[test]
+fn app_list_served() {
+    let (_phone, _sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |p| {
+        p.platform.phone().notes = vec![note("k1", "org.example.chat")];
+        let mut apps = NotifyApps::open(&*p.platform).unwrap();
+        apps.set(&*p.platform, "org.example.muted", false).unwrap();
+    });
+
+    let entry = |id: &str, name: &str, on| AppEntry {
+        app_id: id.into(),
+        app_name: name.into(),
+        on,
+    };
+    assert_eq!(
+        list_apps(&laptop.conn).unwrap(),
+        [
+            entry("org.example.chat", "App", true),
+            entry("org.example.muted", "org.example.muted", false),
+        ]
     );
 }

@@ -21,8 +21,8 @@ use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{
-    ActionResult, CallCommand, CallReply, Feature, FeatureState, NotifyAction, ReceivedClip,
-    SmsReply, SmsRequest,
+    ActionResult, AppEntry, CallCommand, CallReply, Feature, FeatureState, NotifyAction,
+    ReceivedClip, SmsReply, SmsRequest,
 };
 use carrova_platform::phone::Note;
 
@@ -295,6 +295,18 @@ impl SupervisorHandle {
     /// As [`Supervisor::set_phone_settings`], or the control socket failed.
     pub fn set_phone_settings(&self, settings: PhoneSettings) -> Result<()> {
         self.done(ControlRequest::SetPhoneSettings(settings))
+    }
+
+    /// [`Supervisor::phone_apps`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Supervisor::phone_apps`], or the control socket failed.
+    pub fn phone_apps(&self, device: &DeviceId) -> Result<Vec<AppEntry>> {
+        match self.send(ControlRequest::PhoneApps(*device))? {
+            ControlResponse::PhoneApps(apps) => Ok(apps),
+            _ => Err(ControlError::Unexpected.into()),
+        }
     }
 
     /// The supervisor's events from now on (besides the engine's sink of

@@ -6,7 +6,8 @@ use std::path::PathBuf;
 
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{
-    ActionResult, CallCommand, CallReply, Feature, FeatureState, NotifyAction, SmsReply, SmsRequest,
+    ActionResult, AppEntry, CallCommand, CallReply, Feature, FeatureState, NotifyAction, SmsReply,
+    SmsRequest,
 };
 use carrova_platform::phone::Note;
 use serde::de::DeserializeOwned;
@@ -69,6 +70,8 @@ pub enum ControlRequest {
     PhoneSettings,
     /// [`crate::ecosystem::Supervisor::set_phone_settings`].
     SetPhoneSettings(PhoneSettings),
+    /// [`crate::ecosystem::Supervisor::phone_apps`].
+    PhoneApps(DeviceId),
     /// Stream the supervisor's events: answered [`ControlResponse::Done`],
     /// then the connection carries only [`crate::Event`] messages until
     /// either side closes it.
@@ -91,6 +94,7 @@ impl std::fmt::Debug for ControlRequest {
             Self::Call(d, c) => f.debug_tuple("Call").field(d).field(c).finish(),
             Self::PhoneSettings => f.write_str("PhoneSettings"),
             Self::SetPhoneSettings(s) => f.debug_tuple("SetPhoneSettings").field(s).finish(),
+            Self::PhoneApps(d) => f.debug_tuple("PhoneApps").field(d).finish(),
             Self::Subscribe => f.write_str("Subscribe"),
             Self::Ping(d) => f.debug_tuple("Ping").field(d).finish(),
             Self::SendClipboard(d) => f.debug_tuple("SendClipboard").field(d).finish(),
@@ -133,6 +137,8 @@ pub enum ControlResponse {
     Call(CallReply),
     /// To [`ControlRequest::PhoneSettings`].
     PhoneSettings(PhoneSettings),
+    /// To [`ControlRequest::PhoneApps`].
+    PhoneApps(Vec<AppEntry>),
     /// The request succeeded.
     Done,
     /// The request failed; the error's message.

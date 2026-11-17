@@ -75,3 +75,42 @@ fn filters_save_together_in_one_write() {
     let reopened = NotifyApps::open(&p).unwrap();
     assert!(!reopened.hide_codes() && !reopened.show_text());
 }
+
+#[test]
+fn entries_list_showing_then_chosen_apps_once() {
+    let tmp = tempfile::tempdir().unwrap();
+    let p = platform(&tmp);
+    let mut apps = NotifyApps::open(&p).unwrap();
+    apps.set(&p, "org.gone", false).unwrap();
+    let note = |app_id: &str, app_name: &str| carrova_platform::phone::Note {
+        key: format!("k-{app_id}"),
+        app_id: app_id.into(),
+        app_name: app_name.into(),
+        title: String::new(),
+        text: String::new(),
+        when_ms: 1,
+        can_reply: false,
+        icon: None,
+        hidden: None,
+    };
+    let showing = [
+        note("org.chat", "Chat"),
+        note("", "Nameless"),
+        note("com.snapwork.hdfc", "Bank"),
+        note("org.chat", "Chat"),
+    ];
+
+    let entry = |id: &str, name: &str, on| carrova_link::AppEntry {
+        app_id: id.into(),
+        app_name: name.into(),
+        on,
+    };
+    assert_eq!(
+        apps.entries(&showing),
+        [
+            entry("org.chat", "Chat", true),
+            entry("com.snapwork.hdfc", "Bank", false),
+            entry("org.gone", "org.gone", false),
+        ]
+    );
+}

@@ -104,6 +104,9 @@ pub struct LinkedPeer {
     pub local: PolicyDoc,
     /// What it allows this side, once its policy arrived on the link.
     pub remote: Option<PolicyDoc>,
+    /// The phone features it lacks the access for (it said so on the link).
+    #[serde(default)]
+    pub missing: Vec<Feature>,
 }
 
 /// A live link.
@@ -183,6 +186,11 @@ impl Peer {
             state,
             local: self.local.clone(),
             remote: self.link.as_ref().and_then(|l| l.remote.clone()),
+            missing: self
+                .link
+                .as_ref()
+                .map(|l| l.mirror.missing())
+                .unwrap_or_default(),
         }
     }
 }

@@ -3,9 +3,14 @@
 
 use carrova_core::ecosystem::{PeerState, PhoneSettings, Supervisor};
 use carrova_core::{CoreError, Event};
-use carrova_link::{Feature, FeatureState, PolicyDoc, SendOutcome, SmsReply, SmsRequest};
+use carrova_link::{
+    ActionResult, AppEntry, Feature, FeatureState, NotifyAction, PolicyDoc, SendOutcome, SmsReply,
+    SmsRequest,
+};
 use carrova_platform::ScreenLock;
-use carrova_platform::phone::{CallState, Hidden, Note, PhoneEvent, SmsMessage};
+use carrova_platform::phone::{
+    CallState, Hidden, Note, PermState, PhoneEvent, PhonePerm, SmsMessage,
+};
 
 use crate::supervisor::device::{Device, fast, pair, start_both, wait_until};
 
@@ -655,4 +660,77 @@ fn pop_ups_held_while_away() {
     laptop.wait("the pop-up", |e| matches!(e, Event::PhoneNote { .. }));
     assert_eq!(popped(&laptop), [shown]);
     assert_eq!(sl.notes(&phone.id).unwrap().len(), 2);
+}
+
+/// The phone features `phone` lacks access for, as the laptop's status says.
+fn missing(sl: &Supervisor, phone: &Device) -> Vec<Feature> {
+    let peer = sl.status().into_iter().find(|p| p.id == phone.id);
+    peer.map(|p| p.missing).unwrap_or_default()
+}
+
+#[test]
+fn missing_access_shows_on_the_device_until_granted() {
+    let (phone, _sp, laptop, sl) = linked(&[NOTES, SMS], |p| {
+        p.platform.phone().perms = vec![
+            (PhonePerm::NotificationAccess, PermState::Denied),
+            (PhonePerm::Sms, PermState::Restricted),
+        ];
+    });
+    wait_until("both reported missing", || {
+        let m = missing(&sl, &phone);
+        m.len() == 2 && m.contains(&NOTES) && m.contains(&SMS)
+    });
+    let told = |feature, granted| {
+        laptop.count(|e| {
+            *e == Event::PhoneAccess {
+                device: phone.id,
+                feature,
+                granted,
+            }
+        })
+    };
+    assert_eq!((told(NOTES, false), told(SMS, false)), (1, 1));
+
+    phone.platform.phone().perms.clear();
+    wait_until("access back", || missing(&sl, &phone).is_empty());
+    laptop.wait("told SMS is back", |e| {
+        *e == Event::PhoneAccess {
+            device: phone.id,
+            feature: SMS,
+            granted: true,
+        }
+    });
+}
+
+#[test]
+fn feature_off_forgets_missing_access() {
+    let (phone, _sp, _laptop, sl) = linked(&[NOTES], |p| {
+        p.platform.phone().perms = vec![(PhonePerm::NotificationAccess, PermState::Denied)];
+    });
+    wait_until("reported missing", || missing(&sl, &phone) == [NOTES]);
+
+    sl.set_feature(&phone.id, NOTES, FeatureState::Off).unwrap();
+    assert!(missing(&sl, &phone).is_empty());
+}
+
+#[test]
+fn app_list_and_reminders_through_the_handle() {
+    let (phone, _sp, _laptop, sl) = linked(&[NOTES, SMS], |p| {
+        p.platform.phone().notes = vec![note("k1", "org.example.chat")];
+    });
+
+    let chat = AppEntry {
+        app_id: "org.example.chat".into(),
+        app_name: "Chat".into(),
+        on: true,
+    };
+    assert_eq!(sl.phone_apps(&phone.id).unwrap(), [chat]);
+    assert_eq!(
+        sl.note_action(&phone.id, &NotifyAction::Remind).unwrap(),
+        ActionResult::Done
+    );
+    assert_eq!(
+        sl.sms(&phone.id, &SmsRequest::Remind).unwrap(),
+        SmsReply::Reminded { posted: true }
+    );
 }

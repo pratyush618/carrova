@@ -560,6 +560,7 @@ fn control_wire_roundtrip_phase2() {
         ControlRequest::Call(device, CallCommand::Mute(true)),
         ControlRequest::PhoneSettings,
         ControlRequest::SetPhoneSettings(settings),
+        ControlRequest::PhoneApps(device),
     ];
     for request in requests {
         assert_eq!(cbor(&request), request);
@@ -573,6 +574,11 @@ fn control_wire_roundtrip_phase2() {
         }),
         ControlResponse::Call(CallReply::NotRinging),
         ControlResponse::PhoneSettings(settings),
+        ControlResponse::PhoneApps(vec![carrova_link::AppEntry {
+            app_id: "org.example.chat".into(),
+            app_name: "Chat".into(),
+            on: true,
+        }]),
     ];
     for response in responses {
         assert_eq!(cbor(&response), response);
@@ -601,6 +607,11 @@ fn control_wire_roundtrip_phase2() {
         Event::PhoneCleared {
             device,
             feature: Feature::Messages,
+        },
+        Event::PhoneAccess {
+            device,
+            feature: Feature::Notifications,
+            granted: false,
         },
     ];
     for event in events {

@@ -1,7 +1,9 @@
 //! The phone's side of notifications, SMS and calls: forwards what the
 //! phone reports to every linked device allowing that feature, resends its
 //! state when a device starts taking it or events were dropped, and serves
-//! the devices' requests (reply, send a text, answer, ...).
+//! the devices' requests (reply, send a text, answer, ...). A device
+//! taking notifications or texts hears when the phone lacks the access
+//! they need, and again once it is back.
 //!
 //! One thread does all sending, so a device sees events in order. The
 //! phone's events are watched only while some linked device takes a phone
@@ -17,10 +19,11 @@ use carrova_crypto::identity::DeviceId;
 use carrova_link::{
     ActionResult, CallCommand, CallIncoming, CallReply, Feature, FeatureState, HISTORY_PAGE,
     Incoming, LinkError, MESSAGE_PAGE, NotifyAction, NotifyMsg, PolicyDoc, SendOutcome,
-    SmsIncoming, SmsPush, SmsReply, SmsRequest, THREAD_PAGE, allowed, check_sms_reply, fit_note,
-    fit_snapshot, push_sms, recv_calls, recv_notify, recv_sms, send_call_state, send_notify,
+    SmsIncoming, SmsPush, SmsReply, SmsRequest, THREAD_PAGE, allowed, check_sms_reply, fit_apps,
+    fit_note, fit_snapshot, push_sms, recv_calls, recv_notify, recv_sms, send_call_state,
+    send_notify,
 };
-use carrova_platform::phone::{CallState, Note, PhoneEvent, PhoneWatch};
+use carrova_platform::phone::{CallState, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch};
 use carrova_platform::{Platform, PlatformError};
 use carrova_transport::{Connection, Stream};
 
@@ -48,11 +51,13 @@ pub(crate) enum Job {
     Opened { device: DeviceId, gives: Gives },
 }
 
-/// Which pushed state a device takes (SMS is pulled, so not here).
+/// Which pushed state a device takes (of SMS, only missing access: texts
+/// are pulled).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct Gives {
     notes: bool,
     calls: bool,
+    sms: bool,
 }
 
 impl Gives {
@@ -62,6 +67,7 @@ impl Gives {
         Self {
             notes: on(Feature::Notifications),
             calls: on(Feature::Calls),
+            sms: on(Feature::Messages),
         }
     }
 
@@ -70,6 +76,7 @@ impl Gives {
         Self {
             notes: self.notes && !before.notes,
             calls: self.calls && !before.calls,
+            sms: self.sms && !before.sms,
         }
     }
 
@@ -91,9 +98,11 @@ pub(crate) fn run(shared: &Arc<Shared>, jobs: &Receiver<Job>) {
         watch: None,
         tried: Vec::new(),
         sent: HashSet::new(),
+        missing: Vec::new(),
     };
     while !shared.stop.is_cancelled() {
         giver.follow();
+        giver.recheck();
         match jobs.recv_timeout(shared.config.tick) {
             Ok(Job::Event(event)) => giver.event(event),
             Ok(Job::Opened { device, gives }) => {
@@ -118,6 +127,9 @@ struct Giver<'a> {
     tried: Vec<(DeviceId, Feature)>,
     /// Keys of the notes sent, so a removal of one never sent stays here.
     sent: HashSet<String>,
+    /// Features whose access was reported missing: rechecked each tick
+    /// (Android says nothing when a permission is granted).
+    missing: Vec<Feature>,
 }
 
 impl Giver<'_> {
@@ -195,6 +207,7 @@ impl Giver<'_> {
                 let all = Gives {
                     notes: true,
                     calls: true,
+                    sms: true,
                 };
                 self.resend(None, all);
                 self.push(&SmsPush::Resync);
@@ -220,7 +233,7 @@ impl Giver<'_> {
         } else {
             Vec::new()
         };
-        if !notes.is_empty() {
+        if !notes.is_empty() && self.has_access(&notes, Feature::Notifications) {
             match self.platform().active_notes() {
                 Ok(active) => {
                     let snapshot = fit_snapshot(self.filtered(active));
@@ -245,6 +258,49 @@ impl Giver<'_> {
                 Err(e) => tracing::debug!(error = %e, "call state unreadable"),
             }
         }
+        if gives.sms {
+            let sms = targets(Feature::Messages);
+            if !sms.is_empty() {
+                self.has_access(&sms, Feature::Messages);
+            }
+        }
+    }
+
+    /// Whether the phone holds the access `feature` needs; if not, tell
+    /// `targets` (unreadable: assumed held, as before access was known).
+    fn has_access(&mut self, targets: &Targets, feature: Feature) -> bool {
+        if self.access(feature) {
+            return true;
+        }
+        if !self.missing.contains(&feature) {
+            self.missing.push(feature);
+        }
+        tell_access(targets, feature, false);
+        false
+    }
+
+    /// Tell every device taking a feature whose access was missing that it
+    /// is back; forget those no device takes now.
+    fn recheck(&mut self) {
+        let missing = std::mem::take(&mut self.missing);
+        for feature in missing {
+            let targets = self.shared.linked_with(feature);
+            if targets.is_empty() {
+                continue;
+            }
+            if self.access(feature) {
+                tracing::debug!(?feature, "phone access granted");
+                tell_access(&targets, feature, true);
+            } else {
+                self.missing.push(feature);
+            }
+        }
+    }
+
+    fn access(&self, feature: Feature) -> bool {
+        self.platform()
+            .phone_perm(perm(feature))
+            .map_or(true, |state| state == PermState::Granted)
     }
 
     /// `notes` as they may leave the phone (none if the app list is
@@ -263,6 +319,25 @@ impl Giver<'_> {
     }
 }
 
+/// The permission `feature` needs on the phone (notifications or texts).
+fn perm(feature: Feature) -> PhonePerm {
+    if feature == Feature::Notifications {
+        PhonePerm::NotificationAccess
+    } else {
+        PhonePerm::Sms
+    }
+}
+
+/// Tell `targets` whether the phone holds the access `feature` needs.
+fn tell_access(targets: &Targets, feature: Feature, granted: bool) {
+    if feature == Feature::Notifications {
+        let msg = NotifyMsg::Access { granted };
+        send(targets, |c| send_notify(c, &msg));
+    } else {
+        send(targets, |c| push_sms(c, &SmsPush::Access { granted }));
+    }
+}
+
 /// Send to each target in turn; a failure is logged and skipped.
 fn send(targets: &Targets, f: impl Fn(&Connection) -> std::result::Result<(), LinkError>) {
     for (_, conn) in targets {
@@ -273,7 +348,8 @@ fn send(targets: &Targets, f: impl Fn(&Connection) -> std::result::Result<(), Li
 }
 
 /// Serve a `Notify` lane from `device` on its link `generation`: mirror a
-/// phone's message, or carry out the device's action on a notification.
+/// phone's message, carry out the device's action on a notification, or
+/// give it the per-app list.
 pub(crate) fn serve_notify(
     shared: &Shared,
     device: DeviceId,
@@ -286,6 +362,13 @@ pub(crate) fn serve_notify(
             return Ok(());
         }
         Incoming::Action(action, responder) => (action, responder),
+        Incoming::ListApps(responder) => {
+            let platform = &**shared.platform();
+            let apps = NotifyApps::open(platform)?;
+            // Without notification access none show: the chosen apps only.
+            let showing = platform.active_notes().unwrap_or_default();
+            return Ok(responder.reply(&fit_apps(apps.entries(&showing)))?);
+        }
     };
     let platform = &**shared.platform();
     let done = match &action {
@@ -298,6 +381,9 @@ pub(crate) fn serve_notify(
         }),
         NotifyAction::Dismiss { key } => platform.note_dismiss(key).map(|()| ActionResult::Done),
         NotifyAction::Open { key } => platform.note_open(key).map(|()| ActionResult::Done),
+        NotifyAction::Remind => platform
+            .remind_access(PhonePerm::NotificationAccess)
+            .map(|()| ActionResult::Done),
     };
     let result = done.unwrap_or_else(|e| {
         tracing::debug!(?action, error = %e, "notification action failed");
@@ -364,6 +450,15 @@ pub(crate) fn serve_messages(
                 }
             };
             SmsReply::SendResult { client_id, outcome }
+        }
+        SmsRequest::Remind => {
+            let posted = platform.remind_access(PhonePerm::Sms);
+            if let Err(e) = &posted {
+                tracing::debug!(error = %e, "SMS reminder not shown");
+            }
+            SmsReply::Reminded {
+                posted: posted.is_ok(),
+            }
         }
     };
     check_sms_reply(&reply)?;
