@@ -113,6 +113,7 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
         },
         onCompose: () => {
           setComposing(true);
+          setThread(null);
         },
         onSend: (to, text) => {
           send(to, text, open);
