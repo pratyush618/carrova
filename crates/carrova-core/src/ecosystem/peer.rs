@@ -133,13 +133,20 @@ pub(super) struct SentTexts(VecDeque<(u64, Option<SendOutcome>)>);
 
 impl SentTexts {
     /// Start sending `client_id`: `None` if it is new, else its outcome so
-    /// far (`Unknown` while still sending, as it may yet go out).
+    /// far (`Unknown` while still sending, as it may yet go out); `Failed`,
+    /// unsent, when every text remembered is still sending.
     pub(super) fn begin(&mut self, client_id: u64) -> Option<SendOutcome> {
         if let Some((_, outcome)) = self.0.iter().find(|(id, _)| *id == client_id) {
             return Some(outcome.unwrap_or(SendOutcome::Unknown));
         }
         if self.0.len() == SENT_KEPT {
-            self.0.pop_front();
+            // Forget the oldest finished text: one still sending may yet go
+            // out, so its repeat must still be recognised.
+            let done = self.0.iter().position(|(_, outcome)| outcome.is_some());
+            let Some(done) = done else {
+                return Some(SendOutcome::Failed);
+            };
+            self.0.remove(done);
         }
         self.0.push_back((client_id, None));
         None
