@@ -224,6 +224,7 @@ pub fn run() -> tauri::Result<()> {
             commands::phone::install_call_audio,
             commands::phone::set_call_audio_config,
             commands::phone::phone_perm_step,
+            commands::phone::request_phone_perm,
             commands::phone::open_perm_settings,
             commands::phone::notify_apps,
             commands::phone::set_notify_app,

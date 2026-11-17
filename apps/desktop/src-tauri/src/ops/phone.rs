@@ -262,6 +262,20 @@ pub async fn phone_perm_step(state: &AppState, perm: PhonePerm) -> Result<PermSt
     blocking(move || Ok(perm_view(perm, platform.phone_perm(perm)?))).await
 }
 
+/// Ask for `perm` with Android's own prompt, then what the phone shows for
+/// it. Waits until the user answers.
+///
+/// # Errors
+///
+/// As [`phone_perm_step`].
+pub async fn request_phone_perm(
+    state: &AppState,
+    perm: PhonePerm,
+) -> Result<PermStep, CommandError> {
+    let platform = Arc::clone(&state.platform);
+    blocking(move || Ok(perm_view(perm, platform.request_phone_perm(perm)?))).await
+}
+
 /// Open the settings page where the user grants `perm`.
 ///
 /// # Errors

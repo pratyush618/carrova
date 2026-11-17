@@ -175,6 +175,15 @@ pub async fn phone_perm_step(
     ops::phone::phone_perm_step(&state, perm).await
 }
 
+/// `CarrovaPort.requestPhonePerm`.
+#[tauri::command]
+pub async fn request_phone_perm(
+    state: State<'_, AppState>,
+    perm: PhonePerm,
+) -> Result<PermStep, CommandError> {
+    ops::phone::request_phone_perm(&state, perm).await
+}
+
 /// `CarrovaPort.openPermSettings`.
 #[tauri::command]
 pub async fn open_perm_settings(
