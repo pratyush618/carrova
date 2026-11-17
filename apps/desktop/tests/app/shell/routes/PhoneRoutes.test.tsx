@@ -85,4 +85,23 @@ describe('Messages route', () => {
     expect(screen.getByRole('heading', { name: '+15550142' })).toBeInTheDocument();
     expect(screen.getByText('Later, then')).toBeInTheDocument();
   });
+
+  it('keeps a sent text shown until its stored copy has loaded', async () => {
+    const user = userEvent.setup();
+    const { port, thread } = await phonePort();
+    await renderApp({ port, returning: true });
+    await openMessages(user);
+    const stored = deferred<ThreadView>();
+    thread.mockReturnValue(stored.promise);
+
+    await user.type(screen.getByRole('textbox', { name: 'Text message' }), 'On my way');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByText('On my way')).toBeInTheDocument();
+
+    stored.settle(page('Hi from Sam', 'On my way'));
+    await vi.waitFor(() => {
+      expect(screen.getAllByText('On my way')).toHaveLength(1);
+    });
+  });
 });

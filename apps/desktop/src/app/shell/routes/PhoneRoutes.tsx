@@ -44,14 +44,14 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
   const [failed, setFailed] = useState(false);
   const [picked, setPicked] = useState<number | null>(null);
   const [composing, setComposing] = useState(false);
-  // Bumped once a sent text is out: its stored copy is fetched.
+  // Bumped once a sent text is out: the list shows it.
   const [sent, setSent] = useState(0);
-  // Read when a new message's send ends: the user may have moved on since.
-  const stillComposing = useRef(composing);
-  useEffect(() => {
-    stillComposing.current = composing;
-  });
   const open = composing ? null : (picked ?? threads?.[0]?.id ?? null);
+  // Read when a send ends: the user may have moved on since.
+  const now = useRef({ composing, open });
+  useEffect(() => {
+    now.current = { composing, open };
+  });
 
   useEffect(() => {
     if (away) return;
@@ -85,17 +85,29 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
     return () => {
       live = false;
     };
-  }, [port, id, away, open, texts, sent]);
+  }, [port, id, away, open, texts]);
 
-  const onSent = useCallback((s: SmsSend) => {
-    // A new message's conversation is the newest once the list reloads.
-    if (s.thread === null && stillComposing.current) {
-      setComposing(false);
-      setPicked(null);
-    }
-    setSent((n) => n + 1);
-    return Promise.resolve();
-  }, []);
+  // A sent text stays shown until its conversation, stored copy included, is here.
+  const onSent = useCallback(
+    async (s: SmsSend) => {
+      setSent((n) => n + 1);
+      if (s.thread === null) {
+        // A new message's conversation is the newest once the list reloads.
+        if (now.current.composing) {
+          setComposing(false);
+          setPicked(null);
+        }
+        return;
+      }
+      try {
+        const view = await port.phoneThread(id, s.thread, null);
+        if (now.current.open === s.thread) setThread(view);
+      } catch {
+        setFailed(true);
+      }
+    },
+    [port, id],
+  );
   const { sends, send, retry } = useSmsSends(port, id, onSent);
 
   return (
