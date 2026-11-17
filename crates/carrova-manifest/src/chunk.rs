@@ -38,23 +38,33 @@ impl Default for ChunkParams {
 }
 
 impl ChunkParams {
-    /// Check the parameters against FastCDC's supported ranges
-    /// (the chunker would otherwise panic).
+    /// Check the parameters against FastCDC's supported ranges and
+    /// evenness (the chunker would otherwise panic or misplace cut points).
     pub fn validate(&self) -> Result<()> {
+        self.sizes().map(|_| ())
+    }
+
+    /// Validated `(min, avg, max)` in FastCDC's `usize` units.
+    fn sizes(&self) -> Result<(usize, usize, usize)> {
         let bad = |m| Err(ManifestError::InvalidChunkParams(m));
-        if !(v2020::MINIMUM_MIN..=v2020::MINIMUM_MAX).contains(&self.min) {
+        let size = |v: u32| usize::try_from(v).unwrap_or(usize::MAX);
+        let (min, avg, max) = (size(self.min), size(self.avg), size(self.max));
+        if !(v2020::MINIMUM_MIN..=v2020::MINIMUM_MAX).contains(&min) {
             return bad("min out of range (64 B ..= 1 MiB)");
         }
-        if !(v2020::AVERAGE_MIN..=v2020::AVERAGE_MAX).contains(&self.avg) {
+        if !(v2020::AVERAGE_MIN..=v2020::AVERAGE_MAX).contains(&avg) {
             return bad("avg out of range (256 B ..= 4 MiB)");
         }
-        if !(v2020::MAXIMUM_MIN..=v2020::MAXIMUM_MAX).contains(&self.max) {
+        if !(v2020::MAXIMUM_MIN..=v2020::MAXIMUM_MAX).contains(&max) {
             return bad("max out of range (1 KiB ..= 16 MiB)");
         }
-        if !(self.min <= self.avg && self.avg <= self.max) {
+        if !(min <= avg && avg <= max) {
             return bad("require min <= avg <= max");
         }
-        Ok(())
+        if [min, avg, max].iter().any(|v| v % 2 != 0) {
+            return bad("min, avg and max must be even");
+        }
+        Ok((min, avg, max))
     }
 }
 
@@ -92,11 +102,11 @@ pub struct FileChunks {
 /// Inputs no larger than `params.min` yield exactly one chunk; empty input
 /// yields none.
 pub fn chunk_reader(reader: impl Read, params: ChunkParams) -> Result<FileChunks> {
-    params.validate()?;
+    let (min, avg, max) = params.sizes()?;
     let mut whole = blake3::Hasher::new();
     let mut chunks = Vec::new();
     let mut size: u64 = 0;
-    for item in StreamCDC::new(reader, params.min, params.avg, params.max) {
+    for item in StreamCDC::new(reader, min, avg, max) {
         let data = item.map_err(std::io::Error::from)?;
         whole.update(&data.data);
         let len = u32::try_from(data.length)

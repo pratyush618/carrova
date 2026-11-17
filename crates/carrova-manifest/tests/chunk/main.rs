@@ -133,6 +133,12 @@ fn invalid_params_rejected_not_panicking() {
             avg: 4096,
             max: 64 << 20,
         },
+        // FastCDC v2020 needs even sizes.
+        ChunkParams {
+            min: 16 * 1024 + 1,
+            avg: 64 * 1024,
+            max: 256 * 1024,
+        },
     ];
     for p in bad {
         assert!(matches!(
