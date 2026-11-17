@@ -10,6 +10,7 @@ updates:
       default-days: 7 # let fresh releases age a week (yanked/compromised versions surface first)
     ignore:
       - dependency-name: jni # ADR 0003: stay on the version Tauri/tao/wry use
+        versions: [">=0.22"]
     groups:
       cargo:
         patterns: ["*"]
