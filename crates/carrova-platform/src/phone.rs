@@ -135,7 +135,8 @@ pub enum CallState {
     },
     /// A call is in progress.
     Active {
-        /// When it was answered (ms since the Unix epoch).
+        /// When it was answered, or dialled when `outgoing` (ms since the
+        /// Unix epoch).
         since_ms: i64,
         /// The microphone is muted.
         muted: bool,
@@ -143,6 +144,11 @@ pub enum CallState {
         /// link or a headset (Android can't tell them apart). It says nothing
         /// about the speaker; a computer reads its own audio side locally.
         on_laptop_audio: bool,
+        /// Placed from the phone, not answered there: Android tells no app
+        /// when the other side picks up, so it has no known start. Absent
+        /// from older phones: an answered call.
+        #[serde(default)]
+        outgoing: bool,
     },
     /// The call ended.
     Ended {
@@ -471,11 +477,13 @@ impl fmt::Debug for CallState {
             Self::Active {
                 muted,
                 on_laptop_audio,
+                outgoing,
                 ..
             } => f
                 .debug_struct("Active")
                 .field("muted", muted)
                 .field("on_laptop_audio", on_laptop_audio)
+                .field("outgoing", outgoing)
                 .finish_non_exhaustive(),
             Self::Ended { missed } => f.debug_struct("Ended").field("missed", missed).finish(),
         }

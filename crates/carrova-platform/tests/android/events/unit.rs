@@ -76,6 +76,7 @@ fn parses_each_event_type() {
             since_ms: 3,
             muted: true,
             on_laptop_audio: false,
+            outgoing: false,
         })
     );
     assert_eq!(
@@ -84,6 +85,16 @@ fn parses_each_event_type() {
             since_ms: 3,
             muted: false,
             on_laptop_audio: true,
+            outgoing: false,
+        })
+    );
+    assert_eq!(
+        event(r#"{"type":"call_active","since_ms":3,"muted":false,"outgoing":true}"#),
+        PhoneEvent::Call(CallState::Active {
+            since_ms: 3,
+            muted: false,
+            on_laptop_audio: false,
+            outgoing: true,
         })
     );
     assert_eq!(
@@ -148,6 +159,7 @@ fn call_state_reads_glue_json() {
             since_ms: 8,
             muted: false,
             on_laptop_audio: false,
+            outgoing: false,
         }
     );
     assert_eq!(

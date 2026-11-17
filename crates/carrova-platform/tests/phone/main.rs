@@ -75,6 +75,7 @@ fn phone_types_cbor_roundtrip() {
             since_ms: 5,
             muted: true,
             on_laptop_audio: false,
+            outgoing: true,
         },
         CallState::Ended { missed: true },
     ] {
