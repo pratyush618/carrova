@@ -693,6 +693,10 @@ fn missing_access_shows_on_the_device_until_granted() {
             }
         })
     };
+    // `missing` changes before the events are emitted.
+    wait_until("both denials told", || {
+        told(NOTES, false) > 0 && told(SMS, false) > 0
+    });
     assert_eq!((told(NOTES, false), told(SMS, false)), (1, 1));
 
     phone.platform.phone().perms.clear();
