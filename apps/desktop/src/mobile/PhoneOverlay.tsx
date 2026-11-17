@@ -2,9 +2,10 @@ import { useTranslation } from 'react-i18next';
 import { useControllers } from '../app/controllers/Controllers';
 import { usePort } from '../engine/port';
 import { ForgetDialog } from '../screens/devices/ForgetDialog';
+import type { Phase2Feature } from '../screens/devices/model';
 import { List, Row } from '../ui';
 import { PickComputerSheet } from './home/PickComputerSheet';
-import { readyFor, type OpenedIntent } from './model';
+import { shareDefaults, type OpenedIntent } from './model';
 import type { SendNote, SendTo } from './useSendNote';
 
 /** What sits over the phone screen: a send (from Home or an opened link), or Forget. */
@@ -37,12 +38,18 @@ export function PhoneOverlay({
       const device = linked.devices.find((d) => d.id === id);
       if (device !== undefined) sendTo(device, send, sent);
     };
+  /** Turn `feature` on for a computer here, as a new link starts it (files and Handoff ask). */
+  const turnOn = (feature: Phase2Feature) => (id: string) => {
+    linked.setFeature(id, feature, shareDefaults()[feature]);
+  };
   switch (overlay.kind) {
     case 'clipboard':
       return (
         <PickComputerSheet
           title={t('mobile.home.sendClipboard')}
-          devices={readyFor(linked.devices, 'clipboard')}
+          feature="clipboard"
+          devices={linked.devices}
+          onTurnOn={turnOn('clipboard')}
           onClose={onClose}
           onSend={sendPicked(linked.sendClipboard, 'clipSent')}
         />
@@ -52,7 +59,9 @@ export function PhoneOverlay({
       return (
         <PickComputerSheet
           title={t('mobile.pick.files', { count: paths.length })}
-          devices={readyFor(linked.devices, 'files')}
+          feature="files"
+          devices={linked.devices}
+          onTurnOn={turnOn('files')}
           onClose={onClose}
           // The file's progress and outcome show as the transfer's own note.
           onSend={sendPicked((id) => linked.sendFiles(id, [...paths]), null)}
@@ -70,7 +79,9 @@ export function PhoneOverlay({
       return (
         <PickComputerSheet
           title={t('mobile.pick.link')}
-          devices={readyFor(linked.devices, 'handoff')}
+          feature="handoff"
+          devices={linked.devices}
+          onTurnOn={turnOn('handoff')}
           onClose={onClose}
           onSend={sendPicked((id) => port.handoffUrl(id, url), 'linkSent')}
         >
@@ -83,7 +94,9 @@ export function PhoneOverlay({
       return (
         <PickComputerSheet
           title={t('mobile.pick.text')}
-          devices={readyFor(linked.devices, 'clipboard')}
+          feature="clipboard"
+          devices={linked.devices}
+          onTurnOn={turnOn('clipboard')}
           onClose={onClose}
           onSend={sendPicked((id) => port.sendText(id, text), 'clipSent')}
         >

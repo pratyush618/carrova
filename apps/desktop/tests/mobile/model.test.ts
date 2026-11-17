@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { openedIntent, openedIntents } from '@/mobile/model';
+import type { FeatureState, LinkedDeviceView } from '@/engine/types';
+import { openedIntent, openedIntents, unreachable } from '@/mobile/model';
 
 describe('a link the phone app was opened with', () => {
   it('asks to send the clipboard from the tile or the notification', () => {
@@ -48,5 +49,51 @@ describe('the links one opening brought', () => {
       { kind: 'text', text: 'hi' },
       { kind: 'clipboard' },
     ]);
+  });
+});
+
+/** A computer with `clipboard` set `local` here and `remote` there. */
+const computer = (
+  state: LinkedDeviceView['state'],
+  local: FeatureState,
+  remote: FeatureState | null,
+): LinkedDeviceView => ({
+  id: 'd2',
+  name: 'Desk PC',
+  os: 'linux',
+  fingerprint: 'B04E·88D1',
+  state,
+  features: [
+    {
+      feature: 'clipboard',
+      group: 'quiet',
+      local,
+      remote,
+      effective: local === 'off' || remote === null || remote === 'off' ? 'off' : 'on',
+    },
+  ],
+  missing: [],
+});
+
+describe('why a linked computer cannot get a send now', () => {
+  it('can when linked and on on both sides', () => {
+    expect(unreachable(computer('linked', 'on', 'on'), 'clipboard')).toBeNull();
+  });
+
+  it('is off on this phone first: the one thing the user can change here', () => {
+    expect(unreachable(computer('away', 'off', null), 'clipboard')).toBe('offHere');
+  });
+
+  it('is away or connecting while the link is down', () => {
+    expect(unreachable(computer('away', 'on', null), 'clipboard')).toBe('away');
+    expect(unreachable(computer('connecting', 'on', null), 'clipboard')).toBe('connecting');
+  });
+
+  it('is off on the computer once its setting is known', () => {
+    expect(unreachable(computer('linked', 'on', 'off'), 'clipboard')).toBe('offThere');
+  });
+
+  it('is still connecting while linked but the computer has not said yet', () => {
+    expect(unreachable(computer('linked', 'on', null), 'clipboard')).toBe('connecting');
   });
 });

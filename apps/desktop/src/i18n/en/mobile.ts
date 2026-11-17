@@ -176,6 +176,10 @@ export const mobile = {
     to: 'To',
     send: 'Send',
     cancel: 'Cancel',
+    unreachable: "Can't send now",
+    offHere: 'Off on this phone',
+    offThere: 'Off on {{name}}',
+    turnOn: 'Turn on',
   },
   activity: {
     title: 'Activity',
