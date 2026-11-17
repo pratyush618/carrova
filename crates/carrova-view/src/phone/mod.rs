@@ -15,7 +15,7 @@ mod setup;
 
 use serde::Deserialize;
 
-pub use apps::{NotifyAppRow, NotifyAppsView, notify_apps_view};
+pub use apps::{NotifyAppRow, NotifyAppsView, notify_apps_view, phone_apps_view};
 pub use calls::{
     CallLogGroup, CallLogView, CallRow, CallWindowView, Caller, call_log_view, call_view,
 };

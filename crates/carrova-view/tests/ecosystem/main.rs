@@ -140,6 +140,7 @@ fn peer(seed: u8, state: PeerState, remote: Option<PolicyDoc>) -> LinkedPeer {
         state,
         local: PolicyDoc::phone_defaults(),
         remote,
+        missing: Vec::new(),
     }
 }
 
@@ -332,4 +333,11 @@ fn pair_peer_view_cleans_name_and_formats_fingerprint() {
     assert_eq!(view.os, OsKind::Android);
     assert_eq!(view.fingerprint, Fingerprint::of(&public).to_string());
     assert!(view.fingerprint.contains('·'), "{}", view.fingerprint);
+}
+
+#[test]
+fn linked_device_view_names_the_access_the_phone_lacks() {
+    let mut p = peer(6, PeerState::Linked, None);
+    p.missing = vec![Feature::Messages];
+    assert_eq!(linked_device_views(&[p])[0].missing, [Feature::Messages]);
 }

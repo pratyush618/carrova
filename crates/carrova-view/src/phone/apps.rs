@@ -1,7 +1,9 @@
 //! The phone's per-app notification list ("Notifications on the laptop"),
-//! as the phone itself shows it.
+//! as the phone itself shows it, and as a linked computer shows it (read
+//! only).
 
 use carrova_core::ecosystem::NotifyApps;
+use carrova_link::AppEntry;
 use carrova_platform::phone::Note;
 use serde::Serialize;
 
@@ -38,25 +40,25 @@ pub struct NotifyAppsView {
 /// chose for, set as `apps` says, by name.
 #[must_use]
 pub fn notify_apps_view(apps: &NotifyApps, showing: &[Note]) -> NotifyAppsView {
-    let mut rows: Vec<NotifyAppRow> = Vec::new();
-    let named = showing
-        .iter()
-        .map(|n| (n.app_id.as_str(), n.app_name.as_str()));
-    let chosen = apps.chosen().map(|id| (id, id));
-    for (id, name) in named.chain(chosen) {
-        if !id.is_empty() && rows.iter().all(|r| r.id != id) {
-            rows.push(NotifyAppRow {
-                id: id.to_owned(),
-                name: name.to_owned(),
-                on: apps.allowed(id),
-                private: NotifyApps::is_private(id),
-            });
-        }
-    }
-    rows.sort_by_cached_key(|r| r.name.to_lowercase());
     NotifyAppsView {
-        apps: rows,
+        apps: phone_apps_view(&apps.entries(showing)),
         hide_codes: apps.hide_codes(),
         show_text: apps.show_text(),
     }
+}
+
+/// A phone's per-app list (`entries`, as it sent them), by name.
+#[must_use]
+pub fn phone_apps_view(entries: &[AppEntry]) -> Vec<NotifyAppRow> {
+    let mut rows: Vec<NotifyAppRow> = entries
+        .iter()
+        .map(|e| NotifyAppRow {
+            id: e.app_id.clone(),
+            name: e.app_name.clone(),
+            on: e.on,
+            private: NotifyApps::is_private(&e.app_id),
+        })
+        .collect();
+    rows.sort_by_cached_key(|r| r.name.to_lowercase());
+    rows
 }
