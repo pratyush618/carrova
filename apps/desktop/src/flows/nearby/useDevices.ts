@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRemembered } from '../../app/state/EngineState';
+import { useLink, useRemembered } from '../../app/state/EngineState';
 import type {
   CarrovaPort,
   ForgetDevices,
@@ -31,7 +31,9 @@ export interface DevicesController {
 /**
  * Visibility and remembered devices: loaded on mount, when the window comes
  * back (the tray or the CLI may have changed them), when a move remembers a
- * device, when "everyone" runs out, and after every change made here. An
+ * device, when a link or its policy changes (a linked device's new name
+ * comes with its policy), when "everyone" runs out, and after every change
+ * made here. An
  * answer that started before a newer load or change is dropped, so a slow
  * refresh never undoes the user's own change.
  */
@@ -46,6 +48,7 @@ export function useDevices(port: CarrovaPort): DevicesController {
   /** Bumped by every change: only the latest change's failure shows. */
   const lastChange = useRef(0);
   const remembered = useRemembered();
+  const { changes } = useLink();
 
   const load = useCallback(() => {
     const ticket = ++latest.current;
@@ -72,6 +75,10 @@ export function useDevices(port: CarrovaPort): DevicesController {
   useEffect(() => {
     if (remembered !== null) load();
   }, [remembered, load]);
+
+  useEffect(() => {
+    if (changes > 0) load();
+  }, [changes, load]);
 
   // "Everyone" turns back into "Known devices" by itself: ask again when it does.
   const until = visibility?.until ?? null;
