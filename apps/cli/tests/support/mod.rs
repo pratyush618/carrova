@@ -45,6 +45,7 @@ impl User {
             last_move: None,
             moves: 2,
             mac_hint: None,
+            renamed: false,
         };
         KnownDevices::open(&platform)
             .unwrap()

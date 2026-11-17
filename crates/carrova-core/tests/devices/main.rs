@@ -76,6 +76,7 @@ fn record(seed: u8, name: &str) -> DeviceRecord {
         last_move: None,
         moves: 0,
         mac_hint: Some([0xde, 0xad, 0xbe, 0xef, 0x00, 0x01]),
+        renamed: false,
     }
 }
 
@@ -109,6 +110,37 @@ fn remember_then_list() {
 }
 
 #[test]
+fn pairing_again_takes_the_announced_name_unless_renamed() {
+    let f = Fixture::new();
+    f.remember(&record(1, "localhost"), 7);
+    f.remember(&record(1, "Pixel 8"), 8);
+    assert_eq!(f.devices.list(&f.platform).unwrap()[0].name, "Pixel 8");
+    f.devices.rename(&f.platform, &public(1), "phone").unwrap();
+    f.remember(&record(1, "Pixel 9"), 9);
+    assert_eq!(f.devices.list(&f.platform).unwrap()[0].name, "phone");
+}
+
+#[test]
+fn following_a_name_updates_it_unless_renamed() {
+    let f = Fixture::new();
+    f.remember(&record(1, "localhost"), 7);
+    let follow = |name| {
+        f.devices
+            .follow_name(&f.platform, &public(1), name)
+            .unwrap()
+    };
+    assert_eq!(follow(" Pixel 8\u{202E}\n").as_deref(), Some("Pixel 8"));
+    assert_eq!(follow("Pixel 8"), None);
+    assert_eq!(follow(" \u{7} "), None);
+    assert_eq!(f.devices.list(&f.platform).unwrap()[0].name, "Pixel 8");
+    f.devices.rename(&f.platform, &public(1), "phone").unwrap();
+    assert_eq!(follow("Pixel 9"), None);
+    let unknown = f.devices.follow_name(&f.platform, &public(2), "x").unwrap();
+    assert_eq!(unknown, None);
+    assert_eq!(f.devices.list(&f.platform).unwrap()[0].name, "phone");
+}
+
+#[test]
 fn remembering_again_replaces_the_secret_and_keeps_name_and_history() {
     let f = Fixture::new();
     f.remember(&record(1, "laptop"), 7);
@@ -127,6 +159,7 @@ fn remembering_again_replaces_the_secret_and_keeps_name_and_history() {
         listed,
         vec![DeviceRecord {
             name: "work laptop".into(),
+            renamed: true,
             first_seen: 100,
             // Remembering without a new hint keeps the saved one.
             mac_hint: record(1, "").mac_hint,

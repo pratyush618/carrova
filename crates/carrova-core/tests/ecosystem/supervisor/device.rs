@@ -191,6 +191,7 @@ impl Device {
             last_move: None,
             moves: 0,
             mac_hint: None,
+            renamed: false,
         };
         known.remember(&*self.platform, record, secret).unwrap();
         self.set_policy(&other.id, doc);

@@ -150,6 +150,7 @@ impl Store {
             last_move: None,
             moves: 0,
             mac_hint: hint,
+            renamed: false,
         };
         let secret = KnownSecret::from_bytes([7; 32]);
         self.devices

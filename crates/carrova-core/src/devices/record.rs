@@ -13,8 +13,15 @@ use serde::{Deserialize, Serialize};
 pub struct DeviceRecord {
     /// The device's identity key ([`DeviceId`](carrova_crypto::identity::DeviceId)).
     pub public: DevicePublic,
-    /// Display name (set at pairing, renamable).
+    /// Display name: the one the device announces, until the user renames
+    /// it ([`Self::renamed`]).
     pub name: String,
+    /// Whether the user named it ([`KnownDevices::rename`]): the name the
+    /// device announces then no longer replaces it.
+    ///
+    /// [`KnownDevices::rename`]: super::KnownDevices::rename
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub renamed: bool,
     /// The device's operating system.
     pub os: OsKind,
     /// When it was first remembered (unix seconds).
@@ -40,6 +47,7 @@ impl fmt::Debug for DeviceRecord {
         f.debug_struct("DeviceRecord")
             .field("fingerprint", &self.fingerprint())
             .field("name", &self.name)
+            .field("renamed", &self.renamed)
             .field("os", &self.os)
             .field("first_seen", &self.first_seen)
             .field("last_move", &self.last_move)
