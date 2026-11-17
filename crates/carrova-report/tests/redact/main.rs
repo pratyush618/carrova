@@ -327,6 +327,12 @@ fn redacts_phone_numbers() {
 }
 
 #[test]
+fn redacts_phone_numbers_after_a_field_name() {
+    assert_eq!(redactor().redact("sender:4155550100"), "sender:<phone>");
+    assert_eq!(redactor().redact("tel:+14155550100"), "tel:<phone>");
+}
+
+#[test]
 fn keeps_short_numbers_and_versions() {
     for text in [
         "carrova v0.2.0 on port 4433",

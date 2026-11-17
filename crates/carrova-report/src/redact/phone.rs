@@ -61,8 +61,9 @@ fn number_end(chars: &[char], start: usize) -> Option<usize> {
 }
 
 /// `true` unless the number would continue a word, path or dotted number.
+/// A `:` field separator (`sender:4155550100`) is a boundary.
 fn boundary_before(chars: &[char], start: usize) -> bool {
-    start == 0 || !(chars[start - 1].is_alphanumeric() || "_.-/:".contains(chars[start - 1]))
+    start == 0 || !(chars[start - 1].is_alphanumeric() || "_.-/".contains(chars[start - 1]))
 }
 
 fn boundary_after(chars: &[char], end: usize) -> bool {
