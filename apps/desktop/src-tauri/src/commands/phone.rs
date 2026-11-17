@@ -7,7 +7,7 @@ use carrova_platform::phone::{Cursor, PhonePerm, SendOutcome, SmsMessage};
 use carrova_view::ipc::{CallAction, CallOutcome, NoteAction, NoteOutcome};
 use carrova_view::phone::{
     CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, NotifyAppRow,
-    NotifyAppsView, PermStep, ThreadView, ThreadsView,
+    NotifyAppsView, PermStep, SimChoice, ThreadView, ThreadsView,
 };
 use tauri::{AppHandle, State};
 
@@ -91,11 +91,22 @@ pub async fn send_sms(
     to: String,
     text: String,
     client_id: u64,
+    sim: Option<i32>,
 ) -> Result<SendOutcome, CommandError> {
     reply(
         &app,
-        ops::phone::send_sms(&state, id, to, text, client_id).await,
+        ops::phone::send_sms(&state, id, to, text, client_id, sim).await,
     )
+}
+
+/// `CarrovaPort.phoneSims`.
+#[tauri::command]
+pub async fn phone_sims(
+    state: State<'_, AppState>,
+    id: DeviceId,
+    feature: Feature,
+) -> Result<Vec<SimChoice>, CommandError> {
+    ops::phone::phone_sims(&state, id, feature).await
 }
 
 /// `CarrovaPort.phoneCall`.

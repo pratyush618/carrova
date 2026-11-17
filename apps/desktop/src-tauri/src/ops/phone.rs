@@ -15,9 +15,9 @@ use carrova_platform::phone::{CallAudioStatus, Cursor, PhonePerm, SendOutcome, S
 use carrova_view::ipc::{CallAction, CallOutcome, ErrorCode, NoteAction, NoteOutcome};
 use carrova_view::phone::{
     CallLogView, CallSetupStep, CallWindowView, LocalClock, NotesView, NotifyAppRow,
-    NotifyAppsView, PermStep, ThreadView, ThreadsView, call_audio_view, call_log_view, call_view,
-    notes_view, notify_apps_view, perm_view, phone_apps_view, thread_view, threads_view,
-    withheld_while_locked,
+    NotifyAppsView, PermStep, SimChoice, ThreadView, ThreadsView, call_audio_view, call_log_view,
+    call_view, notes_view, notify_apps_view, perm_view, phone_apps_view, sim_choices, thread_view,
+    threads_view, withheld_while_locked,
 };
 
 use super::ecosystem::with_link;
@@ -126,7 +126,8 @@ pub async fn phone_thread(
     }
 }
 
-/// Text `to` from `device`; sent at most once per `client_id`.
+/// Text `to` from `device`, from SIM `sim` (`None`: the phone's
+/// default); sent at most once per `client_id`.
 ///
 /// # Errors
 ///
@@ -137,16 +138,44 @@ pub async fn send_sms(
     to: String,
     text: String,
     client_id: u64,
+    sim: Option<i32>,
 ) -> Result<SendOutcome, CommandError> {
     let request = SmsRequest::Send {
         to,
         text,
         client_id,
+        sim,
     };
     match with_link(state, move |link| link.sms(&device, request.clone())).await? {
         SmsReply::SendResult { outcome, .. } => Ok(outcome),
         _ => Err(unexpected_reply()),
     }
+}
+
+/// The SIMs `device` offers to text from (`feature` messages) or call
+/// from (calls); none with one SIM.
+///
+/// # Errors
+///
+/// Not linked, `feature` off for it, or the link failed (as with a phone
+/// too old to list its SIMs).
+pub async fn phone_sims(
+    state: &AppState,
+    device: DeviceId,
+    feature: Feature,
+) -> Result<Vec<SimChoice>, CommandError> {
+    let sims = if feature == Feature::Calls {
+        match with_link(state, move |link| link.call(&device, CallCommand::Sims)).await? {
+            CallReply::Sims(sims) => sims,
+            _ => return Err(unexpected_reply()),
+        }
+    } else {
+        match with_link(state, move |link| link.sms(&device, SmsRequest::Sims)).await? {
+            SmsReply::Sims(sims) => sims,
+            _ => return Err(unexpected_reply()),
+        }
+    };
+    Ok(sim_choices(&sims, feature))
 }
 
 /// Carry out `action` on `device`'s call.
