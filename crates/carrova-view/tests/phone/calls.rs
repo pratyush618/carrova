@@ -2,7 +2,7 @@ use carrova_core::ecosystem::CallView;
 use carrova_crypto::identity::{DeviceId, DeviceKey};
 use carrova_link::HISTORY_PAGE;
 use carrova_platform::phone::{AudioSide, CallKind, CallRecord, Cursor};
-use carrova_view::phone::{CallWindowView, call_log_view, call_view};
+use carrova_view::phone::{CallWindowView, call_log_view, call_view, opens_call_window};
 
 use super::{DAY, MIDNIGHT, NOON, utc_noon};
 
@@ -148,4 +148,25 @@ fn full_log_page_offers_the_next_cursor() {
         id: 900 - (HISTORY_PAGE as i64 - 1),
     };
     assert_eq!(call_log_view(&records, utc_noon()).next, Some(next));
+}
+
+#[test]
+fn call_window_opens_for_a_call_ringing_here_or_running_only() {
+    let ringing = |ring_here| CallView::Ringing {
+        device: device(),
+        number: "1".into(),
+        name: None,
+        ring_here,
+    };
+    assert!(opens_call_window(&ringing(true)));
+    assert!(!opens_call_window(&ringing(false)));
+    assert!(opens_call_window(&active(NOON, AudioSide::Phone)));
+    let missed = CallView::Missed {
+        device: device(),
+        number: "1".into(),
+        name: None,
+    };
+    assert!(!opens_call_window(&missed));
+    assert!(!opens_call_window(&CallView::Left { device: device() }));
+    assert!(!opens_call_window(&CallView::None));
 }

@@ -1,8 +1,8 @@
-//! Which bridge events are calls, and which calls open the window.
+//! Which bridge events are calls, and the running call the tray offers.
 
 use carrova_core::ecosystem::CallView;
 
-use super::{LastCall, call_view, opens_window};
+use super::{LastCall, call_view};
 
 /// RFC 8032 test 1's public key: a valid device id.
 const DEVICE: &str = "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";
@@ -28,26 +28,6 @@ fn reads_a_call_view_event_and_nothing_else() {
     );
     assert!(call_view(&link_up).is_none());
     assert!(call_view("not json").is_none());
-}
-
-#[test]
-fn opens_for_a_call_ringing_here_or_running_only() {
-    let parse = |view: &str| call_view(&payload(view)).unwrap();
-    let ringing = |here: bool| {
-        parse(&format!(
-            r#""kind":"ringing","device":"{DEVICE}","number":"1","name":null,"ring_here":{here}"#
-        ))
-    };
-    let active = parse(&format!(
-        r#""kind":"active","device":"{DEVICE}","since_ms":0,"muted":true,"audio":"phone""#
-    ));
-    assert!(opens_window(&ringing(true)));
-    assert!(!opens_window(&ringing(false)));
-    assert!(opens_window(&active));
-    assert!(!opens_window(&parse(&format!(
-        r#""kind":"left","device":"{DEVICE}""#
-    ))));
-    assert!(!opens_window(&CallView::None));
 }
 
 #[test]

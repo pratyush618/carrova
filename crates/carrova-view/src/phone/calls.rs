@@ -58,6 +58,19 @@ pub enum CallWindowView {
     },
 }
 
+/// Whether the engine's `view` opens the call window: a call ringing
+/// here, or one in progress.
+#[must_use]
+pub fn opens_call_window(view: &CallView) -> bool {
+    matches!(
+        view,
+        CallView::Ringing {
+            ring_here: true,
+            ..
+        } | CallView::Active { .. }
+    )
+}
+
 /// The window view of the engine's `view` at `now_ms`.
 #[must_use]
 pub fn call_view(view: &CallView, now_ms: i64) -> CallWindowView {

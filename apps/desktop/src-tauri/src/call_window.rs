@@ -11,6 +11,7 @@ use std::sync::{Mutex, PoisonError};
 use carrova_core::ecosystem::CallView;
 use carrova_crypto::identity::DeviceId;
 use carrova_view::ipc::EVENT_CHANNEL;
+use carrova_view::phone::opens_call_window;
 use tauri::{AppHandle, Listener, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 use crate::command_error::CommandError;
@@ -71,7 +72,7 @@ pub fn start(app: &AppHandle) {
         let Some(view) = call_view(event.payload()) else {
             return;
         };
-        let open = opens_window(&view);
+        let open = opens_call_window(&view);
         if let Some(last) = handle.try_state::<LastCall>() {
             last.take(view);
         }
@@ -101,17 +102,6 @@ fn call_view(payload: &str) -> Option<CallView> {
         return None;
     }
     serde_json::from_value(event["event"].take()).ok()
-}
-
-/// Whether `view` opens the call window: a call ringing here, or running.
-fn opens_window(view: &CallView) -> bool {
-    matches!(
-        view,
-        CallView::Ringing {
-            ring_here: true,
-            ..
-        } | CallView::Active { .. }
-    )
 }
 
 /// Show the call window, building it if it is not open. It never takes

@@ -18,6 +18,7 @@ use serde::Deserialize;
 pub use apps::{NotifyAppRow, NotifyAppsView, notify_apps_view, phone_apps_view};
 pub use calls::{
     CallLogGroup, CallLogView, CallRow, CallWindowView, Caller, call_log_view, call_view,
+    opens_call_window,
 };
 pub use messages::{MessageRow, ThreadRow, ThreadView, ThreadsView, thread_view, threads_view};
 pub use notes::{NoteView, NotesView, notes_view, withheld_while_locked};
