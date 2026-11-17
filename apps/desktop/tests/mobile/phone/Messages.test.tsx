@@ -1,7 +1,8 @@
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { renderPhone } from '../../support/phone';
+import type { SyncWindow } from '../../../src/bindings/SyncWindow';
 import { openScreen } from './support';
 
 describe('Messages on the computer', () => {
@@ -67,5 +68,26 @@ describe('Messages save failures', () => {
 
     expect(await screen.findByText("Couldn't change that. Try again.")).toBeInTheDocument();
     expect(await screen.findByRole('radio', { name: '30 days' })).toBeChecked();
+  });
+
+  it('a read from before a newer change does not undo it', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderPhone({ scenario: 'linked' });
+    vi.spyOn(port, 'phonePermStep').mockResolvedValue('ok');
+    vi.spyOn(port, 'setMessagesSync').mockRejectedValueOnce(new Error('disk full'));
+    const sync = vi.spyOn(port, 'messagesSync');
+    await openScreen(user, 'Messages');
+    expect(await screen.findByRole('radio', { name: '30 days' })).toBeChecked();
+    let finish = (_: SyncWindow) => undefined as void;
+    sync.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+
+    await user.click(screen.getByRole('radio', { name: '1 year' }));
+    await user.click(screen.getByRole('radio', { name: 'All' }));
+    await act(async () => {
+      finish('days30');
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole('radio', { name: 'All' })).toBeChecked();
   });
 });

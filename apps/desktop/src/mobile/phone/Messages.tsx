@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SyncWindow } from '../../bindings/SyncWindow';
 import { usePort } from '../../engine/port';
@@ -36,8 +36,16 @@ export function Messages({
   const [failed, setFailed] = useState(false);
   const steps = usePermSteps(SMS);
   const noPerm = steps !== null && steps[0] !== 'ok';
+  // Bumped by each change: a read started before one would undo it.
+  const changes = useRef(0);
   const load = useCallback(() => {
-    port.messagesSync().then(setKeep, () => undefined);
+    const at = changes.current;
+    port.messagesSync().then(
+      (saved) => {
+        if (changes.current === at) setKeep(saved);
+      },
+      () => undefined,
+    );
   }, [port]);
   useEffect(load, [load]);
   return (
@@ -78,6 +86,7 @@ export function Messages({
               }))}
               value={keep}
               onChange={(next) => {
+                changes.current += 1;
                 setKeep(next);
                 setFailed(false);
                 // Not saved: show the saved choice again.
