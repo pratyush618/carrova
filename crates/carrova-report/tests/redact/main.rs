@@ -333,6 +333,17 @@ fn redacts_phone_numbers_after_a_field_name() {
 }
 
 #[test]
+fn digits_inside_emails_do_not_hide_the_email() {
+    for email in ["alice+4155550100@example.com", "4155550100@example.com"] {
+        assert_eq!(
+            redactor().redact(&format!("to {email}")),
+            "to <email>",
+            "{email}"
+        );
+    }
+}
+
+#[test]
 fn keeps_short_numbers_and_versions() {
     for text in [
         "carrova v0.2.0 on port 4433",

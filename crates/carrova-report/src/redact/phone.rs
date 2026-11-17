@@ -61,15 +61,17 @@ fn number_end(chars: &[char], start: usize) -> Option<usize> {
 }
 
 /// `true` unless the number would continue a word, path or dotted number.
-/// A `:` field separator (`sender:4155550100`) is a boundary.
+/// A `:` field separator (`sender:4155550100`) is a boundary; a `+` inside
+/// a word (`alice+4155550100@…`, base64) is not.
 fn boundary_before(chars: &[char], start: usize) -> bool {
-    start == 0 || !(chars[start - 1].is_alphanumeric() || "_.-/".contains(chars[start - 1]))
+    start == 0 || !(chars[start - 1].is_alphanumeric() || "_.-/+".contains(chars[start - 1]))
 }
 
+/// `true` unless the number continues a word or is an email's local part.
 fn boundary_after(chars: &[char], end: usize) -> bool {
     match chars.get(end) {
         None => true,
-        Some(&ch) if ch.is_alphanumeric() || ch == '_' => false,
+        Some(&ch) if ch.is_alphanumeric() || ch == '_' || ch == '@' => false,
         Some('.' | '-' | '/' | ':') => !chars.get(end + 1).is_some_and(|c| c.is_alphanumeric()),
         Some(_) => true,
     }
