@@ -115,8 +115,10 @@ fn open_window(app: &AppHandle) {
     }
     let built = WebviewWindowBuilder::new(app, CALL_WINDOW, WebviewUrl::App("index.html".into()))
         .title("Carrova")
-        .inner_size(340.0, 400.0)
-        .resizable(false)
+        // About the ringing view's height; the UI then fits the window to
+        // its content, which GTK ignores on a non-resizable window.
+        .inner_size(340.0, 260.0)
+        .resizable(true)
         .always_on_top(true)
         .focused(false)
         .build();

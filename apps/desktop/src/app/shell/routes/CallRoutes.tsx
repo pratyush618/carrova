@@ -18,6 +18,7 @@ import { CallBar } from '../../../screens/phone/calls/CallBar';
 import { CallsScreen } from '../../../screens/phone/calls/CallsScreen';
 import { CallWindowScreen } from '../../../screens/phone/calls/CallWindowScreen';
 import { HubLayout } from '../../../ui';
+import { fitWindow } from '../../fitWindow';
 import { useControllers } from '../../controllers/Controllers';
 import { useNav } from '../nav';
 
@@ -50,36 +51,39 @@ export function CallWindowRoute() {
     act(port, device, action);
   };
   return (
-    <CallWindowScreen
-      view={shown}
-      who={callerName(track.caller)}
-      phone={phone}
-      on={{
-        onAnswer: () => {
-          send({ kind: 'answer' });
-        },
-        onDecline: () => {
-          send({ kind: 'decline' });
-        },
-        onMute: (on) => {
-          send({ kind: 'mute', on });
-        },
-        onTone: (digits) => {
-          send({ kind: 'tones', digits });
-        },
-        onAudioTo: (side) => {
-          send({ kind: 'audio_to', side });
-        },
-        onEnd: () => {
-          send({ kind: 'end' });
-        },
-        onCallBack: () => {
-          // The phone's default SIM: this window offers no choice.
-          if (track.caller !== null) send({ kind: 'dial', number: track.caller.number, sim: null });
-        },
-        onClose: dismiss,
-      }}
-    />
+    <div ref={fitWindow}>
+      <CallWindowScreen
+        view={shown}
+        who={callerName(track.caller)}
+        phone={phone}
+        on={{
+          onAnswer: () => {
+            send({ kind: 'answer' });
+          },
+          onDecline: () => {
+            send({ kind: 'decline' });
+          },
+          onMute: (on) => {
+            send({ kind: 'mute', on });
+          },
+          onTone: (digits) => {
+            send({ kind: 'tones', digits });
+          },
+          onAudioTo: (side) => {
+            send({ kind: 'audio_to', side });
+          },
+          onEnd: () => {
+            send({ kind: 'end' });
+          },
+          onCallBack: () => {
+            // The phone's default SIM: this window offers no choice.
+            if (track.caller !== null)
+              send({ kind: 'dial', number: track.caller.number, sim: null });
+          },
+          onClose: dismiss,
+        }}
+      />
+    </div>
   );
 }
 

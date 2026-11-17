@@ -7,6 +7,7 @@ import type { CarrovaPort } from '../../engine/types';
 import { PreferencesProvider } from '../../preferences/preferences';
 import { NotePopup, type NotePopupModel } from '../../screens/phone/notes/NotePopup';
 import { useReducedMotion } from '../../ui';
+import { fitWindow } from '../fitWindow';
 import { cx } from '../../ui/cx';
 
 /** How long a pop-up stays while left alone, then how long it fades out. */
@@ -105,23 +106,6 @@ function useAutoDismiss(shown: boolean, close: () => void) {
         if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false);
       },
     },
-  };
-}
-
-/** Fits this pop-up window's height to `content` as it renders (fonts scale; text wraps). */
-function fitWindow(content: HTMLElement | null) {
-  if (content === null || !isTauri()) return;
-  const observer = new ResizeObserver(() => {
-    const height = Math.ceil(content.getBoundingClientRect().height);
-    void import('@tauri-apps/api/window')
-      .then(({ getCurrentWindow, LogicalSize }) =>
-        getCurrentWindow().setSize(new LogicalSize(window.innerWidth, height)),
-      )
-      .catch(() => undefined);
-  });
-  observer.observe(content);
-  return () => {
-    observer.disconnect();
   };
 }
 

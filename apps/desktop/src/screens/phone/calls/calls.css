@@ -1,11 +1,10 @@
-/* The call window (ringing, in a call, missed): small, centred, one column. */
+/* The call window (ringing, in a call, missed): small, centred, one column; the window fits it. */
 .s-call {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-1);
   padding: var(--sp-3) var(--sp-2);
-  min-block-size: 100vh;
   text-align: center;
   background: var(--surface-3);
   color: var(--text-primary);
