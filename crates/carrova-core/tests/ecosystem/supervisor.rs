@@ -85,6 +85,28 @@ fn link_up_when_feature_on() {
 }
 
 #[test]
+fn a_linked_device_shows_the_name_it_announces_unless_renamed() {
+    use carrova_core::devices::KnownDevices;
+    let doc = PolicyDoc::phone_defaults();
+    let (low, high, secret) = pair(&doc);
+    // Paired while High still called itself "localhost".
+    low.know(&high, "localhost", &secret, &doc);
+    let known = KnownDevices::open(&*high.platform).unwrap();
+    known.rename(&*high.platform, &low.id, "My laptop").unwrap();
+    let (sl, sh) = start_both(&low, &high);
+
+    wait_until("High's announced name", || {
+        sl.status()
+            .iter()
+            .any(|p| p.id == high.id && p.name == "High")
+    });
+    let stored = KnownDevices::open(&*low.platform).unwrap();
+    assert_eq!(stored.list(&*low.platform).unwrap()[0].name, "High");
+    wait_remote(&sh, &low.id, Feature::Ring, FeatureState::On);
+    assert_eq!(sh.status()[0].name, "My laptop");
+}
+
+#[test]
 fn presence_advertises_the_link_port_while_running() {
     use carrova_core::presence::{Visibility, advert};
     let (low, _high, _) = pair(&PolicyDoc::phone_defaults());

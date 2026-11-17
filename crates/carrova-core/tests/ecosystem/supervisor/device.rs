@@ -169,10 +169,12 @@ pub fn wait_until(what: &str, mut done: impl FnMut() -> bool) {
 /// Two devices that know each other (one shared secret), each on `doc`
 /// for the other: `(low, high, secret)`, the low key dials (ADR 0002 §4).
 pub fn pair(doc: &PolicyDoc) -> (Device, Device, KnownSecret) {
-    let (mut low, mut high) = (Device::new("Low"), Device::new("High"));
-    if low.id.as_bytes() > high.id.as_bytes() {
-        std::mem::swap(&mut low, &mut high);
-    }
+    let low = Device::new("Low");
+    // Each must announce the name its peer knows it by (the policy lane
+    // carries it), so make devices until "High" has the higher key.
+    let high = std::iter::repeat_with(|| Device::new("High"))
+        .find(|high| high.id.as_bytes() > low.id.as_bytes())
+        .unwrap();
     let secret = KnownSecret::from_bytes([7; 32]);
     low.know(&high, "High", &secret, doc);
     high.know(&low, "Low", &secret, doc);

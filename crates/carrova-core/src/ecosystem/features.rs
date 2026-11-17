@@ -11,8 +11,8 @@ use std::time::Duration;
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{
     ClipItem, Feature, FeatureState, FileOffer, LaneGate, LaneKind, LinkError, OfferAnswer,
-    ReceivedHandoff, RefuseReason, RingMsg, accept_lane, open_lane, receive_file, recv_clip,
-    recv_handoff, recv_policy, recv_ring, send_policy, serve_ping,
+    PolicyUpdate, ReceivedHandoff, RefuseReason, RingMsg, accept_lane, open_lane, receive_file,
+    recv_clip, recv_handoff, recv_policy, recv_ring, send_policy, serve_ping,
 };
 use carrova_platform::{ClipContent, ClipKind, PlatformError};
 use carrova_transport::{Connection, ProtocolViolation, Stream, TransportError};
@@ -25,6 +25,7 @@ use super::phone::mirror;
 use super::sink::Download;
 use super::supervisor::Shared;
 use crate::cancel::Cancel;
+use crate::devices::KnownDevices;
 use crate::error::{CoreError, Result};
 use crate::session::Event;
 
@@ -79,8 +80,9 @@ pub(super) fn offer_id() -> Result<u64> {
     Ok(u64::from_le_bytes(b) & MAX_JS_ID)
 }
 
-/// Send this side's policy for `device` on a new `Policy` lane; a failure
-/// is logged (the link dropping redoes it at the next link).
+/// Send this side's policy for `device`, with this device's current name,
+/// on a new `Policy` lane; a failure is logged (the link dropping redoes it
+/// at the next link).
 pub(super) fn push_policy(shared: &Shared, device: &DeviceId, conn: &Connection) {
     let Some(doc) = shared
         .peers()
@@ -90,7 +92,11 @@ pub(super) fn push_policy(shared: &Shared, device: &DeviceId, conn: &Connection)
     else {
         return;
     };
-    let sent = open_lane(conn, LaneKind::Policy).and_then(|mut s| send_policy(&mut s, &doc));
+    let update = PolicyUpdate {
+        doc,
+        name: crate::about::device_name(shared.platform().as_ref()),
+    };
+    let sent = open_lane(conn, LaneKind::Policy).and_then(|mut s| send_policy(&mut s, &update));
     if let Err(e) = sent {
         tracing::debug!(error = %e, "policy not sent");
     }
@@ -242,13 +248,18 @@ impl Lane {
         self.shared.with_link(&self.device, self.generation, f)
     }
 
-    /// Take the device's policy; send it the phone state it now takes.
+    /// Take the device's policy and name; send it the phone state it now
+    /// takes.
     fn policy(&self, mut stream: Stream) -> Result<()> {
-        let doc = recv_policy(&mut stream, POLICY_WAIT)?;
+        let PolicyUpdate { doc, name } = recv_policy(&mut stream, POLICY_WAIT)?;
+        let renamed = name.and_then(|name| self.follow_name(&name));
         let changed = {
             let mut peers = self.shared.peers();
             let peer = peers.iter_mut().find(|p| p.id() == self.device);
             peer.and_then(|p| {
+                if let Some(name) = renamed {
+                    p.record.name = name;
+                }
                 let link = p
                     .link
                     .as_mut()
@@ -270,6 +281,18 @@ impl Lane {
             gives.send(&self.shared, self.device);
         }
         Ok(())
+    }
+
+    /// Store the name the device announces as its own unless the user
+    /// renamed it; the new name if it changed. A failure is logged: the
+    /// old name stays until the next policy.
+    fn follow_name(&self, announced: &str) -> Option<String> {
+        let platform = &**self.shared.platform();
+        KnownDevices::open(platform)
+            .and_then(|known| known.follow_name(platform, &self.device, announced))
+            .inspect_err(|e| tracing::warn!(error = %e, "device name not updated"))
+            .ok()
+            .flatten()
     }
 
     fn clipboard(&self, stream: Stream) -> Result<()> {

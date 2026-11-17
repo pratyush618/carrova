@@ -147,18 +147,26 @@ impl PolicyDoc {
 }
 
 /// Policy lane message: the sender's whole document, decoded tolerantly
-/// by [`PolicyDoc`] itself.
+/// by [`PolicyDoc`] itself, and its current device name beside the
+/// document's fields (older peers send and ignore none).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PolicyUpdate(pub PolicyDoc);
-
-/// Send `doc` on a policy lane.
-pub fn send_policy(stream: &mut Stream, doc: &PolicyDoc) -> Result<(), LinkError> {
-    Ok(stream.send(&PolicyUpdate(doc.clone()))?)
+pub struct PolicyUpdate {
+    /// The sender's policy.
+    #[serde(flatten)]
+    pub doc: PolicyDoc,
+    /// The sender's device name: untrusted, to be cleaned before display.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
-/// Receive the peer's policy document, waiting at most `t`.
-pub fn recv_policy(stream: &mut Stream, t: Duration) -> Result<PolicyDoc, LinkError> {
-    Ok(stream.recv::<PolicyUpdate>(t)?.0)
+/// Send `update` on a policy lane.
+pub fn send_policy(stream: &mut Stream, update: &PolicyUpdate) -> Result<(), LinkError> {
+    Ok(stream.send(update)?)
+}
+
+/// Receive the peer's policy update, waiting at most `t`.
+pub fn recv_policy(stream: &mut Stream, t: Duration) -> Result<PolicyUpdate, LinkError> {
+    Ok(stream.recv(t)?)
 }
 
 /// Effective state of `f` on a link: `Off` if either side is off, else the

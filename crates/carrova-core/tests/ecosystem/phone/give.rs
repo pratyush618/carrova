@@ -8,9 +8,9 @@ use carrova_core::ecosystem::{NotifyApps, PeerState, Supervisor, SyncWindow};
 use carrova_crypto::pairing::KnownSecret;
 use carrova_link::{
     ActionResult, AppEntry, CallCommand, CallIncoming, CallReply, Feature, FeatureState, Incoming,
-    LaneGate, LaneKind, LinkError, NotifyAction, NotifyMsg, PolicyDoc, RefuseReason, SmsIncoming,
-    SmsPush, SmsReply, SmsRequest, accept_lane, call_command, list_apps, open_lane, recv_calls,
-    recv_notify, recv_policy, recv_sms, request_sms, send_action, send_policy,
+    LaneGate, LaneKind, LinkError, NotifyAction, NotifyMsg, PolicyDoc, PolicyUpdate, RefuseReason,
+    SmsIncoming, SmsPush, SmsReply, SmsRequest, accept_lane, call_command, list_apps, open_lane,
+    recv_calls, recv_notify, recv_policy, recv_sms, request_sms, send_action, send_policy,
 };
 use carrova_platform::phone::{
     CallState, Note, PermState, PhoneEvent, PhonePerm, SendOutcome, SmsMessage, SmsThread,
@@ -101,7 +101,11 @@ fn link(
         }
     });
     let mut lane = open_lane(&conn, LaneKind::Policy).unwrap();
-    send_policy(&mut lane, laptop_doc).unwrap();
+    let update = PolicyUpdate {
+        doc: laptop_doc.clone(),
+        name: None,
+    };
+    send_policy(&mut lane, &update).unwrap();
     let id = device.id;
     wait_until("the phone has the laptop's policy", || {
         sp.status()
