@@ -23,9 +23,11 @@ ring_here: boolean, } | { "kind": "active",
  */
 device: string, 
 /**
- * Time since it was answered: `mm:ss`, from an hour `h:mm:ss`.
+ * Time since it was answered: `mm:ss`, from an hour `h:mm:ss`;
+ * `None` for a call placed from the phone, whose answer no app
+ * learns ("Calling…").
  */
-timer: string, 
+timer: string | null, 
 /**
  * The microphone is muted.
  */

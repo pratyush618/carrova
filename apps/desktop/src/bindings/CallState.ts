@@ -13,7 +13,8 @@ number: string,
  */
 name: string | null, } } | { "active": { 
 /**
- * When it was answered (ms since the Unix epoch).
+ * When it was answered, or dialled when `outgoing` (ms since the
+ * Unix epoch).
  */
 since_ms: number, 
 /**
@@ -25,7 +26,13 @@ muted: boolean,
  * link or a headset (Android can't tell them apart). It says nothing
  * about the speaker; a computer reads its own audio side locally.
  */
-on_laptop_audio: boolean, } } | { "ended": { 
+on_laptop_audio: boolean, 
+/**
+ * Placed from the phone, not answered there: Android tells no app
+ * when the other side picks up, so it has no known start. Absent
+ * from older phones: an answered call.
+ */
+outgoing: boolean, } } | { "ended": { 
 /**
  * It rang out unanswered.
  */

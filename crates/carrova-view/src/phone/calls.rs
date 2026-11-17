@@ -39,8 +39,10 @@ pub enum CallWindowView {
     Active {
         /// The phone's device id.
         device: String,
-        /// Time since it was answered: `mm:ss`, from an hour `h:mm:ss`.
-        timer: String,
+        /// Time since it was answered: `mm:ss`, from an hour `h:mm:ss`;
+        /// `None` for a call placed from the phone, whose answer no app
+        /// learns ("Calling…").
+        timer: Option<String>,
         /// The microphone is muted.
         muted: bool,
         /// Where its audio plays.
@@ -91,9 +93,10 @@ pub fn call_view(view: &CallView, now_ms: i64) -> CallWindowView {
             since_ms,
             muted,
             audio,
+            outgoing,
         } => CallWindowView::Active {
             device: device.to_hex(),
-            timer: timer(now_ms.saturating_sub(*since_ms)),
+            timer: (!outgoing).then(|| timer(now_ms.saturating_sub(*since_ms))),
             muted: *muted,
             audio: *audio,
             keypad: *audio == AudioSide::Laptop,

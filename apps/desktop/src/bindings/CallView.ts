@@ -21,7 +21,8 @@ name: string | null,
  */
 ring_here: boolean, } | { "kind": "active", device: string, 
 /**
- * When it was answered (ms since the Unix epoch).
+ * When it was answered, or dialled when `outgoing` (ms since the
+ * Unix epoch).
  */
 since_ms: number, 
 /**
@@ -31,7 +32,11 @@ muted: boolean,
 /**
  * Where its audio plays now.
  */
-audio: AudioSide, } | { "kind": "missed", device: string, 
+audio: AudioSide, 
+/**
+ * Placed from the phone: when it was answered is unknown.
+ */
+outgoing: boolean, } | { "kind": "missed", device: string, 
 /**
  * Caller's number.
  */

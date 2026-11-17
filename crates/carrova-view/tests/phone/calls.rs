@@ -16,14 +16,35 @@ fn active(since_ms: i64, audio: AudioSide) -> CallView {
         since_ms,
         muted: false,
         audio,
+        outgoing: false,
     }
 }
 
 fn timer(elapsed_s: i64) -> String {
     match call_view(&active(NOON, AudioSide::Phone), NOON + elapsed_s * 1000) {
-        CallWindowView::Active { timer, .. } => timer,
-        other => panic!("not active: {other:?}"),
+        CallWindowView::Active {
+            timer: Some(timer), ..
+        } => timer,
+        other => panic!("not timed: {other:?}"),
     }
+}
+
+#[test]
+fn a_call_placed_from_the_phone_shows_no_timer() {
+    let mut view = active(NOON, AudioSide::Laptop);
+    if let CallView::Active { outgoing, .. } = &mut view {
+        *outgoing = true;
+    }
+    assert_eq!(
+        call_view(&view, NOON + 65_000),
+        CallWindowView::Active {
+            device: device().to_hex(),
+            timer: None,
+            muted: false,
+            audio: AudioSide::Laptop,
+            keypad: true,
+        }
+    );
 }
 
 #[test]
