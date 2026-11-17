@@ -1,10 +1,11 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { renderScreen } from '../../../support/render';
+import { renderScreen, testChrome } from '../../../support/render';
 import type { SmsSendOutcome } from '@/bindings/SmsSendOutcome';
 import type { ThreadRow } from '@/bindings/ThreadRow';
 import { useSmsSends } from '@/flows/phone/useSmsSends';
+import { ChromeContext, ReduceMotionOverride, Window } from '@/ui';
 import {
   MessagesScreen,
   type MessagesIntents,
@@ -171,5 +172,32 @@ describe('Messages', () => {
     await user.type(screen.getByRole('textbox', { name: 'To' }), '+1555');
     expect(screen.getAllByRole('button', { name: /Sam Rivera/ })).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it('announces a text received while the conversation is open, not the ones loaded', () => {
+    const live = () => document.querySelector('[aria-live="polite"]');
+    const { rerender } = renderScreen(<MessagesScreen model={model} on={intents()} />);
+    expect(live()).toHaveTextContent('');
+
+    const arrived = (text: string, id: number, when_ms: number): MessagesModel => ({
+      ...model,
+      thread: {
+        messages: [
+          ...(model.thread?.messages ?? []),
+          { id, outgoing: false, text, when_ms, provisional: id === 0 },
+        ],
+        next: null,
+      },
+    });
+    rerender(
+      <ReduceMotionOverride value={false}>
+        <ChromeContext value={testChrome}>
+          <Window overlays={[]}>
+            <MessagesScreen model={arrived('Running late?', 0, 50_000)} on={intents()} />
+          </Window>
+        </ChromeContext>
+      </ReduceMotionOverride>,
+    );
+    expect(live()).toHaveTextContent('Running late?');
   });
 });

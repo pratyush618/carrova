@@ -1,4 +1,6 @@
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { MessageRow } from '../../../bindings/MessageRow';
 import type { ThreadRow } from '../../../bindings/ThreadRow';
 import type { ThreadView } from '../../../bindings/ThreadView';
 import type { SmsSend } from '../../../flows/phone/useSmsSends';
@@ -6,6 +8,29 @@ import { Banner, LinkButton } from '../../../ui';
 import { Bubbles } from './Bubbles';
 import { Composer } from './Composer';
 import { initials } from './ThreadList';
+
+/** Whether `b` is `a` again: a reload, or the phone's stored copy of a provisional text. */
+const sameText = (a: MessageRow, b: MessageRow): boolean =>
+  a.text === b.text && Math.abs(a.when_ms - b.when_ms) <= 60_000;
+
+/**
+ * The newest received text once one arrives while `thread` is open, for a
+ * polite live region: never those already there when it loaded.
+ */
+function useArrived(thread: ThreadView | null): string {
+  const [news, setNews] = useState('');
+  // `undefined` until loaded; `null`: nothing received yet.
+  const heard = useRef<MessageRow | null | undefined>(undefined);
+  const last = thread?.messages.findLast((m) => !m.outgoing);
+  useEffect(() => {
+    if (thread === null) return;
+    const was = heard.current;
+    heard.current = last ?? null;
+    if (was !== undefined && last !== undefined && (was === null || !sameText(was, last)))
+      setNews(last.text);
+  }, [thread, last]);
+  return news;
+}
 
 /**
  * The open conversation: who, its texts (still readable while the phone is
@@ -33,6 +58,7 @@ export function ThreadPane({
   readonly onOlder: () => void;
 }) {
   const { t } = useTranslation();
+  const arrived = useArrived(thread);
   return (
     <section className="s-thread" aria-labelledby="s-thread-title">
       <header className="s-thread__head">
@@ -56,6 +82,9 @@ export function ThreadPane({
           <LinkButton onClick={onOlder}>{t('ecosystem.messages.olderMessages')}</LinkButton>
         </p>
       )}
+      <p className="p-vh" aria-live="polite">
+        {arrived}
+      </p>
       <Bubbles messages={thread?.messages ?? []} sends={sends} phone={phone} onRetry={onRetry} />
       <Composer
         phone={phone}
