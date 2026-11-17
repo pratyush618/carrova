@@ -11,8 +11,8 @@ use ::jni::objects::{JString, JValue, JValueOwned};
 use super::{events, files, jni};
 use crate::PlatformError;
 use crate::phone::{
-    CallRecord, CallState, Cursor, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch, SendOutcome,
-    Sim, SmsMessage, SmsThread,
+    CallRecord, CallState, Contact, Cursor, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch,
+    SendOutcome, Sim, SmsMessage, SmsThread,
 };
 
 const STRING: &str = "Ljava/lang/String;";
@@ -263,6 +263,17 @@ pub(super) fn sms_thread(
     let args = [Arg::Long(id), ms, from, limit(max)];
     let json = text("Sms.thread", "Sms", "thread", &args)?;
     events::list("Sms.thread", &json)
+}
+
+/// Contact numbers matching `query` (`Calls.contacts`).
+pub(super) fn phone_contacts(query: &str, max: usize) -> Result<Vec<Contact>, PlatformError> {
+    let json = text(
+        "Calls.contacts",
+        "Calls",
+        "contacts",
+        &[Arg::Str(query), limit(max)],
+    )?;
+    events::list("Calls.contacts", &json)
 }
 
 /// The active SIMs (`Sims.list`: empty without `READ_PHONE_STATE`).

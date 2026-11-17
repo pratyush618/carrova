@@ -13,8 +13,8 @@ use std::time::Duration;
 use super::files::{self, MediaStoreSink};
 use super::{clipboard, net, phone, ring, scan, service};
 use crate::phone::{
-    CallRecord, CallState, Cursor, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch, SendOutcome,
-    Sim, SmsMessage, SmsThread,
+    CallRecord, CallState, Contact, Cursor, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch,
+    SendOutcome, Sim, SmsMessage, SmsThread,
 };
 use crate::sys;
 use crate::{
@@ -321,6 +321,10 @@ impl Platform for AndroidPlatform {
 
     fn phone_sims(&self) -> Result<Vec<Sim>, PlatformError> {
         phone::phone_sims()
+    }
+
+    fn phone_contacts(&self, query: &str, limit: usize) -> Result<Vec<Contact>, PlatformError> {
+        phone::guarded(PhonePerm::Contacts, || phone::phone_contacts(query, limit))
     }
 
     fn sms_send(

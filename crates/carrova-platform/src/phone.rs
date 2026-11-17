@@ -91,6 +91,16 @@ pub struct Sim {
     pub voice_default: bool,
 }
 
+/// A phone contact's number, as a contacts search finds it.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct Contact {
+    /// The contact's name.
+    pub name: String,
+    /// One of their numbers, as the phone stores it.
+    pub number: String,
+}
+
 /// One SMS message.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -426,6 +436,15 @@ impl fmt::Debug for Sim {
             .field("sms_default", &self.sms_default)
             .field("voice_default", &self.voice_default)
             .finish_non_exhaustive()
+    }
+}
+
+impl fmt::Debug for Contact {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Contact")
+            .field("name", &len(&self.name))
+            .field("number", &len(&self.number))
+            .finish()
     }
 }
 

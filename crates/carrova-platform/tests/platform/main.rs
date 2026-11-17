@@ -115,6 +115,7 @@ fn phase2_defaults_unsupported() {
     unsupported!(p.sms_threads(None, 10, None), "sms_threads");
     unsupported!(p.sms_thread(1, None, 10), "sms_thread");
     unsupported!(p.phone_sims(), "phone_sims");
+    unsupported!(p.phone_contacts("an", 10), "phone_contacts");
     unsupported!(p.sms_send("1", "hi", None), "sms_send");
     unsupported!(p.call_answer(), "call_answer");
     unsupported!(p.call_decline(), "call_decline");

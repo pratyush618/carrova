@@ -8,8 +8,8 @@ use std::process::{Child, Command};
 use std::time::Duration;
 
 use crate::phone::{
-    AudioSide, CallAudioStatus, CallRecord, CallState, Cursor, Note, PermState, PhoneEvent,
-    PhonePerm, PhoneWatch, SendOutcome, Sim, SmsMessage, SmsThread,
+    AudioSide, CallAudioStatus, CallRecord, CallState, Contact, Cursor, Note, PermState,
+    PhoneEvent, PhonePerm, PhoneWatch, SendOutcome, Sim, SmsMessage, SmsThread,
 };
 use crate::{
     Allocation, ClipContent, ClipboardWatch, DirEntry, DirWatch, DiskInfo, DownloadSink, FileLock,
@@ -641,6 +641,17 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
     fn phone_sims(&self) -> Result<Vec<Sim>, PlatformError> {
         Err(PlatformError::Unsupported("phone_sims"))
+    }
+
+    /// At most `limit` of the phone's contact numbers whose name or number
+    /// matches `query`.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise
+    /// (as without contacts permission).
+    fn phone_contacts(&self, query: &str, limit: usize) -> Result<Vec<Contact>, PlatformError> {
+        let _ = (query, limit);
+        Err(PlatformError::Unsupported("phone_contacts"))
     }
 
     /// Send `text` by SMS to the number `to`, from SIM `sim` (a
