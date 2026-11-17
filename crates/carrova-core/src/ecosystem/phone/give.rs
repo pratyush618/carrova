@@ -18,9 +18,9 @@ use std::time::{Duration, Instant};
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{
     ActionResult, CallCommand, CallIncoming, CallReply, Feature, FeatureState, HISTORY_PAGE,
-    Incoming, LinkError, MAX_SIMS, MESSAGE_PAGE, NotifyAction, NotifyMsg, PolicyDoc, SendOutcome,
-    SmsIncoming, SmsPush, SmsReply, SmsRequest, THREAD_PAGE, allowed, check_sms_reply, fit_apps,
-    fit_note, fit_snapshot, push_sms, recv_calls, recv_notify, recv_sms, send_call_state,
+    Incoming, LinkError, MAX_CONTACTS, MAX_SIMS, MESSAGE_PAGE, NotifyAction, NotifyMsg, PolicyDoc,
+    SendOutcome, SmsIncoming, SmsPush, SmsReply, SmsRequest, THREAD_PAGE, allowed, check_sms_reply,
+    fit_apps, fit_note, fit_snapshot, push_sms, recv_calls, recv_notify, recv_sms, send_call_state,
     send_notify,
 };
 use carrova_platform::phone::{CallState, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch, Sim};
@@ -644,6 +644,16 @@ fn call(
             None => return Ok(CallReply::Failed),
         },
         CallCommand::Sims => return Ok(CallReply::Sims(sims(p))),
+        CallCommand::Contacts { query } => {
+            // None without contacts permission: no suggestions, not a failure.
+            let found = p.phone_contacts(query, MAX_CONTACTS).unwrap_or_else(|e| {
+                tracing::debug!(error = %e, "contacts unreadable");
+                Vec::new()
+            });
+            return Ok(CallReply::Contacts(
+                found.into_iter().take(MAX_CONTACTS).collect(),
+            ));
+        }
         CallCommand::History { before } => {
             return Ok(CallReply::HistoryPage(
                 p.call_history(*before, HISTORY_PAGE)?,

@@ -15,8 +15,8 @@ use std::time::Duration;
 
 use carrova_platform::fake::FakePlatform;
 use carrova_platform::phone::{
-    AudioSide, CallAudioStatus, CallRecord, CallState, Cursor, Note, PermState, PhoneEvent,
-    PhonePerm, PhoneWatch, SendOutcome, Sim, SmsMessage, SmsThread,
+    AudioSide, CallAudioStatus, CallRecord, CallState, Contact, Cursor, Note, PermState,
+    PhoneEvent, PhonePerm, PhoneWatch, SendOutcome, Sim, SmsMessage, SmsThread,
 };
 use carrova_platform::{
     ClipContent, ClipboardWatch, DirEntry, DirWatch, FileLock, FileMeta, LanInterface, LinkNotice,
@@ -61,6 +61,8 @@ pub struct Phone {
     pub send_outcome: SendOutcome,
     /// What `phone_sims` reports.
     pub sims: Vec<Sim>,
+    /// The phone's contacts `phone_contacts` searches by name.
+    pub contacts: Vec<Contact>,
     /// Permissions not listed are granted.
     pub perms: Vec<(PhonePerm, PermState)>,
     pub audio: CallAudioStatus,
@@ -84,6 +86,7 @@ impl Default for Phone {
             history: Vec::new(),
             send_outcome: SendOutcome::Sent,
             sims: Vec::new(),
+            contacts: Vec::new(),
             perms: Vec::new(),
             audio: CallAudioStatus::Ready,
             call: CallState::Idle,
@@ -538,6 +541,17 @@ impl Platform for Recording {
     }
     fn phone_sims(&self) -> Result<Vec<Sim>, PlatformError> {
         Ok(self.act("phone_sims".into()).sims.clone())
+    }
+    fn phone_contacts(&self, query: &str, limit: usize) -> Result<Vec<Contact>, PlatformError> {
+        let phone = self.act("phone_contacts".into());
+        let query = query.to_lowercase();
+        Ok(phone
+            .contacts
+            .iter()
+            .filter(|c| c.name.to_lowercase().contains(&query))
+            .take(limit)
+            .cloned()
+            .collect())
     }
     fn sms_send(
         &self,

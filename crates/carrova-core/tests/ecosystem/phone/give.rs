@@ -13,7 +13,8 @@ use carrova_link::{
     recv_calls, recv_notify, recv_policy, recv_sms, request_sms, send_action, send_policy,
 };
 use carrova_platform::phone::{
-    CallState, Note, PermState, PhoneEvent, PhonePerm, SendOutcome, Sim, SmsMessage, SmsThread,
+    CallState, Contact, Note, PermState, PhoneEvent, PhonePerm, SendOutcome, Sim, SmsMessage,
+    SmsThread,
 };
 use carrova_transport::Connection;
 
@@ -648,6 +649,32 @@ fn sims_are_listed_on_both_lanes() {
     assert_eq!(
         call_command(&laptop.conn, &CallCommand::Sims).unwrap(),
         CallReply::Sims(sims)
+    );
+}
+
+#[test]
+fn contacts_are_searched_on_the_phone() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], |phone: &Device| {
+        phone.platform.phone().contacts = ["Hanuman", "Ravi", "Hanna"]
+            .map(|name| Contact {
+                name: name.into(),
+                number: "+91 98765 43210".into(),
+            })
+            .to_vec();
+    });
+    let search = CallCommand::Contacts {
+        query: "HAN".into(),
+    };
+    let CallReply::Contacts(found) = call_command(&laptop.conn, &search).unwrap() else {
+        panic!("not contacts");
+    };
+    let names: Vec<&str> = found.iter().map(|c| c.name.as_str()).collect();
+    assert_eq!(names, ["Hanuman", "Hanna"]);
+    assert!(
+        phone
+            .platform
+            .actions()
+            .contains(&"phone_contacts".to_owned())
     );
 }
 
