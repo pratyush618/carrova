@@ -26,11 +26,14 @@ export interface NotePopupIntents {
 export function NotePopup({
   model,
   problem = null,
+  busy = false,
   on,
 }: {
   readonly model: NotePopupModel;
   /** How the last action went wrong, if it did. */
   readonly problem?: 'gone' | 'failed' | null;
+  /** An action is on its way to the phone: no other starts. */
+  readonly busy?: boolean;
   readonly on: NotePopupIntents;
 }) {
   const { t } = useTranslation();
@@ -49,7 +52,7 @@ export function NotePopup({
           <p>{t('ecosystem.notes.lockedBody')}</p>
         </>
       ) : (
-        <NoteBody note={model.note} phone={name} on={on} />
+        <NoteBody note={model.note} phone={name} busy={busy} on={on} />
       )}
       {problem !== null && (
         <p className="s-note__problem" role="alert">
@@ -64,16 +67,18 @@ export function NotePopup({
 function NoteBody({
   note,
   phone,
+  busy,
   on,
 }: {
   readonly note: NoteView;
   readonly phone: string;
+  readonly busy: boolean;
   readonly on: NotePopupIntents;
 }) {
   const { t } = useTranslation();
   const [reply, setReply] = useState('');
   const send = () => {
-    if (reply.trim() !== '') on.onReply(reply);
+    if (!busy && reply.trim() !== '') on.onReply(reply);
   };
   return (
     <>
@@ -105,18 +110,23 @@ function NoteBody({
             aria-label={t('ecosystem.notes.reply')}
             placeholder={t('ecosystem.notes.replyHint')}
             value={reply}
+            readOnly={busy}
             onChange={(e) => {
               setReply(e.target.value);
             }}
           />
-          <Button kind="primary" size="sm" disabled={reply.trim() === ''} onClick={send}>
+          <Button kind="primary" size="sm" disabled={busy || reply.trim() === ''} onClick={send}>
             {t('ecosystem.notes.send')}
           </Button>
         </form>
       )}
       <p className="s-note__acts">
-        <LinkButton onClick={on.onDismiss}>{t('ecosystem.notes.dismiss')}</LinkButton>
-        <LinkButton onClick={on.onOpen}>{t('ecosystem.notes.open')}</LinkButton>
+        <LinkButton disabled={busy} onClick={on.onDismiss}>
+          {t('ecosystem.notes.dismiss')}
+        </LinkButton>
+        <LinkButton disabled={busy} onClick={on.onOpen}>
+          {t('ecosystem.notes.open')}
+        </LinkButton>
       </p>
     </>
   );

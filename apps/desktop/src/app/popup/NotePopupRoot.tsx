@@ -1,5 +1,5 @@
 import { isTauri } from '@tauri-apps/api/core';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NoteAction } from '../../bindings/NoteAction';
 import type { NotesView } from '../../bindings/NotesView';
 import { PortProvider, usePort } from '../../engine/port';
@@ -64,6 +64,9 @@ export function NotePopupRoute({ target }: { readonly target: NotePopupTarget })
   const [view, setView] = useState<NotesView | null>(null);
   const [problem, setProblem] = useState<'gone' | 'failed' | null>(null);
   const [closed, setClosed] = useState(false);
+  // One action at a time: a second click must not reply twice.
+  const pending = useRef(false);
+  const [busy, setBusy] = useState(false);
   const close = useCallback(() => {
     setClosed(true);
     void closeWindow().catch(() => undefined);
@@ -80,22 +83,32 @@ export function NotePopupRoute({ target }: { readonly target: NotePopupTarget })
   }, [gone]);
   if (closed || model === null) return null;
   const act = (action: NoteAction) => {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
     setProblem(null);
-    port.phoneNoteAction(device, action).then(
-      (outcome) => {
-        if (outcome === 'done') close();
-        else setProblem(outcome);
-      },
-      () => {
-        setProblem('failed');
-      },
-    );
+    port
+      .phoneNoteAction(device, action)
+      .then(
+        (outcome) => {
+          if (outcome === 'done') close();
+          else setProblem(outcome);
+        },
+        () => {
+          setProblem('failed');
+        },
+      )
+      .finally(() => {
+        pending.current = false;
+        setBusy(false);
+      });
   };
   const { key } = target;
   return (
     <NotePopup
       model={model}
       problem={problem}
+      busy={busy}
       on={{
         onReply: (text) => {
           act({ kind: 'reply', key, text });

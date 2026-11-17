@@ -22,11 +22,13 @@ export function Bubbles({
 }) {
   const { t } = useTranslation();
   const list = useRef<HTMLOListElement>(null);
-  // The newest text is at the bottom: keep it in view as texts arrive.
+  // The newest text is at the bottom: keep it in view as texts arrive (not
+  // when older ones load above).
+  const newest = messages.at(-1);
   useEffect(() => {
     const el = list.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length, sends.length]);
+  }, [newest?.id, newest?.when_ms, sends.length]);
   return (
     <ol ref={list} className="s-bubbles">
       {messages.map((m, i) => (
