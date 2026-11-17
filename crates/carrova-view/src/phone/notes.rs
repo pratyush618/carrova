@@ -36,8 +36,8 @@ private_debug!(NoteView);
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum NotesView {
-    /// This computer is locked: only how many there are ("<Phone>: N new
-    /// notifications").
+    /// This computer is locked: only how many there are (`<Phone>: N new
+    /// notifications`).
     Locked {
         /// Notifications showing on the phone.
         count: usize,
