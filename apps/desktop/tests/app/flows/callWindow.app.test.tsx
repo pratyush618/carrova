@@ -21,6 +21,7 @@ const active = (audio: 'phone' | 'laptop'): CallView => ({
   since_ms: Date.now(),
   muted: false,
   audio,
+  outgoing: false,
 });
 
 /** The call window over the fake port, with the engine's call events in the test's hands. */
@@ -64,6 +65,22 @@ describe('the call window', () => {
     expect(screen.getByRole('heading', { name: 'Sam Rivera' })).toBeInTheDocument();
     expect(screen.getByText('SR')).toBeInTheDocument();
     expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a call placed from the phone as calling, with no timer', async () => {
+    renderCallWindow({
+      kind: 'active',
+      device: 'p8',
+      since_ms: Date.now() - 65_000,
+      muted: false,
+      audio: 'laptop',
+      outgoing: true,
+    });
+    expect(await screen.findByText('Calling…')).toBeInTheDocument();
+    expect(screen.queryByText(/\d\d:\d\d/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mute' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keypad' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'End' })).toBeInTheDocument();
   });
 
   it('left_state_closes_window', async () => {

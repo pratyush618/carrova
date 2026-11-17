@@ -182,7 +182,7 @@ function callWindow(view: CallView, nowMs: number): CallWindowView {
       return {
         kind: 'active',
         device: view.device,
-        timer: timer(nowMs - view.since_ms),
+        timer: view.outgoing ? null : timer(nowMs - view.since_ms),
         muted: view.muted,
         audio: view.audio,
         keypad: view.audio === 'laptop',

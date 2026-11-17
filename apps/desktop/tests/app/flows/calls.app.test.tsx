@@ -62,7 +62,14 @@ describe('calls on the laptop', () => {
       name: 'Sam Rivera',
       ring_here: true,
     });
-    emit({ kind: 'active', device: 'p8', since_ms: Date.now(), muted: false, audio: 'phone' });
+    emit({
+      kind: 'active',
+      device: 'p8',
+      since_ms: Date.now(),
+      muted: false,
+      audio: 'phone',
+      outgoing: false,
+    });
     const bar = await screen.findByText(/Sam Rivera ·/);
     await waitFor(() => {
       expect(bar).toHaveTextContent(/^Sam Rivera · \d\d:\d\d · on Pixel 8$/);

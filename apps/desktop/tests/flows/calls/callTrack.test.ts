@@ -15,6 +15,7 @@ const active: CallView = {
   since_ms: 0,
   muted: false,
   audio: 'phone',
+  outgoing: false,
 };
 
 describe('foldCall', () => {

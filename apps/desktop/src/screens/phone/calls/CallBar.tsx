@@ -54,7 +54,7 @@ export function CallBar({
       const where =
         view.audio === 'laptop' ? t('calls.bar.here') : t('calls.bar.onPhone', { phone });
       return bar(
-        [who ?? t('calls.bar.active'), view.timer, where].join(' · '),
+        [who ?? t('calls.bar.active'), view.timer ?? t('calls.window.dialling'), where].join(' · '),
         <>
           <Button
             size="sm"

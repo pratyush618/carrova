@@ -296,7 +296,7 @@ describe('the fake port, a linked phone', () => {
   it('times an active call and offers the keypad only with audio here', async () => {
     const { port } = await fake();
     const view = await port.callWindow(
-      { kind: 'active', device: 'p8', since_ms: 0, muted: false, audio: 'laptop' },
+      { kind: 'active', device: 'p8', since_ms: 0, muted: false, audio: 'laptop', outgoing: false },
       3_725_000,
     );
     expect(view).toEqual({

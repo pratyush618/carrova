@@ -22,6 +22,7 @@ export const calls = {
     viaPhone: 'Talking on {{phone}}',
     moved: 'Call moved to {{phone}}',
     onCall: 'On a call',
+    dialling: 'Calling…',
   },
   bar: {
     active: 'On a call',

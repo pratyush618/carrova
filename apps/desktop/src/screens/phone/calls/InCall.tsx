@@ -8,7 +8,8 @@ import './calls.css';
 
 /** The live call the window shows (`CallWindowView` `active`). */
 export interface InCallView {
-  readonly timer: string;
+  /** `null` for a call placed from the phone: its answer is unknown. */
+  readonly timer: string | null;
   readonly muted: boolean;
   readonly audio: AudioSide;
   /** Offer the keypad (tones go through this computer's audio, so only while it is here). */
@@ -43,6 +44,7 @@ export function InCall({
   const { t } = useTranslation();
   const [keys, setKeys] = useState(false);
   const here = view.audio === 'laptop';
+  const time = view.timer ?? t('calls.window.dialling');
   return (
     <main className="s-call">
       <span className="s-call__av" aria-hidden="true">
@@ -50,7 +52,7 @@ export function InCall({
       </span>
       <h1 className="s-call__who">{who ?? t('calls.window.onCall')}</h1>
       <p className="s-call__timer" aria-live="off">
-        {view.muted ? `${t('calls.window.muted')} · ${view.timer}` : view.timer}
+        {view.muted ? `${t('calls.window.muted')} · ${time}` : time}
       </p>
       <p className="s-call__via" aria-live="polite">
         {here ? t('calls.window.viaLaptop', { phone }) : t('calls.window.viaPhone', { phone })}

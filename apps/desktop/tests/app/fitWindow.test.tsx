@@ -103,6 +103,7 @@ describe('fitWindow', () => {
       since_ms: Date.now(),
       muted: false,
       audio: 'phone',
+      outgoing: false,
     });
     render(<App port={calls} host={{ window: 'call', closeWindow: () => Promise.resolve() }} />);
     await screen.findByRole('button', { name: 'End' });
