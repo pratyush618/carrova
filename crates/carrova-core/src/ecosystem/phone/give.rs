@@ -444,8 +444,12 @@ fn call(
             // Answered from a laptop: the phone's speaker, unless the
             // laptop carries the audio. Never active in time: unknown, so
             // the speaker is left alone.
-            if answered_on_laptop(p, stop) == Some(false) {
-                p.call_speaker(true)?;
+            // The call is answered either way: a speaker failure is not
+            // reported as a failed answer.
+            if answered_on_laptop(p, stop) == Some(false)
+                && let Err(e) = p.call_speaker(true)
+            {
+                tracing::debug!(error = %e, "speaker not turned on");
             }
         }
         CallCommand::Decline => p.call_decline()?,

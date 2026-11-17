@@ -377,6 +377,19 @@ fn answer_turns_speaker_on() {
 }
 
 #[test]
+fn answer_reports_done_when_the_speaker_fails() {
+    let (_phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], |p| {
+        answering(Some(active(false)))(p);
+        p.platform.phone().speaker_fails = true;
+    });
+
+    assert_eq!(
+        call_command(&laptop.conn, &CallCommand::Answer).unwrap(),
+        CallReply::Done
+    );
+}
+
+#[test]
 fn answer_with_laptop_audio_keeps_speaker_off() {
     let (phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], answering(Some(active(true))));
 
