@@ -21,6 +21,9 @@ updates:
     groups:
       npm:
         patterns: ["*"]
+    ignore:
+      - dependency-name: typescript # typescript-eslint has no TS 7 support yet (typescript-eslint#10940)
+        versions: [">=7"]
 
   - package-ecosystem: github-actions
     # "/" also covers the local composite action in .github/actions/.
