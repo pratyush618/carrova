@@ -127,7 +127,7 @@ export function Shell({ initial }: { readonly initial: Nav }) {
               <Toast onDismiss={forwarded.dismiss}>{t('start.forwarded.busy')}</Toast>
             )}
             <EcosystemToasts />
-            <PhoneNotePopups />
+            <PhoneNotePopups view={view} />
             {notice.remembered && (
               // Keyed: a device remembered next gets a notice (and Forget) of its own.
               <RememberedToast

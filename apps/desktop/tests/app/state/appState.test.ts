@@ -223,7 +223,7 @@ describe('appReducer peer facts', () => {
         sms_app: true,
       },
     }).link.note;
-    expect(note).toEqual({ device: 'p8', key: 'k', locked: true, n: 1 });
+    expect(note).toEqual({ device: 'p8', key: 'k', locked: true, smsApp: true, n: 1 });
   });
 
   it('keeps a transfer dismissed while it runs on, and drops it once finished', () => {

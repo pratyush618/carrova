@@ -37,6 +37,8 @@ export interface NoteAlert {
   readonly device: string;
   readonly key: string;
   readonly locked: boolean;
+  /** Posted by the phone's default SMS app. */
+  readonly smsApp: boolean;
   /** Bumped per notification, so the same one twice pops up twice. */
   readonly n: number;
 }
@@ -182,6 +184,7 @@ export function applyLinkEvent(link: LinkState, event: EngineEvent): LinkState {
           device: event.device,
           key: event.note.key,
           locked: event.note.hidden === 'locked',
+          smsApp: event.note.sms_app,
           n: (link.note?.n ?? 0) + 1,
         },
       };
