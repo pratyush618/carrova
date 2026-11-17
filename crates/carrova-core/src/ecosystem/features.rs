@@ -131,7 +131,7 @@ impl LaneGate for Gate<'_> {
 }
 
 /// This side's setting of `feature` for `device` (off once forgotten).
-fn local(shared: &Shared, device: &DeviceId, feature: Feature) -> FeatureState {
+pub(super) fn local(shared: &Shared, device: &DeviceId, feature: Feature) -> FeatureState {
     shared
         .peers()
         .iter()
