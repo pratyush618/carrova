@@ -66,3 +66,7 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 ## 2026-11-16 — Parallel worktrees shared one test binary
 - **What happened:** two worktrees ran `cargo test -p carrova-core` at once with one shared `CARGO_TARGET_DIR`. Both build `target/debug/deps/ecosystem-<hash>` under the same name, so one run executed the other tree's tests and reported a failure that wasn't its own.
 - **Rule:** parallel worktrees that test the same crate get their own target dir (`CARGO_TARGET_DIR=<repo>/target-<task>`), or the runs are serialized. Delete those dirs when the task lands.
+
+## 2026-11-17 — CI overlapped an agent's cargo build
+- **What happened:** `just ci` (8G cap, 2 jobs) ran while a fix agent built in its own target dir. Memory PSI held around 40 and IO PSI 50–68 with swap passing 1 GB, though `MemAvailable` stayed near 9 GB and the CI unit never hit its cap. CI was stopped by the swap rule and has to run again.
+- **Rule:** never run `just ci` while an agent is compiling. Wait until the agents are done, or start CI before any agent and send none until it ends.
