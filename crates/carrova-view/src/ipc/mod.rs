@@ -182,6 +182,7 @@ impl From<ErrorKind> for ErrorCode {
             ErrorKind::Session => Self::Session,
             ErrorKind::KnownDevice => Self::KnownDevice,
             ErrorKind::DeviceKey => Self::DeviceKey,
+            ErrorKind::Unsupported => Self::Unsupported,
             ErrorKind::Internal => Self::Internal,
         }
     }

@@ -309,6 +309,18 @@ impl SupervisorHandle {
         }
     }
 
+    /// [`Supervisor::remind`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Supervisor::remind`], or the control socket failed.
+    pub fn remind(&self, device: &DeviceId, feature: Feature) -> Result<bool> {
+        match self.send(ControlRequest::Remind(*device, feature))? {
+            ControlResponse::Reminded(posted) => Ok(posted),
+            _ => Err(ControlError::Unexpected.into()),
+        }
+    }
+
     /// The supervisor's events from now on (besides the engine's sink of
     /// the process running it). The receiver ends when it stops, or once
     /// it falls more than 1024 events behind.

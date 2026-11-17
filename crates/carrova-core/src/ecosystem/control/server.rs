@@ -188,6 +188,7 @@ impl Served {
             ControlRequest::PhoneSettings => ControlResponse::PhoneSettings(sup.phone_settings()),
             ControlRequest::SetPhoneSettings(s) => sup.set_phone_settings(s).map(done)?,
             ControlRequest::PhoneApps(d) => ControlResponse::PhoneApps(sup.phone_apps(&d)?),
+            ControlRequest::Remind(d, f) => ControlResponse::Reminded(sup.remind(&d, f)?),
             // Answered with more than one message ([`serve_connection`]).
             ControlRequest::ClipHistory | ControlRequest::Subscribe => {
                 return Err(ControlError::Unexpected.into());

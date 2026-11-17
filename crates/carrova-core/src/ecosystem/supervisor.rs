@@ -13,7 +13,7 @@ use std::time::Duration;
 use carrova_crypto::identity::{DeviceId, DeviceKey};
 use carrova_link::{
     ActionResult, AppEntry, CallCommand, CallReply, Feature, FeatureState, FileOffer, Handoff,
-    NotifyAction, OfferAnswer, PolicyDoc, RING_SECONDS, ReceivedClip, RingMsg, SmsReply,
+    LinkError, NotifyAction, OfferAnswer, PolicyDoc, RING_SECONDS, ReceivedClip, RingMsg, SmsReply,
     SmsRequest, allowed, call_command, list_apps, offer_file, request_sms, send_action,
     send_handoff, send_ring,
 };
@@ -378,6 +378,26 @@ impl Supervisor {
     pub fn phone_apps(&self, device: &DeviceId) -> Result<Vec<AppEntry>> {
         let conn = self.shared.conn(device, Some(Feature::Notifications))?;
         Ok(list_apps(&conn)?)
+    }
+
+    /// Have `device`'s phone remind its user to grant the access `feature`
+    /// needs there; whether the reminder showed.
+    ///
+    /// # Errors
+    ///
+    /// [`CoreError::NoPhoneAccess`] for a feature other than notifications
+    /// and messages; as [`Self::note_action`] and [`Self::sms`] otherwise.
+    pub fn remind(&self, device: &DeviceId, feature: Feature) -> Result<bool> {
+        match feature {
+            Feature::Notifications => {
+                Ok(self.note_action(device, &NotifyAction::Remind)? == ActionResult::Done)
+            }
+            Feature::Messages => match self.sms(device, &SmsRequest::Remind)? {
+                SmsReply::Reminded { posted } => Ok(posted),
+                _ => Err(LinkError::Protocol("unexpected reply to a reminder").into()),
+            },
+            other => Err(CoreError::NoPhoneAccess(other)),
+        }
     }
 
     /// Ask `device`'s phone for SMS threads or messages, to send a text

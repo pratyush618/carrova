@@ -2,7 +2,7 @@
 //! linked to a laptop, and what the laptop holds and emits.
 
 use carrova_core::ecosystem::{PeerState, PhoneSettings, Supervisor};
-use carrova_core::{CoreError, Event};
+use carrova_core::{CoreError, ErrorKind, Event};
 use carrova_link::{
     ActionResult, AppEntry, Feature, FeatureState, NotifyAction, PolicyDoc, SendOutcome, SmsReply,
     SmsRequest,
@@ -733,4 +733,15 @@ fn app_list_and_reminders_through_the_handle() {
         sl.sms(&phone.id, &SmsRequest::Remind).unwrap(),
         SmsReply::Reminded { posted: true }
     );
+}
+
+#[test]
+fn remind_asks_for_the_access_a_feature_needs() {
+    let (phone, _sp, _laptop, sl) = linked(&[NOTES, SMS], |_| {});
+
+    assert!(sl.remind(&phone.id, NOTES).unwrap());
+    assert!(sl.remind(&phone.id, SMS).unwrap());
+    let err = sl.remind(&phone.id, CALLS).unwrap_err();
+    assert!(matches!(err, CoreError::NoPhoneAccess(CALLS)), "{err:?}");
+    assert_eq!(err.class().kind, ErrorKind::Unsupported);
 }

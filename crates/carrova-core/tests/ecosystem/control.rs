@@ -561,6 +561,7 @@ fn control_wire_roundtrip_phase2() {
         ControlRequest::PhoneSettings,
         ControlRequest::SetPhoneSettings(settings),
         ControlRequest::PhoneApps(device),
+        ControlRequest::Remind(device, Feature::Messages),
     ];
     for request in requests {
         assert_eq!(cbor(&request), request);
@@ -579,6 +580,7 @@ fn control_wire_roundtrip_phase2() {
             app_name: "Chat".into(),
             on: true,
         }]),
+        ControlResponse::Reminded(true),
     ];
     for response in responses {
         assert_eq!(cbor(&response), response);

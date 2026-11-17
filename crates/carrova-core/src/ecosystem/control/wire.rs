@@ -72,6 +72,8 @@ pub enum ControlRequest {
     SetPhoneSettings(PhoneSettings),
     /// [`crate::ecosystem::Supervisor::phone_apps`].
     PhoneApps(DeviceId),
+    /// [`crate::ecosystem::Supervisor::remind`].
+    Remind(DeviceId, Feature),
     /// Stream the supervisor's events: answered [`ControlResponse::Done`],
     /// then the connection carries only [`crate::Event`] messages until
     /// either side closes it.
@@ -95,6 +97,7 @@ impl std::fmt::Debug for ControlRequest {
             Self::PhoneSettings => f.write_str("PhoneSettings"),
             Self::SetPhoneSettings(s) => f.debug_tuple("SetPhoneSettings").field(s).finish(),
             Self::PhoneApps(d) => f.debug_tuple("PhoneApps").field(d).finish(),
+            Self::Remind(d, feature) => f.debug_tuple("Remind").field(d).field(feature).finish(),
             Self::Subscribe => f.write_str("Subscribe"),
             Self::Ping(d) => f.debug_tuple("Ping").field(d).finish(),
             Self::SendClipboard(d) => f.debug_tuple("SendClipboard").field(d).finish(),
@@ -139,6 +142,8 @@ pub enum ControlResponse {
     PhoneSettings(PhoneSettings),
     /// To [`ControlRequest::PhoneApps`].
     PhoneApps(Vec<AppEntry>),
+    /// To [`ControlRequest::Remind`]: whether the reminder showed.
+    Reminded(bool),
     /// The request succeeded.
     Done,
     /// The request failed; the error's message.

@@ -9,9 +9,7 @@ use std::sync::Arc;
 
 use carrova_core::ecosystem::{CallView, NotifyApps, PhoneSettings, SupervisorHandle, SyncWindow};
 use carrova_crypto::identity::DeviceId;
-use carrova_link::{
-    ActionResult, CallCommand, CallReply, Feature, NotifyAction, SmsReply, SmsRequest,
-};
+use carrova_link::{CallCommand, CallReply, Feature, SmsReply, SmsRequest};
 use carrova_platform::PlatformError;
 use carrova_platform::phone::{CallAudioStatus, Cursor, PhonePerm, SendOutcome, SmsMessage};
 use carrova_view::ipc::{CallAction, CallOutcome, ErrorCode, NoteAction, NoteOutcome};
@@ -85,25 +83,7 @@ pub async fn remind_phone(
     device: DeviceId,
     feature: Feature,
 ) -> Result<bool, CommandError> {
-    match feature {
-        Feature::Notifications => {
-            let done = with_link(state, move |link| {
-                link.note_action(&device, NotifyAction::Remind)
-            })
-            .await?;
-            Ok(done == ActionResult::Done)
-        }
-        Feature::Messages => {
-            match with_link(state, move |link| link.sms(&device, SmsRequest::Remind)).await? {
-                SmsReply::Reminded { posted } => Ok(posted),
-                _ => Err(unexpected_reply()),
-            }
-        }
-        _ => Err(CommandError::new(
-            ErrorCode::Unsupported,
-            "only notifications and messages need access on the phone",
-        )),
-    }
+    with_link(state, move |link| link.remind(&device, feature)).await
 }
 
 /// A page of `device`'s conversations after `before` (`None`: the

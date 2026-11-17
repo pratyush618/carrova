@@ -153,6 +153,10 @@ pub enum CoreError {
     /// A feature is off for this device, on this side or the other.
     #[error("linked devices: {0:?} is off for this device")]
     FeatureOff(carrova_link::Feature),
+    /// A reminder to grant access on the phone was asked for a feature
+    /// that needs none there (only notifications and messages do).
+    #[error("linked devices: {0:?} needs no access on the phone")]
+    NoPhoneAccess(carrova_link::Feature),
     /// The ask was already answered, or it expired.
     #[error("linked devices: the request is no longer waiting for an answer")]
     AskGone,
