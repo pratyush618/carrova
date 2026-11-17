@@ -38,8 +38,8 @@ impl Default for ChunkParams {
 }
 
 impl ChunkParams {
-    /// Check the parameters against FastCDC's supported ranges
-    /// (the chunker would otherwise panic).
+    /// Check the parameters against FastCDC's supported ranges and
+    /// evenness (the chunker would otherwise panic or misplace cut points).
     pub fn validate(&self) -> Result<()> {
         self.sizes().map(|_| ())
     }
@@ -60,6 +60,9 @@ impl ChunkParams {
         }
         if !(min <= avg && avg <= max) {
             return bad("require min <= avg <= max");
+        }
+        if [min, avg, max].iter().any(|v| v % 2 != 0) {
+            return bad("min, avg and max must be even");
         }
         Ok((min, avg, max))
     }
