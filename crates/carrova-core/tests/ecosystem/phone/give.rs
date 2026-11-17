@@ -328,6 +328,36 @@ fn reply_reaches_platform() {
 }
 
 #[test]
+fn action_on_a_note_of_an_app_turned_off_is_refused() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |p| {
+        p.platform.phone().notes = vec![note("k1", "org.example.muted")];
+        let mut apps = NotifyApps::open(&*p.platform).unwrap();
+        apps.set(&*p.platform, "org.example.muted", false).unwrap();
+    });
+
+    for action in [
+        NotifyAction::Reply {
+            key: "k1".into(),
+            text: "on my way".into(),
+        },
+        NotifyAction::Dismiss { key: "k1".into() },
+        NotifyAction::Open { key: "k1".into() },
+    ] {
+        assert_eq!(
+            send_action(&laptop.conn, &action).unwrap(),
+            ActionResult::Gone
+        );
+    }
+    assert!(
+        !phone
+            .platform
+            .actions()
+            .iter()
+            .any(|a| a.starts_with("note_"))
+    );
+}
+
+#[test]
 fn reply_to_removed_note_reports_gone() {
     let (_phone, _sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |_| {});
 

@@ -293,6 +293,13 @@ pub(crate) fn serve_notify(
         Incoming::Action(action, responder) => (action, responder),
     };
     let platform = &**shared.platform();
+    let (NotifyAction::Reply { key, .. }
+    | NotifyAction::Dismiss { key }
+    | NotifyAction::Open { key }) = &action;
+    // Only a note the device may see can be acted on.
+    if !forwarded(platform, key) {
+        return Ok(responder.reply(&ActionResult::Gone)?);
+    }
     let done = match &action {
         NotifyAction::Reply { key, text } => platform.note_reply(key, text).map(|live| {
             if live {
@@ -309,6 +316,17 @@ pub(crate) fn serve_notify(
         ActionResult::Failed
     });
     Ok(responder.reply(&result)?)
+}
+
+/// Whether the note `key` is showing and may leave the phone (fail closed
+/// if either is unreadable).
+fn forwarded(platform: &dyn Platform, key: &str) -> bool {
+    let (Ok(apps), Ok(notes)) = (NotifyApps::open(platform), platform.active_notes()) else {
+        return false;
+    };
+    notes
+        .into_iter()
+        .any(|n| n.key == key && outgoing(n, &apps).is_some())
 }
 
 /// Serve a `Messages` lane from `device` on its link `generation`: pages
