@@ -135,6 +135,7 @@ export function applyLinkEvent(link: LinkState, event: EngineEvent): LinkState {
     case 'link_up':
     case 'link_down':
     case 'policy_changed':
+    case 'phone_access':
       return { ...link, changes: link.changes + 1 };
     case 'ask_received':
       return {

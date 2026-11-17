@@ -24,6 +24,8 @@ type PhonePort = Pick<
   CarrovaPort,
   | 'phoneNotes'
   | 'phoneNoteAction'
+  | 'phoneApps'
+  | 'remindPhone'
   | 'phoneThreads'
   | 'phoneThread'
   | 'sendSms'
@@ -215,6 +217,9 @@ export function fakePhone(): PhonePort {
   return {
     phoneNotes: () => later(() => notes(Date.now())),
     phoneNoteAction: () => later(() => 'done' as const),
+    // The phone's own list, as this computer reads it.
+    phoneApps: () => later(() => apps.apps),
+    remindPhone: () => later(() => true),
     phoneThreads: () => later(() => threads(Date.now())),
     phoneThread: () => later(() => thread(Date.now())),
     sendSms: () => later(() => 'sent' as const),

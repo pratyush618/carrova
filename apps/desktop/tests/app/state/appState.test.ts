@@ -161,10 +161,12 @@ describe('appReducer peer facts', () => {
       link({ event: 'file_progress', device: 'p8', id: 1, done: 4, total: 9 }),
       link({ event: 'file_saved', device: 'p8', id: 1, path: '/home/ana/Downloads/a.pdf' }),
       link({ event: 'clip_skipped', reason: 'sensitive' }),
+      link({ event: 'phone_access', device: 'p8', feature: 'messages', granted: false }),
     ];
     const state = steps.reduce((s, step) => step(s), initialAppState);
     expect(state.sessions).toEqual({});
-    expect(state.link.changes).toBe(1);
+    // A link and a phone's access both change what the device page shows.
+    expect(state.link.changes).toBe(2);
     expect(state.link.asks).toEqual([
       { id: 7, device: 'p8', kind: { kind: 'file', name: 'a.pdf', size: 9 } },
     ]);

@@ -113,6 +113,8 @@ export function createTauriPort(): CarrovaPort {
 
     phoneNotes: (id) => call('phone_notes', { id }),
     phoneNoteAction: (id, action) => call('phone_note_action', { id, action }),
+    phoneApps: (id) => call('phone_apps', { id }),
+    remindPhone: (id, feature) => call('remind_phone', { id, feature }),
     phoneThreads: (id, before, incoming, clock) =>
       call('phone_threads', { id, before, incoming, clock }),
     phoneThread: (id, thread, before) => call('phone_thread', { id, thread, before }),

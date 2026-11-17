@@ -28,6 +28,7 @@ import type { LocalClock } from '../bindings/LocalClock';
 import type { NoteAction } from '../bindings/NoteAction';
 import type { NoteOutcome } from '../bindings/NoteOutcome';
 import type { NotesView } from '../bindings/NotesView';
+import type { NotifyAppRow } from '../bindings/NotifyAppRow';
 import type { NotifyAppsView } from '../bindings/NotifyAppsView';
 import type { PermStep } from '../bindings/PermStep';
 import type { PhonePerm } from '../bindings/PhonePerm';
@@ -280,6 +281,10 @@ export interface CarrovaPort {
   phoneNotes(id: string): Promise<NotesView>;
   /** Reply to, dismiss or open one of them on the phone. */
   phoneNoteAction(id: string, action: NoteAction): Promise<NoteOutcome>;
+  /** The phone's per-app notification list, by name; read only here (it is changed on the phone). */
+  phoneApps(id: string): Promise<NotifyAppRow[]>;
+  /** Have the phone remind its user to grant what `feature` (notifications, messages) needs; whether it showed. */
+  remindPhone(id: string, feature: Feature): Promise<boolean>;
   /**
    * A page of conversations after `before` (`null`: the newest), with the
    * provisional texts (`phone_sms` with `id` 0) the UI holds on top of their

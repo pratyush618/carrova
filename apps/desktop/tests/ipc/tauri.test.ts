@@ -47,6 +47,8 @@ describe('the Tauri port', () => {
     const before = { when_ms: 5, id: 7 };
     await port.phoneNotes('p8');
     await port.phoneNoteAction('p8', { kind: 'dismiss', key: 'k' });
+    await port.phoneApps('p8');
+    await port.remindPhone('p8', 'messages');
     await port.phoneThreads('p8', null, [], clock);
     await port.phoneThread('p8', 3, before);
     await port.sendSms('p8', '+15550101', 'hi', 42);
@@ -67,6 +69,8 @@ describe('the Tauri port', () => {
     expect(calls).toEqual([
       ['phone_notes', { id: 'p8' }],
       ['phone_note_action', { id: 'p8', action: { kind: 'dismiss', key: 'k' } }],
+      ['phone_apps', { id: 'p8' }],
+      ['remind_phone', { id: 'p8', feature: 'messages' }],
       ['phone_threads', { id: 'p8', before: null, incoming: [], clock }],
       ['phone_thread', { id: 'p8', thread: 3, before }],
       ['send_sms', { id: 'p8', to: '+15550101', text: 'hi', clientId: 42 }],

@@ -56,7 +56,7 @@ const withLocal = (
 
 /**
  * Linked devices: loaded on mount and whenever a link or its policy changes
- * (`link_up`, `link_down`, `policy_changed`). Only the latest load lands.
+ * (`link_up`, `link_down`, `policy_changed`, `phone_access`). Only the latest load lands.
  */
 export function useLinkedDevices(port: CarrovaPort): LinkedController {
   const [devices, setDevices] = useState<readonly LinkedDeviceView[]>([]);
