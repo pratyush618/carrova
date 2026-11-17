@@ -154,6 +154,8 @@ export const mobile = {
     allow: 'Allow calls and contacts',
     ready: 'Ready',
     readyBody: '{{name}} rings when this phone does. Answer on either; this phone places the call.',
+    off: 'Calls are off',
+    offBody: '{{name}} rings once Calls is on for it on both devices.',
     optional: 'Optional',
     audio: "Use {{name}}'s mic and speakers",
     audioSub: 'Set it up on {{name}}: Settings › Calls and Bluetooth. Audio never goes over Wi-Fi.',
