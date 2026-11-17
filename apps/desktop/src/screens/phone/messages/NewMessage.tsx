@@ -53,7 +53,7 @@ export function NewMessage({
           }}
         />
       </div>
-      {suggestions.length > 0 ? (
+      {suggestions.length > 0 && (
         <ul className="s-thread__sugg">
           {suggestions.map((row) => (
             <li key={row.id}>
@@ -75,9 +75,9 @@ export function NewMessage({
             </li>
           ))}
         </ul>
-      ) : (
-        <Bubbles messages={[]} sends={sends} phone={phone} onRetry={onRetry} />
       )}
+      {/* Always: how a text went must show even while the recipient matches. */}
+      <Bubbles messages={[]} sends={sends} phone={phone} onRetry={onRetry} />
       <Composer
         phone={phone}
         away={away}

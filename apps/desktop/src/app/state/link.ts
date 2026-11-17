@@ -77,14 +77,35 @@ export const emptyLink: LinkState = {
   texts: 0,
 };
 
-/** `link` without `device`'s provisional texts (of `thread` only, when given). */
-const dropTexts = (link: LinkState, device: string, thread?: number): LinkState => ({
+/** `link` without `device`'s provisional texts. */
+const dropTexts = (link: LinkState, device: string): LinkState => ({
   ...link,
-  sms: link.sms.filter(
-    (p) => p.device !== device || (thread !== undefined && p.message.thread_id !== thread),
-  ),
+  sms: link.sms.filter((p) => p.device !== device),
   texts: link.texts + 1,
 });
+
+/** How far apart a provisional text and its stored copy may be dated (the engine's `STORED_SLACK_MS`). */
+const STORED_SLACK_MS = 60_000;
+
+/**
+ * `link` once `device` stored `row`: without the provisional text it is the
+ * copy of (same thread, body and direction; the nearest in time), as the
+ * engine's mirror matches them. Other provisional texts stay.
+ */
+function storeText(link: LinkState, device: string, row: SmsMessage): LinkState {
+  let at = -1;
+  let best = STORED_SLACK_MS;
+  link.sms.forEach(({ device: d, message: m }, i) => {
+    const gap = Math.abs(m.when_ms - row.when_ms);
+    const copy =
+      d === device &&
+      m.thread_id === row.thread_id &&
+      m.text === row.text &&
+      m.outgoing === row.outgoing;
+    if (copy && gap <= best) [at, best] = [i, gap];
+  });
+  return { ...link, sms: link.sms.filter((_, i) => i !== at), texts: link.texts + 1 };
+}
 
 /** Things the user did to the link state (answered, dismissed). */
 export type LinkAction =
@@ -186,14 +207,14 @@ export function applyLinkEvent(link: LinkState, event: EngineEvent): LinkState {
         },
       };
     case 'phone_sms':
-      // A stored text replaces its thread's provisional ones.
+      // A stored text replaces its provisional copy.
       return event.message.id === 0
         ? {
             ...link,
             sms: [...link.sms, { device: event.device, message: event.message }],
             texts: link.texts + 1,
           }
-        : dropTexts(link, event.device, event.message.thread_id);
+        : storeText(link, event.device, event.message);
     case 'phone_cleared':
       return event.feature === 'messages' ? dropTexts(link, event.device) : link;
     default:

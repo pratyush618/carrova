@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { ThreadRow } from '../../../bindings/ThreadRow';
 import { useFormat } from '../../../i18n/useFormat';
+import { LinkButton } from '../../../ui';
 import { cx } from '../../../ui/cx';
 
 /** Two initials of a contact's name, or `#` for a bare number. */
@@ -13,15 +14,18 @@ export const initials = (name: string | null): string =>
         .map((w) => w.charAt(0).toUpperCase())
         .join('');
 
-/** The conversations, newest first; the open one marked. */
+/** The conversations, newest first; the open one marked; then a way to older ones, if any. */
 export function ThreadList({
   threads,
   selected,
   onSelect,
+  onMore,
 }: {
   readonly threads: readonly ThreadRow[];
   readonly selected: number | null;
   readonly onSelect: (id: number) => void;
+  /** Given while older conversations wait on the phone. */
+  readonly onMore?: () => void;
 }) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -64,6 +68,11 @@ export function ThreadList({
           </li>
         ))}
       </ul>
+      {onMore && (
+        <p className="s-msgs__more">
+          <LinkButton onClick={onMore}>{t('ecosystem.messages.olderThreads')}</LinkButton>
+        </p>
+      )}
     </nav>
   );
 }
