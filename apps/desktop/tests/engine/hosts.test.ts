@@ -30,7 +30,10 @@ vi.mock('@tauri-apps/api/webviewWindow', () => ({
   WebviewWindow: windows.FakeWebviewWindow,
   getAllWebviewWindows: () => Promise.resolve([...windows.open]),
 }));
-vi.mock('@tauri-apps/api/window', () => ({ currentMonitor: () => Promise.resolve(null) }));
+vi.mock('@tauri-apps/api/window', () => ({
+  currentMonitor: () => Promise.resolve(null),
+  getCurrentWindow: () => ({ label: 'main' }),
+}));
 
 const { detectHost } = await import('@/engine/hosts');
 
