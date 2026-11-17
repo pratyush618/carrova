@@ -37,6 +37,8 @@ export const calls = {
     call: 'Call',
     callFrom: 'Call from',
     callBack: 'Call back {{who}}',
+    contacts: 'Contacts',
+    callContact: 'Call {{who}}',
     today: 'Today',
     yesterday: 'Yesterday',
     kinds: {

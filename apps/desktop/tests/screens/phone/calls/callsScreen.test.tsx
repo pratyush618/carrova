@@ -43,13 +43,48 @@ const model = (over: Partial<CallsModel> = {}): CallsModel => ({
   log,
   failed: false,
   sims: [],
+  contacts: [],
   ...over,
 });
 const sims: SimChoice[] = [
   { id: 3, slot: 1, name: 'Jio', default: false },
   { id: 7, slot: 2, name: 'Airtel', default: true },
 ];
-const intents = () => ({ onDial: vi.fn(), onTurnOn: vi.fn(), onMore: vi.fn() });
+const intents = () => ({ onDial: vi.fn(), onTurnOn: vi.fn(), onMore: vi.fn(), onSearch: vi.fn() });
+
+describe('Calls search', () => {
+  it('filters the log by name or part of a number as you type', async () => {
+    const user = userEvent.setup();
+    const on = intents();
+    renderScreen(<CallsScreen model={model()} on={on} />);
+    const field = screen.getByLabelText('Call a name or number');
+    await user.type(field, 'sam');
+    expect(on.onSearch).toHaveBeenLastCalledWith('sam');
+    expect(screen.getByText('Sam Rivera')).toBeInTheDocument();
+    expect(screen.queryByText('+15550142')).not.toBeInTheDocument();
+    await user.clear(field);
+    await user.type(field, '555-0142');
+    expect(screen.queryByText('Sam Rivera')).not.toBeInTheDocument();
+    expect(screen.getByText('+15550142')).toBeInTheDocument();
+    // A name typed: nothing to dial, only a contact to pick.
+    await user.clear(field);
+    await user.type(field, 'hanu');
+    expect(screen.getByRole('button', { name: 'Call' })).toBeDisabled();
+    await user.clear(field);
+    expect(screen.getByText('Sam Rivera')).toBeInTheDocument();
+    expect(screen.getByText('+15550142')).toBeInTheDocument();
+  });
+
+  it("suggests the phone's contacts and calls one from the SIM picked", async () => {
+    const user = userEvent.setup();
+    const on = intents();
+    const contacts = [{ name: 'Hanuman', number: '+91 98765-43210' }];
+    renderScreen(<CallsScreen model={model({ sims, contacts })} on={on} />);
+    await user.click(screen.getByRole('radio', { name: 'SIM 1 · Jio' }));
+    await user.click(screen.getByRole('button', { name: 'Call Hanuman' }));
+    expect(on.onDial).toHaveBeenCalledWith('+919876543210', 3);
+  });
+});
 
 describe('Calls', () => {
   it('lists calls by day and calls back from the phone', async () => {
@@ -69,7 +104,8 @@ describe('Calls', () => {
     renderScreen(<CallsScreen model={model()} on={on} />);
     expect(screen.getByRole('button', { name: 'Call' })).toBeDisabled();
     await user.type(screen.getByLabelText('Call a name or number'), '555 0199{Enter}');
-    expect(on.onDial).toHaveBeenCalledWith('555 0199', null);
+    // What a dial takes: the spaces go.
+    expect(on.onDial).toHaveBeenCalledWith('5550199', null);
     expect(screen.queryByRole('radiogroup', { name: 'Call from' })).not.toBeInTheDocument();
   });
 
@@ -82,7 +118,7 @@ describe('Calls', () => {
     expect(on.onDial).toHaveBeenLastCalledWith('+15550142', 7);
     await user.click(screen.getByRole('radio', { name: 'SIM 1 · Jio' }));
     await user.type(screen.getByLabelText('Call a name or number'), '555 0199{Enter}');
-    expect(on.onDial).toHaveBeenLastCalledWith('555 0199', 3);
+    expect(on.onDial).toHaveBeenLastCalledWith('5550199', 3);
   });
 
   it('says when there are no calls yet', () => {

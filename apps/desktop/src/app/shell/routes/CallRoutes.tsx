@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { CallAction } from '../../../bindings/CallAction';
 import type { CallView } from '../../../bindings/CallView';
 import { useHost } from '../../../engine/host';
@@ -7,6 +7,7 @@ import type { CarrovaPort } from '../../../engine/types';
 import { callerName } from '../../../flows/calls/callTrack';
 import { useCallTrack } from '../../../flows/calls/useCallTrack';
 import { useCallLog } from '../../../flows/calls/useCallLog';
+import { usePhoneContacts } from '../../../flows/calls/usePhoneContacts';
 import { useCallsSetup } from '../../../flows/calls/useCallsSetup';
 import { callsPhone } from '../../../flows/phone/messagesPhone';
 import { usePhoneSims } from '../../../flows/phone/usePhoneSims';
@@ -136,10 +137,12 @@ export function CallsRoute({ id }: { readonly id: string }) {
   const live = on && device?.state === 'linked';
   const { log, failed, more } = useCallLog(port, id, live);
   const sims = usePhoneSims(port, id, 'calls', live);
+  const [query, setQuery] = useState('');
+  const contacts = usePhoneContacts(port, id, query, live);
   if (device === undefined) return <HubLayout>{null}</HubLayout>;
   return (
     <CallsScreen
-      model={{ phone: device.name, on, log, failed, sims }}
+      model={{ phone: device.name, on, log, failed, sims, contacts }}
       on={{
         onDial: (number, sim) => {
           act(port, id, { kind: 'dial', number, sim });
@@ -148,6 +151,7 @@ export function CallsRoute({ id }: { readonly id: string }) {
           linked.setFeature(id, 'calls', 'on');
         },
         onMore: more,
+        onSearch: setQuery,
       }}
     />
   );
