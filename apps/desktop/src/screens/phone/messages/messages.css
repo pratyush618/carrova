@@ -11,6 +11,15 @@
   border-inline-end: 1px solid var(--border);
 }
 
+.s-msgs__more {
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.s-thread__older {
+  text-align: center;
+  padding-block-start: var(--sp-2);
+}
+
 .s-msgs__pane {
   display: flex;
   flex-direction: column;
@@ -147,6 +156,11 @@
   flex: 1;
   overflow: auto;
   padding-block: var(--sp-1);
+}
+
+/* No sends yet: the suggestions keep the room. */
+.s-thread__sugg + .s-bubbles:empty {
+  flex: 0;
 }
 
 .s-bubbles {

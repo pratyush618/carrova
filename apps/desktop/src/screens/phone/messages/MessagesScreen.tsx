@@ -18,6 +18,8 @@ export interface MessagesModel {
   readonly failed: boolean;
   /** Newest first; `null` until the first page answered. */
   readonly threads: readonly ThreadRow[] | null;
+  /** Older conversations wait on the phone. */
+  readonly moreThreads: boolean;
   readonly selected: ThreadRow | null;
   readonly thread: ThreadView | null;
   /** Texts sent from here for what is open (the conversation, or the new message). */
@@ -33,6 +35,10 @@ export interface MessagesIntents {
   readonly onCompose: () => void;
   readonly onSend: (to: string, text: string, sim: number | null) => void;
   readonly onRetry: (clientId: number) => void;
+  /** Load the open conversation's next page of older texts. */
+  readonly onOlderMessages: () => void;
+  /** Load the next page of older conversations. */
+  readonly onMoreThreads: () => void;
 }
 
 /** A linked phone's texts: conversations beside the open one, sent through the phone. */
@@ -79,6 +85,7 @@ export function MessagesScreen({
           threads={threads}
           selected={model.composing ? null : (selected?.id ?? null)}
           onSelect={on.onSelect}
+          {...(model.moreThreads && { onMore: on.onMoreThreads })}
         />
         <div className="s-msgs__pane">
           {problem}
@@ -105,6 +112,7 @@ export function MessagesScreen({
                 sims={model.sims}
                 onSend={on.onSend}
                 onRetry={on.onRetry}
+                onOlder={on.onOlderMessages}
               />
             )
           )}

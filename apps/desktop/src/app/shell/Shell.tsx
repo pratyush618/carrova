@@ -128,7 +128,6 @@ export function Shell({ initial }: { readonly initial: Nav }) {
               <Toast onDismiss={forwarded.dismiss}>{t('start.forwarded.busy')}</Toast>
             )}
             <EcosystemToasts />
-            <PhoneNotePopups view={view} />
             {notice.remembered && (
               // Keyed: a device remembered next gets a notice (and Forget) of its own.
               <RememberedToast
@@ -138,6 +137,8 @@ export function Shell({ initial }: { readonly initial: Nav }) {
               />
             )}
           </Window>
+          {/* Outside the keyed window: navigating must not pop a note up again. */}
+          <PhoneNotePopups view={view} />
         </ChromeContext>
       </NavContext>
     </div>

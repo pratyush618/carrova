@@ -27,6 +27,30 @@ describe('Notification pop-up window', () => {
     });
   });
 
+  it('acts once at a time: nothing more until the phone answered', async () => {
+    const user = userEvent.setup();
+    const port: CarrovaPort = createFakePort({ scenario: 'linked' });
+    let answer: (outcome: 'failed') => void = () => undefined;
+    const action = vi.spyOn(port, 'phoneNoteAction').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+    );
+    render(<NotePopupRoot port={port} target={target} />);
+    await user.type(await screen.findByRole('textbox', { name: 'Reply' }), 'Yes');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    await user.click(screen.getByRole('button', { name: 'Mark as read' }));
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+
+    answer('failed');
+    await vi.waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled();
+    });
+  });
+
   it('says so when the notification is gone from the phone', async () => {
     const user = userEvent.setup();
     const port: CarrovaPort = createFakePort({ scenario: 'linked' });
