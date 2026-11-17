@@ -60,6 +60,7 @@ describe('the call window', () => {
     await user.click(await screen.findByRole('button', { name: 'Answer' }));
     expect(phoneCall).toHaveBeenCalledWith('p8', { kind: 'answer' });
     expect(screen.getByRole('heading', { name: 'Sam Rivera' })).toBeInTheDocument();
+    expect(screen.getByText('SR')).toBeInTheDocument();
     expect(play).toHaveBeenCalledTimes(1);
   });
 

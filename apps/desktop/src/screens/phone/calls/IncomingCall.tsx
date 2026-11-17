@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Button, LinkButton } from '../../../ui';
+import { initials } from '../messages/ThreadList';
 import './calls.css';
 
 /**
@@ -8,11 +9,14 @@ import './calls.css';
  */
 export function IncomingCall({
   who,
+  name,
   phone,
   on,
 }: {
   /** The caller's name, else their number. */
   readonly who: string;
+  /** The caller's contact name (`null`: unknown), for the initials. */
+  readonly name: string | null;
   readonly phone: string;
   readonly on: {
     readonly onAnswer: () => void;
@@ -24,6 +28,9 @@ export function IncomingCall({
   const { t } = useTranslation();
   return (
     <main className="s-call" aria-live="assertive">
+      <span className="s-call__av" aria-hidden="true">
+        {initials(name)}
+      </span>
       <h1 className="s-call__who">{who}</h1>
       <p className="s-call__sub">{t('calls.window.calling', { phone })}</p>
       <div className="s-call__acts">

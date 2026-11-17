@@ -55,6 +55,7 @@ export function CallWindowRoute() {
       <CallWindowScreen
         view={shown}
         who={callerName(track.caller)}
+        name={track.caller?.name ?? null}
         phone={phone}
         on={{
           onAnswer: () => {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AudioSide } from '../../../bindings/AudioSide';
 import { Button } from '../../../ui';
+import { initials } from '../messages/ThreadList';
 import { Keypad } from './Keypad';
 import './calls.css';
 
@@ -21,12 +22,15 @@ export interface InCallView {
  */
 export function InCall({
   who,
+  name,
   phone,
   view,
   on,
 }: {
   /** The caller's name or number; `null` for a call made on the phone. */
   readonly who: string | null;
+  /** The caller's contact name (`null`: unknown), for the initials. */
+  readonly name: string | null;
   readonly phone: string;
   readonly view: InCallView;
   readonly on: {
@@ -41,6 +45,9 @@ export function InCall({
   const here = view.audio === 'laptop';
   return (
     <main className="s-call">
+      <span className="s-call__av" aria-hidden="true">
+        {initials(name)}
+      </span>
       <h1 className="s-call__who">{who ?? t('calls.window.onCall')}</h1>
       <p className="s-call__timer" aria-live="off">
         {view.muted ? `${t('calls.window.muted')} · ${view.timer}` : view.timer}

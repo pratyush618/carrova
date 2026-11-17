@@ -20,12 +20,15 @@ export interface CallWindowIntents {
 export function CallWindowScreen({
   view,
   who,
+  name,
   phone,
   on,
 }: {
   readonly view: CallWindowView | null;
   /** The caller's name or number, when known. */
   readonly who: string | null;
+  /** The caller's contact name, when known (for the initials). */
+  readonly name: string | null;
   readonly phone: string;
   readonly on: CallWindowIntents;
 }) {
@@ -34,16 +37,18 @@ export function CallWindowScreen({
       return (
         <IncomingCall
           who={who ?? view.caller.number}
+          name={view.caller.name}
           phone={phone}
           on={{ onAnswer: on.onAnswer, onDecline: on.onDecline, onAnswerOnPhone: on.onClose }}
         />
       );
     case 'active':
-      return <InCall who={who} phone={phone} view={view} on={on} />;
+      return <InCall who={who} name={name} phone={phone} view={view} on={on} />;
     case 'missed':
       return (
         <MissedCall
           who={who ?? view.caller.number}
+          name={view.caller.name}
           phone={phone}
           on={{ onCallBack: on.onCallBack, onClose: on.onClose }}
         />
