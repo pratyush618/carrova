@@ -29,6 +29,14 @@
     <!-- Installs on phones without telephony too (the phone features stay off). -->
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
+    <!-- Which app is the default SMS app (Telephony.Sms.getDefaultSmsPackage),
+         so its notifications are marked as texts. -->
+    <queries>
+        <intent>
+            <action android:name="android.provider.Telephony.SMS_DELIVER" />
+        </intent>
+    </queries>
+
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
 

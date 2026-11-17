@@ -12,6 +12,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Build
 import android.os.Bundle
+import android.provider.Telephony
 import android.service.notification.StatusBarNotification
 import org.json.JSONArray
 import org.json.JSONObject
@@ -59,6 +60,8 @@ object Notify {
             .put("text", text?.toString() ?: "")
             .put("when_ms", sbn.postTime)
             .put("can_reply", replyAction(sbn) != null)
+            // Needs the SMS_DELIVER `<queries>` entry (package visibility); no permission.
+            .put("sms_app", sbn.packageName == Telephony.Sms.getDefaultSmsPackage(context))
         app?.let { icon(pm, it) }?.let { png ->
             note.put("icon", JSONArray().apply { png.forEach { put(it.toInt() and 0xff) } })
         }
