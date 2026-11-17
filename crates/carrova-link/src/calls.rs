@@ -4,16 +4,21 @@
 //! `State` (phone → laptop) is acknowledged with `()`; `Command` (laptop →
 //! phone) is answered with one [`CallReply`]. Whether a command is allowed in
 //! the current call state is the controller's call, not this lane's.
+//!
+//! Older peers: a `Dial` without `sim` uses the phone's default SIM, and
+//! an older phone ignores `sim`; it can't answer [`CallCommand::Sims`]
+//! (the lane fails), so the laptop then offers no SIM choice.
 
 use std::fmt;
 use std::time::Duration;
 
-use carrova_platform::phone::{AudioSide, CallRecord, CallState, Cursor};
+use carrova_platform::phone::{AudioSide, CallRecord, CallState, Cursor, Sim};
 use carrova_transport::Stream;
 use serde::{Deserialize, Serialize};
 
 use crate::LinkError;
 use crate::lane::{FRAME_TIMEOUT, LaneKind};
+use crate::messages::check_sims;
 use crate::reply::{Pending, Responder, request, serve};
 
 /// Most records in one [`CallReply::HistoryPage`].
@@ -40,7 +45,12 @@ pub enum CallCommand {
     Dial {
         /// Number to call.
         number: String,
+        /// The SIM to call from ([`Sim::id`]); `None`: the phone's default.
+        #[serde(default)]
+        sim: Option<i32>,
     },
+    /// The phone's active SIMs, to choose one to call from.
+    Sims,
     /// One page of the call log, newest first by `(when_ms, id)`, after `before`.
     History {
         /// Page cursor: only entries ordered strictly before this one.
@@ -66,7 +76,7 @@ impl CallCommand {
     /// Reject a malformed number before it goes anywhere.
     fn check(&self) -> Result<(), LinkError> {
         match self {
-            Self::Dial { number } | Self::Tones(number) => check_number(number),
+            Self::Dial { number, .. } | Self::Tones(number) => check_number(number),
             _ => Ok(()),
         }
     }
@@ -81,6 +91,7 @@ impl fmt::Debug for CallCommand {
             Self::Mute(_) => "CallCommand::Mute(..)",
             Self::Dial { .. } => "CallCommand::Dial(..)",
             Self::History { .. } => "CallCommand::History(..)",
+            Self::Sims => "CallCommand::Sims",
             Self::Tones(_) => "CallCommand::Tones(..)",
             Self::AudioTo(_) => "CallCommand::AudioTo(..)",
         })
@@ -100,6 +111,9 @@ pub enum CallReply {
     Failed,
     /// The requested page of the call log (at most [`HISTORY_PAGE`]).
     HistoryPage(Vec<CallRecord>),
+    /// The phone's active SIMs, by slot (at most
+    /// [`MAX_SIMS`](crate::MAX_SIMS)); empty when it may not read them.
+    Sims(Vec<Sim>),
 }
 
 impl fmt::Debug for CallReply {
@@ -110,6 +124,7 @@ impl fmt::Debug for CallReply {
             Self::NoCall => "CallReply::NoCall",
             Self::Failed => "CallReply::Failed",
             Self::HistoryPage(_) => "CallReply::HistoryPage(..)",
+            Self::Sims(_) => "CallReply::Sims(..)",
         })
     }
 }
@@ -171,7 +186,8 @@ pub fn send_call_state(
 /// # Errors
 ///
 /// [`LinkError::Protocol`] (`"local"`) for `Tones` and `AudioTo`, which the
-/// laptop answers itself; (`"number"`) for a malformed `Dial` number; (`"history"`) for an oversized history page; otherwise
+/// laptop answers itself; (`"number"`) for a malformed `Dial` number; (`"history"`) for an oversized history page;
+/// [`LinkError::TooBig`] for an oversized SIM list; otherwise
 /// [`LinkError`] if the lane is refused or the peer is gone or silent.
 pub fn call_command(
     conn: &carrova_transport::Connection,
@@ -189,6 +205,7 @@ pub fn call_command(
         CallReply::HistoryPage(page) if page.len() > HISTORY_PAGE => {
             Err(LinkError::Protocol("history"))
         }
+        CallReply::Sims(sims) => check_sims(sims).map(|()| reply),
         _ => Ok(reply),
     }
 }

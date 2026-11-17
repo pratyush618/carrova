@@ -8,10 +8,10 @@ mod support;
 use std::thread;
 
 use carrova_link::{
-    AudioSide, CallCommand, CallIncoming, CallReply, HISTORY_PAGE, LaneKind, LinkError,
+    AudioSide, CallCommand, CallIncoming, CallReply, HISTORY_PAGE, LaneKind, LinkError, MAX_SIMS,
     accept_lane, call_command, open_lane, recv_calls, send_call_state,
 };
-use carrova_platform::phone::{CallKind, CallRecord, CallState, Cursor};
+use carrova_platform::phone::{CallKind, CallRecord, CallState, Cursor, Sim};
 use support::{Open, T, linked};
 
 #[test]
@@ -47,7 +47,10 @@ fn state_roundtrip() {
 fn dial_rejects_letters_and_long() {
     let (a, _b) = linked();
     for bad in ["", "call me", "555-1234", &"1".repeat(33)] {
-        let dial = CallCommand::Dial { number: bad.into() };
+        let dial = CallCommand::Dial {
+            number: bad.into(),
+            sim: None,
+        };
         assert!(matches!(
             call_command(&a, &dial),
             Err(LinkError::Protocol("number"))
@@ -119,7 +122,10 @@ fn recv_raw(command: CallCommand) -> Result<CallIncoming, LinkError> {
 
 #[test]
 fn receiver_rejects_a_bad_number() {
-    let dial = CallCommand::Dial { number: "x".into() };
+    let dial = CallCommand::Dial {
+        number: "x".into(),
+        sim: None,
+    };
     assert!(matches!(recv_raw(dial), Err(LinkError::Protocol("number"))));
 }
 
@@ -145,9 +151,11 @@ fn mute_and_end_commands_roundtrip() {
 fn debug_hides_numbers() {
     let dial = CallCommand::Dial {
         number: "5551234".into(),
+        sim: Some(7_654_321),
     };
     let tones = CallCommand::Tones("5551234".into());
-    assert!(!format!("{dial:?}{tones:?}").contains("5551234"));
+    let shown = format!("{dial:?}{tones:?}");
+    assert!(!shown.contains("5551234") && !shown.contains("7654321"));
 }
 
 #[test]
@@ -187,4 +195,79 @@ fn oversized_history_page_is_refused() {
         call_command(&a, &CallCommand::History { before: None })
     });
     assert!(matches!(got, Err(LinkError::Protocol("history"))));
+}
+
+fn sim(id: i32) -> Sim {
+    Sim {
+        id,
+        slot: 0,
+        name: "Airtel".into(),
+        sms_default: false,
+        voice_default: true,
+    }
+}
+
+#[test]
+fn sims_and_dial_from_one_roundtrip() {
+    let sims = CallReply::Sims(vec![sim(3), sim(5)]);
+    let (reply, seen) = command(&CallCommand::Sims, &sims);
+    assert_eq!((reply, seen), (sims.clone(), CallCommand::Sims));
+    assert!(!format!("{sims:?}").contains("Airtel"));
+    let dial = CallCommand::Dial {
+        number: "+1555".into(),
+        sim: Some(5),
+    };
+    let (reply, seen) = command(&dial, &CallReply::Done);
+    assert_eq!((reply, seen), (CallReply::Done, dial));
+}
+
+#[test]
+fn oversized_sim_list_is_refused() {
+    let (a, b) = linked();
+    let got = thread::scope(|s| {
+        s.spawn(|| {
+            let (_, stream) = accept_lane(&b, &Open, T).unwrap();
+            let CallIncoming::Command(_, r) = recv_calls(stream).unwrap() else {
+                panic!("expected a command");
+            };
+            r.reply(&CallReply::Sims(vec![sim(1); MAX_SIMS + 1]))
+                .unwrap();
+        });
+        call_command(&a, &CallCommand::Sims)
+    });
+    assert!(matches!(got, Err(LinkError::TooBig { .. })));
+}
+
+/// The dial command before SIMs, as an older build has it.
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+enum OldCommand {
+    Dial { number: String },
+}
+
+fn cbor<T: serde::Serialize>(value: &T) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    ciborium::into_writer(value, &mut bytes).unwrap();
+    bytes
+}
+
+#[test]
+fn dial_interoperates_with_older_builds() {
+    let old = OldCommand::Dial {
+        number: "+1555".into(),
+    };
+    let got: CallCommand = ciborium::from_reader(cbor(&old).as_slice()).unwrap();
+    assert_eq!(
+        got,
+        CallCommand::Dial {
+            number: "+1555".into(),
+            sim: None,
+        }
+    );
+    let new = CallCommand::Dial {
+        number: "+1555".into(),
+        sim: Some(2),
+    };
+    let got: OldCommand = ciborium::from_reader(cbor(&new).as_slice()).unwrap();
+    assert_eq!(got, old);
+    assert!(ciborium::from_reader::<OldCommand, _>(cbor(&CallCommand::Sims).as_slice()).is_err());
 }

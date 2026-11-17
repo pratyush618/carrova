@@ -5,13 +5,17 @@
 //! `SmsFrame`; receiver → `SmsReply` (request) or `()` (push) and finishes.
 //! `Debug` on every type here hides numbers, names and text. Receivers cap
 //! pages at [`THREAD_PAGE`]/[`MESSAGE_PAGE`], texts and snippets at
-//! [`MAX_SMS_TEXT`], names and addresses at 256 bytes, and a destination
-//! number at 32 characters of `[0-9+*#]`.
+//! [`MAX_SMS_TEXT`], names and addresses at 256 bytes, a destination
+//! number at 32 characters of `[0-9+*#]`, and SIM lists at [`MAX_SIMS`].
+//!
+//! Older peers: a `Send` without `sim` uses the phone's default SIM, and
+//! an older phone ignores `sim`; it can't answer [`SmsRequest::Sims`]
+//! (the lane fails), so the laptop then offers no SIM choice.
 
 use std::fmt;
 use std::time::Duration;
 
-use carrova_platform::phone::{Cursor, SendOutcome, SmsMessage, SmsThread};
+use carrova_platform::phone::{Cursor, SendOutcome, Sim, SmsMessage, SmsThread};
 use carrova_transport::Connection;
 use serde::{Deserialize, Serialize};
 
@@ -26,7 +30,9 @@ pub const THREAD_PAGE: usize = 30;
 pub const MESSAGE_PAGE: usize = 50;
 /// Longest SMS text (bytes) either side accepts.
 pub const MAX_SMS_TEXT: usize = 4096;
-/// Longest contact name or number on a thread, in bytes.
+/// Most SIMs in a list (phones carry two, rarely three or four).
+pub const MAX_SIMS: usize = 8;
+/// Longest contact name, number or SIM name, in bytes.
 const MAX_NAME: usize = 256;
 /// Longest destination number, in characters.
 const MAX_NUMBER: usize = 32;
@@ -57,7 +63,12 @@ pub enum SmsRequest {
         text: String,
         /// Caller's id, echoed in the result.
         client_id: u64,
+        /// The SIM to send from ([`Sim::id`]); `None`: the phone's default.
+        #[serde(default)]
+        sim: Option<i32>,
     },
+    /// The phone's active SIMs, to choose one to send from.
+    Sims,
     /// Remind the user on the phone to grant SMS access (a local
     /// notification that opens the permission screen).
     Remind,
@@ -82,6 +93,9 @@ pub enum SmsReply {
         /// Whether the phone showed the reminder.
         posted: bool,
     },
+    /// At most [`MAX_SIMS`] active SIMs, by slot; empty when the phone
+    /// may not read them.
+    Sims(Vec<Sim>),
 }
 
 /// Unsolicited phone → laptop news.
@@ -161,12 +175,19 @@ fn check_request(req: &SmsRequest) -> Result<(), LinkError> {
     Ok(())
 }
 
+/// Check a SIM list against [`MAX_SIMS`] and the name limit.
+pub(crate) fn check_sims(sims: &[Sim]) -> Result<(), LinkError> {
+    cap(sims.len(), MAX_SIMS)?;
+    sims.iter().try_for_each(|s| cap(s.name.len(), MAX_NAME))
+}
+
 /// Check a reply against the page and text limits; the phone calls this
 /// before [`Responder::reply`], and [`request_sms`] on what it receives.
 ///
 /// # Errors
 ///
-/// [`LinkError::TooBig`] if a page, text, snippet, name or address is over its cap.
+/// [`LinkError::TooBig`] if a page, text, snippet, name, address or SIM
+/// list is over its cap.
 pub fn check_sms_reply(reply: &SmsReply) -> Result<(), LinkError> {
     match reply {
         SmsReply::ThreadsPage(t) => {
@@ -181,6 +202,7 @@ pub fn check_sms_reply(reply: &SmsReply) -> Result<(), LinkError> {
             cap(m.len(), MESSAGE_PAGE)?;
             m.iter().try_for_each(|m| cap(m.text.len(), MAX_SMS_TEXT))
         }
+        SmsReply::Sims(sims) => check_sims(sims),
         SmsReply::SendResult { .. } | SmsReply::Reminded { .. } => Ok(()),
     }
 }
@@ -190,7 +212,8 @@ fn matches(req: &SmsRequest, reply: &SmsReply) -> bool {
     match (req, reply) {
         (SmsRequest::Threads { .. }, SmsReply::ThreadsPage(_))
         | (SmsRequest::Thread { .. }, SmsReply::ThreadPage(_))
-        | (SmsRequest::Remind, SmsReply::Reminded { .. }) => true,
+        | (SmsRequest::Remind, SmsReply::Reminded { .. })
+        | (SmsRequest::Sims, SmsReply::Sims(_)) => true,
         (SmsRequest::Send { client_id, .. }, SmsReply::SendResult { client_id: got, .. }) => {
             client_id == got
         }
