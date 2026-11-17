@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
@@ -22,6 +23,8 @@ object Perms {
     fun state(context: Context, name: String): String {
         val granted = if (name == "notification_access") {
             NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+        } else if (name == "battery") {
+            context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
         } else {
             runtime(name).all {
                 ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
@@ -40,6 +43,10 @@ object Perms {
         runtime(name) // rejects unknown names
         val intent = if (name == "notification_access" && !restricted(context)) {
             Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+        } else if (name == "battery") {
+            // Android's own "Let app always run in background?" dialog.
+            @Suppress("BatteryLife")
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.fromParts("package", context.packageName, null))
         } else {
             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
         }
@@ -47,7 +54,7 @@ object Perms {
     }
 
     private fun runtime(name: String): Array<String> = when (name) {
-        "notification_access" -> emptyArray()
+        "notification_access", "battery" -> emptyArray()
         "sms" -> arrayOf(Manifest.permission.READ_SMS, Manifest.permission.SEND_SMS, Manifest.permission.RECEIVE_SMS)
         "calls" -> arrayOf(
             Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_CALL_LOG,

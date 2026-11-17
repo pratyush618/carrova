@@ -6,6 +6,7 @@ import { PHASE2_FEATURES, type Phase2Feature } from '../../screens/devices/model
 import { Group } from '../../screens/settings/Group';
 import { Button } from '../../ui';
 import { shareDefaults, shareRow, type ShareChoices } from '../model';
+import { BatteryRow } from '../phone/BatteryRow';
 import { PhonePage } from '../PhonePage';
 import '../../screens/settings/settings.css';
 
@@ -52,6 +53,9 @@ export function ChooseShare({
       <Group title={t('ecosystem.groups.quiet')}>{group('quiet')}</Group>
       <Group title={t('ecosystem.groups.ask')} sub={t('ecosystem.askFoot')}>
         {group('ask')}
+      </Group>
+      <Group title={t('mobile.choose.background')}>
+        <BatteryRow />
       </Group>
       <Button
         kind="primary"

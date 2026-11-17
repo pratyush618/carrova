@@ -11,7 +11,7 @@ describe('Choose what to share asks for permissions', () => {
     const open = vi.spyOn(port, 'openPermSettings');
     await scanToLinked(user);
     await user.click(screen.getByRole('button', { name: 'Choose what to share' }));
-    expect(step).not.toHaveBeenCalled();
+    expect(step).not.toHaveBeenCalledWith('sms');
 
     await user.click(await screen.findByRole('switch', { name: 'Messages' }));
 
@@ -85,5 +85,29 @@ describe('Choose what to share asks for permissions', () => {
       await screen.findByText('From the computer by itself, to it with a tap'),
     ).toBeInTheDocument();
     expect(screen.queryByText(/this computer|here\.$/)).toBeNull();
+  });
+});
+
+describe('Stay connected when closed', () => {
+  it('Allow opens Android’s battery request and reads the answer back', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderPhone();
+    let granted = false;
+    vi.spyOn(port, 'phonePermStep').mockImplementation((perm) =>
+      Promise.resolve(perm === 'battery' && granted ? 'ok' : 'ask'),
+    );
+    const open = vi.spyOn(port, 'openPermSettings').mockImplementation(() => {
+      granted = true;
+      return Promise.resolve();
+    });
+    await scanToLinked(user);
+    await user.click(screen.getByRole('button', { name: 'Choose what to share' }));
+
+    await user.click(await screen.findByRole('button', { name: 'Allow' }));
+    expect(open).toHaveBeenCalledWith('battery');
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    expect(await screen.findByText("Android won't stop Carrova in the background")).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Allow' })).toBeNull();
   });
 });

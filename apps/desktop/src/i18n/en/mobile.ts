@@ -43,6 +43,11 @@ export const mobile = {
     title: 'Choose what to share',
     lede: 'With {{name}}. Change any of it later on its page.',
     done: 'Done',
+    background: 'Background',
+    stay: 'Stay connected when closed',
+    staySub: 'Android may stop Carrova to save battery',
+    stayOk: "Android won't stop Carrova in the background",
+    allow: 'Allow',
   },
   /** What each feature does, as the phone words it (the desktop's say "here"). */
   features: {
