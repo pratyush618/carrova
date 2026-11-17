@@ -124,6 +124,7 @@ fn phase2_defaults_unsupported() {
     unsupported!(p.call_history(None, 10), "call_history");
     unsupported!(p.call_state(), "call_state");
     unsupported!(p.phone_perm(perm), "phone_perm");
+    unsupported!(p.request_phone_perm(perm), "request_phone_perm");
     unsupported!(p.open_perm_settings(perm), "open_perm_settings");
     unsupported!(p.call_audio_status(), "call_audio_status");
     unsupported!(p.install_call_audio(), "install_call_audio");

@@ -119,6 +119,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Android's runtime-permission dialog, over the app (Perms.request). -->
+        <activity
+            android:name="org.byteveda.carrova.platform.PermRequestActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- QR scan for pairing: ZXing's camera screen, any orientation. -->
         <activity
             android:name="org.byteveda.carrova.platform.ScanActivity"

@@ -728,6 +728,16 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         Err(PlatformError::Unsupported("phone_perm"))
     }
 
+    /// Ask the user for `p` with the system's own prompt, then return its
+    /// state. Blocks until the user answers; call off the UI thread.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn request_phone_perm(&self, p: PhonePerm) -> Result<PermState, PlatformError> {
+        let _ = p;
+        Err(PlatformError::Unsupported("request_phone_perm"))
+    }
+
     /// Open the system settings screen where the user grants `p`.
     ///
     /// # Errors

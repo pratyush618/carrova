@@ -333,12 +333,22 @@ fn perm_name(p: PhonePerm) -> &'static str {
 }
 
 pub(super) fn phone_perm(p: PhonePerm) -> Result<PermState, PlatformError> {
-    match text("Perms.state", "Perms", "state", &[Arg::Str(perm_name(p))])?.as_str() {
+    perm_state("Perms.state", "state", p)
+}
+
+/// Shows Android's runtime-permission dialog; blocks until it is answered.
+pub(super) fn request_phone_perm(p: PhonePerm) -> Result<PermState, PlatformError> {
+    perm_state("Perms.request", "request", p)
+}
+
+/// Call `Perms.<method>(name)` and map the state string it returns.
+fn perm_state(call: &'static str, method: &str, p: PhonePerm) -> Result<PermState, PlatformError> {
+    match text(call, "Perms", method, &[Arg::Str(perm_name(p))])?.as_str() {
         "granted" => Ok(PermState::Granted),
         "denied" => Ok(PermState::Denied),
         "restricted" => Ok(PermState::Restricted),
         _ => Err(PlatformError::Android {
-            call: "Perms.state",
+            call,
             cause: "unknown state".into(),
         }),
     }

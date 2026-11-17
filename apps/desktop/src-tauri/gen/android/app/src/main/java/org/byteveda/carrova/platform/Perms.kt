@@ -16,6 +16,7 @@ import android.os.Process
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import java.util.concurrent.TimeUnit
 import org.byteveda.Carrova.R
 
 /**
@@ -60,6 +61,32 @@ object Perms {
     } catch (e: IllegalArgumentException) {
         false
     }
+
+    /**
+     * Ask for runtime permission [name] with Android's own dialog and return its state once
+     * answered. Blocks (called off the main thread); throws for names granted on a settings page.
+     */
+    @JvmStatic
+    fun request(context: Context, name: String): String {
+        val perms = runtime(name) // rejects unknown names
+        require(name != "notification_access" && name != "battery") { "not a runtime permission" }
+        if (state(context, name) == "granted") return "granted"
+        val latch = checkNotNull(PermRequest.begin()) { "a permission request is open" }
+        try {
+            context.startActivity(
+                Intent(context, PermRequestActivity::class.java)
+                    .putExtra(PermRequestActivity.PERMS, perms)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            latch.await(REQUEST_MINUTES, TimeUnit.MINUTES)
+        } finally {
+            PermRequest.end(latch)
+        }
+        return state(context, name)
+    }
+
+    /** A forgotten dialog gives up after this long. */
+    private const val REQUEST_MINUTES = 2L
 
     /** Open the settings page where [name] is granted (App info while restricted). */
     @JvmStatic

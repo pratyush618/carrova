@@ -363,6 +363,10 @@ impl Platform for AndroidPlatform {
         phone::phone_perm(p)
     }
 
+    fn request_phone_perm(&self, p: PhonePerm) -> Result<PermState, PlatformError> {
+        phone::request_phone_perm(p)
+    }
+
     fn open_perm_settings(&self, p: PhonePerm) -> Result<(), PlatformError> {
         phone::open_perm_settings(p)
     }
