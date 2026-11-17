@@ -284,9 +284,7 @@ pub async fn set_notify_filters(
 ) -> Result<(), CommandError> {
     let platform = Arc::clone(&state.platform);
     blocking(move || {
-        let mut apps = NotifyApps::open(&*platform)?;
-        apps.set_hide_codes(&*platform, hide_codes)?;
-        Ok(apps.set_show_text(&*platform, show_text)?)
+        Ok(NotifyApps::open(&*platform)?.set_filters(&*platform, hide_codes, show_text)?)
     })
     .await
 }

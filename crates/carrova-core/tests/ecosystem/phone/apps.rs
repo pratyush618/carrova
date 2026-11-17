@@ -33,7 +33,7 @@ fn file_mode_0600_and_shape() {
     let p = platform(&tmp);
     let mut apps = NotifyApps::open(&p).unwrap();
     apps.set(&p, "org.example.chat", false).unwrap();
-    apps.set_show_text(&p, false).unwrap();
+    apps.set_filters(&p, true, false).unwrap();
 
     let path = tmp.path().join("state/phone/notify-apps.json");
     if p.permission_model() == PermissionModel::Unix {
@@ -53,4 +53,25 @@ fn file_mode_0600_and_shape() {
 fn empty_app_id_is_not_private() {
     let tmp = tempfile::tempdir().unwrap();
     assert!(NotifyApps::open(&platform(&tmp)).unwrap().allowed(""));
+}
+
+#[test]
+fn filters_save_together_in_one_write() {
+    let tmp = tempfile::tempdir().unwrap();
+    let p = platform(&tmp);
+    let mut apps = NotifyApps::open(&p).unwrap();
+    apps.set_filters(&p, false, false).unwrap();
+    let reopened = NotifyApps::open(&p).unwrap();
+    assert!(!reopened.hide_codes() && !reopened.show_text());
+
+    // A write that cannot happen changes neither.
+    std::fs::create_dir_all(
+        tmp.path()
+            .join("state/phone/.notify-apps.json.tmp/in-the-way"),
+    )
+    .unwrap();
+    assert!(apps.set_filters(&p, true, true).is_err());
+    assert!(!apps.hide_codes() && !apps.show_text());
+    let reopened = NotifyApps::open(&p).unwrap();
+    assert!(!reopened.hide_codes() && !reopened.show_text());
 }

@@ -43,7 +43,7 @@ fn plain_note_passes_unchanged() {
 #[test]
 fn show_text_off_strips_text() {
     let (_t, p, mut apps) = apps();
-    apps.set_show_text(&p, false).unwrap();
+    apps.set_filters(&p, true, false).unwrap();
     let out = outgoing(note("Ann", "lunch?"), &apps).unwrap();
     assert_eq!((out.title.as_str(), out.text.as_str()), ("Ann", ""));
     assert_eq!(out.hidden, Some(Hidden::TextOff));
@@ -62,7 +62,7 @@ fn otp_clears_title() {
 #[test]
 fn hide_codes_off_keeps_code() {
     let (_t, p, mut apps) = apps();
-    apps.set_hide_codes(&p, false).unwrap();
+    apps.set_filters(&p, false, true).unwrap();
     assert_eq!(
         outgoing(note("Bank", "OTP 482913"), &apps).unwrap().text,
         "OTP 482913"

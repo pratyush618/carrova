@@ -110,16 +110,20 @@ impl NotifyApps {
         self.show_text
     }
 
+    /// Set both content filters in one save: neither changes if it fails.
+    ///
     /// # Errors
     /// The file cannot be written.
-    pub fn set_hide_codes(&mut self, platform: &dyn Platform, on: bool) -> Result<()> {
-        self.edit(platform, |me| me.hide_codes = on)
-    }
-
-    /// # Errors
-    /// The file cannot be written.
-    pub fn set_show_text(&mut self, platform: &dyn Platform, on: bool) -> Result<()> {
-        self.edit(platform, |me| me.show_text = on)
+    pub fn set_filters(
+        &mut self,
+        platform: &dyn Platform,
+        hide_codes: bool,
+        show_text: bool,
+    ) -> Result<()> {
+        self.edit(platform, |me| {
+            me.hide_codes = hide_codes;
+            me.show_text = show_text;
+        })
     }
 
     /// Apply `change`, save, and keep it only if the save worked.
