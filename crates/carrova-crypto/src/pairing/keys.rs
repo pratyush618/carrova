@@ -3,7 +3,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use hmac::Mac;
+use hmac::{KeyInit, Mac};
 use zeroize::Zeroizing;
 
 use super::{
