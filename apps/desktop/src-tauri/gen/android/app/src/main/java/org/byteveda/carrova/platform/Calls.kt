@@ -33,6 +33,10 @@ object Calls {
     @Volatile
     private var activeSince: Long? = null
 
+    /** The active call was placed here: off-hook with no ringing before it. */
+    @Volatile
+    private var outgoing = false
+
     /** The call now, in the event format: ringing, active or idle. */
     @JvmStatic
     fun state(context: Context): String {
@@ -47,6 +51,7 @@ object Calls {
                 event.put("type", "call_active")
                     // Best effort: unknown when the call began before the listener.
                     .put("since_ms", activeSince ?: System.currentTimeMillis())
+                    .put("outgoing", outgoing)
                     .put("muted", audio(context).isMicrophoneMute)
                     .put("bt", btCallAudio(context))
             else -> event.put("type", "call_idle")
@@ -203,16 +208,21 @@ object Calls {
                         .put("name", Sms.contactName(context, caller) ?: JSONObject.NULL)
                 }
                 TelephonyManager.CALL_STATE_OFFHOOK -> {
+                    // Android goes off-hook as soon as a call is dialled, and tells
+                    // no other app when it is answered: only an incoming call
+                    // (ringing first) has a known start.
+                    outgoing = !ringing
                     answered = true
                     val since = System.currentTimeMillis()
                     activeSince = since
-                    event.put("type", "call_active").put("since_ms", since)
+                    event.put("type", "call_active").put("since_ms", since).put("outgoing", outgoing)
                         .put("muted", audio(context).isMicrophoneMute)
                         .put("bt", btCallAudio(context))
                 }
                 else -> {
                     ringingNumber = null
                     activeSince = null
+                    outgoing = false
                     // The first report on listening is the idle phone: nothing ended.
                     if (!ringing && !answered) return
                     event.put("type", "call_ended").put("missed", ringing && !answered)
