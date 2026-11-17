@@ -15,7 +15,8 @@ mod reply;
 mod ring;
 
 pub use calls::{
-    CallCommand, CallIncoming, CallReply, HISTORY_PAGE, call_command, recv_calls, send_call_state,
+    CallCommand, CallIncoming, CallReply, HISTORY_PAGE, MAX_CONTACTS, call_command, recv_calls,
+    send_call_state,
 };
 pub use carrova_platform::phone::{AudioSide, SendOutcome};
 pub use clipboard::{

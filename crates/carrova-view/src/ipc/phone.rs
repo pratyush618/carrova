@@ -142,7 +142,10 @@ impl From<CallReply> for CallOutcome {
             CallReply::Done => Self::Done,
             CallReply::NotRinging => Self::NotRinging,
             CallReply::NoCall => Self::NoCall,
-            CallReply::Failed | CallReply::HistoryPage(_) | CallReply::Sims(_) => Self::Failed,
+            CallReply::Failed
+            | CallReply::HistoryPage(_)
+            | CallReply::Sims(_)
+            | CallReply::Contacts(_) => Self::Failed,
         }
     }
 }

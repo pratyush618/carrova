@@ -7,18 +7,19 @@
 //!
 //! Older peers: a `Dial` without `sim` uses the phone's default SIM, and
 //! an older phone ignores `sim`; it can't answer [`CallCommand::Sims`]
-//! (the lane fails), so the laptop then offers no SIM choice.
+//! (the lane fails), so the laptop then offers no SIM choice. Nor can it
+//! answer [`CallCommand::Contacts`]: the laptop then suggests no contacts.
 
 use std::fmt;
 use std::time::Duration;
 
-use carrova_platform::phone::{AudioSide, CallRecord, CallState, Cursor, Sim};
+use carrova_platform::phone::{AudioSide, CallRecord, CallState, Contact, Cursor, Sim};
 use carrova_transport::Stream;
 use serde::{Deserialize, Serialize};
 
 use crate::LinkError;
 use crate::lane::{FRAME_TIMEOUT, LaneKind};
-use crate::messages::check_sims;
+use crate::messages::{check_contacts, check_sims};
 use crate::reply::{Pending, Responder, request, serve};
 
 /// Most records in one [`CallReply::HistoryPage`].
@@ -29,6 +30,12 @@ const COMMAND_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Longest dialled number or tone string.
 const MAX_NUMBER: usize = 32;
+
+/// Most contacts in one [`CallReply::Contacts`].
+pub const MAX_CONTACTS: usize = 10;
+
+/// Longest contacts search, in bytes.
+const MAX_QUERY: usize = 64;
 
 /// Something the laptop asks of the call. `Debug` hides numbers.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -51,6 +58,12 @@ pub enum CallCommand {
     },
     /// The phone's active SIMs, to choose one to call from.
     Sims,
+    /// Contact numbers whose name or number matches `query` (1 to 64
+    /// bytes, no control characters).
+    Contacts {
+        /// What was typed.
+        query: String,
+    },
     /// One page of the call log, newest first by `(when_ms, id)`, after `before`.
     History {
         /// Page cursor: only entries ordered strictly before this one.
@@ -77,6 +90,7 @@ impl CallCommand {
     fn check(&self) -> Result<(), LinkError> {
         match self {
             Self::Dial { number, .. } | Self::Tones(number) => check_number(number),
+            Self::Contacts { query } => check_query(query),
             _ => Ok(()),
         }
     }
@@ -92,6 +106,7 @@ impl fmt::Debug for CallCommand {
             Self::Dial { .. } => "CallCommand::Dial(..)",
             Self::History { .. } => "CallCommand::History(..)",
             Self::Sims => "CallCommand::Sims",
+            Self::Contacts { .. } => "CallCommand::Contacts(..)",
             Self::Tones(_) => "CallCommand::Tones(..)",
             Self::AudioTo(_) => "CallCommand::AudioTo(..)",
         })
@@ -114,6 +129,9 @@ pub enum CallReply {
     /// The phone's active SIMs, by slot (at most
     /// [`MAX_SIMS`](crate::MAX_SIMS)); empty when it may not read them.
     Sims(Vec<Sim>),
+    /// Contacts matching a search (at most [`MAX_CONTACTS`]); empty when
+    /// it may not read them.
+    Contacts(Vec<Contact>),
 }
 
 impl fmt::Debug for CallReply {
@@ -125,6 +143,7 @@ impl fmt::Debug for CallReply {
             Self::Failed => "CallReply::Failed",
             Self::HistoryPage(_) => "CallReply::HistoryPage(..)",
             Self::Sims(_) => "CallReply::Sims(..)",
+            Self::Contacts(_) => "CallReply::Contacts(..)",
         })
     }
 }
@@ -163,6 +182,12 @@ fn check_number(number: &str) -> Result<(), LinkError> {
     ok.then_some(()).ok_or(LinkError::Protocol("number"))
 }
 
+/// 1 to [`MAX_QUERY`] bytes, no control characters.
+fn check_query(query: &str) -> Result<(), LinkError> {
+    let ok = (1..=MAX_QUERY).contains(&query.len()) && !query.chars().any(char::is_control);
+    ok.then_some(()).ok_or(LinkError::Protocol("query"))
+}
+
 /// Report the phone's call state on a new `Calls` lane; succeeds once the
 /// peer acknowledges it.
 ///
@@ -186,8 +211,9 @@ pub fn send_call_state(
 /// # Errors
 ///
 /// [`LinkError::Protocol`] (`"local"`) for `Tones` and `AudioTo`, which the
-/// laptop answers itself; (`"number"`) for a malformed `Dial` number; (`"history"`) for an oversized history page;
-/// [`LinkError::TooBig`] for an oversized SIM list; otherwise
+/// laptop answers itself; (`"number"`) for a malformed `Dial` number;
+/// (`"query"`) for a malformed `Contacts` search; (`"history"`) for an oversized history page;
+/// [`LinkError::TooBig`] for an oversized SIM or contacts list; otherwise
 /// [`LinkError`] if the lane is refused or the peer is gone or silent.
 pub fn call_command(
     conn: &carrova_transport::Connection,
@@ -206,6 +232,7 @@ pub fn call_command(
             Err(LinkError::Protocol("history"))
         }
         CallReply::Sims(sims) => check_sims(sims).map(|()| reply),
+        CallReply::Contacts(contacts) => check_contacts(contacts, MAX_CONTACTS).map(|()| reply),
         _ => Ok(reply),
     }
 }
@@ -217,7 +244,8 @@ pub fn call_command(
 /// # Errors
 ///
 /// [`LinkError::Protocol`] (`"local"`) for `Tones` and `AudioTo`, which never
-/// cross the wire; (`"number"`) for a malformed `Dial` number; otherwise [`LinkError`] if no well-formed frame arrives in time.
+/// cross the wire; (`"number"`) for a malformed `Dial` number; (`"query"`)
+/// for a malformed `Contacts` search; otherwise [`LinkError`] if no well-formed frame arrives in time.
 pub fn recv_calls(stream: Stream) -> Result<CallIncoming, LinkError> {
     let (frame, pending) = serve(stream)?;
     match frame {

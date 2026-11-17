@@ -8,10 +8,10 @@ mod support;
 use std::thread;
 
 use carrova_link::{
-    AudioSide, CallCommand, CallIncoming, CallReply, HISTORY_PAGE, LaneKind, LinkError, MAX_SIMS,
-    accept_lane, call_command, open_lane, recv_calls, send_call_state,
+    AudioSide, CallCommand, CallIncoming, CallReply, HISTORY_PAGE, LaneKind, LinkError,
+    MAX_CONTACTS, MAX_SIMS, accept_lane, call_command, open_lane, recv_calls, send_call_state,
 };
-use carrova_platform::phone::{CallKind, CallRecord, CallState, Cursor, Sim};
+use carrova_platform::phone::{CallKind, CallRecord, CallState, Contact, Cursor, Sim};
 use support::{Open, T, linked};
 
 #[test]
@@ -270,4 +270,61 @@ fn dial_interoperates_with_older_builds() {
     let got: OldCommand = ciborium::from_reader(cbor(&new).as_slice()).unwrap();
     assert_eq!(got, old);
     assert!(ciborium::from_reader::<OldCommand, _>(cbor(&CallCommand::Sims).as_slice()).is_err());
+}
+
+fn contact() -> Contact {
+    Contact {
+        name: "Hanuman".into(),
+        number: "+91 98765 43210".into(),
+    }
+}
+
+#[test]
+fn contacts_search_roundtrip_hides_what_it_carries() {
+    let search = CallCommand::Contacts {
+        query: "hanu".into(),
+    };
+    let found = CallReply::Contacts(vec![contact()]);
+    let (reply, seen) = command(&search, &found);
+    assert_eq!((reply, seen.clone()), (found.clone(), search));
+    let shown = format!("{seen:?} {found:?}");
+    assert!(
+        !shown.contains("hanu") && !shown.contains("Hanuman") && !shown.contains("98765"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn contacts_search_rejects_empty_long_and_control() {
+    let (a, _b) = linked();
+    for bad in ["", "a\nb", &"a".repeat(65)] {
+        let search = CallCommand::Contacts { query: bad.into() };
+        assert!(matches!(
+            call_command(&a, &search),
+            Err(LinkError::Protocol("query"))
+        ));
+    }
+}
+
+#[test]
+fn oversized_contacts_list_is_refused() {
+    let (a, b) = linked();
+    let got = thread::scope(|s| {
+        s.spawn(|| {
+            let (_, stream) = accept_lane(&b, &Open, T).unwrap();
+            let CallIncoming::Command(_, r) = recv_calls(stream).unwrap() else {
+                panic!("expected a command");
+            };
+            r.reply(&CallReply::Contacts(vec![contact(); MAX_CONTACTS + 1]))
+                .unwrap();
+        });
+        call_command(&a, &CallCommand::Contacts { query: "an".into() })
+    });
+    assert!(matches!(got, Err(LinkError::TooBig { .. })));
+}
+
+#[test]
+fn older_builds_cannot_read_a_contacts_search() {
+    let search = CallCommand::Contacts { query: "an".into() };
+    assert!(ciborium::from_reader::<OldCommand, _>(cbor(&search).as_slice()).is_err());
 }

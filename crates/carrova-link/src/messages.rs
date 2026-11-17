@@ -15,7 +15,7 @@
 use std::fmt;
 use std::time::Duration;
 
-use carrova_platform::phone::{Cursor, SendOutcome, Sim, SmsMessage, SmsThread};
+use carrova_platform::phone::{Contact, Cursor, SendOutcome, Sim, SmsMessage, SmsThread};
 use carrova_transport::Connection;
 use serde::{Deserialize, Serialize};
 
@@ -173,6 +173,14 @@ fn check_request(req: &SmsRequest) -> Result<(), LinkError> {
         }
     }
     Ok(())
+}
+
+/// Check a contacts list against `max` entries and the name limit.
+pub(crate) fn check_contacts(contacts: &[Contact], max: usize) -> Result<(), LinkError> {
+    cap(contacts.len(), max)?;
+    contacts
+        .iter()
+        .try_for_each(|c| cap(c.name.len().max(c.number.len()), MAX_NAME))
 }
 
 /// Check a SIM list against [`MAX_SIMS`] and the name limit.
