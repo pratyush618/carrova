@@ -174,17 +174,19 @@ impl Mirror {
         }
     }
 
-    /// Keep `note` (replacing one of its key); it pops up unless it is
-    /// already here unchanged (a note in a snapshot may also arrive
-    /// posted) or its app popped up within [`POP_EVERY`].
+    /// Keep `note` (replacing one of its key); it pops up unless its title
+    /// and text already showed under its key (a snapshot note arriving
+    /// posted too, or the app re-posting it, as after a reply) or its app
+    /// popped up within [`POP_EVERY`].
     fn posted(&mut self, note: Note, now: Instant) -> Option<Note> {
-        if self.notes.contains(&note) {
-            return None;
-        }
+        let seen = self
+            .notes
+            .iter()
+            .any(|n| n.key == note.key && n.title == note.title && n.text == note.text);
         self.notes.retain(|n| n.key != note.key);
         self.notes.insert(0, note.clone());
         self.notes.truncate(MAX_SNAPSHOT);
-        self.pop(&note.app_id, now).then_some(note)
+        (!seen && self.pop(&note.app_id, now)).then_some(note)
     }
 
     /// Replace every note with `notes` (newest first). The first snapshot

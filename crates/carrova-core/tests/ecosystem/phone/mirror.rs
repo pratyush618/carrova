@@ -214,6 +214,47 @@ fn note_in_snapshot_and_posted_pops_once() {
 }
 
 #[test]
+fn repost_pops_only_when_its_content_changed() {
+    let (phone, _sp, laptop, sl) = linked(&[NOTES], |p| {
+        p.platform.phone().notes = vec![note("k1", "org.example.chat")];
+    });
+    laptop.platform.inner.set_screen_lock(ScreenLock::Unlocked);
+    wait_watching(&phone);
+    wait_notes(&sl, &phone, 1);
+
+    // The app re-posts it after a reply: new post time, same words.
+    let reposted = Note {
+        when_ms: 2,
+        can_reply: false,
+        ..note("k1", "org.example.chat")
+    };
+    phone
+        .platform
+        .script_event(PhoneEvent::NotePosted(reposted));
+    let marker = note("k2", "org.example.mail");
+    phone.platform.script_event(PhoneEvent::NotePosted(marker));
+    laptop.wait("the marker's pop-up", |e| {
+        matches!(e, Event::PhoneNote { .. })
+    });
+    assert_eq!(
+        sl.notes(&phone.id).unwrap()[1].when_ms,
+        2,
+        "kept the re-post"
+    );
+
+    // A new message in the same conversation does pop up.
+    let newer = Note {
+        text: "running late".into(),
+        when_ms: 3,
+        ..note("k1", "org.example.chat")
+    };
+    phone.platform.script_event(PhoneEvent::NotePosted(newer));
+    wait_until("the new message's pop-up", || popped(&laptop).len() == 2);
+    let keys: Vec<String> = popped(&laptop).into_iter().map(|n| n.key).collect();
+    assert_eq!(keys, ["k2", "k1"]);
+}
+
+#[test]
 fn reconnect_does_not_pop_again() {
     let (phone, sp, laptop, sl) = linked(&[NOTES], |p| {
         p.platform.phone().notes = vec![note("k1", "org.example.chat")];
