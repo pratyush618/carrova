@@ -50,7 +50,7 @@ if-addrs = "0.15"
 hkdf = "0.13.0"
 hmac = "0.13.0"
 # Android JNI bridge (carrova-platform only); 0.21 as Tauri/tao/wry use (ADR 0003).
-jni = "0.22.4"
+jni = "0.21.1"
 jsonschema = { version = "0.61", default-features = false }
 # Windows Known Folder API (semantic roots), safe wrapper (carrova-platform only).
 known-folders = "1.4.2"
