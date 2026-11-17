@@ -66,6 +66,7 @@ describe('the Tauri port', () => {
     await port.installCallAudio();
     await port.setCallAudioConfig(false);
     await port.phonePermStep('sms');
+    await port.requestPhonePerm('calls');
     await port.openPermSettings('notification_access');
     expect(calls).toEqual([
       ['phone_notes', { id: 'p8' }],
@@ -88,6 +89,7 @@ describe('the Tauri port', () => {
       ['install_call_audio', {}],
       ['set_call_audio_config', { on: false }],
       ['phone_perm_step', { perm: 'sms' }],
+      ['request_phone_perm', { perm: 'calls' }],
       ['open_perm_settings', { perm: 'notification_access' }],
     ]);
   });

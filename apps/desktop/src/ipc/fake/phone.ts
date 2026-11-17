@@ -39,6 +39,7 @@ type PhonePort = Pick<
   | 'installCallAudio'
   | 'setCallAudioConfig'
   | 'phonePermStep'
+  | 'requestPhonePerm'
   | 'openPermSettings'
   | 'notifyApps'
   | 'setNotifyApp'
@@ -212,6 +213,8 @@ export function fakePhone(): PhonePort {
     show_text: true,
   };
   let keep: SyncWindow = 'days30';
+  // Android's dialog, answered yes.
+  const granted = new Set<PhonePerm>();
   let installed = false;
   let configured = false;
   const step = (): CallSetupStep => (installed && configured ? 'pair' : 'install');
@@ -242,7 +245,12 @@ export function fakePhone(): PhonePort {
       later(() => {
         configured = on;
       }),
-    phonePermStep: (perm) => later(() => permStep(perm)),
+    phonePermStep: (perm) => later(() => (granted.has(perm) ? 'ok' : permStep(perm))),
+    requestPhonePerm: (perm) =>
+      later((): PermStep => {
+        granted.add(perm);
+        return 'ok';
+      }),
     openPermSettings: () => later(() => undefined),
     notifyApps: () => later(() => apps),
     setNotifyApp: (appId, on) =>

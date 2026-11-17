@@ -319,6 +319,8 @@ export interface CarrovaPort {
   setCallAudioConfig(on: boolean): Promise<void>;
   /** On the phone: the step to show for permission `perm`. */
   phonePermStep(perm: PhonePerm): Promise<PermStep>;
+  /** On the phone: ask for `perm` with Android's own dialog; the step it needs after the answer. */
+  requestPhonePerm(perm: PhonePerm): Promise<PermStep>;
   /** On the phone: open the settings page that grants `perm`. */
   openPermSettings(perm: PhonePerm): Promise<void>;
   /** On the phone: which apps' notifications reach the linked computers, and the two filters. */

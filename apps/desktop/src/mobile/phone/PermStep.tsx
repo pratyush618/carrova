@@ -7,17 +7,22 @@ import { PhonePage } from '../PhonePage';
 /**
  * The step one Android permission needs before a feature works: "Allow
  * restricted settings" (App info › ⋮), notification access (its own
- * settings page), or a runtime permission (granted in App info). Each
- * button opens that page; the app checks again on return.
+ * settings page), or a runtime permission (Android's own dialog; App
+ * info once that was `refused`). Each button opens that dialog or page;
+ * the app checks again after.
  */
 export function PermStep({
   perm,
   step,
+  refused,
+  onAllow,
   onOpen,
   onBack,
 }: {
   readonly perm: PhonePerm;
   readonly step: Exclude<Step, 'ok'>;
+  readonly refused: boolean;
+  readonly onAllow: () => void;
   readonly onOpen: () => void;
   readonly onBack: () => void;
 }) {
@@ -66,8 +71,16 @@ export function PermStep({
       return (
         <PhonePage title={t(`mobile.perm.ask.${perm}`)} onBack={onBack}>
           <p>{t(`mobile.perm.ask.why.${perm}`)}</p>
-          <p className="m-note">{t('mobile.perm.ask.how')}</p>
-          {open(t('mobile.perm.ask.open'))}
+          {refused ? (
+            <>
+              <p className="m-note">{t('mobile.perm.ask.how')}</p>
+              {open(t('mobile.perm.ask.open'))}
+            </>
+          ) : (
+            <Button kind="primary" size="lg" onClick={onAllow}>
+              {t('mobile.perm.ask.allow')}
+            </Button>
+          )}
         </PhonePage>
       );
   }

@@ -223,6 +223,8 @@ export function PhoneApp() {
             <PermStep
               perm={gate.asking.perm}
               step={gate.asking.step}
+              refused={gate.refused}
+              onAllow={gate.allow}
               onOpen={gate.open}
               onBack={gate.close}
             />

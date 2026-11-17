@@ -96,6 +96,7 @@ export const mobile = {
         battery: 'So the link stays up while Carrova is closed.',
       },
       how: "Android opens Carrova's App info: tap Permissions and allow it there.",
+      allow: 'Allow',
       open: 'Open App info',
     },
   },

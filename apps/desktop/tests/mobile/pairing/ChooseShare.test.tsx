@@ -4,11 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderPhone, scanToLinked } from '../../support/phone';
 
 describe('Choose what to share asks for permissions', () => {
-  it('turning_on_messages_asks_sms_perm', async () => {
+  it('turning_on_messages_asks_android_for_sms', async () => {
     const user = userEvent.setup();
     const { port } = await renderPhone();
     const step = vi.spyOn(port, 'phonePermStep');
-    const open = vi.spyOn(port, 'openPermSettings');
+    const request = vi.spyOn(port, 'requestPhonePerm');
     await scanToLinked(user);
     await user.click(screen.getByRole('button', { name: 'Choose what to share' }));
     expect(step).not.toHaveBeenCalledWith('sms');
@@ -22,11 +22,60 @@ describe('Choose what to share asks for permissions', () => {
       }),
     ).toBeInTheDocument();
     expect(step).toHaveBeenCalledWith('sms');
-    await user.click(screen.getByRole('button', { name: 'Open App info' }));
+    expect(screen.queryByRole('button', { name: 'Open App info' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Allow' }));
+    expect(request).toHaveBeenCalledWith('sms');
+    // Granted: the SMS step closes and contacts, the next one, is asked.
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Allow Carrova to see your contacts?' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /SMS messages/ })).toBeNull();
+  });
+
+  it('a refused request offers App info', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderPhone();
+    vi.spyOn(port, 'requestPhonePerm').mockResolvedValue('ask');
+    const open = vi.spyOn(port, 'openPermSettings');
+    await scanToLinked(user);
+    await user.click(screen.getByRole('button', { name: 'Choose what to share' }));
+    await user.click(await screen.findByRole('switch', { name: 'Messages' }));
+
+    await user.click(await screen.findByRole('button', { name: 'Allow' }));
+
+    await user.click(await screen.findByRole('button', { name: 'Open App info' }));
     expect(open).toHaveBeenCalledWith('sms');
+    expect(screen.getByText(/tap Permissions and allow it there/)).toBeVisible();
     // Back keeps the choice made.
     await user.click(screen.getByRole('button', { name: 'Back' }));
     expect(await screen.findByRole('switch', { name: 'Messages' })).toBeChecked();
+  });
+
+  it('calls then contacts are asked one after the other', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderPhone();
+    const request = vi.spyOn(port, 'requestPhonePerm');
+    await scanToLinked(user);
+    await user.click(screen.getByRole('button', { name: 'Choose what to share' }));
+    await user.click(await screen.findByRole('switch', { name: 'Calls' }));
+
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Allow Carrova to make and manage phone calls?',
+      }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Allow' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Allow Carrova to see your contacts?' }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Allow' }));
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Choose what to share' }),
+    ).toBeVisible();
+    expect(screen.getByRole('switch', { name: 'Calls' })).toBeChecked();
+    expect(request.mock.calls).toEqual([['calls'], ['contacts']]);
   });
 
   it('restricted_shows_app_info_button', async () => {

@@ -326,6 +326,8 @@ describe('the fake port, a linked phone', () => {
     const { port } = await fake();
     await expect(port.phonePermStep('sms')).resolves.toBe('ask');
     await expect(port.phonePermStep('notification_access')).resolves.toBe('open_settings');
+    await expect(port.requestPhonePerm('sms')).resolves.toBe('ok');
+    await expect(port.phonePermStep('sms')).resolves.toBe('ok');
   });
 });
 
