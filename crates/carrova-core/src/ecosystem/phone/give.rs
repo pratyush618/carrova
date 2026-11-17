@@ -267,10 +267,13 @@ impl Giver<'_> {
     }
 
     /// Whether the phone holds the access `feature` needs; if not, tell
-    /// `targets` (unreadable: assumed held, as before access was known).
+    /// `targets` (unreadable: a known denial stands, else assumed held, as
+    /// before access was known).
     fn has_access(&mut self, targets: &Targets, feature: Feature) -> bool {
-        if self.access(feature) {
-            return true;
+        match self.access(feature) {
+            Some(true) => return true,
+            None if !self.missing.contains(&feature) => return true,
+            _ => {}
         }
         if !self.missing.contains(&feature) {
             self.missing.push(feature);
@@ -288,7 +291,8 @@ impl Giver<'_> {
             if targets.is_empty() {
                 continue;
             }
-            if self.access(feature) {
+            // Unreadable: the denial stands until access is seen granted.
+            if self.access(feature) == Some(true) {
                 tracing::debug!(?feature, "phone access granted");
                 tell_access(&targets, feature, true);
             } else {
@@ -297,10 +301,12 @@ impl Giver<'_> {
         }
     }
 
-    fn access(&self, feature: Feature) -> bool {
+    /// Whether the phone holds the access `feature` needs (`None`: unreadable).
+    fn access(&self, feature: Feature) -> Option<bool> {
         self.platform()
             .phone_perm(perm(feature))
-            .map_or(true, |state| state == PermState::Granted)
+            .ok()
+            .map(|state| state == PermState::Granted)
     }
 
     /// `notes` as they may leave the phone (none if the app list is

@@ -731,6 +731,29 @@ fn missing_sms_access_reported_until_granted() {
 }
 
 #[test]
+fn unreadable_access_keeps_a_known_denial() {
+    let (phone, _sp, laptop) =
+        phone_and_laptop(&[NOTES], &[NOTES], without(PhonePerm::NotificationAccess));
+    laptop.wait_got(1);
+
+    phone.platform.phone().perms_fail = true;
+    // Several rechecks (ticks of 50 ms) pass without a report.
+    thread::sleep(std::time::Duration::from_millis(300));
+    assert_eq!(
+        laptop.got(),
+        [Got::Notify(NotifyMsg::Access { granted: false })]
+    );
+
+    let mut p = phone.platform.phone();
+    (p.perms_fail, p.perms) = (false, Vec::new());
+    drop(p);
+    assert_eq!(
+        laptop.wait_got(2)[1],
+        Got::Notify(NotifyMsg::Access { granted: true })
+    );
+}
+
+#[test]
 fn remind_asks_the_phone() {
     let (phone, _sp, laptop) = phone_and_laptop(&[NOTES, SMS], &[NOTES, SMS], |_| {});
 
