@@ -7,6 +7,7 @@ mod calls;
 mod messages;
 mod notes;
 mod setup;
+mod sims;
 
 use carrova_view::phone::LocalClock;
 

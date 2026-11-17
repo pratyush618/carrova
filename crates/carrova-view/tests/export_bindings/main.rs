@@ -52,8 +52,8 @@ use carrova_view::lan::{CodeView, InventoryView, NearbyPeer, PauseView, SummaryV
 use carrova_view::offer::OfferedItem;
 use carrova_view::phone::{
     CallLogGroup, CallLogView, CallRow, CallSetupStep, CallWindowView, Caller, LocalClock,
-    MessageRow, NoteView, NotesView, NotifyAppRow, NotifyAppsView, PermStep, ThreadRow, ThreadView,
-    ThreadsView,
+    MessageRow, NoteView, NotesView, NotifyAppRow, NotifyAppsView, PermStep, SimChoice, ThreadRow,
+    ThreadView, ThreadsView,
 };
 use carrova_view::plan::{PlanView, SpaceView};
 use carrova_view::selection::SelectionView;
@@ -178,6 +178,7 @@ fn export_typescript_bindings() {
         PermStep::export_all,
         NotifyAppsView::export_all,
         NotifyAppRow::export_all,
+        SimChoice::export_all,
         // Desktop IPC contract.
         BridgeEvent::export_all,
         BridgeError::export_all,

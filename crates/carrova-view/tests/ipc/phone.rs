@@ -44,6 +44,14 @@ fn call_actions_become_call_commands() {
             r#"{"kind":"dial","number":"+15550142"}"#,
             CallCommand::Dial {
                 number: "+15550142".to_owned(),
+                sim: None,
+            },
+        ),
+        (
+            r#"{"kind":"dial","number":"+15550142","sim":5}"#,
+            CallCommand::Dial {
+                number: "+15550142".to_owned(),
+                sim: Some(5),
             },
         ),
         (

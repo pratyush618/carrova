@@ -12,7 +12,12 @@ on: boolean, } | { "kind": "dial",
 /**
  * Number to call.
  */
-number: string, } | { "kind": "tones", 
+number: string, 
+/**
+ * The SIM to call from ([`SimChoice::id`](crate::phone::SimChoice::id));
+ * `null`: the phone's default.
+ */
+sim: number | null, } | { "kind": "tones", 
 /**
  * Keys pressed.
  */

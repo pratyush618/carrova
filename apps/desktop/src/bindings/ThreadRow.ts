@@ -31,4 +31,9 @@ days_ago: number,
 /**
  * Unread messages.
  */
-unread: number, };
+unread: number, 
+/**
+ * The SIM ([`SimChoice::id`](super::SimChoice::id)) its latest message
+ * used, when the phone knows it: a reply goes from it by default.
+ */
+sim: number | null, };

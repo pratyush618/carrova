@@ -87,6 +87,9 @@ pub enum CallAction {
     Dial {
         /// Number to call.
         number: String,
+        /// The SIM to call from ([`SimChoice::id`](crate::phone::SimChoice::id));
+        /// `null`: the phone's default.
+        sim: Option<i32>,
     },
     /// Send keypad tones (as `Dial`), through this computer's call audio.
     Tones {
@@ -109,7 +112,7 @@ impl From<CallAction> for CallCommand {
             CallAction::Decline => Self::Decline,
             CallAction::End => Self::End,
             CallAction::Mute { on } => Self::Mute(on),
-            CallAction::Dial { number } => Self::Dial { number },
+            CallAction::Dial { number, sim } => Self::Dial { number, sim },
             CallAction::Tones { digits } => Self::Tones(digits),
             CallAction::AudioTo { side } => Self::AudioTo(side),
         }
@@ -132,14 +135,14 @@ pub enum CallOutcome {
 }
 
 impl From<CallReply> for CallOutcome {
-    /// The outcome of an action's `reply`; a history page answers no
-    /// action, so it reads as failed.
+    /// The outcome of an action's `reply`; a history page or SIM list
+    /// answers no action, so it reads as failed.
     fn from(reply: CallReply) -> Self {
         match reply {
             CallReply::Done => Self::Done,
             CallReply::NotRinging => Self::NotRinging,
             CallReply::NoCall => Self::NoCall,
-            CallReply::Failed | CallReply::HistoryPage(_) => Self::Failed,
+            CallReply::Failed | CallReply::HistoryPage(_) | CallReply::Sims(_) => Self::Failed,
         }
     }
 }

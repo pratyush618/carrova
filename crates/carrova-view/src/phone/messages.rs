@@ -31,6 +31,9 @@ pub struct ThreadRow {
     pub days_ago: u32,
     /// Unread messages.
     pub unread: u32,
+    /// The SIM ([`SimChoice::id`](super::SimChoice::id)) its latest message
+    /// used, when the phone knows it: a reply goes from it by default.
+    pub sim: Option<i32>,
 }
 
 /// A page of conversations, newest first.
@@ -119,6 +122,7 @@ fn thread_row(thread: &SmsThread, incoming: &[SmsMessage], clock: LocalClock) ->
         unread: thread
             .unread
             .saturating_add(u32::try_from(unread).unwrap_or(u32::MAX)),
+        sim: thread.sim,
     }
 }
 

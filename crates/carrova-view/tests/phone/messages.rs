@@ -12,6 +12,7 @@ fn thread(id: i64, when_ms: i64) -> SmsThread {
         snippet: "old".to_owned(),
         when_ms,
         unread: 0,
+        sim: Some(5),
     }
 }
 
@@ -35,6 +36,7 @@ fn thread_rows_count_calendar_days_back() {
     let view = threads_view(&threads, &[], utc_noon());
     let days: Vec<u32> = view.threads.iter().map(|t| t.days_ago).collect();
     assert_eq!(days, [0, 1, 3]);
+    assert!(view.threads.iter().all(|t| t.sim == Some(5)));
 }
 
 #[test]

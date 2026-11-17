@@ -27,4 +27,10 @@ when_ms: number,
 /**
  * Unread messages.
  */
-unread: number, };
+unread: number, 
+/**
+ * Subscription id of its latest message ([`Sim::id`]); `None` when
+ * the phone doesn't know it (some OEM builds and restored backups
+ * store none) or is older than this field.
+ */
+sim: number | null, };

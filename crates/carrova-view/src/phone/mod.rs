@@ -1,6 +1,6 @@
 //! Presentation models of what a linked phone shows this computer:
-//! notifications, SMS, calls, the call-audio setup and the phone's
-//! permission steps; and the phone's own per-app notification list.
+//! notifications, SMS, calls, the SIMs to use, the call-audio setup and
+//! the phone's permission steps; and the phone's own per-app notification list.
 //! Pure: they return structured data (days back, steps, flags); the
 //! front-ends pick the words in their own language.
 //!
@@ -12,6 +12,7 @@ mod calls;
 mod messages;
 mod notes;
 mod setup;
+mod sims;
 
 use serde::Deserialize;
 
@@ -23,6 +24,7 @@ pub use calls::{
 pub use messages::{MessageRow, ThreadRow, ThreadView, ThreadsView, thread_view, threads_view};
 pub use notes::{NoteView, NotesView, notes_view, withheld_while_locked};
 pub use setup::{CallSetupStep, PermStep, call_audio_view, perm_view};
+pub use sims::{SimChoice, sim_choices};
 
 /// Milliseconds in a day.
 const DAY_MS: i64 = 86_400_000;
