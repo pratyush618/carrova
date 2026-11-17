@@ -26,20 +26,39 @@ object Perms {
     /** Status of permission [name]. */
     @JvmStatic
     fun state(context: Context, name: String): String {
-        val granted = if (name == "notification_access") {
-            NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
-        } else if (name == "battery") {
-            context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
-        } else {
-            runtime(name).all {
-                ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-            }
-        }
-        return when {
-            granted -> "granted"
-            restrictable(name) && restricted(context) -> "restricted"
-            else -> "denied"
-        }
+        val perms = runtime(name) // rejects unknown names
+        return stateOf(
+            granted = {
+                if (name == "notification_access") {
+                    NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+                } else if (name == "battery") {
+                    context.getSystemService(PowerManager::class.java)
+                        .isIgnoringBatteryOptimizations(context.packageName)
+                } else {
+                    perms.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
+                }
+            },
+            restricted = { restrictable(name) && restricted(context) },
+        )
+    }
+
+    /**
+     * `granted`, `restricted` or `denied`. A check this Android hides from
+     * apps (some OEM builds throw SecurityException) or doesn't know reads
+     * as no, so the user still gets a step that opens the settings page.
+     */
+    internal fun stateOf(granted: () -> Boolean, restricted: () -> Boolean): String = when {
+        answers(granted) -> "granted"
+        answers(restricted) -> "restricted"
+        else -> "denied"
+    }
+
+    private fun answers(check: () -> Boolean): Boolean = try {
+        check()
+    } catch (e: SecurityException) {
+        false
+    } catch (e: IllegalArgumentException) {
+        false
     }
 
     /** Open the settings page where [name] is granted (App info while restricted). */
@@ -79,7 +98,7 @@ object Perms {
 
     private fun settings(context: Context, name: String): Intent {
         runtime(name) // rejects unknown names
-        val intent = if (name == "notification_access" && !restricted(context)) {
+        val intent = if (name == "notification_access" && !answers { restricted(context) }) {
             Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
         } else if (name == "battery") {
             // Android's own "Let app always run in background?" dialog.
@@ -111,12 +130,8 @@ object Perms {
     @Suppress("DEPRECATION")
     private fun restricted(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < 33) return false
-        return try {
-            val ops = context.getSystemService(AppOpsManager::class.java)
-            ops.unsafeCheckOpNoThrow("android:access_restricted_settings", Process.myUid(), context.packageName) !=
-                AppOpsManager.MODE_ALLOWED
-        } catch (e: IllegalArgumentException) {
-            false // op unknown to this Android
-        }
+        val ops = context.getSystemService(AppOpsManager::class.java)
+        return ops.unsafeCheckOpNoThrow("android:access_restricted_settings", Process.myUid(), context.packageName) !=
+            AppOpsManager.MODE_ALLOWED
     }
 }
