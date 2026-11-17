@@ -68,9 +68,10 @@ object Perms {
      */
     @JvmStatic
     fun request(context: Context, name: String): String {
-        val perms = runtime(name) // rejects unknown names
+        val perms = asked(name, Sims.modems(context)) // rejects unknown names
         require(name != "notification_access" && name != "battery") { "not a runtime permission" }
-        if (state(context, name) == "granted") return "granted"
+        val held = perms.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
+        if (held && state(context, name) == "granted") return "granted"
         val latch = checkNotNull(PermRequest.begin()) { "a permission request is open" }
         try {
             context.startActivity(
@@ -83,6 +84,16 @@ object Perms {
             PermRequest.end(latch)
         }
         return state(context, name)
+    }
+
+    /**
+     * What asking for [name] requests: its permissions, and for texts on a phone with more than
+     * one modem also phone state, to list its SIMs and choose one (calls hold it already). Never
+     * part of [state]: without it texts go from the default SIM.
+     */
+    internal fun asked(name: String, modems: Int): Array<String> {
+        val perms = runtime(name)
+        return if (name == "sms" && modems > 1) perms + Manifest.permission.READ_PHONE_STATE else perms
     }
 
     /** A forgotten dialog gives up after this long. */

@@ -10,7 +10,6 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.net.Uri
-import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.provider.ContactsContract
@@ -120,7 +119,10 @@ object Sms {
 
         val seen = HashSet<Long>()
         val found = ArrayList<JSONObject>()
-        val projection = arrayOf(Telephony.Sms.THREAD_ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE)
+        val projection = arrayOf(
+            Telephony.Sms.THREAD_ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE,
+            Telephony.Sms.SUBSCRIPTION_ID,
+        )
         context.contentResolver.query(
             Telephony.Sms.CONTENT_URI, projection,
             "${Telephony.Sms.DATE} > ? AND $NOT_DRAFT", arrayOf(sinceMs.toString()), NEWEST_FIRST,
@@ -140,6 +142,8 @@ object Sms {
                     .put("snippet", c.getString(2) ?: "")
                     .put("when_ms", date)
                     .put("unread", unread[thread] ?: 0)
+                    // The latest message's SIM; below 0 when the provider can't tell (old or restored rows).
+                    .put("sim", c.getInt(4).takeIf { it >= 0 } ?: JSONObject.NULL)
             }
         }
         found.sortWith(compareByDescending<JSONObject> { it.getLong("when_ms") }.thenByDescending { it.getLong("id") })
@@ -173,17 +177,13 @@ object Sms {
     }
 
     /**
-     * Send [text] to [to]; waits for the radio: `sent`, `no_signal`, `failed`,
-     * or `unknown` when it may have gone (no answer in time, or only some parts sent).
+     * Send [text] to [to] from subscription [sub] (-1: the default SIM); waits for the radio:
+     * `sent`, `no_signal`, `failed`, or `unknown` when it may have gone (no answer in time, or
+     * only some parts sent).
      */
     @JvmStatic
-    fun send(context: Context, to: String, text: String): String {
-        val sms = if (Build.VERSION.SDK_INT >= 31) {
-            context.getSystemService(SmsManager::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            SmsManager.getDefault()
-        }
+    fun send(context: Context, to: String, text: String, sub: Int): String {
+        val sms = Sims.smsManager(context, sub)
         val parts = sms.divideMessage(text)
         val action = "${context.packageName}.SMS_SENT.${UUID.randomUUID()}"
         val done = CountDownLatch(parts.size)

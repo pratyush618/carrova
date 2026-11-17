@@ -91,9 +91,12 @@ object Calls {
         audio(context).isMicrophoneMute = on
     }
 
+    /** Call [number] from subscription [sub] (-1: the default SIM). */
     @JvmStatic
-    fun dial(context: Context, number: String) {
-        telecom(context).placeCall(Uri.fromParts("tel", number, null), Bundle())
+    fun dial(context: Context, number: String, sub: Int) {
+        val extras = Bundle()
+        Sims.account(context, sub)?.let { extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
+        telecom(context).placeCall(Uri.fromParts("tel", number, null), extras)
     }
 
     @JvmStatic
