@@ -10,6 +10,7 @@ fn idle() -> TrayModel {
         moving: false,
         visible_to: VisibilityChoice::Known,
         nearby_count: None,
+        call: None,
     }
 }
 
@@ -101,6 +102,34 @@ fn tray_menu_leads_with_a_running_move() {
     assert_eq!(menu[0].label, "Moving files…");
     assert!(!menu[0].enabled, "a status line, not an action");
     assert!(menu[1].enabled && menu[1].separated);
+}
+
+/// A call leads, without the caller (the menu is visible to every
+/// session program over D-Bus), and the rest stands apart from it.
+#[test]
+fn tray_menu_leads_with_a_running_call() {
+    let model = |muted| TrayModel {
+        moving: true,
+        call: Some(TrayCall { muted }),
+        ..idle()
+    };
+    let menu = tray_menu(&model(false));
+    let lines: Vec<_> = menu
+        .iter()
+        .take(4)
+        .map(|i| (i.id, i.label.as_str(), i.enabled, i.separated))
+        .collect();
+    assert_eq!(
+        lines,
+        [
+            ("call", "On a call", false, false),
+            ("call_mute", "Mute", true, false),
+            ("call_end", "End", true, false),
+            ("moving", "Moving files…", false, true),
+        ]
+    );
+    assert_eq!(item(&model(true), "call_mute").label, "Unmute");
+    assert!(!ids(&idle()).contains(&"call"));
 }
 
 fn item(model: &TrayModel, id: &str) -> TrayItem {

@@ -2,7 +2,7 @@
 //! call, opened when one rings here (the engine's `ring_here`) or runs,
 //! and closed by its own UI once the call is over. The last `call_view`
 //! is kept so a window opened mid-call, or the main window reopened, starts
-//! from it ([`call_now`]), and so the tray can show the call. Plumbing
+//! from it ([`call_now`]), and so the tray can offer Mute and End. Plumbing
 //! only: what a call shows comes from the engine's events.
 
 use std::fmt;
@@ -23,25 +23,17 @@ mod tests;
 /// The call window's label (the UI renders the call alone in it).
 pub const CALL_WINDOW: &str = "call";
 
-/// The last call the engine showed, and who rang (kept for the tray).
+/// The last call the engine showed (kept for the tray).
 #[derive(Default)]
-pub struct LastCall(Mutex<Shown>);
+pub struct LastCall(Mutex<Option<CallView>>);
 
-#[derive(Default)]
-struct Shown {
-    view: Option<CallView>,
-    /// The caller's name, else number, from the ringing (memory only).
-    who: Option<String>,
-}
-
-/// The running call as the tray shows it.
-pub struct TrayCall {
+/// The running call, for the tray's Mute and End.
+#[derive(Debug)]
+pub struct RunningCall {
     /// The phone on the call.
     pub device: DeviceId,
     /// Its microphone is muted.
     pub muted: bool,
-    /// Who rang, if it rang here.
-    pub who: Option<String>,
 }
 
 // The caller stays out of `Debug` (never logged).
@@ -51,42 +43,20 @@ impl fmt::Debug for LastCall {
     }
 }
 
-impl fmt::Debug for TrayCall {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TrayCall")
-            .field("device", &self.device)
-            .field("muted", &self.muted)
-            .finish_non_exhaustive()
-    }
-}
-
 impl LastCall {
     fn take(&self, view: CallView) {
-        let mut shown = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        match &view {
-            CallView::Ringing { number, name, .. } | CallView::Missed { number, name, .. } => {
-                shown.who = Some(name.clone().unwrap_or_else(|| number.clone()));
-            }
-            CallView::None | CallView::Left { .. } => shown.who = None,
-            CallView::Active { .. } => {}
-        }
-        shown.view = Some(view);
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = Some(view);
     }
 
     fn view(&self) -> CallView {
         let shown = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        shown.view.clone().unwrap_or(CallView::None)
+        shown.clone().unwrap_or(CallView::None)
     }
 
     /// The running call, if one runs.
-    pub fn running(&self) -> Option<TrayCall> {
-        let shown = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        match &shown.view {
-            Some(CallView::Active { device, muted, .. }) => Some(TrayCall {
-                device: *device,
-                muted: *muted,
-                who: shown.who.clone(),
-            }),
+    pub fn running(&self) -> Option<RunningCall> {
+        match *self.0.lock().unwrap_or_else(PoisonError::into_inner) {
+            Some(CallView::Active { device, muted, .. }) => Some(RunningCall { device, muted }),
             _ => None,
         }
     }

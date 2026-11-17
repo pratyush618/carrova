@@ -51,7 +51,7 @@ fn opens_for_a_call_ringing_here_or_running_only() {
 }
 
 #[test]
-fn the_tray_names_the_caller_of_the_running_call() {
+fn the_tray_follows_the_running_call() {
     let last = LastCall::default();
     assert!(last.running().is_none());
     last.take(
@@ -66,9 +66,7 @@ fn the_tray_names_the_caller_of_the_running_call() {
         )))
         .unwrap(),
     );
-    let call = last.running().unwrap();
-    assert!(call.muted);
-    assert_eq!(call.who.as_deref(), Some("Sam"));
+    assert!(last.running().unwrap().muted);
     last.take(CallView::None);
     assert!(last.running().is_none());
 }

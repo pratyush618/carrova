@@ -27,6 +27,16 @@ pub struct TrayModel {
     pub visible_to: VisibilityChoice,
     /// Devices found nearby by the last look; `None` if not looked yet.
     pub nearby_count: Option<u32>,
+    /// A linked phone's call in progress.
+    pub call: Option<TrayCall>,
+}
+
+/// A call in progress, as the tray shows it: never who is on it (the
+/// menu is exported over D-Bus to every program in the session).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TrayCall {
+    /// Its microphone is muted.
+    pub muted: bool,
 }
 
 /// A computer asking to send you files.
@@ -39,7 +49,8 @@ pub struct TrayRequest {
 /// One tray menu item.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrayItem {
-    /// Stable id the front-end dispatches on: `moving` (a status line),
+    /// Stable id the front-end dispatches on: `call` (a status line),
+    /// `call_mute`, `call_end`, `moving` (a status line),
     /// `review`, `decline`, `open`, `send`, `nearby`, `pause`,
     /// `visibility` (a submenu of the [`VISIBILITY_ITEMS`] ids), `quit`.
     pub id: &'static str,
@@ -83,8 +94,8 @@ pub fn tray_visibility(id: &str) -> Option<VisibilityChoice> {
         .map(|(choice, _)| *choice)
 }
 
-/// The tray menu: a running move's status line, the waiting request, then
-/// the everyday items.
+/// The tray menu: a running call, a running move's status line, the
+/// waiting request, then the everyday items.
 #[must_use]
 pub fn tray_menu(model: &TrayModel) -> Vec<TrayItem> {
     let item = |id, label: &str, separated| TrayItem {
@@ -96,10 +107,21 @@ pub fn tray_menu(model: &TrayModel) -> Vec<TrayItem> {
         children: Vec::new(),
     };
     let mut menu = Vec::new();
+    if let Some(call) = model.call {
+        let mute = if call.muted { "Unmute" } else { "Mute" };
+        menu.extend([
+            TrayItem {
+                enabled: false,
+                ..item("call", "On a call", false)
+            },
+            item("call_mute", mute, false),
+            item("call_end", "End", false),
+        ]);
+    }
     if model.moving {
         menu.push(TrayItem {
             enabled: false,
-            ..item("moving", "Moving files…", false)
+            ..item("moving", "Moving files…", !menu.is_empty())
         });
     }
     if let Some(request) = &model.request {

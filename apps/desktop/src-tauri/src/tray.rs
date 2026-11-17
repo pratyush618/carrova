@@ -24,7 +24,7 @@ use carrova_view::ipc::CallAction;
 use carrova_view::ipc::EVENT_CHANNEL;
 use carrova_view::notice::POPUP_TITLE;
 use carrova_view::tray::{
-    CloseAction, TrayItem, TrayModel, tray_menu, tray_tooltip, tray_visibility,
+    CloseAction, TrayCall, TrayItem, TrayModel, tray_menu, tray_tooltip, tray_visibility,
 };
 use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
@@ -50,10 +50,6 @@ const CLIP_ITEM: &str = "clip:";
 
 /// Id prefix of a "Ring <device>" item, before the device's id.
 const RING_ITEM: &str = "ring:";
-
-/// Ids of the running call's Mute (or Unmute) and End items.
-const CALL_MUTE: &str = "call_mute";
-const CALL_END: &str = "call_end";
 
 /// Whether the tray icon shows, whether its menu says a move runs, and how
 /// many devices it last found nearby. It is built once, then only hidden:
@@ -375,13 +371,17 @@ fn follow_visibility(app: &AppHandle, state: &AppState) -> Option<DirWatch> {
         .ok()
 }
 
-/// Show `model` in the tray, with the tray's own nearby count.
+/// Show `model` in the tray, with the tray's own nearby count and call.
 fn set_menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<()> {
     let flags = tray_flags(app);
     let model = &TrayModel {
         nearby_count: flags
             .as_ref()
             .and_then(|f| *f.nearby.lock().unwrap_or_else(PoisonError::into_inner)),
+        call: app
+            .try_state::<LastCall>()
+            .and_then(|last| last.running())
+            .map(|call| TrayCall { muted: call.muted }),
         ..model.clone()
     };
     let linked = flags
@@ -424,7 +424,6 @@ fn menu(
     linked: &[LinkedDeviceView],
 ) -> tauri::Result<Menu<tauri::Wry>> {
     let menu = Menu::new(app)?;
-    append_call_items(app, &menu)?;
     for item in tray_menu(model) {
         if item.separated {
             menu.append(&PredefinedMenuItem::separator(app)?)?;
@@ -475,44 +474,10 @@ fn append_link_items(
     Ok(())
 }
 
-/// A call in progress goes to the top: who, Mute or Unmute, and End.
-fn append_call_items(app: &AppHandle, menu: &Menu<tauri::Wry>) -> tauri::Result<()> {
-    let Some(call) = app.try_state::<LastCall>().and_then(|last| last.running()) else {
-        return Ok(());
-    };
-    let status = call.who.map_or_else(
-        || "On a call".to_owned(),
-        |who| format!("On a call · {who}"),
-    );
-    let mute = if call.muted { "Unmute" } else { "Mute" };
-    menu.append(&MenuItem::with_id(
-        app,
-        "call",
-        escaped(&status),
-        false,
-        None::<&str>,
-    )?)?;
-    menu.append(&MenuItem::with_id(
-        app,
-        CALL_MUTE,
-        mute,
-        true,
-        None::<&str>,
-    )?)?;
-    menu.append(&MenuItem::with_id(
-        app,
-        CALL_END,
-        "End",
-        true,
-        None::<&str>,
-    )?)?;
-    menu.append(&PredefinedMenuItem::separator(app)?)
-}
-
 /// The call's Mute (or Unmute) and End: sent to the phone off the main
 /// thread. Returns whether `id` was one.
 fn on_call_item(app: &AppHandle, id: &str) -> bool {
-    if id != CALL_MUTE && id != CALL_END {
+    if id != "call_mute" && id != "call_end" {
         return false;
     }
     let (Some(state), Some(call)) = (
@@ -521,7 +486,7 @@ fn on_call_item(app: &AppHandle, id: &str) -> bool {
     ) else {
         return true;
     };
-    let action = if id == CALL_END {
+    let action = if id == "call_end" {
         CallAction::End
     } else {
         CallAction::Mute { on: !call.muted }

@@ -121,8 +121,8 @@ pub fn everyone_until(state: &AppState) -> Option<u64> {
         .and_then(|visibility| visibility_view(visibility).until)
 }
 
-/// The tray at `now`; the nearby count is the tray's own (it looks when it
-/// shows).
+/// The tray at `now`; the nearby count and the call are the tray's own (it
+/// looks when it shows, and follows the call window).
 fn model_of(state: &AppState, settings: &Settings, now: u64) -> TrayModel {
     let visibility = load_visibility(state.platform.as_ref(), now)
         .inspect_err(|error| tracing::warn!(%error, "visibility unreadable"))
@@ -133,6 +133,7 @@ fn model_of(state: &AppState, settings: &Settings, now: u64) -> TrayModel {
         moving: state.sessions.busy(),
         visible_to: visibility_view(visibility).choice,
         nearby_count: None,
+        call: None,
     }
 }
 
