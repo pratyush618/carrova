@@ -204,6 +204,22 @@ describe('appReducer peer facts', () => {
     ).toEqual([]);
   });
 
+  it('lets a stored text replace only its own provisional copy', () => {
+    const sms = (id: number, text: string, when_ms: number) => ({
+      event: 'phone_sms' as const,
+      device: 'p8',
+      message: { id, thread_id: 5, outgoing: false, text, when_ms },
+    });
+    const link = feed(
+      LINK_SESSION,
+      sms(0, 'A', 1_000),
+      sms(0, 'B', 2_000),
+      sms(7, 'A', 3_000),
+    ).link;
+    expect(link.sms.map((p) => p.message.text)).toEqual(['B']);
+    expect(link.texts).toBe(3);
+  });
+
   it('pops a phone notification up by key, noting a locked screen', () => {
     const note = feed(LINK_SESSION, {
       event: 'phone_note',
