@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.CallLog
+import android.provider.ContactsContract
 import android.telecom.TelecomManager
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
@@ -145,6 +146,35 @@ object Calls {
             }
         }
         return records.toString()
+    }
+
+    /**
+     * At most [limit] contact numbers whose name or number matches [query]
+     * (Android's own matching), each name and number once. Rust checks the
+     * contacts permission first.
+     */
+    @JvmStatic
+    fun contacts(context: Context, query: String, limit: Int): String {
+        val found = JSONArray()
+        val seen = HashSet<String>()
+        val uri = Uri.withAppendedPath(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_FILTER_URI, Uri.encode(query),
+        )
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER,
+            ContactsContract.CommonDataKinds.Phone.NORMALIZED_NUMBER,
+        )
+        context.contentResolver.query(uri, projection, null, null, null)?.use { c ->
+            while (found.length() < limit && c.moveToNext()) {
+                val name = c.getString(0) ?: continue
+                val number = c.getString(1) ?: continue
+                // One row per number, however often it's stored.
+                if (!seen.add(name + "\u0000" + (c.getString(2) ?: number))) continue
+                found.put(JSONObject().put("name", name).put("number", number))
+            }
+        }
+        return found.toString()
     }
 
     private fun telecom(context: Context) = context.getSystemService(TelecomManager::class.java)
