@@ -246,8 +246,9 @@ fn audio_side_follows_the_route() {
     wait_view(&laptop, &active_view(&phone, AudioSide::Laptop));
 
     // The link drops (the phone took the audio back): the poll shows it.
-    laptop.platform.phone().side = AudioSide::Phone;
+    // Counted first: a poll between the two would hide the event awaited.
     let before = laptop.count(|e| *e == Event::CallView(active_view(&phone, AudioSide::Phone)));
+    laptop.platform.phone().side = AudioSide::Phone;
     wait_until("the audio back on the phone", || {
         laptop.count(|e| *e == Event::CallView(active_view(&phone, AudioSide::Phone))) > before
     });
