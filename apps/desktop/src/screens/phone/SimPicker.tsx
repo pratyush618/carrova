@@ -21,7 +21,10 @@ export function SimPicker({
       label={label}
       options={sims.map((s) => ({
         value: String(s.id),
-        label: t('ecosystem.sim', { slot: s.slot, name: s.name }),
+        label:
+          s.name === ''
+            ? t('ecosystem.simSlot', { slot: s.slot })
+            : t('ecosystem.sim', { slot: s.slot, name: s.name }),
       }))}
       value={value === null ? null : String(value)}
       onChange={(v) => {

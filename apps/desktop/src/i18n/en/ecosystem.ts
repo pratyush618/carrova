@@ -3,6 +3,8 @@ export const ecosystem = {
   unknownDevice: 'A linked device',
   /** A phone's SIM, as Android names it. */
   sim: 'SIM {{slot}} · {{name}}',
+  /** A SIM the phone gives no name for. */
+  simSlot: 'SIM {{slot}}',
   features: {
     clipboard: { title: 'Shared clipboard', body: 'Copy on one, paste on the other.' },
     ring: { title: 'Ring', body: 'Find the phone, even on silent.' },
