@@ -60,6 +60,14 @@ fn otp_clears_title() {
 }
 
 #[test]
+fn otp_split_between_title_and_text_is_hidden() {
+    let (_t, _p, apps) = apps();
+    let out = outgoing(note("Verification code", "123456"), &apps).unwrap();
+    assert_eq!((out.title.as_str(), out.text.as_str()), ("", ""));
+    assert_eq!(out.hidden, Some(Hidden::Code));
+}
+
+#[test]
 fn hide_codes_off_keeps_code() {
     let (_t, p, mut apps) = apps();
     apps.set_hide_codes(&p, false).unwrap();

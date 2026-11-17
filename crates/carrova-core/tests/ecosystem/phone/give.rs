@@ -328,6 +328,36 @@ fn reply_reaches_platform() {
 }
 
 #[test]
+fn action_on_a_note_of_an_app_turned_off_is_refused() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |p| {
+        p.platform.phone().notes = vec![note("k1", "org.example.muted")];
+        let mut apps = NotifyApps::open(&*p.platform).unwrap();
+        apps.set(&*p.platform, "org.example.muted", false).unwrap();
+    });
+
+    for action in [
+        NotifyAction::Reply {
+            key: "k1".into(),
+            text: "on my way".into(),
+        },
+        NotifyAction::Dismiss { key: "k1".into() },
+        NotifyAction::Open { key: "k1".into() },
+    ] {
+        assert_eq!(
+            send_action(&laptop.conn, &action).unwrap(),
+            ActionResult::Gone
+        );
+    }
+    assert!(
+        !phone
+            .platform
+            .actions()
+            .iter()
+            .any(|a| a.starts_with("note_"))
+    );
+}
+
+#[test]
 fn reply_to_removed_note_reports_gone() {
     let (_phone, _sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |_| {});
 
@@ -374,6 +404,19 @@ fn answer_turns_speaker_on() {
         CallReply::Done
     );
     assert!(after_answer(&phone).contains(&"call_speaker true".to_owned()));
+}
+
+#[test]
+fn answer_reports_done_when_the_speaker_fails() {
+    let (_phone, _sp, laptop) = phone_and_laptop(&[CALLS], &[CALLS], |p| {
+        answering(Some(active(false)))(p);
+        p.platform.phone().speaker_fails = true;
+    });
+
+    assert_eq!(
+        call_command(&laptop.conn, &CallCommand::Answer).unwrap(),
+        CallReply::Done
+    );
 }
 
 #[test]
@@ -534,6 +577,41 @@ fn send_with_same_client_id_sends_once() {
 
     assert_eq!(request_sms(&laptop.conn, &send).unwrap(), sent);
     assert_eq!(request_sms(&laptop.conn, &send).unwrap(), sent);
+    let sends = phone
+        .platform
+        .actions()
+        .iter()
+        .filter(|a| *a == "sms_send")
+        .count();
+    assert_eq!(sends, 1);
+}
+
+#[test]
+fn send_retried_on_a_new_link_sends_once() {
+    let (laptop, phone, secret) = pair(&PolicyDoc::computer_defaults());
+    let mut phone_doc = doc(&[SMS]);
+    phone_doc
+        .features
+        .insert(Feature::Clipboard, FeatureState::On);
+    phone.set_policy(&laptop.id, &phone_doc);
+    let sp = phone.start(fast());
+    let first = link(&phone, &sp, laptop, &secret, &doc(&[SMS]));
+    let send = SmsRequest::Send {
+        to: "5550100".into(),
+        text: "on my way".into(),
+        client_id: 7,
+    };
+    let sent = SmsReply::SendResult {
+        client_id: 7,
+        outcome: SendOutcome::Sent,
+    };
+    assert_eq!(request_sms(&first.conn, &send).unwrap(), sent);
+
+    // The reply was lost with the link: the laptop retries on a new one.
+    let second = link(&phone, &sp, first.device, &secret, &doc(&[SMS]));
+    wait_until("the retry answered", || {
+        request_sms(&second.conn, &send).ok() == Some(sent.clone())
+    });
     let sends = phone
         .platform
         .actions()
