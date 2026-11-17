@@ -28,6 +28,7 @@ fn note(key: &str) -> Note {
         can_reply: true,
         icon: None,
         hidden: None,
+        sms_app: false,
     }
 }
 

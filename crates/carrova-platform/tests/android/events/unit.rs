@@ -12,7 +12,8 @@ fn event(json: &str) -> PhoneEvent {
 fn parses_each_event_type() {
     let note = event(
         r#"{"type":"note_posted","key":"k1","app_id":"org.app","app_name":"App",
-            "title":"Hi","text":"there","when_ms":5,"can_reply":true,"icon":[137,80]}"#,
+            "title":"Hi","text":"there","when_ms":5,"can_reply":true,"icon":[137,80],
+            "sms_app":true}"#,
     );
     assert_eq!(
         note,
@@ -26,6 +27,7 @@ fn parses_each_event_type() {
             can_reply: true,
             icon: Some(vec![137, 80]),
             hidden: None,
+            sms_app: true,
         })
     );
     let PhoneEvent::NotePosted(no_icon) = event(
@@ -35,6 +37,7 @@ fn parses_each_event_type() {
         panic!("not a note");
     };
     assert_eq!(no_icon.icon, None);
+    assert!(!no_icon.sms_app, "absent means not the SMS app");
     assert_eq!(
         event(r#"{"type":"note_removed","key":"k1"}"#),
         PhoneEvent::NoteRemoved { key: "k1".into() }

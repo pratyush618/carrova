@@ -14,6 +14,7 @@ fn note(title: &str, text: &str) -> Note {
         can_reply: false,
         icon: None,
         hidden: None,
+        sms_app: false,
     }
 }
 

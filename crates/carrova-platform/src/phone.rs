@@ -33,6 +33,10 @@ pub struct Note {
     pub icon: Option<Vec<u8>>,
     /// Why some of it was withheld; `None` when shown in full.
     pub hidden: Option<Hidden>,
+    /// Posted by the phone's default SMS app (its texts also reach
+    /// Messages); `false` from peers that predate it.
+    #[serde(default)]
+    pub sms_app: bool,
 }
 
 /// Why a note's content was withheld (set by core filters; the UI picks the copy).
@@ -344,6 +348,7 @@ impl fmt::Debug for Note {
             .field("can_reply", &self.can_reply)
             .field("icon", &self.icon.as_deref().map(|i| Len(i.len())))
             .field("hidden", &self.hidden)
+            .field("sms_app", &self.sms_app)
             .finish_non_exhaustive()
     }
 }

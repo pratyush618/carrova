@@ -17,6 +17,7 @@ fn note(app_id: &str, app_name: &str) -> Note {
         can_reply: false,
         icon: None,
         hidden: None,
+        sms_app: false,
     }
 }
 

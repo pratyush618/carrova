@@ -64,6 +64,7 @@ fn note(key: &str, app_id: &str) -> Note {
         can_reply: true,
         icon: Some(vec![1, 2, 3]),
         hidden: None,
+        sms_app: false,
     }
 }
 

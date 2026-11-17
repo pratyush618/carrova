@@ -538,6 +538,7 @@ fn control_wire_roundtrip_phase2() {
         can_reply: true,
         icon: Some(vec![0x89, b'P', b'N', b'G']),
         hidden: None,
+        sms_app: false,
     };
     let message = SmsMessage {
         id: 0,

@@ -92,6 +92,7 @@ fn entries_list_showing_then_chosen_apps_once() {
         can_reply: false,
         icon: None,
         hidden: None,
+        sms_app: false,
     };
     let showing = [
         note("org.chat", "Chat"),

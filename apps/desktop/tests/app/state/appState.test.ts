@@ -220,6 +220,7 @@ describe('appReducer peer facts', () => {
         can_reply: false,
         icon: null,
         hidden: 'locked',
+        sms_app: true,
       },
     }).link.note;
     expect(note).toEqual({ device: 'p8', key: 'k', locked: true, n: 1 });

@@ -30,6 +30,7 @@ fn phone_types_cbor_roundtrip() {
         can_reply: true,
         icon: Some(vec![0x89, b'P', b'N', b'G']),
         hidden: Some(Hidden::Code),
+        sms_app: true,
     };
     let message = SmsMessage {
         id: 9,
@@ -122,6 +123,7 @@ fn debug_output_hides_phone_content() {
         can_reply: false,
         icon: None,
         hidden: None,
+        sms_app: false,
     };
     let shown = [
         format!("{note:?}"),
@@ -192,6 +194,7 @@ fn icon_is_a_cbor_byte_string() {
         can_reply: false,
         icon: Some(vec![0xAB; 1000]),
         hidden: None,
+        sms_app: false,
     };
     let mut bytes = Vec::new();
     ciborium::into_writer(&note, &mut bytes).unwrap();
@@ -201,4 +204,49 @@ fn icon_is_a_cbor_byte_string() {
     ciborium::into_writer(&note, &mut bytes).unwrap();
     let back: Note = ciborium::from_reader(bytes.as_slice()).unwrap();
     assert_eq!(back, note);
+}
+
+#[test]
+fn sms_app_mark_is_compatible_with_older_peers() {
+    /// A note as peers before `sms_app` encode it.
+    #[derive(Debug, PartialEq, Serialize, serde::Deserialize)]
+    struct OldNote {
+        key: String,
+        app_id: String,
+        app_name: String,
+        title: String,
+        text: String,
+        when_ms: i64,
+        can_reply: bool,
+        #[serde(with = "serde_bytes", default)]
+        icon: Option<Vec<u8>>,
+        hidden: Option<Hidden>,
+    }
+    fn cbor(v: &impl Serialize) -> Vec<u8> {
+        let mut out = Vec::new();
+        ciborium::into_writer(v, &mut out).unwrap();
+        out
+    }
+    let old = OldNote {
+        key: "k".into(),
+        app_id: "com.google.android.apps.messaging".into(),
+        app_name: "Messages".into(),
+        title: "Ana".into(),
+        text: "hi".into(),
+        when_ms: 1,
+        can_reply: true,
+        icon: Some(vec![1]),
+        hidden: None,
+    };
+    // An older peer's note reads as no SMS app's.
+    let read: Note = ciborium::from_reader(cbor(&old).as_slice()).unwrap();
+    assert!(!read.sms_app);
+    assert_eq!(read.app_name, "Messages");
+    // An older peer reads a marked note, ignoring the mark.
+    let marked = Note {
+        sms_app: true,
+        ..read
+    };
+    let back: OldNote = ciborium::from_reader(cbor(&marked).as_slice()).unwrap();
+    assert_eq!(back, old);
 }

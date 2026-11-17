@@ -145,6 +145,7 @@ fn note(key: &str, app_id: &str) -> Note {
         can_reply: true,
         icon: None,
         hidden: None,
+        sms_app: false,
     }
 }
 

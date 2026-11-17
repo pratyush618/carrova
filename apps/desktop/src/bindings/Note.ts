@@ -40,4 +40,9 @@ icon: Array<number> | null,
 /**
  * Why some of it was withheld; `None` when shown in full.
  */
-hidden: Hidden | null, };
+hidden: Hidden | null, 
+/**
+ * Posted by the phone's default SMS app (its texts also reach
+ * Messages); `false` from peers that predate it.
+ */
+sms_app: boolean, };

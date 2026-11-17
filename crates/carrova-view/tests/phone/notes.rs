@@ -12,6 +12,7 @@ fn note(key: &str, icon: Option<Vec<u8>>, hidden: Option<Hidden>) -> Note {
         can_reply: true,
         icon,
         hidden,
+        sms_app: false,
     }
 }
 
