@@ -1,6 +1,7 @@
-import { screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import type { NotifyAppsView } from '../../../src/bindings/NotifyAppsView';
 import { renderPhone } from '../../support/phone';
 import { openScreen } from './support';
 
@@ -85,5 +86,31 @@ describe('Notifications list upkeep', () => {
 
     expect(await screen.findByRole('searchbox', { name: 'Search apps' })).toBeInTheDocument();
     expect(list.mock.calls.length).toBeGreaterThan(before);
+  });
+
+  it('a read from before a change does not undo it', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderPhone({ scenario: 'linked' });
+    vi.spyOn(port, 'phonePermStep').mockResolvedValue('ok');
+    const list = vi.spyOn(port, 'notifyApps');
+    await openScreen(user, 'Notifications');
+    const codes = await screen.findByRole('switch', { name: 'Hide one-time codes' });
+    const saved = await port.notifyApps();
+    let finish = (_: NotifyAppsView) => undefined as void;
+    list.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+    const before = list.mock.calls.length;
+    // Back from settings: the list is read again.
+    document.dispatchEvent(new Event('visibilitychange'));
+    await waitFor(() => {
+      expect(list.mock.calls.length).toBeGreaterThan(before);
+    });
+
+    await user.click(codes);
+    await act(async () => {
+      finish(saved);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole('switch', { name: 'Hide one-time codes' })).not.toBeChecked();
   });
 });
