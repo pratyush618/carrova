@@ -187,6 +187,8 @@ fn burst_coalesces_per_app() {
     phone.platform.script_event(PhoneEvent::NotePosted(mail));
 
     wait_notes(&sl, &phone, 6);
+    // The last note is kept before it pops up: wait for its pop-up too.
+    wait_until("both pop-ups", || popped(&laptop).len() >= 2);
     let apps: Vec<String> = popped(&laptop).into_iter().map(|n| n.app_id).collect();
     assert_eq!(apps, ["org.example.chat", "org.example.mail"]);
 }
@@ -691,10 +693,12 @@ fn pop_ups_held_while_away() {
     sl.set_phone_settings(settings).unwrap();
     wait_watching(&phone);
 
+    let reads = laptop.platform.lock_reads();
     let held = note("k1", "org.example.chat");
     phone.platform.script_event(PhoneEvent::NotePosted(held));
     wait_notes(&sl, &phone, 1);
-    // Pushes apply in order: once the next one pops up, the first was held.
+    // Unlocked only once the held note's push read the lock.
+    wait_until("the lock read", || laptop.platform.lock_reads() > reads);
     laptop.platform.inner.set_screen_lock(ScreenLock::Unlocked);
     let shown = note("k2", "org.example.mail");
     phone

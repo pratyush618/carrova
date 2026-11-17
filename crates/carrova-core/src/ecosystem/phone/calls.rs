@@ -229,17 +229,20 @@ pub(crate) fn take_call(
         CallState::Active { .. } => audio_side(&**shared.platform()),
         _ => AudioSide::Phone,
     };
+    let views = shared.call_views();
     let taken = with_mirror(shared, device, generation, Feature::Calls, |m| {
         let view = m.call.take(device, state.clone(), ring_here, audio);
         let poll = m.call.active() && !std::mem::replace(&mut m.call.polling, true);
         (view, poll)
     });
-    if let Some((view, poll)) = taken {
+    let poll = taken.is_some_and(|(view, poll)| {
         shared.emit(Event::PhoneCall { device, state });
         shared.emit(Event::CallView(view));
-        if poll {
-            watch_audio(shared, device, generation);
-        }
+        poll
+    });
+    drop(views);
+    if poll {
+        watch_audio(shared, device, generation);
     }
     ack(pending);
 }
@@ -254,6 +257,7 @@ pub(crate) fn reread_audio(
     poller: bool,
 ) -> bool {
     let audio = audio_side(&**shared.platform());
+    let _views = shared.call_views();
     let step = with_mirror(shared, device, generation, Feature::Calls, |m| {
         let active = m.call.active();
         if poller && !active {
