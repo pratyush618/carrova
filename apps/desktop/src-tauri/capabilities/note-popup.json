@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "note-popup",
-  "description": "A phone notification's pop-up window: core IPC (the phone commands) and closing itself.",
+  "description": "A phone notification's pop-up window: core IPC (the phone commands), fitting its height to its content and closing itself.",
   "platforms": ["linux", "macOS", "windows"],
   "windows": ["note-popup-*"],
-  "permissions": ["core:default", "core:window:allow-close"]
+  "permissions": ["core:default", "core:window:allow-set-size", "core:window:allow-close"]
 }

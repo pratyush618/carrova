@@ -1,12 +1,14 @@
-/* A phone notification in its own small always-on-top window. */
+/* A phone notification in its own small always-on-top window, sized to
+   this content (`NotePopupRoot`). */
 .s-note {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
-  padding: var(--sp-2) var(--sp-3);
+  gap: var(--sp-0);
+  padding: 12px 14px;
   font-size: var(--t-sm);
   color: var(--text-secondary);
+  overflow-wrap: anywhere;
 }
 
 .s-note > .p-btn--icon {
@@ -19,20 +21,31 @@
   display: flex;
   align-items: center;
   gap: var(--sp-1);
+  margin-block-end: 2px;
+  padding-inline-end: var(--sp-4);
   font-size: var(--t-xs);
   color: var(--text-muted);
 }
 
 .s-note__icon {
-  inline-size: 20px;
-  block-size: 20px;
-  border-radius: 6px;
+  inline-size: 18px;
+  block-size: 18px;
+  border-radius: 5px;
 }
 
 .s-note__title {
   font-size: var(--t-md);
   font-weight: 650;
   color: var(--text-primary);
+}
+
+/* Long texts stop at a few lines; the window grows to fit the rest. */
+.s-note__text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
 }
 
 .s-note__muted {

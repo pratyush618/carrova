@@ -55,6 +55,23 @@ function popupModel(view: NotesView, key: string, phone: string): NotePopupModel
   return note === undefined ? null : { kind: 'note', phone, note };
 }
 
+/** Fits this pop-up window's height to `content` as it renders (fonts scale; text wraps). */
+function fitWindow(content: HTMLElement | null) {
+  if (content === null || !isTauri()) return;
+  const observer = new ResizeObserver(() => {
+    const height = Math.ceil(content.getBoundingClientRect().height);
+    void import('@tauri-apps/api/window')
+      .then(({ getCurrentWindow, LogicalSize }) =>
+        getCurrentWindow().setSize(new LogicalSize(window.innerWidth, height)),
+      )
+      .catch(() => undefined);
+  });
+  observer.observe(content);
+  return () => {
+    observer.disconnect();
+  };
+}
+
 /**
  * Fetches the notification by key (content never travels in the window's
  * address), acts on it on the phone, and closes once an action is done.
@@ -100,21 +117,23 @@ export function NotePopupRoute({ target }: { readonly target: NotePopupTarget })
     );
   };
   return (
-    <NotePopup
-      model={model}
-      problem={problem}
-      on={{
-        onReply: (text) => {
-          act({ kind: 'reply', key, text });
-        },
-        onDismiss: () => {
-          act({ kind: 'dismiss', key });
-        },
-        onOpen: () => {
-          act({ kind: 'open', key });
-        },
-        onClose: close,
-      }}
-    />
+    <div ref={fitWindow}>
+      <NotePopup
+        model={model}
+        problem={problem}
+        on={{
+          onReply: (text) => {
+            act({ kind: 'reply', key, text });
+          },
+          onDismiss: () => {
+            act({ kind: 'dismiss', key });
+          },
+          onOpen: () => {
+            act({ kind: 'open', key });
+          },
+          onClose: close,
+        }}
+      />
+    </div>
   );
 }

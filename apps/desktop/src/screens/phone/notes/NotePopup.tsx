@@ -91,7 +91,7 @@ function NoteBody({
       {note.hidden === 'code' ? (
         <p className="s-note__muted">{t('ecosystem.notes.code')}</p>
       ) : (
-        note.text !== '' && <p>{note.text}</p>
+        note.text !== '' && <p className="s-note__text">{note.text}</p>
       )}
       {note.can_reply && (
         <form
