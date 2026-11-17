@@ -1,9 +1,19 @@
 import { screen, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import type { SmsSendOutcome } from '@/bindings/SmsSendOutcome';
 import type { ThreadView } from '@/bindings/ThreadView';
 import { createFakePort } from '@/ipc/fake';
 import { renderApp } from '../../../support/app';
+
+/** A promise and the function that settles it. */
+function deferred<T>() {
+  let settle: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((resolve) => {
+    settle = resolve;
+  });
+  return { promise, settle };
+}
 
 const page = (...texts: string[]): ThreadView => ({
   messages: texts.map((text, i) => ({
@@ -57,5 +67,22 @@ describe('Messages route', () => {
     await sendNew(user);
     await screen.findByRole('heading', { name: 'Sam Rivera' });
     expect(screen.queryByText('Later, then')).not.toBeInTheDocument();
+  });
+
+  it('keeps the conversation picked while a new message was on its way', async () => {
+    const user = userEvent.setup();
+    const { port } = await phonePort();
+    const sent = deferred<SmsSendOutcome>();
+    vi.spyOn(port, 'sendSms').mockReturnValue(sent.promise);
+    await renderApp({ port, returning: true });
+    await openMessages(user);
+    await sendNew(user);
+    await user.click(within(list()).getByRole('button', { name: /\+15550142/ }));
+    await screen.findByText('Later, then');
+
+    sent.settle('sent');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByRole('heading', { name: '+15550142' })).toBeInTheDocument();
+    expect(screen.getByText('Later, then')).toBeInTheDocument();
   });
 });

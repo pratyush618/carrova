@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LocalClock } from '../../../bindings/LocalClock';
 import type { ThreadRow } from '../../../bindings/ThreadRow';
 import type { ThreadView } from '../../../bindings/ThreadView';
@@ -46,6 +46,11 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
   const [composing, setComposing] = useState(false);
   // Bumped once a sent text is out: its stored copy is fetched.
   const [sent, setSent] = useState(0);
+  // Read when a new message's send ends: the user may have moved on since.
+  const stillComposing = useRef(composing);
+  useEffect(() => {
+    stillComposing.current = composing;
+  });
   const open = composing ? null : (picked ?? threads?.[0]?.id ?? null);
 
   useEffect(() => {
@@ -84,7 +89,7 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
 
   const onSent = useCallback((s: SmsSend) => {
     // A new message's conversation is the newest once the list reloads.
-    if (s.thread === null) {
+    if (s.thread === null && stillComposing.current) {
       setComposing(false);
       setPicked(null);
     }
