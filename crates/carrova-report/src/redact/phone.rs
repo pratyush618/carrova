@@ -6,6 +6,9 @@
 pub(super) const PLACEHOLDER: &str = "<phone>";
 /// Digit count of a phone number (national number up to E.164's 15).
 const DIGITS: std::ops::RangeInclusive<usize> = 10..=15;
+/// Longest span scanned for one number: every digit plus up to two
+/// separators (`) `), so separator runs cannot rescan quadratically.
+const MAX_SPAN: usize = 3 * *DIGITS.end();
 
 /// Replaces every phone number in `text` with [`PLACEHOLDER`].
 ///
@@ -37,6 +40,9 @@ fn number_end(chars: &[char], start: usize) -> Option<usize> {
     let (mut digits, mut end) = (0, start);
     let mut at = start;
     while let Some(&ch) = chars.get(at) {
+        if at - start >= MAX_SPAN {
+            break;
+        }
         match ch {
             '0'..='9' => {
                 digits += 1;

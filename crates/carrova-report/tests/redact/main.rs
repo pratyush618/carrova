@@ -353,3 +353,11 @@ fn long_digit_runs_are_scanned_in_linear_time() {
     // Runs over 15 digits are not a phone number; only the short tail is.
     assert!(out.starts_with("1 1 1 ") && out.trim_end().ends_with("<phone>"));
 }
+
+#[test]
+fn separator_runs_are_scanned_in_linear_time() {
+    let text = "(".repeat(200_000);
+    let start = std::time::Instant::now();
+    assert_eq!(redactor().redact(&text), text);
+    assert!(start.elapsed() < std::time::Duration::from_secs(5));
+}
