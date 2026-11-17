@@ -6,6 +6,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::PlatformError;
 use crate::watch::StopGuard;
 
 /// A notification posted on the phone.
@@ -319,11 +320,14 @@ pub enum CallAudioStatus {
     Unsupported,
 }
 
+/// Arms a watch's listener again ([`PhoneWatch::rearm`]).
+type Rearm = Box<dyn Fn(PhonePerm) -> Result<(), PlatformError> + Send>;
+
 /// The phone's events being watched, until the guard is dropped. Dropping
 /// it stops the watch, so the event callback is never called afterwards.
-#[derive(Debug)]
 #[must_use = "the watch stops as soon as the guard is dropped"]
 pub struct PhoneWatch {
+    rearm: Option<Rearm>,
     _stop: StopGuard,
 }
 
@@ -332,8 +336,38 @@ impl PhoneWatch {
     /// so adapters and test fakes outside this crate can return one.
     pub fn new(stop: impl FnOnce() + Send + 'static) -> Self {
         Self {
+            rearm: None,
             _stop: StopGuard::new(stop),
         }
+    }
+
+    /// This watch, arming its listener that needs a permission again
+    /// with `rearm` (see [`Self::rearm`]).
+    pub fn with_rearm(
+        mut self,
+        rearm: impl Fn(PhonePerm) -> Result<(), PlatformError> + Send + 'static,
+    ) -> Self {
+        self.rearm = Some(Box::new(rearm));
+        self
+    }
+
+    /// Arm the listener that needs `perm` ([`PhonePerm::Calls`] or
+    /// [`PhonePerm::Sms`]) again, once it is granted: a phone may arm
+    /// none without it, and says nothing when it is granted later. Events
+    /// already flowing are neither lost nor repeated.
+    ///
+    /// # Errors
+    /// The listener could not be armed.
+    pub fn rearm(&self, perm: PhonePerm) -> Result<(), PlatformError> {
+        self.rearm.as_ref().map_or(Ok(()), |rearm| rearm(perm))
+    }
+}
+
+impl fmt::Debug for PhoneWatch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PhoneWatch")
+            .field("rearm", &self.rearm.is_some())
+            .finish_non_exhaustive()
     }
 }
 

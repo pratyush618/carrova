@@ -129,7 +129,8 @@ fn take(generation: i64) -> Result<Option<String>, PlatformError> {
 /// nothing). If `Events.take()` itself fails, the watch ends silently.
 pub(super) fn watch(on_event: Box<dyn Fn(PhoneEvent) + Send>) -> Result<PhoneWatch, PlatformError> {
     let generation = open_events()?;
-    // Without phone permission there are no call events; notes and SMS still flow.
+    // Without its permission a listener fails to arm (`rearm` once granted);
+    // notes still flow.
     let _ = listen_calls(true, generation);
     let _ = listen_sms(true, generation);
     let pull = std::thread::Builder::new()
@@ -162,6 +163,11 @@ pub(super) fn watch(on_event: Box<dyn Fn(PhoneEvent) + Send>) -> Result<PhoneWat
         if pull.thread().id() != std::thread::current().id() {
             let _ = pull.join();
         }
+    })
+    .with_rearm(move |perm| match perm {
+        PhonePerm::Calls => listen_calls(true, generation),
+        PhonePerm::Sms => listen_sms(true, generation),
+        _ => Ok(()),
     }))
 }
 
