@@ -114,12 +114,13 @@ fn phase2_defaults_unsupported() {
     unsupported!(p.note_open("k"), "note_open");
     unsupported!(p.sms_threads(None, 10, None), "sms_threads");
     unsupported!(p.sms_thread(1, None, 10), "sms_thread");
-    unsupported!(p.sms_send("1", "hi"), "sms_send");
+    unsupported!(p.phone_sims(), "phone_sims");
+    unsupported!(p.sms_send("1", "hi", None), "sms_send");
     unsupported!(p.call_answer(), "call_answer");
     unsupported!(p.call_decline(), "call_decline");
     unsupported!(p.call_end(), "call_end");
     unsupported!(p.call_mute(true), "call_mute");
-    unsupported!(p.call_dial("1"), "call_dial");
+    unsupported!(p.call_dial("1", Some(2)), "call_dial");
     unsupported!(p.call_speaker(true), "call_speaker");
     unsupported!(p.call_history(None, 10), "call_history");
     unsupported!(p.call_state(), "call_state");

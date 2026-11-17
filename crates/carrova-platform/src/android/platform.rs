@@ -14,7 +14,7 @@ use super::files::{self, MediaStoreSink};
 use super::{clipboard, net, phone, ring, scan, service};
 use crate::phone::{
     CallRecord, CallState, Cursor, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch, SendOutcome,
-    SmsMessage, SmsThread,
+    Sim, SmsMessage, SmsThread,
 };
 use crate::sys;
 use crate::{
@@ -319,8 +319,17 @@ impl Platform for AndroidPlatform {
         phone::guarded(PhonePerm::Sms, || phone::sms_thread(id, before, limit))
     }
 
-    fn sms_send(&self, to: &str, text: &str) -> Result<SendOutcome, PlatformError> {
-        phone::guarded(PhonePerm::Sms, || phone::sms_send(to, text))
+    fn phone_sims(&self) -> Result<Vec<Sim>, PlatformError> {
+        phone::phone_sims()
+    }
+
+    fn sms_send(
+        &self,
+        to: &str,
+        text: &str,
+        sim: Option<i32>,
+    ) -> Result<SendOutcome, PlatformError> {
+        phone::guarded(PhonePerm::Sms, || phone::sms_send(to, text, sim))
     }
 
     fn call_answer(&self) -> Result<(), PlatformError> {
@@ -339,8 +348,8 @@ impl Platform for AndroidPlatform {
         phone::call_mute(on)
     }
 
-    fn call_dial(&self, number: &str) -> Result<(), PlatformError> {
-        phone::guarded(PhonePerm::Calls, || phone::call_dial(number))
+    fn call_dial(&self, number: &str, sim: Option<i32>) -> Result<(), PlatformError> {
+        phone::guarded(PhonePerm::Calls, || phone::call_dial(number, sim))
     }
 
     fn call_speaker(&self, on: bool) -> Result<(), PlatformError> {

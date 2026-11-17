@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use crate::phone::{
     AudioSide, CallAudioStatus, CallRecord, CallState, Cursor, Note, PermState, PhoneEvent,
-    PhonePerm, PhoneWatch, SendOutcome, SmsMessage, SmsThread,
+    PhonePerm, PhoneWatch, SendOutcome, Sim, SmsMessage, SmsThread,
 };
 use crate::{
     Allocation, ClipContent, ClipboardWatch, DirEntry, DirWatch, DiskInfo, DownloadSink, FileLock,
@@ -634,14 +634,29 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         Err(PlatformError::Unsupported("sms_thread"))
     }
 
-    /// Send `text` by SMS to the number `to`.
+    /// The phone's active SIMs, by slot; empty when it may not read them
+    /// (then texts and calls use the default SIM).
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn phone_sims(&self) -> Result<Vec<Sim>, PlatformError> {
+        Err(PlatformError::Unsupported("phone_sims"))
+    }
+
+    /// Send `text` by SMS to the number `to`, from SIM `sim` (a
+    /// [`Sim::id`]; `None`: the phone's default).
     ///
     /// # Errors
     /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise
     /// (a send that merely fails is [`SendOutcome::Failed`], one with no
     /// clear answer [`SendOutcome::Unknown`]).
-    fn sms_send(&self, to: &str, text: &str) -> Result<SendOutcome, PlatformError> {
-        let _ = (to, text);
+    fn sms_send(
+        &self,
+        to: &str,
+        text: &str,
+        sim: Option<i32>,
+    ) -> Result<SendOutcome, PlatformError> {
+        let _ = (to, text, sim);
         Err(PlatformError::Unsupported("sms_send"))
     }
 
@@ -678,12 +693,13 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         Err(PlatformError::Unsupported("call_mute"))
     }
 
-    /// Place a call to `number`.
+    /// Place a call to `number` from SIM `sim` (a [`Sim::id`]; `None`: the
+    /// phone's default).
     ///
     /// # Errors
     /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
-    fn call_dial(&self, number: &str) -> Result<(), PlatformError> {
-        let _ = number;
+    fn call_dial(&self, number: &str, sim: Option<i32>) -> Result<(), PlatformError> {
+        let _ = (number, sim);
         Err(PlatformError::Unsupported("call_dial"))
     }
 

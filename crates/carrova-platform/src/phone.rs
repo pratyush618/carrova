@@ -68,6 +68,26 @@ pub struct SmsThread {
     pub when_ms: i64,
     /// Unread messages.
     pub unread: u32,
+    /// Subscription id of its latest message ([`Sim::id`]); `None` when
+    /// the phone doesn't know it (some OEM builds and restored backups
+    /// store none) or is older than this field.
+    #[serde(default)]
+    pub sim: Option<i32>,
+}
+
+/// One active SIM (an Android subscription: physical or eSIM) on the phone.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Sim {
+    /// Android subscription id: what a send or a dial names.
+    pub id: i32,
+    /// SIM slot, from 0 (shown as "SIM 1").
+    pub slot: u8,
+    /// The name the phone shows for it (often the carrier's).
+    pub name: String,
+    /// The phone's default SIM for texts.
+    pub sms_default: bool,
+    /// The phone's default SIM for calls.
+    pub voice_default: bool,
 }
 
 /// One SMS message.
@@ -361,6 +381,16 @@ impl fmt::Debug for SmsThread {
             .field("address", &len(&self.address))
             .field("snippet", &len(&self.snippet))
             .field("unread", &self.unread)
+            .finish_non_exhaustive()
+    }
+}
+
+impl fmt::Debug for Sim {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Sim")
+            .field("slot", &self.slot)
+            .field("sms_default", &self.sms_default)
+            .field("voice_default", &self.voice_default)
             .finish_non_exhaustive()
     }
 }

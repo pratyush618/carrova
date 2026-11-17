@@ -6,7 +6,7 @@ use std::fmt::Debug;
 
 use carrova_platform::phone::{
     AudioSide, CallKind, CallRecord, CallState, Cursor, Hidden, Note, PermState, PhoneEvent,
-    PhonePerm, SendOutcome, SmsMessage, SmsThread,
+    PhonePerm, SendOutcome, Sim, SmsMessage, SmsThread,
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -47,6 +47,14 @@ fn phone_types_cbor_roundtrip() {
         snippet: "hi".into(),
         when_ms: 1,
         unread: 2,
+        sim: Some(4),
+    });
+    roundtrip(&Sim {
+        id: 4,
+        slot: 1,
+        name: "Airtel".into(),
+        sms_default: false,
+        voice_default: true,
     });
     roundtrip(&CallRecord {
         id: 12,
@@ -136,6 +144,17 @@ fn debug_output_hides_phone_content() {
                 snippet: s(),
                 when_ms: 1,
                 unread: 0,
+                sim: Some(7_654_321),
+            }
+        ),
+        format!(
+            "{:?}",
+            Sim {
+                id: 7_654_321,
+                slot: 0,
+                name: s(),
+                sms_default: true,
+                voice_default: false,
             }
         ),
         format!(
@@ -171,6 +190,7 @@ fn debug_output_hides_phone_content() {
     ];
     for out in shown {
         assert!(!out.contains("SECRET"), "{out}");
+        assert!(!out.contains("7654321"), "SIM id logged: {out}");
     }
 }
 

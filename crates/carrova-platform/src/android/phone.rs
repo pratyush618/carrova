@@ -12,7 +12,7 @@ use super::{events, files, jni};
 use crate::PlatformError;
 use crate::phone::{
     CallRecord, CallState, Cursor, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch, SendOutcome,
-    SmsMessage, SmsThread,
+    Sim, SmsMessage, SmsThread,
 };
 
 const STRING: &str = "Ljava/lang/String;";
@@ -87,6 +87,12 @@ fn page_bound(cursor: Option<Cursor>) -> [Arg<'static>; 2] {
 
 fn limit(limit: usize) -> Arg<'static> {
     Arg::Int(i32::try_from(limit).unwrap_or(i32::MAX))
+}
+
+/// A SIM as the glue takes it: `-1` (Android's invalid subscription id)
+/// is the phone's default.
+fn sim_arg(sim: Option<i32>) -> Arg<'static> {
+    Arg::Int(sim.unwrap_or(-1))
 }
 
 // ---- events ----
@@ -253,8 +259,18 @@ pub(super) fn sms_thread(
     events::list("Sms.thread", &json)
 }
 
-pub(super) fn sms_send(to: &str, body: &str) -> Result<SendOutcome, PlatformError> {
-    match text("Sms.send", "Sms", "send", &[Arg::Str(to), Arg::Str(body)])?.as_str() {
+/// The active SIMs (`Sims.list`: empty without `READ_PHONE_STATE`).
+pub(super) fn phone_sims() -> Result<Vec<Sim>, PlatformError> {
+    events::list("Sims.list", &text("Sims.list", "Sims", "list", &[])?)
+}
+
+pub(super) fn sms_send(
+    to: &str,
+    body: &str,
+    sim: Option<i32>,
+) -> Result<SendOutcome, PlatformError> {
+    let args = [Arg::Str(to), Arg::Str(body), sim_arg(sim)];
+    match text("Sms.send", "Sms", "send", &args)?.as_str() {
         "sent" => Ok(SendOutcome::Sent),
         "no_signal" => Ok(SendOutcome::NoSignal),
         "failed" => Ok(SendOutcome::Failed),
@@ -284,8 +300,13 @@ pub(super) fn call_mute(on: bool) -> Result<(), PlatformError> {
     void("Calls.mute", "Calls", "mute", &[Arg::Bool(on)])
 }
 
-pub(super) fn call_dial(number: &str) -> Result<(), PlatformError> {
-    void("Calls.dial", "Calls", "dial", &[Arg::Str(number)])
+pub(super) fn call_dial(number: &str, sim: Option<i32>) -> Result<(), PlatformError> {
+    void(
+        "Calls.dial",
+        "Calls",
+        "dial",
+        &[Arg::Str(number), sim_arg(sim)],
+    )
 }
 
 pub(super) fn call_speaker(on: bool) -> Result<(), PlatformError> {
