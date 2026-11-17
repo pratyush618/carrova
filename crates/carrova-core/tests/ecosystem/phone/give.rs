@@ -731,6 +731,26 @@ fn missing_sms_access_reported_until_granted() {
 }
 
 #[test]
+fn access_revoked_while_linked_is_reported() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[NOTES, SMS], &[NOTES, SMS], |_| {});
+    assert_eq!(
+        laptop.wait_got(1),
+        [Got::Notify(NotifyMsg::Snapshot(vec![]))]
+    );
+
+    phone.platform.phone().perms = vec![
+        (PhonePerm::NotificationAccess, PermState::Denied),
+        (PhonePerm::Sms, PermState::Denied),
+    ];
+    let got = laptop.wait_got(3);
+    assert!(got.contains(&Got::Notify(NotifyMsg::Access { granted: false })));
+    assert!(got.contains(&Got::Sms(SmsPush::Access { granted: false })));
+    // Reported once, not each recheck.
+    thread::sleep(std::time::Duration::from_millis(300));
+    assert_eq!(laptop.got().len(), 3);
+}
+
+#[test]
 fn unreadable_access_keeps_a_known_denial() {
     let (phone, _sp, laptop) =
         phone_and_laptop(&[NOTES], &[NOTES], without(PhonePerm::NotificationAccess));
