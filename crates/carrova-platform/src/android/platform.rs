@@ -192,7 +192,9 @@ impl Platform for AndroidPlatform {
     }
 
     fn device_name(&self) -> Option<String> {
-        crate::device::sanitize_device_name(&crate::netops::host_name())
+        net::device_name()
+            .ok()
+            .and_then(|name| crate::device::sanitize_device_name(&name))
     }
 
     fn lan_ipv4_interfaces(&self) -> Result<Vec<LanInterface>, PlatformError> {

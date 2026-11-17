@@ -1,6 +1,6 @@
 //! Network glue through `Net.kt`: the Wi-Fi multicast lock (Android
 //! drops multicast, so mDNS, unless an app holds one) and whether the
-//! active network is a local one.
+//! active network is a local one; and the phone's name.
 
 use super::jni;
 use crate::{MulticastGuard, PlatformError};
@@ -39,5 +39,21 @@ pub(super) fn on_local_network() -> Result<bool, PlatformError> {
             &[context.into()],
         )?
         .z()
+    })
+}
+
+/// The name the user gave this phone, else its model (the host name is
+/// always `localhost` on Android).
+pub(super) fn device_name() -> Result<String, PlatformError> {
+    jni::call("Net.deviceName", |env, context| {
+        let name = jni::call_static(
+            env,
+            context,
+            "Net",
+            "deviceName",
+            "(Landroid/content/Context;)Ljava/lang/String;",
+            &[context.into()],
+        )?;
+        super::files::string(env, name)
     })
 }
