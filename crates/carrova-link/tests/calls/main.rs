@@ -328,3 +328,41 @@ fn older_builds_cannot_read_a_contacts_search() {
     let search = CallCommand::Contacts { query: "an".into() };
     assert!(ciborium::from_reader::<OldCommand, _>(cbor(&search).as_slice()).is_err());
 }
+
+/// The active call state before `outgoing`, as an older build has it.
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum OldState {
+    Active {
+        since_ms: i64,
+        muted: bool,
+        on_laptop_audio: bool,
+    },
+}
+
+#[test]
+fn outgoing_interoperates_with_older_builds() {
+    let old = OldState::Active {
+        since_ms: 5,
+        muted: false,
+        on_laptop_audio: true,
+    };
+    let got: CallState = ciborium::from_reader(cbor(&old).as_slice()).unwrap();
+    assert_eq!(
+        got,
+        CallState::Active {
+            since_ms: 5,
+            muted: false,
+            on_laptop_audio: true,
+            outgoing: false,
+        }
+    );
+    let new = CallState::Active {
+        since_ms: 5,
+        muted: false,
+        on_laptop_audio: true,
+        outgoing: true,
+    };
+    let got: OldState = ciborium::from_reader(cbor(&new).as_slice()).unwrap();
+    assert_eq!(got, old);
+}
