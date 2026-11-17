@@ -71,12 +71,14 @@ export function DeviceDetails({ device, failed = false, ringing = false, on }: D
           }}
         />
       ));
-  const { onCalls } = on;
+  const { onCalls, onCallAudio } = on;
   // Calls is the last quiet row: its links go right under it.
   const callsOn = rows.some((row) => row.feature === 'calls' && row.local === 'on');
   const quiet = [
     ...group('quiet'),
-    ...(callsOn && onCalls ? [<CallsLinks key="calls-links" onCalls={onCalls} />] : []),
+    ...(callsOn && onCalls
+      ? [<CallsLinks key="calls-links" onCalls={onCalls} onCallAudio={onCallAudio} />]
+      : []),
   ];
   const ask = group('ask');
   return (

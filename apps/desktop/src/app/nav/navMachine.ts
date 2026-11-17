@@ -48,7 +48,9 @@ export type Overlay =
   /** Confirm forgetting a linked device. */
   | { readonly kind: 'forget-device'; readonly id: string }
   /** Clips received from linked devices. */
-  | { readonly kind: 'clip-history' };
+  | { readonly kind: 'clip-history' }
+  /** Calls setup: this computer's mic and speakers for a linked phone's calls. */
+  | { readonly kind: 'calls-setup' };
 
 /** Navigation state: one view, the hub page a flow returns to, and a stack of overlays (top last). */
 export interface Nav {

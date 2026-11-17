@@ -10,6 +10,8 @@ import type { CarrovaPort } from '../../engine/types';
 export function useCallsSettings(port: CarrovaPort): {
   readonly phone: PhoneSettings | null;
   readonly setPhone: (patch: Partial<PhoneSettings>) => void;
+  /** Turn this computer's call audio off (its audio change removed), then `then`. */
+  readonly audioOff: (then?: () => void) => void;
   /** The last change could not be made. */
   readonly failed: boolean;
 } {
@@ -32,5 +34,14 @@ export function useCallsSettings(port: CarrovaPort): {
     },
     [phone, port, load],
   );
-  return { phone, setPhone, failed };
+  const audioOff = useCallback(
+    (then?: () => void) => {
+      setFailed(false);
+      port.setCallAudioConfig(false).then(then, () => {
+        setFailed(true);
+      });
+    },
+    [port],
+  );
+  return { phone, setPhone, audioOff, failed };
 }

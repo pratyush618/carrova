@@ -16,6 +16,7 @@ import {
   ForgetDeviceOverlay,
   LinkComputerOverlay,
 } from './DeviceRoutes';
+import { CallsSetupOverlay } from './CallRoutes';
 import { OverrideRoute } from './OverrideRoute';
 import {
   MappingOverlay,
@@ -71,6 +72,8 @@ export function OverlayRoute({ overlay }: { readonly overlay: Overlay }) {
       return <ForgetDeviceOverlay id={overlay.id} />;
     case 'clip-history':
       return <ClipHistoryOverlay />;
+    case 'calls-setup':
+      return <CallsSetupOverlay />;
     case 'override':
       return <OverrideRoute reason={overlay.reason} subject={overlay.subject} />;
   }

@@ -7,14 +7,17 @@ import type { CarrovaPort } from '../../../engine/types';
 import { callerName } from '../../../flows/calls/callTrack';
 import { useCallTrack } from '../../../flows/calls/useCallTrack';
 import { useCallLog } from '../../../flows/calls/useCallLog';
+import { useCallsSetup } from '../../../flows/calls/useCallsSetup';
 import { useCallWindowView } from '../../../flows/calls/useCallWindowView';
 import { useLinkedName } from '../../../flows/calls/useLinkedName';
 import { useRingtone } from '../../../flows/calls/useRingtone';
+import { CallsSetupDialog } from '../../../screens/phone/calls-setup/CallsSetupDialog';
 import { CallBar } from '../../../screens/phone/calls/CallBar';
 import { CallsScreen } from '../../../screens/phone/calls/CallsScreen';
 import { CallWindowScreen } from '../../../screens/phone/calls/CallWindowScreen';
 import { HubLayout } from '../../../ui';
 import { useControllers } from '../../controllers/Controllers';
+import { useNav } from '../nav';
 
 /** The phone a call view belongs to (`null`: no call). */
 const deviceOf = (view: CallView): string | null => ('device' in view ? view.device : null);
@@ -133,4 +136,10 @@ export function CallsRoute({ id }: { readonly id: string }) {
       }}
     />
   );
+}
+
+/** Calls setup over the page that opened it. */
+export function CallsSetupOverlay() {
+  const nav = useNav();
+  return <CallsSetupDialog setup={useCallsSetup(usePort())} onClose={nav.close} />;
 }

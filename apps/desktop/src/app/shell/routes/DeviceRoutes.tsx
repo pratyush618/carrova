@@ -91,6 +91,9 @@ export function DeviceRoute({ id }: { readonly id: string }) {
           onCalls: () => {
             nav.go({ type: 'openCalls', id });
           },
+          onCallAudio: () => {
+            nav.open({ kind: 'calls-setup' });
+          },
         }}
       />
       {apps !== null && (

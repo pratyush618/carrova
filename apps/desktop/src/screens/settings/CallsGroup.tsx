@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { PhoneSettings } from '../../bindings/PhoneSettings';
 import type { RingHere } from '../../bindings/RingHere';
-import { Banner, Row, Segmented, Toggle } from '../../ui';
+import { Banner, Button, Row, Segmented, Toggle } from '../../ui';
 import { Group } from './Group';
 import { ROW_TITLE } from './sections';
 
@@ -15,6 +15,9 @@ export interface CallsSettingsProps {
   readonly failed: boolean;
   readonly on: {
     readonly onPhone: (patch: Partial<PhoneSettings>) => void;
+    /** Undo the audio setup, then run the wizard again. */
+    readonly onAudioAgain: () => void;
+    readonly onAudioOff: () => void;
   };
 }
 
@@ -27,6 +30,20 @@ export function CallsGroup({ calls }: { readonly calls?: CallsSettingsProps | un
     <>
       {calls.failed && <Banner tone="warning" title={t('calls.settings.failed')} />}
       <Group title={t('calls.settings.group')}>
+        <Row
+          title={t(ROW_TITLE.callAudio)}
+          sub={t('calls.settings.audioSub')}
+          trail={
+            <>
+              <Button size="sm" onClick={on.onAudioOff}>
+                {t('calls.settings.off')}
+              </Button>
+              <Button size="sm" onClick={on.onAudioAgain}>
+                {t('calls.settings.again')}
+              </Button>
+            </>
+          }
+        />
         {phone !== null && (
           <>
             <Row

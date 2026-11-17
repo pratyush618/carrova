@@ -33,6 +33,7 @@ export const ROW_TITLE = {
   clipHistory: 'ecosystem.settings.history',
   clipPasswords: 'ecosystem.settings.passwords',
   clipLimits: 'ecosystem.settings.limits',
+  callAudio: 'calls.settings.audio',
   ringHere: 'calls.settings.ring',
   onlyActive: 'calls.settings.onlyActive',
   manual: 'settings.sending.manual',
@@ -88,7 +89,7 @@ export const SECTIONS: readonly SectionDef[] = [
     icon: 'copy',
     rows: ['clipShare', 'clipNote', 'clipFile', 'clipHistory', 'clipPasswords', 'clipLimits'],
   },
-  { id: 'calls', icon: 'call', rows: ['ringHere', 'onlyActive'] },
+  { id: 'calls', icon: 'call', rows: ['callAudio', 'ringHere', 'onlyActive'] },
   { id: 'sending', icon: 'send', rows: ['manual', 'fileManager', 'caches'] },
   {
     id: 'nearby',

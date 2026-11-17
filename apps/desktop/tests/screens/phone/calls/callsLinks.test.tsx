@@ -13,6 +13,7 @@ const on = () => ({
   onSendClipboard: vi.fn(),
   onForget: vi.fn(),
   onCalls: vi.fn(),
+  onCallAudio: vi.fn(),
 });
 
 const withCalls = (state: 'on' | 'off'): LinkedDeviceView => ({
@@ -30,6 +31,14 @@ describe('calls on the device page', () => {
     renderScreen(<DevicePage device={withCalls('on')} on={intents} />);
     await user.click(screen.getByRole('button', { name: 'Call history' }));
     expect(intents.onCalls).toHaveBeenCalledOnce();
+  });
+
+  it('opens the call-audio setup from Set up', async () => {
+    const user = userEvent.setup();
+    const intents = on();
+    renderScreen(<DevicePage device={withCalls('on')} on={intents} />);
+    await user.click(screen.getByRole('button', { name: 'Set up' }));
+    expect(intents.onCallAudio).toHaveBeenCalledOnce();
   });
 
   it('offers no call log while calls are off', () => {

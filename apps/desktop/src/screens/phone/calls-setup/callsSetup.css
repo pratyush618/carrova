@@ -1,0 +1,14 @@
+/* Calls setup: the install step's audio-change consent. */
+.s-callsetup__h {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--t-md);
+}
+
+.s-callsetup__agree {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-block-start: var(--sp-2);
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}

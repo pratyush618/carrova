@@ -224,7 +224,17 @@ export function SettingsRoute({ section }: { readonly section: SettingsSection }
       calls={{
         phone: calls.phone,
         failed: calls.failed,
-        on: { onPhone: calls.setPhone },
+        on: {
+          onPhone: calls.setPhone,
+          onAudioAgain: () => {
+            calls.audioOff(() => {
+              nav.open({ kind: 'calls-setup' });
+            });
+          },
+          onAudioOff: () => {
+            calls.audioOff();
+          },
+        },
       }}
       on={{
         onClip: setClip,

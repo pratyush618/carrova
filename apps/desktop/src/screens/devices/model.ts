@@ -57,6 +57,8 @@ export interface DeviceIntents {
   readonly onApps?: () => void;
   /** Open the phone's call log (absent: no calls page here). */
   readonly onCalls?: () => void;
+  /** Set up this computer's mic and speakers for calls (absent: not offered here). */
+  readonly onCallAudio?: () => void;
 }
 
 /** The phone features that need a permission on the phone, in banner order. */

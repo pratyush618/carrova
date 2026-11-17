@@ -72,4 +72,19 @@ describe('calls on the laptop', () => {
     emit({ kind: 'left', device: 'p8' });
     expect(await screen.findByText('Pixel 8 left')).toBeInTheDocument();
   });
+
+  it('undoes the audio setup before setting up again, and turns it off', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ returning: true });
+    const config = vi.spyOn(port, 'setCallAudioConfig');
+    await openSettings(user, 'Calls and Bluetooth');
+    await user.click(await screen.findByRole('button', { name: 'Turn off' }));
+    expect(config).toHaveBeenCalledWith(false);
+    await user.click(screen.getByRole('button', { name: 'Set up again' }));
+    expect(config).toHaveBeenCalledTimes(2);
+    expect(config).toHaveBeenLastCalledWith(false);
+    expect(
+      await screen.findByRole('heading', { name: 'Answer calls on this computer' }),
+    ).toBeInTheDocument();
+  });
 });
