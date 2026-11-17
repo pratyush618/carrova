@@ -28,6 +28,30 @@ export const ecosystem = {
     actionFailed: "Couldn't reach {{name}}. Try again.",
     key: 'Key {{key}}',
     forget: 'Forget {{name}}',
+    missing: {
+      notifications: {
+        title: 'Notifications need access on {{name}}',
+        body: 'Open Carrova on the phone and allow notification access. Until then nothing is shown here.',
+      },
+      messages: {
+        title: 'Messages need SMS access on {{name}}',
+        body: 'Open Carrova on the phone and allow Messages. Until then no texts show here.',
+      },
+    },
+    waiting: 'Waiting for access on the phone',
+    remind: 'Remind on phone',
+    reminded: 'Reminder shown on {{name}}',
+    remindFailed: "{{name}} couldn't show the reminder. Open Carrova on it instead.",
+    apps: 'Apps',
+  },
+  phoneApps: {
+    title: 'Notifications from {{name}}',
+    sub: 'Change these on {{name}}. The phone still gets everything.',
+    on: 'Shows here',
+    off: 'Off',
+    private: 'Off: banking apps start off',
+    none: 'Apps show here once they post a notification.',
+    done: 'Done',
   },
   forget: {
     title: 'Forget {{name}}?',

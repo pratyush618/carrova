@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHost } from '../../../engine/host';
+import type { NotifyAppRow } from '../../../bindings/NotifyAppRow';
 import type { LinkedDeviceView } from '../../../engine/types';
 import { usePort } from '../../../engine/port';
 import { toBridgeError } from '../../../engine/errors';
@@ -18,6 +19,7 @@ import { AddDeviceDialog } from '../../../screens/devices/AddDeviceDialog';
 import { DevicePage } from '../../../screens/devices/DevicePage';
 import { deviceKind } from '../../../screens/devices/model';
 import { ForgetDialog } from '../../../screens/devices/ForgetDialog';
+import { PhoneAppsSheet } from '../../../screens/devices/PhoneAppsSheet';
 import {
   LinkComputerDialog,
   type LinkComputerState,
@@ -29,7 +31,7 @@ import { useInvite } from '../../state/EngineState';
 import { useNav } from '../nav';
 
 /** What the device page last said about an action (sent, or the device didn't answer). */
-type ActionNote = 'clipSent' | 'actionFailed';
+type ActionNote = 'clipSent' | 'actionFailed' | 'reminded' | 'remindFailed';
 
 /** One linked device's page; empty until the list has it (and after it is forgotten). */
 export function DeviceRoute({ id }: { readonly id: string }) {
@@ -37,7 +39,10 @@ export function DeviceRoute({ id }: { readonly id: string }) {
   const { linked } = useControllers();
   const host = useHost();
   const nav = useNav();
+  const port = usePort();
   const [note, setNote] = useState<ActionNote | null>(null);
+  // The phone's app list, while its sheet is open.
+  const [apps, setApps] = useState<NotifyAppRow[] | null>(null);
   const device = linked.devices.find((d) => d.id === id);
   if (device === undefined) return <HubLayout>{null}</HubLayout>;
   const failed = () => {
@@ -75,11 +80,28 @@ export function DeviceRoute({ id }: { readonly id: string }) {
           onForget: () => {
             nav.open({ kind: 'forget-device', id });
           },
+          onRemind: (feature) => {
+            port.remindPhone(id, feature).then((shown) => {
+              setNote(shown ? 'reminded' : 'remindFailed');
+            }, failed);
+          },
+          onApps: () => {
+            port.phoneApps(id).then(setApps, failed);
+          },
         }}
       />
+      {apps !== null && (
+        <PhoneAppsSheet
+          name={device.name}
+          apps={apps}
+          onClose={() => {
+            setApps(null);
+          }}
+        />
+      )}
       {note !== null && (
         <Toast
-          icon={note === 'clipSent' ? 'check' : 'warn'}
+          icon={note === 'clipSent' || note === 'reminded' ? 'check' : 'warn'}
           onDismiss={() => {
             setNote(null);
           }}

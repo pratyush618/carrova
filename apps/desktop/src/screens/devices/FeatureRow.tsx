@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { FeatureRowView, FeatureState } from '../../engine/types';
 import { useTranslation } from 'react-i18next';
 import { AppGlyph, Row, Segmented, Toggle } from '../../ui';
@@ -14,6 +15,8 @@ export function FeatureRow({
   device,
   off,
   body,
+  waiting = false,
+  action,
   onChange,
 }: {
   readonly feature: Phase2Feature;
@@ -23,10 +26,23 @@ export function FeatureRow({
   readonly off: boolean;
   /** What the feature does, where this side words it differently (the phone). */
   readonly body?: string;
+  /** The phone lacks the access it needs: that replaces the description. */
+  readonly waiting?: boolean;
+  /** A small button beside the control (the phone's app list). */
+  readonly action?: ReactNode;
   readonly onChange: (state: FeatureState) => void;
 }) {
   const { t } = useTranslation();
   const title = t(`ecosystem.features.${feature}.title`);
+  const toggle = (
+    <Toggle
+      on={row.local === 'on'}
+      label={title}
+      onChange={(on) => {
+        onChange(on ? 'on' : 'off');
+      }}
+    />
+  );
   return (
     <Row
       off={off}
@@ -35,18 +51,12 @@ export function FeatureRow({
       sub={
         row.remote === 'off'
           ? t('ecosystem.offOn', { name: device })
-          : (body ?? t(`ecosystem.features.${feature}.body`))
+          : waiting
+            ? t('ecosystem.device.waiting')
+            : (body ?? t(`ecosystem.features.${feature}.body`))
       }
       trail={
-        row.group === 'quiet' ? (
-          <Toggle
-            on={row.local === 'on'}
-            label={title}
-            onChange={(on) => {
-              onChange(on ? 'on' : 'off');
-            }}
-          />
-        ) : (
+        row.group !== 'quiet' ? (
           <Segmented<FeatureState>
             label={title}
             options={(['ask', 'off'] as const).map((value) => ({
@@ -56,6 +66,13 @@ export function FeatureRow({
             value={row.local}
             onChange={onChange}
           />
+        ) : action === undefined ? (
+          toggle
+        ) : (
+          <span className="s-device__ctl">
+            {action}
+            {toggle}
+          </span>
         )
       }
     />

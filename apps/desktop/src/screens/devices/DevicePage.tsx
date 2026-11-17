@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Banner, Button, Head, HubLayout, LinkButton } from '../../ui';
 import { Group } from '../settings/Group';
 import { FeatureRow } from './FeatureRow';
-import { isPhase2, type DeviceIntents, type Phase2Feature } from './model';
+import { NEEDS_ACCESS, isPhase2, type DeviceIntents, type Phase2Feature } from './model';
 import './devices.css';
 
 type Phase2Row = FeatureRowView & { readonly feature: Phase2Feature };
@@ -41,6 +41,8 @@ export function DeviceDetails({ device, failed = false, ringing = false, on }: D
   const { t } = useTranslation();
   const here = device.state === 'linked';
   const rows = device.features.filter(isPhase2Row);
+  const missing = NEEDS_ACCESS.filter((f) => here && device.missing.includes(f));
+  const { onApps } = on;
   const group = (kind: FeatureRowView['group']) =>
     rows
       .filter((row) => row.group === kind)
@@ -51,6 +53,18 @@ export function DeviceDetails({ device, failed = false, ringing = false, on }: D
           row={row}
           device={device.name}
           off={!here}
+          waiting={missing.some((f) => f === row.feature)}
+          {...(row.feature === 'notifications' &&
+            onApps &&
+            here &&
+            row.effective !== 'off' &&
+            !missing.includes('notifications') && {
+              action: (
+                <Button size="sm" kind="quiet" onClick={onApps}>
+                  {t('ecosystem.device.apps')}
+                </Button>
+              ),
+            })}
           onChange={(state) => {
             on.onFeature(row.feature, state);
           }}
@@ -90,6 +104,26 @@ export function DeviceDetails({ device, failed = false, ringing = false, on }: D
           body={t('ecosystem.device.awayBody')}
         />
       )}
+      {missing.map((feature) => (
+        <Banner
+          key={feature}
+          tone="warning"
+          title={t(`ecosystem.device.missing.${feature}.title`, { name: device.name })}
+          body={t(`ecosystem.device.missing.${feature}.body`)}
+          {...(on.onRemind && {
+            action: (
+              <Button
+                size="sm"
+                onClick={() => {
+                  on.onRemind?.(feature);
+                }}
+              >
+                {t('ecosystem.device.remind')}
+              </Button>
+            ),
+          })}
+        />
+      ))}
       {failed && <Banner tone="warning" title={t('ecosystem.device.failed')} />}
       {quiet.length > 0 && <Group title={t('ecosystem.groups.quiet')}>{quiet}</Group>}
       {ask.length > 0 && (

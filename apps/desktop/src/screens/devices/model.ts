@@ -51,7 +51,14 @@ export interface DeviceIntents {
   /** Absent where this build has no file picker. */
   readonly onSendFiles?: () => void;
   readonly onForget: () => void;
+  /** Have the phone remind its user to grant what `feature` needs (absent: not offered). */
+  readonly onRemind?: (feature: Feature) => void;
+  /** Show the phone's per-app notification list (absent: not offered). */
+  readonly onApps?: () => void;
 }
+
+/** The phone features that need a permission on the phone, in banner order. */
+export const NEEDS_ACCESS = ['notifications', 'messages'] as const;
 
 /** The Add a device dialog: making a code, waiting for a scan, the key check, and how it ended. */
 export type AddDeviceModel =
