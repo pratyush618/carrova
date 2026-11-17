@@ -42,6 +42,7 @@ fn active() -> CallState {
         since_ms: 1_000,
         muted: false,
         on_laptop_audio: false,
+        outgoing: false,
     }
 }
 
@@ -71,6 +72,7 @@ fn active_view(phone: &Device, audio: AudioSide) -> CallView {
         since_ms: 1_000,
         muted: false,
         audio,
+        outgoing: false,
     }
 }
 
@@ -211,6 +213,49 @@ fn while_active_rings_unless_locked() {
     phone_call(&phone, CallState::Idle);
     phone_call(&phone, ringing());
     wait_view(&laptop, &ringing_view(&phone, true));
+}
+
+#[test]
+fn a_call_placed_from_the_phone_shows_as_outgoing() {
+    let (phone, _sp, laptop, _sl) = linked();
+    let CallState::Active {
+        since_ms,
+        muted,
+        on_laptop_audio,
+        ..
+    } = active()
+    else {
+        unreachable!()
+    };
+    phone_call(
+        &phone,
+        CallState::Active {
+            since_ms,
+            muted,
+            on_laptop_audio,
+            outgoing: true,
+        },
+    );
+    let CallView::Active {
+        device,
+        since_ms,
+        muted,
+        audio,
+        ..
+    } = active_view(&phone, AudioSide::Phone)
+    else {
+        unreachable!()
+    };
+    wait_view(
+        &laptop,
+        &CallView::Active {
+            device,
+            since_ms,
+            muted,
+            audio,
+            outgoing: true,
+        },
+    );
 }
 
 #[test]

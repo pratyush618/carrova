@@ -370,6 +370,7 @@ fn active(on_laptop_audio: bool) -> CallState {
         since_ms: 1,
         muted: false,
         on_laptop_audio,
+        outgoing: false,
     }
 }
 
@@ -499,6 +500,7 @@ fn dropped_event_resyncs_every_feature() {
         since_ms: 1,
         muted: false,
         on_laptop_audio: false,
+        outgoing: false,
     };
 
     phone

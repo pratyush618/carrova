@@ -49,12 +49,16 @@ pub enum CallView {
     Active {
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         device: DeviceId,
-        /// When it was answered (ms since the Unix epoch).
+        /// When it was answered, or dialled when `outgoing` (ms since the
+        /// Unix epoch).
         since_ms: i64,
         /// The microphone is muted.
         muted: bool,
         /// Where its audio plays now.
         audio: AudioSide,
+        /// Placed from the phone: when it was answered is unknown.
+        #[serde(default)]
+        outgoing: bool,
     },
     /// The ringing call ended unanswered. Needs the ringing held in
     /// memory: a link replaced between the ringing and its end shows no
@@ -83,10 +87,16 @@ impl fmt::Debug for CallView {
                 .debug_struct("Ringing")
                 .field("ring_here", ring_here)
                 .finish_non_exhaustive(),
-            Self::Active { muted, audio, .. } => f
+            Self::Active {
+                muted,
+                audio,
+                outgoing,
+                ..
+            } => f
                 .debug_struct("Active")
                 .field("muted", muted)
                 .field("audio", audio)
+                .field("outgoing", outgoing)
                 .finish_non_exhaustive(),
             Self::Missed { .. } => f.debug_struct("Missed").finish_non_exhaustive(),
             Self::Left { .. } => f.debug_struct("Left").finish_non_exhaustive(),
@@ -125,7 +135,10 @@ impl Call {
             },
             (
                 CallState::Active {
-                    since_ms, muted, ..
+                    since_ms,
+                    muted,
+                    outgoing,
+                    ..
                 },
                 _,
             ) => {
@@ -135,6 +148,7 @@ impl Call {
                     since_ms,
                     muted,
                     audio,
+                    outgoing,
                 }
             }
             (CallState::Ended { missed: true }, Some(CallState::Ringing { number, name })) => {
@@ -164,7 +178,10 @@ impl Call {
     /// The active call's view with its audio at `audio`, if that moved it.
     fn audio_now(&mut self, device: DeviceId, audio: AudioSide) -> Option<CallView> {
         let Some(CallState::Active {
-            since_ms, muted, ..
+            since_ms,
+            muted,
+            outgoing,
+            ..
         }) = self.state
         else {
             return None;
@@ -177,6 +194,7 @@ impl Call {
             since_ms,
             muted,
             audio,
+            outgoing,
         })
     }
 }
