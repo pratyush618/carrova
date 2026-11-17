@@ -55,6 +55,8 @@ export interface DeviceIntents {
   readonly onRemind?: (feature: Feature) => void;
   /** Show the phone's per-app notification list (absent: not offered). */
   readonly onApps?: () => void;
+  /** Open the phone's call log (absent: no calls page here). */
+  readonly onCalls?: () => void;
 }
 
 /** The phone features that need a permission on the phone, in banner order. */

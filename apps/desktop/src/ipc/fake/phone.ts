@@ -32,6 +32,7 @@ type PhonePort = Pick<
   | 'phoneCall'
   | 'callHistory'
   | 'callWindow'
+  | 'callNow'
   | 'phoneSettings'
   | 'setPhoneSettings'
   | 'callAudioStep'
@@ -226,6 +227,7 @@ export function fakePhone(): PhonePort {
     phoneCall: () => later(() => 'done' as const),
     callHistory: () => later(() => history(Date.now())),
     callWindow: (view, nowMs) => later(() => callWindow(view, nowMs)),
+    callNow: () => later((): CallView => ({ kind: 'none' })),
     phoneSettings: () => later(() => settings),
     setPhoneSettings: (next) =>
       later(() => {

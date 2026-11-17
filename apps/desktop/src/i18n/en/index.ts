@@ -1,4 +1,5 @@
 import { apps } from './apps';
+import { calls } from './calls';
 import { common } from './common';
 import { ecosystem } from './ecosystem';
 import { errors } from './errors';
@@ -31,4 +32,5 @@ export const en = {
   override,
   ecosystem,
   mobile,
+  calls,
 } as const;

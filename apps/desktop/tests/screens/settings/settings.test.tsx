@@ -79,6 +79,7 @@ describe('Settings', () => {
       'Features',
       'Linked devices',
       'Clipboard',
+      'Calls and Bluetooth',
       'Sending',
       'Nearby & devices',
       'Notifications',

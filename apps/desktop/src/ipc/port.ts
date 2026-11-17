@@ -306,6 +306,8 @@ export interface CarrovaPort {
   callHistory(id: string, before: Cursor | null, clock: LocalClock): Promise<CallLogView>;
   /** What the call windows show of `view` (`call_view` event) at `nowMs` (timer). */
   callWindow(view: CallView, nowMs: number): Promise<CallWindowView>;
+  /** The last `call_view` event (`none` before any): a window opened mid-call starts from it. Desktop only. */
+  callNow(): Promise<CallView>;
   /** How a linked phone shows here (Settings → Calls and Bluetooth). */
   phoneSettings(): Promise<PhoneSettings>;
   setPhoneSettings(settings: PhoneSettings): Promise<void>;

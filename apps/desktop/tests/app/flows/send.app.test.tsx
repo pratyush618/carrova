@@ -11,17 +11,18 @@ const home = () => screen.findByRole('heading', { level: 1, name: 'Good to see y
 /** `port` with a file manager that sends `paths` (as `send_requested`) on `forward`. */
 function fileManager(port: CarrovaPort) {
   const queue: string[][] = [];
-  let listener: ((event: BridgeEvent) => void) | null = null;
+  // Every subscriber (the engine state, Home's call bar) hears it.
+  const listeners: ((event: BridgeEvent) => void)[] = [];
   const subscribe = port.subscribe.bind(port);
   port.subscribe = (l) => {
-    listener = l;
+    listeners.push(l);
     return subscribe(l);
   };
   port.takeSendRequest = () => Promise.resolve(queue.shift() ?? []);
   return {
     forward: (paths: string[]) => {
       queue.push(paths);
-      listener?.({ kind: 'send_requested' });
+      for (const listener of listeners) listener({ kind: 'send_requested' });
     },
   };
 }

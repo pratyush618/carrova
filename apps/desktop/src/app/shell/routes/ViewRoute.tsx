@@ -1,5 +1,6 @@
 import type { SettingsSection } from '../../../screens/settings/sections';
 import type { HubPage, View } from '../../nav/navMachine';
+import { CallsRoute } from './CallRoutes';
 import { DeviceRoute } from './DeviceRoutes';
 import { AppsRoute, HistoryRoute, HomeRoute, NearbyRoute, SettingsRoute } from './HubRoutes';
 import { MessagesRoute } from './PhoneRoutes';
@@ -37,6 +38,8 @@ export function ViewRoute({ view }: { readonly view: View }) {
       return <HubRoute page={view.page} section={view.section} />;
     case 'device':
       return <DeviceRoute id={view.id} />;
+    case 'calls':
+      return <CallsRoute id={view.id} />;
     case 'flow': {
       const { at } = view;
       switch (at.flow) {

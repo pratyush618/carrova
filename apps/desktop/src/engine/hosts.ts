@@ -1,4 +1,5 @@
 import { isTauri } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { DesktopHost } from './host';
 
 /** Carrova archive files. */
@@ -65,7 +66,13 @@ const tauriHost: DesktopHost = {
     const { sendNotification } = await import('@tauri-apps/plugin-notification');
     sendNotification({ title });
   },
+  closeWindow: async () => {
+    await getCurrentWindow().close();
+  },
 };
+
+/** The call window's label (`crate::call_window::CALL_WINDOW`). */
+const CALL_WINDOW = 'call';
 
 /** A plain browser (dev server, Playwright): paths are typed; links open in a new tab. */
 const browserHost: DesktopHost = {
@@ -89,7 +96,10 @@ const fakeDialogs: DesktopHost = {
 
 /** The host for where the UI runs. */
 export function detectHost(): DesktopHost {
-  if (isTauri()) return tauriHost;
+  if (isTauri()) {
+    const call = getCurrentWindow().label === CALL_WINDOW;
+    return { ...tauriHost, window: call ? 'call' : 'main' };
+  }
   const fake = FAKE_ALLOWED && new URLSearchParams(window.location.search).has('fake');
   return fake ? { ...browserHost, ...fakeDialogs } : browserHost;
 }

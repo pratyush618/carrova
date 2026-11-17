@@ -40,6 +40,6 @@ export function liveView(view: View, c: Controllers, sending: SessionProgress): 
 export const viewKey = (view: View): string =>
   view.kind === 'flow'
     ? `${view.at.flow}/${view.at.step}`
-    : view.kind === 'device'
-      ? `device/${view.id}`
+    : view.kind === 'device' || view.kind === 'calls'
+      ? `${view.kind}/${view.id}`
       : view.page;

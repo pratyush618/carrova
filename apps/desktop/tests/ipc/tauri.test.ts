@@ -55,6 +55,7 @@ describe('the Tauri port', () => {
     await port.phoneCall('p8', { kind: 'mute', on: true });
     await port.callHistory('p8', before, clock);
     await port.callWindow({ kind: 'none' }, 9);
+    await port.callNow();
     await port.phoneSettings();
     await port.setPhoneSettings({
       ring_here: 'never',
@@ -77,6 +78,7 @@ describe('the Tauri port', () => {
       ['phone_call', { id: 'p8', action: { kind: 'mute', on: true } }],
       ['call_history', { id: 'p8', before, clock }],
       ['call_window', { view: { kind: 'none' }, nowMs: 9 }],
+      ['call_now', {}],
       ['phone_settings', {}],
       [
         'set_phone_settings',

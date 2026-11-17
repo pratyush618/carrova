@@ -10,7 +10,9 @@ export type View =
   | { readonly kind: 'hub'; readonly page: HubPage; readonly section?: SettingsSection }
   | { readonly kind: 'flow'; readonly at: FlowPosition }
   /** One linked device's page (under Nearby). */
-  | { readonly kind: 'device'; readonly id: string };
+  | { readonly kind: 'device'; readonly id: string }
+  /** A linked phone's calls (its call log, under its page). */
+  | { readonly kind: 'calls'; readonly id: string };
 
 /** Why an override dialog is open: each names one rule the user may bend. */
 export type OverrideKind = 'unmovable' | 'running' | 'space' | 'cross_os' | 'elsewhere';
@@ -60,6 +62,7 @@ export interface Nav {
 export type NavEvent =
   | { readonly type: 'openHub'; readonly page: HubPage; readonly section?: SettingsSection }
   | { readonly type: 'openDevice'; readonly id: string }
+  | { readonly type: 'openCalls'; readonly id: string }
   | { readonly type: 'startFlow'; readonly flow: FlowId }
   | { readonly type: 'enterFlow'; readonly at: FlowPosition }
   | { readonly type: 'next' }
@@ -96,6 +99,8 @@ export function navigate(nav: Nav, event: NavEvent): Nav {
         : { view: { kind: 'hub', page: event.page }, origin: event.page, overlays: [] };
     case 'openDevice':
       return show(nav, { kind: 'device', id: event.id });
+    case 'openCalls':
+      return show(nav, { kind: 'calls', id: event.id });
     case 'startFlow':
       return show(nav, { kind: 'flow', at: flowStart(event.flow) });
     case 'enterFlow':

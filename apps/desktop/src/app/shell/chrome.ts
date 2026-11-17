@@ -27,8 +27,8 @@ export function buildChrome(
   /** A linked phone shares its texts here: Messages shows. */
   messages = false,
 ): Chrome {
-  // A device page sits under Nearby.
-  const current = view.kind === 'hub' ? view.page : view.kind === 'device' ? 'nearby' : null;
+  // A device page (and a phone's calls) sits under Nearby.
+  const current = view.kind === 'hub' ? view.page : view.kind === 'flow' ? null : 'nearby';
   const hubLinks: HubLink[] = HUB.filter(({ page }) => messages || page !== 'messages').map(
     ({ page, icon }) => ({
       id: page,

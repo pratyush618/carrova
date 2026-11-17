@@ -1,0 +1,78 @@
+/* The call window (ringing, in a call, missed): small, centred, one column. */
+.s-call {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-2);
+  min-block-size: 100vh;
+  text-align: center;
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.s-call__who {
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: 650;
+}
+
+.s-call__sub,
+.s-call__via {
+  margin: 0;
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+}
+
+.s-call__timer {
+  font-family: var(--mono);
+  color: var(--text-secondary);
+}
+
+.s-call__acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-1);
+  margin-block-start: var(--sp-1);
+}
+
+/* Answer and decline use the colours every phone uses: the one place the single accent bends. */
+.s-call__answer .p-btn {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--accent-on);
+}
+
+.s-call__keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-0);
+  inline-size: 180px;
+}
+
+/* The home page's bar while a call rings or runs. */
+.s-callbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-ctl);
+  background: var(--success-soft);
+  font-size: var(--t-sm);
+}
+
+.s-callbar__text {
+  flex: 1;
+}
+
+/* The call log's "Call a name or number" row. */
+.s-calls__dial {
+  display: flex;
+  align-items: end;
+  gap: var(--sp-1);
+}
+
+.s-calls__dial > :first-child {
+  flex: 1;
+}

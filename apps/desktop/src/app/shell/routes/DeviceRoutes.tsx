@@ -88,6 +88,9 @@ export function DeviceRoute({ id }: { readonly id: string }) {
           onApps: () => {
             port.phoneApps(id).then(setApps, failed);
           },
+          onCalls: () => {
+            nav.go({ type: 'openCalls', id });
+          },
         }}
       />
       {apps !== null && (

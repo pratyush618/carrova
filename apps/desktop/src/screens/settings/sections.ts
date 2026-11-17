@@ -5,6 +5,7 @@ export type SettingsSection =
   | 'features'
   | 'linked'
   | 'clipboard'
+  | 'calls'
   | 'sending'
   | 'nearby'
   | 'notifications'
@@ -32,6 +33,8 @@ export const ROW_TITLE = {
   clipHistory: 'ecosystem.settings.history',
   clipPasswords: 'ecosystem.settings.passwords',
   clipLimits: 'ecosystem.settings.limits',
+  ringHere: 'calls.settings.ring',
+  onlyActive: 'calls.settings.onlyActive',
   manual: 'settings.sending.manual',
   fileManager: 'settings.sending.fileManager',
   caches: 'settings.moves.caches',
@@ -85,6 +88,7 @@ export const SECTIONS: readonly SectionDef[] = [
     icon: 'copy',
     rows: ['clipShare', 'clipNote', 'clipFile', 'clipHistory', 'clipPasswords', 'clipLimits'],
   },
+  { id: 'calls', icon: 'call', rows: ['ringHere', 'onlyActive'] },
   { id: 'sending', icon: 'send', rows: ['manual', 'fileManager', 'caches'] },
   {
     id: 'nearby',

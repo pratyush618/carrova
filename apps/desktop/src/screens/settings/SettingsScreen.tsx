@@ -5,6 +5,7 @@ import type { ClipSettings, LinkedDeviceView } from '../../engine/types';
 import { AlertsGroup } from './AlertsGroup';
 import { ClipboardGroup, FeaturesGroup, LinkedGroup } from './EcosystemGroups';
 import { BackgroundGroup } from './BackgroundGroup';
+import { CallsGroup, type CallsSettingsProps } from './CallsGroup';
 import { Group } from './Group';
 import type { SettingsIntents, SettingsModel } from './model';
 import { MovesGroup } from './MovesGroup';
@@ -23,6 +24,8 @@ interface Props {
   readonly clip: ClipSettings | null;
   /** The last clipboard change could not be saved. */
   readonly clipFailed?: boolean;
+  /** Settings › Calls and Bluetooth (absent: the section is empty). */
+  readonly calls?: CallsSettingsProps;
 }
 
 /** What each section shows. */
@@ -36,6 +39,7 @@ const BODY: Record<SettingsSection, (props: Props) => ReactNode> = {
   features: () => <FeaturesGroup />,
   linked: (p) => <LinkedGroup {...p} />,
   clipboard: (p) => <ClipboardGroup {...p} />,
+  calls: (p) => <CallsGroup calls={p.calls} />,
   sending: (p) => <SendingGroup {...p} />,
   nearby: (p) => <NearbyGroup {...p} />,
   notifications: (p) => <AlertsGroup {...p} />,
@@ -53,6 +57,7 @@ export function SettingsScreen({
   linked,
   clip,
   clipFailed = false,
+  calls,
 }: Props & { readonly section: SettingsSection }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
@@ -95,7 +100,7 @@ export function SettingsScreen({
           ))}
         </Group>
       ) : (
-        BODY[section]({ model, on, linked, clip, clipFailed })
+        BODY[section]({ model, on, linked, clip, clipFailed, ...(calls && { calls }) })
       )}
     </HubLayout>
   );

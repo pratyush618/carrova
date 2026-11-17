@@ -122,6 +122,7 @@ export function createTauriPort(): CarrovaPort {
     phoneCall: (id, action) => call('phone_call', { id, action }),
     callHistory: (id, before, clock) => call('call_history', { id, before, clock }),
     callWindow: (view, nowMs) => call('call_window', { view, nowMs }),
+    callNow: () => call('call_now'),
     phoneSettings: () => call('phone_settings'),
     setPhoneSettings: (settings) => call('set_phone_settings', { settings }),
     callAudioStep: () => call('call_audio_step'),

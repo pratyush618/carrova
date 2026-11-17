@@ -1,6 +1,7 @@
 import type { FeatureRowView, LinkedDeviceView } from '../../engine/types';
 import { useTranslation } from 'react-i18next';
 import { Banner, Button, Head, HubLayout, LinkButton } from '../../ui';
+import { CallsLinks } from '../phone/calls/CallsLinks';
 import { Group } from '../settings/Group';
 import { FeatureRow } from './FeatureRow';
 import { NEEDS_ACCESS, isPhase2, type DeviceIntents, type Phase2Feature } from './model';
@@ -70,7 +71,13 @@ export function DeviceDetails({ device, failed = false, ringing = false, on }: D
           }}
         />
       ));
-  const quiet = group('quiet');
+  const { onCalls } = on;
+  // Calls is the last quiet row: its links go right under it.
+  const callsOn = rows.some((row) => row.feature === 'calls' && row.local === 'on');
+  const quiet = [
+    ...group('quiet'),
+    ...(callsOn && onCalls ? [<CallsLinks key="calls-links" onCalls={onCalls} />] : []),
+  ];
   const ask = group('ask');
   return (
     <div className="s-device">
