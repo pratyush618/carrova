@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NotifyAppsView } from '../../bindings/NotifyAppsView';
 import { usePort } from '../../engine/port';
@@ -31,11 +31,15 @@ export function NotifyApps({
   const port = usePort();
   const [view, setView] = useState<NotifyAppsView | null>(null);
   const [query, setQuery] = useState('');
+  const [failed, setFailed] = useState(false);
   const steps = usePermSteps(ACCESS);
   const noAccess = steps !== null && steps[0] !== 'ok';
-  useEffect(() => {
-    void port.notifyApps().then(setView);
+  const load = useCallback(() => {
+    port.notifyApps().then(setView, () => undefined);
   }, [port]);
+  // Again each time the access step is read (back from settings): with
+  // access, the apps showing notifications join the list.
+  useEffect(load, [load, steps]);
   if (view === null)
     return (
       <PhonePage title={t('mobile.notify.title')} onBack={onBack}>
@@ -43,13 +47,26 @@ export function NotifyApps({
       </PhonePage>
     );
 
+  // A change shows at once; if it cannot be saved, the saved list comes back.
+  const save = (next: NotifyAppsView, saving: Promise<void>) => {
+    setView(next);
+    setFailed(false);
+    saving.catch(() => {
+      setFailed(true);
+      load();
+    });
+  };
   const setApp = (id: string, on: boolean) => {
-    setView({ ...view, apps: view.apps.map((a) => (a.id === id ? { ...a, on } : a)) });
-    void port.setNotifyApp(id, on);
+    save(
+      { ...view, apps: view.apps.map((a) => (a.id === id ? { ...a, on } : a)) },
+      port.setNotifyApp(id, on),
+    );
   };
   const setFilters = (hideCodes: boolean, showText: boolean) => {
-    setView({ ...view, hide_codes: hideCodes, show_text: showText });
-    void port.setNotifyFilters(hideCodes, showText);
+    save(
+      { ...view, hide_codes: hideCodes, show_text: showText },
+      port.setNotifyFilters(hideCodes, showText),
+    );
   };
   const shown = appsMatching(view.apps, query);
   return (
@@ -74,6 +91,7 @@ export function NotifyApps({
           onChange={setQuery}
         />
       )}
+      {failed && <Banner tone="warning" title={t('ecosystem.device.failed')} />}
       <Group
         title={t('mobile.notify.showOn', { name })}
         {...(shown.length === 0 && {

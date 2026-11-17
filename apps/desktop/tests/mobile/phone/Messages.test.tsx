@@ -54,3 +54,18 @@ describe('Messages on the computer', () => {
     ).toBeInTheDocument();
   });
 });
+
+describe('Messages save failures', () => {
+  it('a window that cannot be saved goes back and says so', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderPhone({ scenario: 'linked' });
+    vi.spyOn(port, 'phonePermStep').mockResolvedValue('ok');
+    vi.spyOn(port, 'setMessagesSync').mockRejectedValue(new Error('disk full'));
+    await openScreen(user, 'Messages');
+
+    await user.click(await screen.findByRole('radio', { name: 'All' }));
+
+    expect(await screen.findByText("Couldn't change that. Try again.")).toBeInTheDocument();
+    expect(await screen.findByRole('radio', { name: '30 days' })).toBeChecked();
+  });
+});

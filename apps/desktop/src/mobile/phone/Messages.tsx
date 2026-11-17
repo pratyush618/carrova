@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SyncWindow } from '../../bindings/SyncWindow';
 import { usePort } from '../../engine/port';
@@ -33,11 +33,13 @@ export function Messages({
   const { t } = useTranslation();
   const port = usePort();
   const [keep, setKeep] = useState<SyncWindow | null>(null);
+  const [failed, setFailed] = useState(false);
   const steps = usePermSteps(SMS);
   const noPerm = steps !== null && steps[0] !== 'ok';
-  useEffect(() => {
-    void port.messagesSync().then(setKeep);
+  const load = useCallback(() => {
+    port.messagesSync().then(setKeep, () => undefined);
   }, [port]);
+  useEffect(load, [load]);
   return (
     <PhonePage title={t('mobile.messages.title')} onBack={onBack}>
       {noPerm ? (
@@ -62,6 +64,7 @@ export function Messages({
           />
         )
       )}
+      {failed && <Banner tone="warning" title={t('ecosystem.device.failed')} />}
       <Group title={t('mobile.messages.on', { name })}>
         <Row
           off={noPerm}
@@ -76,7 +79,12 @@ export function Messages({
               value={keep}
               onChange={(next) => {
                 setKeep(next);
-                void port.setMessagesSync(next);
+                setFailed(false);
+                // Not saved: show the saved choice again.
+                port.setMessagesSync(next).catch(() => {
+                  setFailed(true);
+                  load();
+                });
               }}
             />
           }

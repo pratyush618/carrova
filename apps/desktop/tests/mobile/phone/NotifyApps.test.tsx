@@ -53,3 +53,37 @@ describe('Notifications on the computer', () => {
     expect(open).toHaveBeenCalledWith('notification_access');
   });
 });
+
+describe('Notifications list upkeep', () => {
+  it('a switch that cannot be saved goes back and says so', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderPhone({ scenario: 'linked' });
+    vi.spyOn(port, 'phonePermStep').mockResolvedValue('ok');
+    vi.spyOn(port, 'setNotifyApp').mockRejectedValue(new Error('disk full'));
+    await openScreen(user, 'Notifications');
+
+    await user.click(await screen.findByRole('switch', { name: 'Chat' }));
+
+    expect(await screen.findByText("Couldn't change that. Try again.")).toBeInTheDocument();
+    expect(await screen.findByRole('switch', { name: 'Chat' })).toBeChecked();
+  });
+
+  it('the list loads again once access is granted', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderPhone({ scenario: 'linked' });
+    let granted = false;
+    vi.spyOn(port, 'phonePermStep').mockImplementation(() =>
+      Promise.resolve(granted ? 'ok' : 'open_settings'),
+    );
+    const list = vi.spyOn(port, 'notifyApps');
+    await openScreen(user, 'Notifications');
+    await screen.findByText('Notification access is off');
+    const before = list.mock.calls.length;
+
+    granted = true;
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    expect(await screen.findByRole('searchbox', { name: 'Search apps' })).toBeInTheDocument();
+    expect(list.mock.calls.length).toBeGreaterThan(before);
+  });
+});
