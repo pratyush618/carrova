@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io;
 use std::net::UdpSocket;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread::{self, ThreadId};
@@ -41,6 +41,8 @@ pub struct Recording {
     no_local_socket: AtomicBool,
     /// Plays an OS slow to say whether the screen is locked.
     slow_lock: AtomicBool,
+    /// How many times `screen_lock` answered.
+    lock_reads: AtomicUsize,
     /// The scripted phone's data; tests fill it through [`Recording::phone`].
     phone: Mutex<Phone>,
     events: Arc<Mutex<Events>>,
@@ -154,6 +156,7 @@ impl Recording {
             done: Mutex::default(),
             no_local_socket: AtomicBool::new(false),
             slow_lock: AtomicBool::new(false),
+            lock_reads: AtomicUsize::new(0),
             phone: Mutex::default(),
             events: Arc::default(),
         }
@@ -200,6 +203,11 @@ impl Recording {
     /// Make `screen_lock` take 200 ms to answer.
     pub fn slow_screen_lock(&self) {
         self.slow_lock.store(true, Ordering::SeqCst);
+    }
+
+    /// How many times `screen_lock` answered so far.
+    pub fn lock_reads(&self) -> usize {
+        self.lock_reads.load(Ordering::SeqCst)
     }
 
     pub fn refuse_local_sockets(&self) {
@@ -372,7 +380,9 @@ impl Platform for Recording {
         if self.slow_lock.load(Ordering::SeqCst) {
             std::thread::sleep(Duration::from_millis(200));
         }
-        self.inner.screen_lock()
+        let lock = self.inner.screen_lock();
+        self.lock_reads.fetch_add(1, Ordering::SeqCst);
+        lock
     }
     fn watch_phone_events(
         &self,
