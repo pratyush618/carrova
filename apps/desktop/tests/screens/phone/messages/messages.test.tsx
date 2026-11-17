@@ -1,10 +1,11 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { renderScreen } from '../../../support/render';
+import { renderScreen, testChrome } from '../../../support/render';
 import type { SmsSendOutcome } from '@/bindings/SmsSendOutcome';
 import type { ThreadRow } from '@/bindings/ThreadRow';
 import { useSmsSends } from '@/flows/phone/useSmsSends';
+import { ChromeContext, ReduceMotionOverride, Window } from '@/ui';
 import {
   MessagesScreen,
   type MessagesIntents,
@@ -26,6 +27,7 @@ const model: MessagesModel = {
   away: false,
   failed: false,
   threads: [sam],
+  moreThreads: false,
   selected: sam,
   thread: {
     messages: [
@@ -48,6 +50,8 @@ const intents = (): MessagesIntents => ({
   onCompose: vi.fn(),
   onSend: vi.fn(),
   onRetry: vi.fn(),
+  onOlderMessages: vi.fn(),
+  onMoreThreads: vi.fn(),
 });
 
 /** The screen over the real send hook, as the route wires them. */
@@ -149,5 +153,51 @@ describe('Messages', () => {
     await user.type(screen.getByRole('textbox', { name: 'Text message' }), 'Hi');
     await user.click(screen.getByRole('button', { name: 'Send' }));
     expect(on.onSend).toHaveBeenCalledWith('+15550177', 'Hi');
+  });
+
+  it('shows how a new text went while the recipient matches a conversation', async () => {
+    const user = userEvent.setup();
+    renderScreen(
+      <MessagesScreen
+        model={{
+          ...model,
+          selected: null,
+          thread: null,
+          composing: true,
+          sends: [{ clientId: 1, thread: null, to: '+15550101', text: 'Hi', state: 'failed' }],
+        }}
+        on={intents()}
+      />,
+    );
+    await user.type(screen.getByRole('textbox', { name: 'To' }), '+1555');
+    expect(screen.getAllByRole('button', { name: /Sam Rivera/ })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it('announces a text received while the conversation is open, not the ones loaded', () => {
+    const live = () => document.querySelector('[aria-live="polite"]');
+    const { rerender } = renderScreen(<MessagesScreen model={model} on={intents()} />);
+    expect(live()).toHaveTextContent('');
+
+    const arrived = (text: string, id: number, when_ms: number): MessagesModel => ({
+      ...model,
+      thread: {
+        messages: [
+          ...(model.thread?.messages ?? []),
+          { id, outgoing: false, text, when_ms, provisional: id === 0 },
+        ],
+        next: null,
+      },
+    });
+    rerender(
+      <ReduceMotionOverride value={false}>
+        <ChromeContext value={testChrome}>
+          <Window overlays={[]}>
+            <MessagesScreen model={arrived('Running late?', 0, 50_000)} on={intents()} />
+          </Window>
+        </ChromeContext>
+      </ReduceMotionOverride>,
+    );
+    expect(live()).toHaveTextContent('Running late?');
   });
 });
