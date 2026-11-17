@@ -1,6 +1,6 @@
 # Ecosystem Phase 2: the phone on the laptop — notifications, messages, calls
 
-Date: 2026-11-16. Status: draft for the user's approval. Parent design
+Date: 2026-11-16. Status: implemented; exit gate pending. Parent design
 (decisions, approaches, roadmap): `docs/superpowers/specs/2026-11-15-ecosystem-design.md`.
 Phase 1 (what this builds on): `2026-11-15-ecosystem-phase1-design.md`.
 Screens: `docs/mockups/gui-ecosystem-desktop.html`, `docs/mockups/gui-ecosystem-android.html`.
