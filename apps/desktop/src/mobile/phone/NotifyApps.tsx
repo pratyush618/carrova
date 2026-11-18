@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NotifyAppsView } from '../../bindings/NotifyAppsView';
 import { usePort } from '../../engine/port';
@@ -34,8 +34,16 @@ export function NotifyApps({
   const [failed, setFailed] = useState(false);
   const steps = usePermSteps(ACCESS);
   const noAccess = steps !== null && steps[0] !== 'ok';
+  // Bumped by each change: a read started before one would undo it.
+  const changes = useRef(0);
   const load = useCallback(() => {
-    port.notifyApps().then(setView, () => undefined);
+    const at = changes.current;
+    port.notifyApps().then(
+      (saved) => {
+        if (changes.current === at) setView(saved);
+      },
+      () => undefined,
+    );
   }, [port]);
   // Again each time the access step is read (back from settings): with
   // access, the apps showing notifications join the list.
@@ -49,6 +57,7 @@ export function NotifyApps({
 
   // A change shows at once; if it cannot be saved, the saved list comes back.
   const save = (next: NotifyAppsView, saving: Promise<void>) => {
+    changes.current += 1;
     setView(next);
     setFailed(false);
     saving.catch(() => {

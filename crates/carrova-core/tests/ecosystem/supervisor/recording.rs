@@ -67,6 +67,8 @@ pub struct Phone {
     pub contacts: Vec<Contact>,
     /// Permissions not listed are granted.
     pub perms: Vec<(PhonePerm, PermState)>,
+    /// Whether `phone_perm` fails.
+    pub perms_fail: bool,
     pub audio: CallAudioStatus,
     /// What `call_state` reports.
     pub call: CallState,
@@ -92,6 +94,7 @@ impl Default for Phone {
             sims: Vec::new(),
             contacts: Vec::new(),
             perms: Vec::new(),
+            perms_fail: false,
             audio: CallAudioStatus::Ready,
             call: CallState::Idle,
             answered: None,
@@ -618,8 +621,12 @@ impl Platform for Recording {
     fn call_state(&self) -> Result<CallState, PlatformError> {
         Ok(self.act("call_state".into()).call.clone())
     }
+    // Read without being recorded: it is polled while linked.
     fn phone_perm(&self, p: PhonePerm) -> Result<PermState, PlatformError> {
-        let phone = self.act(format!("phone_perm {p:?}"));
+        let phone = self.phone();
+        if phone.perms_fail {
+            return Err(PlatformError::Unsupported("phone_perm"));
+        }
         Ok(phone
             .perms
             .iter()

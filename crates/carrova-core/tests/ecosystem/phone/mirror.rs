@@ -737,6 +737,10 @@ fn missing_access_shows_on_the_device_until_granted() {
             }
         })
     };
+    // `missing` changes before the events are emitted.
+    wait_until("both denials told", || {
+        told(NOTES, false) > 0 && told(SMS, false) > 0
+    });
     assert_eq!((told(NOTES, false), told(SMS, false)), (1, 1));
 
     phone.platform.phone().perms.clear();
@@ -748,6 +752,22 @@ fn missing_access_shows_on_the_device_until_granted() {
             granted: true,
         }
     });
+}
+
+#[test]
+fn resync_keeps_missing_sms_access() {
+    let (phone, _sp, laptop, sl) = linked(&[SMS], |p| {
+        p.platform.phone().perms = vec![(PhonePerm::Sms, PermState::Denied)];
+    });
+    wait_until("reported missing", || missing(&sl, &phone) == [SMS]);
+    wait_watching(&phone);
+
+    phone
+        .platform
+        .script_event(PhoneEvent::Dropped { count: 3 });
+
+    wait_until("messages resynced", || cleared(&laptop, &phone, SMS));
+    assert_eq!(missing(&sl, &phone), [SMS]);
 }
 
 #[test]

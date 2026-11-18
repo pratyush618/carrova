@@ -3,6 +3,7 @@
 //! (`600`, atomic). App ids and note contents are never logged.
 
 use std::collections::BTreeMap;
+use std::sync::{Mutex, PoisonError};
 
 use carrova_link::AppEntry;
 use carrova_platform::Platform;
@@ -17,6 +18,8 @@ const FILE: &str = "notify-apps.json";
 const VERSION: u16 = 1;
 /// Apps that default to off (`data/private-apps.txt`).
 const PRIVATE_APPS: &str = include_str!("../../../data/private-apps.txt");
+/// Serializes edits of the file within this process.
+static EDIT: Mutex<()> = Mutex::new(());
 
 const fn yes() -> bool {
     true
@@ -149,9 +152,13 @@ impl NotifyApps {
         })
     }
 
-    /// Apply `change`, save, and keep it only if the save worked.
+    /// Apply `change` to the saved choices, save, and keep the result only
+    /// if the save worked. Edits are serialized and re-read the file, so
+    /// one made from a stale copy never undoes another.
     fn edit(&mut self, platform: &dyn Platform, change: impl FnOnce(&mut Self)) -> Result<()> {
-        let mut next = self.clone();
+        // A poisoned lock guards no data: the file is re-read anyway.
+        let _edit = EDIT.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut next = Self::open(platform)?;
         change(&mut next);
         let bytes = serde_json::to_vec_pretty(&next).map_err(|e| CoreError::Encode {
             what: "notification apps".to_owned(),

@@ -110,9 +110,9 @@ impl Mirror {
         was != granted
     }
 
-    /// Drop `feature`'s data; whether there was any.
+    /// Drop `feature`'s data (its access stays as known); whether there
+    /// was any.
     fn clear(&mut self, feature: Feature) -> bool {
-        self.missing.retain(|&f| f != feature);
         let held = self.holds(feature);
         match feature {
             Feature::Notifications => {
@@ -140,7 +140,13 @@ impl Mirror {
     ) -> Vec<Feature> {
         MIRRORED
             .into_iter()
-            .filter(|&f| off(local, remote, f) && self.clear(f))
+            .filter(|&f| {
+                if !off(local, remote, f) {
+                    return false;
+                }
+                self.missing.retain(|&m| m != f);
+                self.clear(f)
+            })
             .collect()
     }
 

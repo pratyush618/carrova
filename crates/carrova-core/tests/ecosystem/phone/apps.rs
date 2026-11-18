@@ -115,3 +115,18 @@ fn entries_list_showing_then_chosen_apps_once() {
         ]
     );
 }
+
+#[test]
+fn edits_from_stale_copies_keep_each_other() {
+    let tmp = tempfile::tempdir().unwrap();
+    let p = platform(&tmp);
+    let mut first = NotifyApps::open(&p).unwrap();
+    let mut second = NotifyApps::open(&p).unwrap();
+    first.set(&p, "org.example.bank", false).unwrap();
+    second.set(&p, "org.example.chat", false).unwrap();
+    second.set_filters(&p, false, true).unwrap();
+
+    let saved = NotifyApps::open(&p).unwrap();
+    assert!(!saved.allowed("org.example.bank") && !saved.allowed("org.example.chat"));
+    assert!(!saved.hide_codes());
+}

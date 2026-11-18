@@ -13,16 +13,22 @@ import { permsChanged, usePermSteps } from './usePermSteps';
  */
 export function usePermGate() {
   const port = usePort();
-  const [perms, setPerms] = useState<readonly PhonePerm[]>([]);
+  // Counted: asking the same perms again reads them again (a read may have failed).
+  const [{ perms, attempt }, setAsked] = useState<{
+    readonly perms: readonly PhonePerm[];
+    readonly attempt: number;
+  }>({ perms: [], attempt: 0 });
   const [refused, setRefused] = useState<PhonePerm | null>(null);
-  const steps = usePermSteps(perms);
+  const steps = usePermSteps(perms, attempt);
   const asking = steps === null ? null : pendingPerm(perms, steps);
   return {
     asking,
     refused: asking !== null && asking.perm === refused,
-    ask: setPerms,
+    ask: (next: readonly PhonePerm[]) => {
+      setAsked((was) => ({ perms: next, attempt: was.attempt + 1 }));
+    },
     close: () => {
-      setPerms([]);
+      setAsked((was) => ({ perms: [], attempt: was.attempt }));
       setRefused(null);
     },
     allow: () => {
