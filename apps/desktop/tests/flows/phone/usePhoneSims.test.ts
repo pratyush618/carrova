@@ -33,10 +33,11 @@ describe('usePhoneSims', () => {
     const { result } = renderHook(() =>
       usePhoneSims({ phoneSims: failing }, 'p8', 'messages', true),
     );
+    // Wait for the failure to land, not just the call: until then it is `null`.
     await waitFor(() => {
-      expect(failing).toHaveBeenCalled();
+      expect(result.current).toEqual([]);
     });
-    expect(result.current).toEqual([]);
+    expect(failing).toHaveBeenCalled();
     const off = vi.fn(() => Promise.resolve(sims));
     renderHook(() => usePhoneSims({ phoneSims: off }, 'p8', 'messages', false));
     expect(off).not.toHaveBeenCalled();
