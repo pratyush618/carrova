@@ -252,18 +252,19 @@ impl Lane {
     /// takes.
     fn policy(&self, mut stream: Stream) -> Result<()> {
         let PolicyUpdate { doc, name } = recv_policy(&mut stream, POLICY_WAIT)?;
-        let renamed = name.and_then(|name| self.follow_name(&name));
         let changed = {
             let mut peers = self.shared.peers();
             let peer = peers.iter_mut().find(|p| p.id() == self.device);
             peer.and_then(|p| {
-                if let Some(name) = renamed {
-                    p.record.name = name;
-                }
                 let link = p
                     .link
                     .as_mut()
                     .filter(|l| l.generation == self.generation)?;
+                // Under the peers lock, so a newer link's name never lands
+                // before this older one's.
+                if let Some(name) = name.and_then(|name| self.follow_name(&name)) {
+                    p.record.name = name;
+                }
                 let before = Gives::of(&p.local, link.remote.as_ref());
                 link.remote = Some(doc);
                 let cleared = link.mirror.follow_policy(&p.local, link.remote.as_ref());

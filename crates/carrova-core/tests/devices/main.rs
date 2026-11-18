@@ -141,6 +141,20 @@ fn following_a_name_updates_it_unless_renamed() {
 }
 
 #[test]
+fn a_record_saved_before_renames_were_tracked_keeps_its_name() {
+    let f = Fixture::new();
+    f.remember(&record(1, "phone"), 7);
+    let text = std::fs::read_to_string(f.known_json()).unwrap();
+    let mut doc: serde_json::Value = serde_json::from_str(&text).unwrap();
+    doc["devices"][0].as_object_mut().unwrap().remove("renamed");
+    std::fs::write(f.known_json(), doc.to_string()).unwrap();
+    let follow = f.devices.follow_name(&f.platform, &public(1), "Pixel 9");
+    assert_eq!(follow.unwrap(), None);
+    f.remember(&record(1, "Pixel 9"), 8);
+    assert_eq!(f.devices.list(&f.platform).unwrap()[0].name, "phone");
+}
+
+#[test]
 fn remembering_again_replaces_the_secret_and_keeps_name_and_history() {
     let f = Fixture::new();
     f.remember(&record(1, "laptop"), 7);
