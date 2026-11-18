@@ -654,6 +654,32 @@ fn notes_gone_never_follow_their_feature_cleared() {
     assert!(!laptop.any_after(&off, gone), "a note went after the clear");
 }
 
+#[test]
+fn stored_texts_never_follow_their_feature_cleared() {
+    let at = now_ms();
+    let (phone, _sp, laptop, sl) = linked(&[SMS], |_| {});
+    wait_watching(&phone);
+    receive(&phone, &saying(0, 5, at, "ok"));
+    receive(&phone, &saying(0, 5, at + 1000, "ok"));
+    wait_until("both provisional texts", || texts(&laptop).len() == 2);
+    // The feature goes off while the first of two stored rows is emitted.
+    let held =
+        laptop.hold_first(|e| matches!(e, Event::PhoneSms { message, .. } if message.id != 0));
+
+    let rows = [saying(3, 5, at + 950, "ok"), saying(2, 5, at - 50, "ok")];
+    store(&phone, 5, &rows);
+    held.recv_timeout(T).unwrap();
+    sl.set_feature(&phone.id, SMS, FeatureState::Off).unwrap();
+    wait_until("both stored texts", || texts(&laptop).len() == 4);
+
+    let off = Event::PhoneCleared {
+        device: phone.id,
+        feature: SMS,
+    };
+    let sms = |e: &Event| matches!(e, Event::PhoneSms { .. });
+    assert!(!laptop.any_after(&off, sms), "a text came after the clear");
+}
+
 /// Script `msg` arriving on the phone (provisional, `id` 0).
 fn receive(phone: &Device, msg: &SmsMessage) {
     let received = PhoneEvent::SmsReceived(msg.clone());

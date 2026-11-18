@@ -516,12 +516,11 @@ pub(crate) fn take_sms(
                 } else {
                     m.merge(id, std::slice::from_ref(&message));
                 }
-            });
-            if kept.is_some() {
+                // Under the lock every clear takes: never after one.
                 shared.emit(Event::PhoneSms { device, message });
-                if provisional {
-                    refetch_later(shared, device, generation, id, now);
-                }
+            });
+            if kept.is_some() && provisional {
+                refetch_later(shared, device, generation, id, now);
             }
             ack(pending);
         }
@@ -591,12 +590,12 @@ fn refetch(shared: &Shared, device: DeviceId, generation: u64, id: i64) {
             return;
         }
     };
-    let new = with_mirror(shared, device, generation, Feature::Messages, |m| {
-        m.stored(id, &page)
+    with_mirror(shared, device, generation, Feature::Messages, |m| {
+        // Emitted under the lock every clear takes: never after one.
+        for message in m.stored(id, &page) {
+            shared.emit(Event::PhoneSms { device, message });
+        }
     });
-    for message in new.into_iter().flatten() {
-        shared.emit(Event::PhoneSms { device, message });
-    }
 }
 
 /// Take `reply` to `request`, sent on `device`'s link `generation`: a
