@@ -12,7 +12,7 @@ use carrova_platform::phone::{
     CallState, Hidden, Note, PermState, PhoneEvent, PhonePerm, SmsMessage,
 };
 
-use crate::supervisor::device::{Device, T, fast, pair, start_both, wait_until};
+use crate::supervisor::device::{Device, fast, pair, start_both, wait_until};
 
 const NOTES: Feature = Feature::Notifications;
 const SMS: Feature = Feature::Messages;
@@ -643,14 +643,15 @@ fn notes_gone_never_follow_their_feature_cleared() {
     phone
         .platform
         .script_event(PhoneEvent::Dropped { count: 1 });
-    held.recv_timeout(T).unwrap();
-    sl.set_feature(&phone.id, NOTES, FeatureState::Off).unwrap();
-    wait_until("both notes gone", || laptop.count(gone) == 2);
-
     let off = Event::PhoneCleared {
         device: phone.id,
         feature: NOTES,
     };
+    laptop.clear_while_held(&held, &off, || {
+        sl.set_feature(&phone.id, NOTES, FeatureState::Off).unwrap();
+    });
+    wait_until("both notes gone", || laptop.count(gone) == 2);
+
     assert!(!laptop.any_after(&off, gone), "a note went after the clear");
 }
 
@@ -668,14 +669,15 @@ fn stored_texts_never_follow_their_feature_cleared() {
 
     let rows = [saying(3, 5, at + 950, "ok"), saying(2, 5, at - 50, "ok")];
     store(&phone, 5, &rows);
-    held.recv_timeout(T).unwrap();
-    sl.set_feature(&phone.id, SMS, FeatureState::Off).unwrap();
-    wait_until("both stored texts", || texts(&laptop).len() == 4);
-
     let off = Event::PhoneCleared {
         device: phone.id,
         feature: SMS,
     };
+    laptop.clear_while_held(&held, &off, || {
+        sl.set_feature(&phone.id, SMS, FeatureState::Off).unwrap();
+    });
+    wait_until("both stored texts", || texts(&laptop).len() == 4);
+
     let sms = |e: &Event| matches!(e, Event::PhoneSms { .. });
     assert!(!laptop.any_after(&off, sms), "a text came after the clear");
 }

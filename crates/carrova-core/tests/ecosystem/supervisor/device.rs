@@ -129,19 +129,42 @@ impl Device {
         self.events().iter().filter(|e| f(e)).count()
     }
 
-    /// Hold the first event matching `hold` in the sink for 200 ms, so its
-    /// emitter waits there; the receiver hears when the hold starts.
-    pub fn hold_first(&self, hold: impl Fn(&Event) -> bool + Send + 'static) -> mpsc::Receiver<()> {
-        let (started, rx) = mpsc::channel();
+    /// Hold the first event matching `hold` in the sink until released,
+    /// so its emitter waits there (see [`Device::clear_while_held`]).
+    pub fn hold_first(&self, hold: impl Fn(&Event) -> bool + Send + 'static) -> Held {
+        let (started, started_rx) = mpsc::channel();
+        let (release, release_rx) = mpsc::channel::<()>();
         let mut held = false;
         self.sink.set_hook(move |e| {
             if !held && hold(e) {
                 held = true;
                 started.send(()).unwrap();
-                thread::sleep(Duration::from_millis(200));
+                // Bounded only so a broken test fails instead of hanging.
+                let _ = release_rx.recv_timeout(T);
             }
         });
-        rx
+        Held {
+            started: started_rx,
+            release,
+        }
+    }
+
+    /// Once `held` is reached, run `clear` (which emits `cleared`) on
+    /// another thread and release the held event only after `cleared`
+    /// went out, or once `clear` is plainly waiting on the held emitter.
+    /// An emitter outside the mirror lock thus emits after the clear; one
+    /// under it holds the clear back until its event is out.
+    pub fn clear_while_held(&self, held: &Held, cleared: &Event, clear: impl FnOnce() + Send) {
+        held.started.recv_timeout(T).unwrap();
+        thread::scope(|s| {
+            let clearing = s.spawn(clear);
+            let until = Instant::now() + Duration::from_secs(1);
+            while !self.events().contains(cleared) && Instant::now() < until {
+                thread::sleep(Duration::from_millis(10));
+            }
+            let _ = held.release.send(());
+            clearing.join().unwrap();
+        });
     }
 
     /// Whether an event matching `later` was emitted after `first` (which
@@ -239,4 +262,10 @@ pub fn start_both(low: &Device, high: &Device) -> (Supervisor, Supervisor) {
     low.sees(high, &sh);
     high.sees(low, &sl);
     (sl, sh)
+}
+
+/// An event held in a device's sink by [`Device::hold_first`].
+pub struct Held {
+    started: mpsc::Receiver<()>,
+    release: mpsc::Sender<()>,
 }
