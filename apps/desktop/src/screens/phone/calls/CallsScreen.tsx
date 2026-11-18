@@ -2,7 +2,17 @@ import type { TFunction } from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CallLogView } from '../../../bindings/CallLogView';
-import { Banner, Button, Empty, Field, Head, HubLayout, Input, LinkButton } from '../../../ui';
+import {
+  Banner,
+  Button,
+  Empty,
+  Field,
+  Head,
+  HubLayout,
+  Input,
+  LinkButton,
+  Status,
+} from '../../../ui';
 import { Group } from '../../settings/Group';
 import { CallLogRow } from './CallLogRow';
 import './calls.css';
@@ -89,6 +99,7 @@ export function CallsScreen({
         </Button>
       </form>
       {model.failed && <Banner tone="warning" title={t('calls.log.failed', { phone })} />}
+      {log === null && !model.failed && <Status>{t('calls.log.loading', { phone })}</Status>}
       {log !== null && log.groups.length === 0 && (
         <Empty
           art="call"

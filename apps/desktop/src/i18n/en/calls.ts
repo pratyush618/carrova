@@ -53,6 +53,7 @@ export const calls = {
       'Turn calls on and they ring here. You answer and talk on the phone, no setup needed. Your call history shows up then.',
     turnOn: 'Turn on calls',
     failed: "Couldn't reach {{phone}}. Try again.",
+    loading: 'Getting calls from {{phone}}…',
     more: 'Older calls',
   },
   device: {
