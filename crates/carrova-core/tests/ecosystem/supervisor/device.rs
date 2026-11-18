@@ -150,14 +150,23 @@ impl Device {
     }
 
     /// Once `held` is reached, run `clear` (which emits `cleared`) on
-    /// another thread and release the held event only after `cleared`
-    /// went out, or once `clear` is plainly waiting on the held emitter.
-    /// An emitter outside the mirror lock thus emits after the clear; one
-    /// under it holds the clear back until its event is out.
+    /// another thread and release the held event once `cleared` went out,
+    /// or 1 s after `clear` started without it (it is then taken to wait
+    /// on the held emitter: the mirror lock is the first thing a clear
+    /// takes). An emitter outside that lock thus emits after the clear;
+    /// one under it holds the clear back until its event is out.
+    // shortcut: "waiting on the lock" is inferred from time, not observed;
+    // observing it needs a hook inside the supervisor's lock.
     pub fn clear_while_held(&self, held: &Held, cleared: &Event, clear: impl FnOnce() + Send) {
         held.started.recv_timeout(T).unwrap();
+        let (running, started) = mpsc::channel();
         thread::scope(|s| {
-            let clearing = s.spawn(clear);
+            let clearing = s.spawn(move || {
+                running.send(()).unwrap();
+                clear();
+            });
+            // Bounded only so a broken test fails instead of hanging.
+            started.recv_timeout(T).unwrap();
             let until = Instant::now() + Duration::from_secs(1);
             while !self.events().contains(cleared) && Instant::now() < until {
                 thread::sleep(Duration::from_millis(10));
