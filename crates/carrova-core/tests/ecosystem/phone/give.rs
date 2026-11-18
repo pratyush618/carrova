@@ -663,10 +663,42 @@ fn a_laptop_far_behind_is_resynced() {
     let resync = Got::Notify(NotifyMsg::Snapshot(vec![showing]));
     wait_until("the resync", || laptop.got().last() == Some(&resync));
     // What was queued before it fell behind is dropped, not sent late
-    // (one note may have been on its way already).
+    // (one note may have been on its way already); the resync also says
+    // access is held.
     let got = laptop.got();
-    assert!(got.len() <= 3, "{} updates", got.len());
+    assert!(got.len() <= 4, "{} updates", got.len());
     assert_eq!(got[0], first[0]);
+}
+
+#[test]
+fn access_granted_while_far_behind_is_told_on_resync() {
+    let (phone, _sp, laptop) = phone_and_laptop(
+        &[NOTES, CALLS],
+        &[NOTES, CALLS],
+        without(PhonePerm::NotificationAccess),
+    );
+    let denied = Got::Notify(NotifyMsg::Access { granted: false });
+    assert_eq!(laptop.wait_got(2), [denied, Got::Call(CallState::Idle)]);
+    wait_watching(&phone);
+    let stalled = laptop.hold.lock().unwrap();
+    for i in 1..=200 {
+        let posted = note(&format!("k{i}"), "org.example.chat");
+        phone.platform.script_event(PhoneEvent::NotePosted(posted));
+    }
+    wait_taken(&phone, "call_state");
+
+    // Granted while far behind: its notice is dropped with the rest.
+    let reads = asked(&phone, "active_notes");
+    phone.platform.phone().perms.clear();
+    wait_until("the grant seen", || asked(&phone, "active_notes") > reads);
+    drop(stalled);
+
+    let resync = Got::Notify(NotifyMsg::Snapshot(vec![]));
+    wait_until("the resync", || laptop.got().contains(&resync));
+    let got = laptop.got();
+    let at = got.iter().position(|g| *g == resync).unwrap();
+    let granted = Got::Notify(NotifyMsg::Access { granted: true });
+    assert!(got[..at].contains(&granted), "{got:?}");
 }
 
 #[test]

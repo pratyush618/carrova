@@ -426,6 +426,14 @@ impl Giver<'_> {
             })
             .collect();
         for device in drained {
+            // A dropped update may have said access came back: say it
+            // again (`resend` tells access that is missing).
+            for feature in [Feature::Notifications, Feature::Messages] {
+                let targets = self.targets(feature, Some(device));
+                if !targets.is_empty() && self.access(feature) == Some(true) {
+                    self.tell_access(&targets, feature, true);
+                }
+            }
             self.resync(Some(device));
         }
     }
