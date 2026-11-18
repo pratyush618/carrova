@@ -594,6 +594,36 @@ fn posted_then_removed_leaves_no_note() {
     assert!(sl.notes(&phone.id).unwrap().is_empty());
 }
 
+#[test]
+fn note_cleared_while_its_pop_up_waits_never_pops_up() {
+    let (phone, _sp, laptop, sl) = linked(&[NOTES], |_| {});
+    // The pop-up waits 200 ms for the lock: the feature goes off meanwhile.
+    laptop.platform.slow_screen_lock();
+    wait_watching(&phone);
+    let (asks, reads) = (laptop.platform.lock_asks(), laptop.platform.lock_reads());
+
+    let posted = note("k1", "org.example.chat");
+    phone.platform.script_event(PhoneEvent::NotePosted(posted));
+    wait_until("the pop-up's lock read", || {
+        laptop.platform.lock_asks() > asks
+    });
+    sl.set_feature(&phone.id, NOTES, FeatureState::Off).unwrap();
+    wait_until("the lock answered", || laptop.platform.lock_reads() > reads);
+    // A pop-up would be emitted right after the answer.
+    std::thread::sleep(std::time::Duration::from_millis(100));
+
+    let events = laptop.events();
+    let gone = Event::PhoneCleared {
+        device: phone.id,
+        feature: NOTES,
+    };
+    let at = events.iter().position(|e| *e == gone).unwrap();
+    let late = events[at..]
+        .iter()
+        .any(|e| matches!(e, Event::PhoneNote { .. }));
+    assert!(!late, "a pop-up came after its feature was cleared");
+}
+
 /// Script `msg` arriving on the phone (provisional, `id` 0).
 fn receive(phone: &Device, msg: &SmsMessage) {
     let received = PhoneEvent::SmsReceived(msg.clone());

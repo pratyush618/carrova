@@ -481,10 +481,14 @@ pub(crate) fn take_notify(
             let settings = shared.phone_settings();
             // Away: the notes stay in the list, without pop-ups.
             if !settings.only_while_active || lock == ScreenLock::Unlocked {
-                for note in changes.pop {
-                    let note = shown(note, lock, settings);
-                    shared.emit(Event::PhoneNote { device, note });
-                }
+                // Rechecked and emitted under the lock every clear takes:
+                // a clear during the read drops them, a later one follows.
+                with_mirror(shared, device, generation, Feature::Notifications, |_| {
+                    for note in changes.pop {
+                        let note = shown(note, lock, settings);
+                        shared.emit(Event::PhoneNote { device, note });
+                    }
+                });
             }
         }
     }
