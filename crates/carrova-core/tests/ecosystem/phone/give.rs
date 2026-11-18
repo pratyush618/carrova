@@ -620,6 +620,29 @@ fn a_stalled_laptop_holds_up_no_other() {
     assert_eq!(a.wait_got(3), b.got());
 }
 
+/// How many times the phone was asked `action`.
+fn asked(phone: &Device, action: &str) -> usize {
+    phone
+        .platform
+        .actions()
+        .iter()
+        .filter(|a| *a == action)
+        .count()
+}
+
+/// Wait until the phone took every event scripted so far: the lost-events
+/// notice scripted after them has it read `action` (`active_notes` or
+/// `call_state`, for a feature some laptop takes) once it gets there.
+fn wait_taken(phone: &Device, action: &str) {
+    let before = asked(phone, action);
+    phone
+        .platform
+        .script_event(PhoneEvent::Dropped { count: 0 });
+    wait_until("the phone took its events", || {
+        asked(phone, action) > before
+    });
+}
+
 #[test]
 fn a_laptop_far_behind_is_resynced() {
     let (phone, _sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |_| {});
@@ -634,9 +657,7 @@ fn a_laptop_far_behind_is_resynced() {
         let posted = note(&format!("k{i}"), "org.example.chat");
         phone.platform.script_event(PhoneEvent::NotePosted(posted));
     }
-    // Long enough for the phone to take every event, not for a send to
-    // give up waiting.
-    thread::sleep(Duration::from_millis(500));
+    wait_taken(&phone, "active_notes");
     drop(stalled);
 
     let resync = Got::Notify(NotifyMsg::Snapshot(vec![showing]));
