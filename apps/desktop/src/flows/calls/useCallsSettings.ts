@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PhoneSettings } from '../../bindings/PhoneSettings';
 import type { CarrovaPort } from '../../engine/types';
 
@@ -17,6 +17,7 @@ export function useCallsSettings(port: CarrovaPort): {
 } {
   const [phone, setLoaded] = useState<PhoneSettings | null>(null);
   const [failed, setFailed] = useState(false);
+  const saving = useRef(Promise.resolve());
   const load = useCallback(() => {
     port.phoneSettings().then(setLoaded, () => undefined);
   }, [port]);
@@ -27,10 +28,13 @@ export function useCallsSettings(port: CarrovaPort): {
       const next = { ...phone, ...patch };
       setLoaded(next);
       setFailed(false);
-      port.setPhoneSettings(next).catch(() => {
-        setFailed(true);
-        load();
-      });
+      // One save at a time, in order: an earlier one can't land after (and undo) a later one.
+      saving.current = saving.current
+        .then(() => port.setPhoneSettings(next))
+        .catch(() => {
+          setFailed(true);
+          load();
+        });
     },
     [phone, port, load],
   );
