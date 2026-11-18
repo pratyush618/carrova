@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::time::Instant;
 
 use carrova_platform::phone::SmsMessage;
@@ -16,8 +17,11 @@ fn ok(id: i64, when_ms: i64) -> SmsMessage {
 
 fn waiting(texts: &[SmsMessage]) -> Mirror {
     let mut m = Mirror::default();
-    m.provisional
-        .extend(texts.iter().map(|t| (t.clone(), Instant::now())));
+    m.provisional.extend(
+        texts
+            .iter()
+            .map(|t| (t.clone(), Instant::now(), HashSet::new())),
+    );
     m
 }
 

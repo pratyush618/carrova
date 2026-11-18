@@ -683,6 +683,29 @@ fn identical_provisional_texts_match_rows_one_to_one() {
 }
 
 #[test]
+fn page_fetched_before_stored_shows_a_text_once() {
+    let at = now_ms();
+    // Loaded before the text arrived: never taken for its stored copy.
+    let old = text(1, 5, at - 30_000);
+    let (phone, _sp, laptop, sl) = linked(&[SMS], |p| {
+        p.platform.phone().messages = vec![old.clone()];
+    });
+    wait_watching(&phone);
+    assert_eq!(newest(&sl, &phone, 5), std::slice::from_ref(&old));
+    let provisional = text(0, 5, at);
+    receive(&phone, &provisional);
+    wait_until("the provisional text", || texts(&laptop).len() == 1);
+
+    // Stored on the phone; its `Stored` has not come yet.
+    let stored = text(2, 5, at - 50);
+    phone.platform.phone().messages.push(stored.clone());
+
+    assert_eq!(newest(&sl, &phone, 5), [stored.clone(), old]);
+    // Views holding the provisional text hear it was stored.
+    assert_eq!(texts(&laptop), [provisional, stored]);
+}
+
+#[test]
 fn pop_ups_held_while_away() {
     let (phone, _sp, laptop, sl) = linked(&[NOTES], |_| {});
     laptop.platform.inner.set_screen_lock(ScreenLock::Locked);
