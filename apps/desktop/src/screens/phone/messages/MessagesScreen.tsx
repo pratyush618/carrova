@@ -26,8 +26,8 @@ export interface MessagesModel {
   readonly sends: readonly SmsSend[];
   /** Writing a new message. */
   readonly composing: boolean;
-  /** The SIMs a text can go from; none with one SIM. */
-  readonly sims: readonly SimChoice[];
+  /** The SIMs a text can go from; none with one SIM; `null` until the phone answers. */
+  readonly sims: readonly SimChoice[] | null;
 }
 
 export interface MessagesIntents {

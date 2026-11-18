@@ -23,8 +23,8 @@ export function Composer({
   readonly away: boolean;
   /** Not ready to send yet (a new message with no recipient). */
   readonly disabled?: boolean;
-  /** The SIMs to choose from; none with one SIM. */
-  readonly sims: readonly SimChoice[];
+  /** The SIMs to choose from; none with one SIM; `null` until the phone answers (no sending yet). */
+  readonly sims: readonly SimChoice[] | null;
   /** The SIM to preselect while offered (the conversation's last), else the phone's default. */
   readonly preferredSim?: number | null;
   readonly onSend: (text: string, sim: number | null) => void;
@@ -32,8 +32,9 @@ export function Composer({
   const { t } = useTranslation();
   const [text, setText] = useState('');
   const [picked, setPicked] = useState<number | null>(null);
-  const sim = presetSim(sims, picked ?? preferredSim);
-  const off = away || disabled;
+  const sim = presetSim(sims ?? [], picked ?? preferredSim);
+  // Not before the phone says its SIMs: a reply would leave from its default, not the thread's.
+  const off = away || disabled || sims === null;
   const send = () => {
     if (off || text.trim() === '') return;
     onSend(text, sim);
@@ -49,7 +50,7 @@ export function Composer({
     >
       <SimPicker
         label={t('ecosystem.messages.sendFrom')}
-        sims={sims}
+        sims={sims ?? []}
         value={sim}
         onChange={setPicked}
       />

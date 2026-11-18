@@ -147,6 +147,18 @@ describe('Messages', () => {
     expect(sendSms).toHaveBeenLastCalledWith('p8', '+15550101', 'Again', expect.any(Number), 3);
   });
 
+  it('holds a reply until the phone has said which SIMs it has', async () => {
+    const user = userEvent.setup();
+    const sendSms = vi.fn(() => Promise.resolve<SmsSendOutcome>('unknown'));
+    const thread = { ...sam, sim: 7 };
+    renderScreen(
+      <Sending sendSms={sendSms} over={{ sims: null, selected: thread, threads: [thread] }} />,
+    );
+    await user.type(screen.getByRole('textbox', { name: 'Text message' }), 'Hi{Enter}');
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+    expect(sendSms).not.toHaveBeenCalled();
+  });
+
   it('says an unknown send may have gone, with no one-click retry', async () => {
     const user = userEvent.setup();
     const sendSms = vi.fn(() => Promise.resolve<SmsSendOutcome>('unknown'));

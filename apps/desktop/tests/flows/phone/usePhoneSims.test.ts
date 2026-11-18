@@ -42,6 +42,27 @@ describe('usePhoneSims', () => {
     expect(off).not.toHaveBeenCalled();
   });
 
+  it('says nothing until the phone answers, again for another phone', async () => {
+    let finish: (value: SimChoice[]) => void = () => undefined;
+    const phoneSims = vi.fn(
+      () =>
+        new Promise<SimChoice[]>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { result, rerender } = renderHook(
+      ({ id }: { id: string }) => usePhoneSims({ phoneSims }, id, 'messages', true),
+      { initialProps: { id: 'p8' } },
+    );
+    expect(result.current).toBeNull();
+    finish([]);
+    await waitFor(() => {
+      expect(result.current).toEqual([]);
+    });
+    rerender({ id: 'p9' });
+    expect(result.current).toBeNull();
+  });
+
   it('drops the SIMs it had once the phone goes away', async () => {
     const phoneSims = vi.fn(() => Promise.resolve(sims));
     const { result, rerender } = renderHook(

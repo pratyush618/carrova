@@ -54,7 +54,7 @@ export function ThreadPane({
   readonly sends: readonly SmsSend[];
   readonly phone: string;
   readonly away: boolean;
-  readonly sims: readonly SimChoice[];
+  readonly sims: readonly SimChoice[] | null;
   readonly onSend: (to: string, text: string, sim: number | null) => void;
   readonly onRetry: (clientId: number) => void;
   /** Load the next page of older texts. */

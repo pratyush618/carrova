@@ -45,12 +45,8 @@ export function CallWindowRoute() {
   const device = deviceOf(shown);
   const phone = useLinkedName(port, device);
   useRingtone(shown?.kind === 'ringing' && shown.ring_here);
-  const sims = usePhoneSims(
-    port,
-    device ?? '',
-    'calls',
-    device !== null && shown?.kind === 'missed',
-  );
+  const sims =
+    usePhoneSims(port, device ?? '', 'calls', device !== null && shown?.kind === 'missed') ?? [];
   const over = ready && track.view.kind === 'none';
   useEffect(() => {
     if (over) void closeWindow?.();
@@ -137,7 +133,8 @@ export function CallsRoute({ id }: { readonly id: string }) {
   const on = device?.features.some((f) => f.feature === 'calls' && f.local === 'on') ?? false;
   const live = on && device?.state === 'linked';
   const { log, failed, more } = useCallLog(port, id, live);
-  const sims = usePhoneSims(port, id, 'calls', live);
+  // Until the phone answers, a call goes from its default SIM, as with one SIM.
+  const sims = usePhoneSims(port, id, 'calls', live) ?? [];
   const [query, setQuery] = useState('');
   const contacts = usePhoneContacts(port, id, query, live);
   if (device === undefined) return <HubLayout>{null}</HubLayout>;
