@@ -159,6 +159,15 @@ impl Update {
             Self::Sms(push) => push_sms(conn, push),
         }
     }
+
+    /// The feature a device must take to be sent it.
+    fn feature(&self) -> Feature {
+        match self {
+            Self::Notify(_) => Feature::Notifications,
+            Self::Call(_) => Feature::Calls,
+            Self::Sms(_) => Feature::Messages,
+        }
+    }
 }
 
 /// A linked device's sender: its own thread sends the updates queued for
@@ -176,22 +185,27 @@ struct Outbox {
 }
 
 impl Outbox {
-    /// Start the sender for `conn`; it ends with the outbox.
-    fn open(shared: &Shared, conn: Arc<Connection>) -> Result<Self> {
+    /// Start the sender for `device`'s link `conn`; it ends with the outbox.
+    fn open(shared: &Arc<Shared>, device: DeviceId, conn: Arc<Connection>) -> Result<Self> {
         let (queue, updates) = mpsc::channel::<(u64, Update)>();
         let queued = Arc::new(AtomicUsize::new(0));
         let epoch = Arc::new(AtomicU64::new(0));
-        let (link, left, now, stop) = (
+        let (link, left, now, giver) = (
             Arc::clone(&conn),
             Arc::clone(&queued),
             Arc::clone(&epoch),
-            shared.stop.clone(),
+            Arc::clone(shared),
         );
         shared.spawn("carrova-phone-out", move || {
             for (at, update) in updates {
-                let current = at == now.load(Ordering::Acquire);
+                // Still taken: the feature may have gone off while queued.
+                let current = at == now.load(Ordering::Acquire)
+                    && giver
+                        .linked_with(update.feature())
+                        .iter()
+                        .any(|(d, c)| *d == device && Arc::ptr_eq(c, &link));
                 if current
-                    && !stop.is_cancelled()
+                    && !giver.stop.is_cancelled()
                     && let Err(e) = update.send(&link)
                 {
                     tracing::debug!(error = %e, "phone update not sent");
@@ -398,7 +412,7 @@ impl Giver<'_> {
                 .get(device)
                 .is_some_and(|o| Arc::ptr_eq(&o.conn, conn));
             if !live {
-                match Outbox::open(self.shared, Arc::clone(conn)) {
+                match Outbox::open(self.shared, *device, Arc::clone(conn)) {
                     Ok(outbox) => {
                         self.outboxes.insert(*device, outbox);
                     }

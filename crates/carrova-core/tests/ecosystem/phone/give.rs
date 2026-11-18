@@ -702,6 +702,45 @@ fn access_granted_while_far_behind_is_told_on_resync() {
 }
 
 #[test]
+fn notes_queued_before_notifications_go_off_are_not_sent() {
+    let (phone, sp, laptop) = phone_and_laptop(&[NOTES, SMS], &[NOTES, SMS], |_| {});
+    let snapshot = laptop.wait_got(1)[0].clone();
+    wait_watching(&phone);
+    let stalled = laptop.hold.lock().unwrap();
+    for key in ["k1", "k2"] {
+        let posted = note(key, "org.example.chat");
+        phone.platform.script_event(PhoneEvent::NotePosted(posted));
+    }
+    wait_taken(&phone, "active_notes");
+
+    // Texts stay on: the laptop keeps its sender and what it holds.
+    let mut lane = open_lane(&laptop.conn, LaneKind::Policy).unwrap();
+    let update = PolicyUpdate {
+        doc: doc(&[SMS]),
+        name: None,
+    };
+    send_policy(&mut lane, &update).unwrap();
+    let id = laptop.device.id;
+    wait_until("notifications off", || {
+        sp.status().iter().any(|p| {
+            p.id == id
+                && p.remote
+                    .as_ref()
+                    .is_some_and(|r| r.features.get(&NOTES) != Some(&FeatureState::On))
+        })
+    });
+    drop(stalled);
+
+    let resync = Got::Sms(SmsPush::Resync);
+    wait_until("the texts' resync", || laptop.got().contains(&resync));
+    // At most the note already on its way as notifications went off.
+    let got = laptop.got();
+    let k2 = Got::Notify(NotifyMsg::Posted(note("k2", "org.example.chat")));
+    assert!(!got.contains(&k2), "{got:?}");
+    assert_eq!(got.iter().filter(|g| **g == snapshot).count(), 1, "{got:?}");
+}
+
+#[test]
 fn send_with_same_client_id_sends_once() {
     let (phone, _sp, laptop) = phone_and_laptop(&[SMS], &[SMS], |_| {});
     let send = SmsRequest::Send {
