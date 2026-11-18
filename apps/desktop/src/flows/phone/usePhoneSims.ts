@@ -30,7 +30,7 @@ export function usePhoneSims(
       live = false;
     };
   }, [port, id, feature, on]);
-  return sims;
+  return on ? sims : [];
 }
 
 /** The SIM to preselect: `preferred` (a thread's last) while it's offered, else the phone's default; `null` with no choice. */

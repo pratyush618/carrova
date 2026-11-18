@@ -41,4 +41,17 @@ describe('usePhoneSims', () => {
     renderHook(() => usePhoneSims({ phoneSims: off }, 'p8', 'messages', false));
     expect(off).not.toHaveBeenCalled();
   });
+
+  it('drops the SIMs it had once the phone goes away', async () => {
+    const phoneSims = vi.fn(() => Promise.resolve(sims));
+    const { result, rerender } = renderHook(
+      ({ on }: { on: boolean }) => usePhoneSims({ phoneSims }, 'p8', 'messages', on),
+      { initialProps: { on: true } },
+    );
+    await waitFor(() => {
+      expect(result.current).toEqual(sims);
+    });
+    rerender({ on: false });
+    expect(result.current).toEqual([]);
+  });
 });
