@@ -31,10 +31,13 @@ export function useCallLog(
 } {
   const [log, setLog] = useState<CallLogView | null>(null);
   const [failed, setFailed] = useState(false);
+  // The first page's clock, for every older page: a day stays one group across midnight.
+  const at = useRef(clock());
   useEffect(() => {
     if (!on) return;
     let live = true;
-    port.callHistory(id, null, clock()).then(
+    at.current = clock();
+    port.callHistory(id, null, at.current).then(
       (page) => {
         if (live) setLog(page);
       },
@@ -51,7 +54,7 @@ export function useCallLog(
   const more = useCallback(() => {
     if (!on || log?.next == null || asking.current) return;
     asking.current = true;
-    port.callHistory(id, log.next, clock()).then(
+    port.callHistory(id, log.next, at.current).then(
       (page) => {
         asking.current = false;
         setLog((now) => (now === null ? page : appendPage(now, page)));

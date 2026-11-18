@@ -76,4 +76,14 @@ describe('useCallLog', () => {
     });
     expect(history).toHaveBeenCalledTimes(2);
   });
+
+  it('reads older pages against the first page’s clock', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_000);
+    const { history, result } = await loaded();
+    now.mockReturnValue(1_000 + 86_400_000);
+    act(() => {
+      result.current.more();
+    });
+    expect(history.mock.calls[1]?.[2]).toEqual(history.mock.calls[0]?.[2]);
+  });
 });
