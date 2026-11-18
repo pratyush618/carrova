@@ -3,6 +3,7 @@
 
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use carrova_core::ecosystem::{NotifyApps, PeerState, Supervisor, SyncWindow};
 use carrova_crypto::pairing::KnownSecret;
@@ -33,6 +34,8 @@ struct Laptop {
     device: Device,
     conn: Arc<Connection>,
     got: Arc<Mutex<Vec<Got>>>,
+    /// Held by a test: the laptop takes nothing more (stalls) until freed.
+    hold: Arc<Mutex<()>>,
 }
 
 impl Laptop {
@@ -75,9 +78,11 @@ fn link(
 ) -> Laptop {
     let conn = Arc::new(device.dial(phone, sp, secret));
     let got = Arc::new(Mutex::new(Vec::new()));
-    let (c, g) = (Arc::clone(&conn), Arc::clone(&got));
+    let hold = Arc::new(Mutex::new(()));
+    let (c, g, h) = (Arc::clone(&conn), Arc::clone(&got), Arc::clone(&hold));
     thread::spawn(move || {
         while let Ok((kind, stream)) = accept_lane(&c, &Open, T) {
+            let _held = h.lock().unwrap();
             let item = match kind {
                 LaneKind::Policy => {
                     let mut stream = stream;
@@ -113,7 +118,12 @@ fn link(
             .iter()
             .any(|p| p.id == id && p.state == PeerState::Linked && p.remote.is_some())
     });
-    Laptop { device, conn, got }
+    Laptop {
+        device,
+        conn,
+        got,
+        hold,
+    }
 }
 
 /// A phone allowing `phone_on` (beyond clipboard) and a laptop allowing
@@ -517,8 +527,14 @@ fn watch_stops_when_no_feature_on() {
     wait_until("the watch stopped", || !phone.platform.watching());
 }
 
-#[test]
-fn dropped_event_resyncs_every_feature() {
+/// A phone allowing every phone feature and two laptops linked to it, `a`
+/// taking `a_on` and `b` taking `b_on`; the phone's scripted data is set
+/// by `setup` first.
+fn two_laptops(
+    a_on: &[Feature],
+    b_on: &[Feature],
+    setup: impl FnOnce(&Device),
+) -> (Device, Supervisor, Laptop, Laptop) {
     let (a, phone, secret) = pair(&PolicyDoc::computer_defaults());
     // A laptop with the lower key: the phone would close a link it should
     // have dialled itself, to a device presence never saw.
@@ -529,10 +545,18 @@ fn dropped_event_resyncs_every_feature() {
     phone.set_policy(&a.id, &all);
     phone.know(&b, "B", &secret, &all);
     b.know(&phone, "Phone", &secret, &PolicyDoc::computer_defaults());
-    phone.platform.phone().notes = vec![note("k1", "org.example.chat")];
+    setup(&phone);
     let sp = phone.start(fast());
-    let a = link(&phone, &sp, a, &secret, &doc(&[NOTES, CALLS]));
-    let b = link(&phone, &sp, b, &secret, &doc(&[SMS]));
+    let a = link(&phone, &sp, a, &secret, &doc(a_on));
+    let b = link(&phone, &sp, b, &secret, &doc(b_on));
+    (phone, sp, a, b)
+}
+
+#[test]
+fn dropped_event_resyncs_every_feature() {
+    let (phone, _sp, a, b) = two_laptops(&[NOTES, CALLS], &[SMS], |p| {
+        p.platform.phone().notes = vec![note("k1", "org.example.chat")];
+    });
     let snapshot = Got::Notify(NotifyMsg::Snapshot(vec![note("k1", "org.example.chat")]));
     assert_eq!(
         a.wait_got(2),
@@ -570,6 +594,58 @@ fn dropped_event_resyncs_every_feature() {
     phone.source.wait_rounds(5);
     assert_eq!(a.got().len(), 5);
     assert_eq!(b.got().len(), 1);
+}
+
+#[test]
+fn a_stalled_laptop_holds_up_no_other() {
+    let (phone, _sp, a, b) = two_laptops(&[NOTES], &[NOTES], |_| {});
+    a.wait_got(1);
+    b.wait_got(1);
+    wait_watching(&phone);
+    let stalled = a.hold.lock().unwrap();
+
+    for key in ["k1", "k2"] {
+        let posted = note(key, "org.example.chat");
+        phone.platform.script_event(PhoneEvent::NotePosted(posted));
+    }
+
+    // Well within the 10 s a send waits for its acknowledgement.
+    let until = Instant::now() + Duration::from_secs(3);
+    while b.got().len() < 3 {
+        assert!(Instant::now() < until, "held up by the stalled laptop");
+        thread::sleep(Duration::from_millis(20));
+    }
+    drop(stalled);
+    // The stalled one still gets them, in order.
+    assert_eq!(a.wait_got(3), b.got());
+}
+
+#[test]
+fn a_laptop_far_behind_is_resynced() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |_| {});
+    let first = laptop.wait_got(1);
+    wait_watching(&phone);
+    // Only a snapshot carries it: no event posts it.
+    let showing = note("k0", "org.example.chat");
+    phone.platform.phone().notes = vec![showing.clone()];
+    let stalled = laptop.hold.lock().unwrap();
+
+    for i in 1..=200 {
+        let posted = note(&format!("k{i}"), "org.example.chat");
+        phone.platform.script_event(PhoneEvent::NotePosted(posted));
+    }
+    // Long enough for the phone to take every event, not for a send to
+    // give up waiting.
+    thread::sleep(Duration::from_millis(500));
+    drop(stalled);
+
+    let resync = Got::Notify(NotifyMsg::Snapshot(vec![showing]));
+    wait_until("the resync", || laptop.got().last() == Some(&resync));
+    // What was queued before it fell behind is dropped, not sent late
+    // (one note may have been on its way already).
+    let got = laptop.got();
+    assert!(got.len() <= 3, "{} updates", got.len());
+    assert_eq!(got[0], first[0]);
 }
 
 #[test]
