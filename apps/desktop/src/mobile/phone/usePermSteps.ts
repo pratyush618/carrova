@@ -8,10 +8,7 @@ import { usePort } from '../../engine/port';
  * the app comes back to the front (the user may have granted one in
  * Android's settings meanwhile) or `attempt` changes.
  */
-export function usePermSteps(
-  perms: readonly PhonePerm[],
-  attempt = 0,
-): readonly PermStep[] | null {
+export function usePermSteps(perms: readonly PhonePerm[], attempt = 0): readonly PermStep[] | null {
   const port = usePort();
   // Tagged with the perms they were read for: other perms' steps read as unread.
   const [read, setRead] = useState<{ key: string; steps: readonly PermStep[] } | null>(null);
