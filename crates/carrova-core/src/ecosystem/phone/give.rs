@@ -12,9 +12,9 @@
 //! text, app names, numbers or names.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::DeviceId;
@@ -121,6 +121,7 @@ pub(crate) fn run(shared: &Arc<Shared>, jobs: &Receiver<Job>) {
         sent: HashSet::new(),
         seen: HashMap::new(),
         outboxes: HashMap::new(),
+        turns: HashMap::new(),
     };
     while !shared.stop.is_cancelled() {
         giver.follow();
@@ -186,7 +187,14 @@ struct Outbox {
 
 impl Outbox {
     /// Start the sender for `device`'s link `conn`; it ends with the outbox.
-    fn open(shared: &Arc<Shared>, device: DeviceId, conn: Arc<Connection>) -> Result<Self> {
+    /// It sends only while holding `turn`, the device's: an outbox
+    /// replacing a dropped one waits for its send in flight to end.
+    fn open(
+        shared: &Arc<Shared>,
+        device: DeviceId,
+        conn: Arc<Connection>,
+        turn: Arc<Mutex<()>>,
+    ) -> Result<Self> {
         let (queue, updates) = mpsc::channel::<(u64, Update)>();
         let queued = Arc::new(AtomicUsize::new(0));
         let epoch = Arc::new(AtomicU64::new(0));
@@ -198,6 +206,9 @@ impl Outbox {
         );
         shared.spawn("carrova-phone-out", move || {
             for (at, update) in updates {
+                // Checked under the turn: a dropped outbox's epoch moved
+                // before any replacement sent.
+                let _turn = turn.lock().unwrap_or_else(PoisonError::into_inner);
                 // Still taken: the feature may have gone off while queued.
                 let current = at == now.load(Ordering::Acquire)
                     && giver
@@ -272,6 +283,8 @@ struct Giver<'a> {
     seen: HashMap<Feature, bool>,
     /// Each linked device's sender, for its live link.
     outboxes: HashMap<DeviceId, Outbox>,
+    /// Each device's send turn, kept while a sender of it lives.
+    turns: HashMap<DeviceId, Arc<Mutex<()>>>,
 }
 
 impl Giver<'_> {
@@ -296,6 +309,8 @@ impl Giver<'_> {
                 .iter()
                 .any(|(_, d, c)| d == device && Arc::ptr_eq(c, &outbox.conn))
         });
+        // A turn only this map holds has no sender left.
+        self.turns.retain(|_, turn| Arc::strong_count(turn) > 1);
         let want: Vec<(DeviceId, Feature)> = linked.into_iter().map(|(f, d, _)| (d, f)).collect();
         if want.is_empty() {
             self.watch = None;
@@ -412,7 +427,8 @@ impl Giver<'_> {
                 .get(device)
                 .is_some_and(|o| Arc::ptr_eq(&o.conn, conn));
             if !live {
-                match Outbox::open(self.shared, *device, Arc::clone(conn)) {
+                let turn = Arc::clone(self.turns.entry(*device).or_default());
+                match Outbox::open(self.shared, *device, Arc::clone(conn), turn) {
                     Ok(outbox) => {
                         self.outboxes.insert(*device, outbox);
                     }
