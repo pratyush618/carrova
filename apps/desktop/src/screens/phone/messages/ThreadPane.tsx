@@ -9,9 +9,11 @@ import { Bubbles } from './Bubbles';
 import { Composer } from './Composer';
 import { initials } from './ThreadList';
 
-/** Whether `b` is `a` again: a reload, or the phone's stored copy of a provisional text. */
+/** Whether `b` is `a` again: the same stored text, or the phone's stored copy of a provisional one. */
 const sameText = (a: MessageRow, b: MessageRow): boolean =>
-  a.text === b.text && Math.abs(a.when_ms - b.when_ms) <= 60_000;
+  a.provisional || b.provisional
+    ? a.text === b.text && Math.abs(a.when_ms - b.when_ms) <= 60_000
+    : a.id === b.id;
 
 /**
  * The newest received text once one arrives while `thread` is open, for a
