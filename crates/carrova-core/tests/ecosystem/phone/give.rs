@@ -671,6 +671,35 @@ fn a_laptop_far_behind_is_resynced() {
 }
 
 #[test]
+fn a_laptop_far_behind_is_resynced_once_notes_read_again() {
+    let (phone, _sp, laptop) = phone_and_laptop(&[NOTES], &[NOTES], |_| {});
+    laptop.wait_got(1);
+    wait_watching(&phone);
+    let showing = note("k0", "org.example.chat");
+    phone.platform.phone().notes = vec![showing.clone()];
+    let stalled = laptop.hold.lock().unwrap();
+    for i in 1..=200 {
+        let posted = note(&format!("k{i}"), "org.example.chat");
+        phone.platform.script_event(PhoneEvent::NotePosted(posted));
+    }
+    wait_taken(&phone, "active_notes");
+
+    // The resync's read of the notes fails: it is tried again, not dropped.
+    phone.platform.phone().notes_fail = true;
+    let reads = asked(&phone, "active_notes");
+    drop(stalled);
+    wait_until("the failed resync read", || {
+        asked(&phone, "active_notes") > reads
+    });
+    phone.platform.phone().notes_fail = false;
+
+    let resync = Got::Notify(NotifyMsg::Snapshot(vec![showing]));
+    wait_until("the retried resync", || {
+        laptop.got().last() == Some(&resync)
+    });
+}
+
+#[test]
 fn access_granted_while_far_behind_is_told_on_resync() {
     let (phone, _sp, laptop) = phone_and_laptop(
         &[NOTES, CALLS],

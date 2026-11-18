@@ -464,16 +464,23 @@ impl Giver<'_> {
                     self.tell_access(&targets, feature, true);
                 }
             }
-            self.resync(Some(device));
+            // Notes unreadable: still behind, so the next round tries again.
+            if !self.resync(Some(device))
+                && let Some(outbox) = self.outboxes.get_mut(&device)
+            {
+                outbox.behind = true;
+            }
         }
     }
 
     /// Send `only` (or every device) all the state it takes, after
-    /// updates were lost; views of texts refetch.
-    fn resync(&mut self, only: Option<DeviceId>) {
-        self.resend(only, Gives::ALL);
+    /// updates were lost; views of texts refetch. Whether the notes
+    /// showing could be read.
+    fn resync(&mut self, only: Option<DeviceId>) -> bool {
+        let read = self.resend(only, Gives::ALL);
         let targets = self.targets(Feature::Messages, only);
         self.send(&targets, &Update::Sms(SmsPush::Resync));
+        read
     }
 
     /// The devices taking `feature`: only `only`, if given.
@@ -484,8 +491,10 @@ impl Giver<'_> {
     }
 
     /// Send the notes showing and the call state, as `gives` says, to
-    /// `only` (or to every device taking them).
-    fn resend(&mut self, only: Option<DeviceId>, gives: Gives) {
+    /// `only` (or to every device taking them). Whether the notes, if
+    /// wanted, could be read.
+    fn resend(&mut self, only: Option<DeviceId>, gives: Gives) -> bool {
+        let mut read = true;
         let pick = |on: bool, f| {
             if on {
                 self.targets(f, only)
@@ -507,7 +516,10 @@ impl Giver<'_> {
                     let msg = NotifyMsg::Snapshot(snapshot);
                     self.send(&notes, &Update::Notify(msg));
                 }
-                Err(e) => tracing::debug!(error = %e, "notifications unreadable"),
+                Err(e) => {
+                    tracing::debug!(error = %e, "notifications unreadable");
+                    read = false;
+                }
             }
         }
         if !calls.is_empty() {
@@ -519,6 +531,7 @@ impl Giver<'_> {
         if !sms.is_empty() {
             self.has_access(&sms, Feature::Messages);
         }
+        read
     }
 
     /// Whether the phone holds the access `feature` needs; if not, tell

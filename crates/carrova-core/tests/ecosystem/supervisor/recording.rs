@@ -71,6 +71,8 @@ pub struct Phone {
     pub perms: Vec<(PhonePerm, PermState)>,
     /// Whether `phone_perm` fails.
     pub perms_fail: bool,
+    /// Whether `active_notes` fails.
+    pub notes_fail: bool,
     pub audio: CallAudioStatus,
     /// What `call_state` reports.
     pub call: CallState,
@@ -97,6 +99,7 @@ impl Default for Phone {
             contacts: Vec::new(),
             perms: Vec::new(),
             perms_fail: false,
+            notes_fail: false,
             audio: CallAudioStatus::Ready,
             call: CallState::Idle,
             answered: None,
@@ -509,7 +512,11 @@ impl Platform for Recording {
         }))
     }
     fn active_notes(&self) -> Result<Vec<Note>, PlatformError> {
-        Ok(self.act("active_notes".into()).notes.clone())
+        let phone = self.act("active_notes".into());
+        if phone.notes_fail {
+            return Err(PlatformError::Unsupported("active_notes"));
+        }
+        Ok(phone.notes.clone())
     }
     fn note_reply(&self, key: &str, _text: &str) -> Result<bool, PlatformError> {
         let phone = self.act(format!("note_reply {key}"));
