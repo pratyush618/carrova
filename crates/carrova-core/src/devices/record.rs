@@ -17,10 +17,11 @@ pub struct DeviceRecord {
     /// it ([`Self::renamed`]).
     pub name: String,
     /// Whether the user named it ([`KnownDevices::rename`]): the name the
-    /// device announces then no longer replaces it.
+    /// device announces then no longer replaces it. Records saved before
+    /// this was tracked read as renamed: their name may be the user's.
     ///
     /// [`KnownDevices::rename`]: super::KnownDevices::rename
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default = "legacy_renamed")]
     pub renamed: bool,
     /// The device's operating system.
     pub os: OsKind,
@@ -32,6 +33,11 @@ pub struct DeviceRecord {
     pub moves: u32,
     /// Opt-in Wake-on-LAN hint. Personal data: never logged.
     pub mac_hint: Option<[u8; 6]>,
+}
+
+/// `renamed` of a record saved before it was written.
+const fn legacy_renamed() -> bool {
+    true
 }
 
 impl DeviceRecord {
