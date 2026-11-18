@@ -62,6 +62,7 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 ## 2026-11-16 — Pushed commit bodies over commitlint's 100-char line limit
 - **What happened:** two agent commit bodies had lines of 102 and 107 chars; local `just ci` doesn't run commitlint, so PR #25 failed the "commit messages" job. Fixing it without force-push meant a new branch and a replacement PR (#26).
 - **Rule:** run `just commitlint` on the range before every push. Briefs tell agents to wrap commit bodies at 72 columns.
+- **Repeated 2026-11-18:** the coordinator's own hand-written fix on `eco2/core` (76a02df, one 230-char body line) failed PR #29's check; the user chose to leave it rather than force-push. The rule covers the coordinator's commits too, not only agents': wrap at 72, then `just commitlint <base> HEAD` before `git push`.
 
 ## 2026-11-16 — Parallel worktrees shared one test binary
 - **What happened:** two worktrees ran `cargo test -p carrova-core` at once with one shared `CARGO_TARGET_DIR`. Both build `target/debug/deps/ecosystem-<hash>` under the same name, so one run executed the other tree's tests and reported a failure that wasn't its own.
