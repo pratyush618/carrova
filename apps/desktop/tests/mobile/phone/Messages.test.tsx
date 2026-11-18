@@ -78,7 +78,7 @@ describe('Messages save failures', () => {
     const sync = vi.spyOn(port, 'messagesSync');
     await openScreen(user, 'Messages');
     expect(await screen.findByRole('radio', { name: '30 days' })).toBeChecked();
-    let finish = (_: SyncWindow) => undefined as void;
+    let finish: (value: SyncWindow) => void = () => undefined;
     sync.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
 
     await user.click(screen.getByRole('radio', { name: '1 year' }));

@@ -96,7 +96,7 @@ describe('Notifications list upkeep', () => {
     await openScreen(user, 'Notifications');
     const codes = await screen.findByRole('switch', { name: 'Hide one-time codes' });
     const saved = await port.notifyApps();
-    let finish = (_: NotifyAppsView) => undefined as void;
+    let finish: (value: NotifyAppsView) => void = () => undefined;
     list.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
     const before = list.mock.calls.length;
     // Back from settings: the list is read again.

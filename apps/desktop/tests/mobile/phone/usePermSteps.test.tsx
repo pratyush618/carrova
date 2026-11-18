@@ -11,7 +11,7 @@ const SMS = ['sms'] as const;
 describe('usePermSteps', () => {
   it('a read older than a newer one is dropped', async () => {
     const port = createFakePort({ stepMs: 0 });
-    let finish = (_: PermStep) => undefined as void;
+    let finish: (value: PermStep) => void = () => undefined;
     vi.spyOn(port, 'phonePermStep')
       .mockReturnValueOnce(new Promise((resolve) => (finish = resolve)))
       .mockResolvedValue('ok');
