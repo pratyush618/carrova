@@ -33,6 +33,13 @@ describe('quietNote', () => {
       true,
     ],
     ['no phone sharing texts', text, messages, [pixel], true],
+    [
+      'a phone without SMS access',
+      text,
+      messages,
+      [{ ...sharing('on'), missing: ['messages'] }],
+      true,
+    ],
   ])('pops up for %s', (_, note, view, devices, focused) => {
     expect(quietNote(note, view, devices, focused)).toBe(false);
   });

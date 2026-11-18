@@ -6,7 +6,8 @@ import type { NoteAlert } from '../state/link';
 /**
  * Whether `note` needs no pop-up: the phone's SMS app posted it while this
  * window is in front (`focused`) on Messages for that phone, which already
- * shows the text. It still joins the notifications list.
+ * shows the text (it can fetch it: the phone has SMS access). It still
+ * joins the notifications list.
  */
 export function quietNote(
   note: NoteAlert,
@@ -21,6 +22,8 @@ export function quietNote(
     view.kind === 'hub' &&
     view.page === 'messages' &&
     phone?.id === note.device &&
-    phone.features.some((f) => f.feature === 'messages' && f.effective !== 'off')
+    phone.features.some((f) => f.feature === 'messages' && f.effective !== 'off') &&
+    // Without SMS access the page can't fetch the new text.
+    !phone.missing.includes('messages')
   );
 }
