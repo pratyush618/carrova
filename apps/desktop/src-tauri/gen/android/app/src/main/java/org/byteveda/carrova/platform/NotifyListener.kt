@@ -8,6 +8,9 @@ import org.json.JSONObject
 class NotifyListener : NotificationListenerService() {
     override fun onListenerConnected() {
         instance = this
+        // Access was just granted (or the service rebound): a watch running
+        // since before then sent no snapshot, so ask Rust to resend it.
+        if (Events.watching) Events.offer("{\"type\":\"dropped\",\"count\":0}")
     }
 
     override fun onListenerDisconnected() {

@@ -13,6 +13,7 @@ export const pixel: LinkedDeviceView = {
     { feature: 'files', group: 'ask', local: 'ask', remote: 'ask', effective: 'ask' },
     { feature: 'handoff', group: 'ask', local: 'ask', remote: 'off', effective: 'off' },
   ],
+  missing: [],
 };
 
 export const pixelInvite: PairInviteView = {

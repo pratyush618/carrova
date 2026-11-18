@@ -147,6 +147,7 @@ impl Home {
             last_move: None,
             moves: 0,
             mac_hint,
+            renamed: false,
         };
         KnownDevices::open(&self.platform)
             .unwrap()

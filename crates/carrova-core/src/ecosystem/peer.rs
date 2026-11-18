@@ -1,16 +1,18 @@
 //! The supervisor's view of each known device: who it is, its policy here,
 //! where presence last saw it and its live link, if any.
 
+use std::collections::VecDeque;
 use std::net::SocketAddrV4;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::{DeviceId, DevicePublic};
 use carrova_crypto::pairing::KnownSecret;
-use carrova_link::{Feature, FeatureState, FileOffer, PolicyDoc};
+use carrova_link::{Feature, FeatureState, FileOffer, PolicyDoc, SendOutcome};
 use carrova_platform::{OsKind, Platform};
 use carrova_transport::{Connection, KnownPeers, browse};
 
+use super::phone::mirror::Mirror;
 use super::supervisor::Shared;
 use crate::cancel::Cancel;
 use crate::devices::DeviceRecord;
@@ -102,6 +104,9 @@ pub struct LinkedPeer {
     pub local: PolicyDoc,
     /// What it allows this side, once its policy arrived on the link.
     pub remote: Option<PolicyDoc>,
+    /// The phone features it lacks the access for (it said so on the link).
+    #[serde(default)]
+    pub missing: Vec<Feature>,
 }
 
 /// A live link.
@@ -116,6 +121,46 @@ pub(super) struct Link {
     /// Accepted handoff files whose bytes are due on a `File` lane (names
     /// already safe).
     pub(super) handoff_files: Vec<FileOffer>,
+    /// What the device's phone gives this side (memory only).
+    pub(super) mirror: Mirror,
+}
+
+/// How many texts [`SentTexts`] remembers.
+const SENT_KEPT: usize = 256;
+
+/// Texts sent for a device by their `client_id`, newest last: `None` while
+/// sending. Kept across its links, so a repeat after a lost reply is
+/// answered from here, never sent twice.
+#[derive(Debug, Default)]
+pub(super) struct SentTexts(VecDeque<(u64, Option<SendOutcome>)>);
+
+impl SentTexts {
+    /// Start sending `client_id`: `None` if it is new, else its outcome so
+    /// far (`Unknown` while still sending, as it may yet go out); `Failed`,
+    /// unsent, when every text remembered is still sending.
+    pub(super) fn begin(&mut self, client_id: u64) -> Option<SendOutcome> {
+        if let Some((_, outcome)) = self.0.iter().find(|(id, _)| *id == client_id) {
+            return Some(outcome.unwrap_or(SendOutcome::Unknown));
+        }
+        if self.0.len() == SENT_KEPT {
+            // Forget the oldest finished text: one still sending may yet go
+            // out, so its repeat must still be recognised.
+            let done = self.0.iter().position(|(_, outcome)| outcome.is_some());
+            let Some(done) = done else {
+                return Some(SendOutcome::Failed);
+            };
+            self.0.remove(done);
+        }
+        self.0.push_back((client_id, None));
+        None
+    }
+
+    /// Record how sending `client_id` went.
+    pub(super) fn finish(&mut self, client_id: u64, outcome: SendOutcome) {
+        if let Some(entry) = self.0.iter_mut().find(|(id, _)| *id == client_id) {
+            entry.1 = Some(outcome);
+        }
+    }
 }
 
 /// One known device.
@@ -131,6 +176,7 @@ pub(super) struct Peer {
     /// Wait before the next dial after a failure.
     pub(super) backoff: Duration,
     pub(super) next_dial: Instant,
+    pub(super) sms_sent: SentTexts,
 }
 
 impl Peer {
@@ -144,6 +190,7 @@ impl Peer {
             dialing: false,
             backoff: Duration::ZERO,
             next_dial: Instant::now(),
+            sms_sent: SentTexts::default(),
         }
     }
 
@@ -176,6 +223,11 @@ impl Peer {
             state,
             local: self.local.clone(),
             remote: self.link.as_ref().and_then(|l| l.remote.clone()),
+            missing: self
+                .link
+                .as_ref()
+                .map(|l| l.mirror.missing())
+                .unwrap_or_default(),
         }
     }
 }
@@ -193,3 +245,7 @@ impl KnownPeers for Shared {
             .collect()
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/ecosystem/peer/unit.rs"]
+mod tests;

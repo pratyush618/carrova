@@ -9,4 +9,8 @@
     <string name="pause">Pause</string>
     <string name="resume">Resume</string>
     <string name="too_big_to_share">Too big to share</string>
+    <string name="remind_channel">Access reminders</string>
+    <string name="remind_notifications">Carrova needs notification access</string>
+    <string name="remind_sms">Carrova needs SMS access</string>
+    <string name="remind_text">Tap to allow it, so your linked computer can use it.</string>
 </resources>

@@ -1,0 +1,81 @@
+/* A phone notification in its own small always-on-top window, sized to
+   this content (`NotePopupRoot`); it fades out when left alone. */
+.s-note-window {
+  transition-property: opacity;
+  transition-timing-function: ease-out;
+}
+
+.s-note-window.is-out {
+  opacity: 0;
+}
+
+.s-note {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-0);
+  padding: 12px 14px;
+  font-size: var(--t-sm);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.s-note > .p-btn--icon {
+  position: absolute;
+  inset-block-start: var(--sp-1);
+  inset-inline-end: var(--sp-1);
+}
+
+.s-note__from {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-block-end: 2px;
+  padding-inline-end: var(--sp-4);
+  font-size: var(--t-xs);
+  color: var(--text-muted);
+}
+
+.s-note__icon {
+  inline-size: 18px;
+  block-size: 18px;
+  border-radius: 5px;
+}
+
+.s-note__title {
+  font-size: var(--t-md);
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+/* The window grows with the text up to this many lines (in `lh`, so it
+   follows font scaling); longer texts scroll inside it. */
+.s-note__text {
+  max-block-size: 10lh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  white-space: pre-line;
+}
+
+.s-note__muted {
+  color: var(--text-muted);
+}
+
+.s-note__reply {
+  display: flex;
+  gap: var(--sp-1);
+  margin-block-start: var(--sp-1);
+}
+
+.s-note__reply .p-input {
+  flex: 1;
+}
+
+.s-note__acts {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.s-note__problem {
+  color: var(--danger);
+}

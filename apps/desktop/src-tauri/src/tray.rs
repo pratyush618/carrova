@@ -20,10 +20,11 @@ use carrova_link::Feature;
 use carrova_platform::DirWatch;
 use carrova_view::devices::VisibilityChoice;
 use carrova_view::ecosystem::LinkedDeviceView;
+use carrova_view::ipc::CallAction;
 use carrova_view::ipc::EVENT_CHANNEL;
 use carrova_view::notice::POPUP_TITLE;
 use carrova_view::tray::{
-    CloseAction, TrayItem, TrayModel, tray_menu, tray_tooltip, tray_visibility,
+    CloseAction, TrayCall, TrayItem, TrayModel, tray_menu, tray_tooltip, tray_visibility,
 };
 use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
@@ -33,7 +34,8 @@ use tauri::{
 };
 use tauri_plugin_dialog::DialogExt;
 
-use crate::ops::{background, devices, ecosystem};
+use crate::call_window::LastCall;
+use crate::ops::{background, devices, ecosystem, phone};
 use crate::send_request;
 use crate::state::AppState;
 
@@ -150,6 +152,10 @@ pub fn on_window_event(window: &Window, event: &WindowEvent) {
     let WindowEvent::CloseRequested { api, .. } = event else {
         return;
     };
+    // Other windows (a call's) just close.
+    if window.label() != MAIN_WINDOW {
+        return;
+    }
     let app = window.app_handle();
     let Some(state) = app.try_state::<AppState>() else {
         return;
@@ -293,7 +299,7 @@ pub fn on_main(app: &AppHandle, f: impl FnOnce(&AppHandle) + Send + 'static) {
 
 /// Refresh the tray menu if the tray still shows (on the main thread, see
 /// [`on_main`]).
-fn refresh_shown_tray(app: &AppHandle) {
+pub fn refresh_shown_tray(app: &AppHandle) {
     if let Some(state) = app.try_state::<AppState>()
         && tray_shown(app)
     {
@@ -365,13 +371,17 @@ fn follow_visibility(app: &AppHandle, state: &AppState) -> Option<DirWatch> {
         .ok()
 }
 
-/// Show `model` in the tray, with the tray's own nearby count.
+/// Show `model` in the tray, with the tray's own nearby count and call.
 fn set_menu(app: &AppHandle, model: &TrayModel) -> tauri::Result<()> {
     let flags = tray_flags(app);
     let model = &TrayModel {
         nearby_count: flags
             .as_ref()
             .and_then(|f| *f.nearby.lock().unwrap_or_else(PoisonError::into_inner)),
+        call: app
+            .try_state::<LastCall>()
+            .and_then(|last| last.running())
+            .map(|call| TrayCall { muted: call.muted }),
         ..model.clone()
     };
     let linked = flags
@@ -464,6 +474,32 @@ fn append_link_items(
     Ok(())
 }
 
+/// The call's Mute (or Unmute) and End: sent to the phone off the main
+/// thread. Returns whether `id` was one.
+fn on_call_item(app: &AppHandle, id: &str) -> bool {
+    if id != "call_mute" && id != "call_end" {
+        return false;
+    }
+    let (Some(state), Some(call)) = (
+        app.try_state::<AppState>(),
+        app.try_state::<LastCall>().and_then(|last| last.running()),
+    ) else {
+        return true;
+    };
+    let action = if id == "call_end" {
+        CallAction::End
+    } else {
+        CallAction::Mute { on: !call.muted }
+    };
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(error) = phone::phone_call(&state, call.device, action).await {
+            tracing::warn!(%error, "a tray call action failed");
+        }
+    });
+    true
+}
+
 /// A plain or check menu item for `item`.
 fn entry(app: &AppHandle, item: &TrayItem) -> tauri::Result<Box<dyn IsMenuItem<tauri::Wry>>> {
     Ok(match item.checked {
@@ -497,7 +533,7 @@ fn escaped(text: &str) -> String {
 }
 
 fn on_menu(app: &AppHandle, id: &str) {
-    if on_link_item(app, id) {
+    if on_link_item(app, id) || on_call_item(app, id) {
         return;
     }
     if let Some(choice) = tray_visibility(id) {

@@ -6,6 +6,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::PlatformError;
 use crate::watch::StopGuard;
 
 /// A notification posted on the phone.
@@ -33,6 +34,10 @@ pub struct Note {
     pub icon: Option<Vec<u8>>,
     /// Why some of it was withheld; `None` when shown in full.
     pub hidden: Option<Hidden>,
+    /// Posted by the phone's default SMS app (its texts also reach
+    /// Messages); `false` from peers that predate it.
+    #[serde(default)]
+    pub sms_app: bool,
 }
 
 /// Why a note's content was withheld (set by core filters; the UI picks the copy).
@@ -64,6 +69,36 @@ pub struct SmsThread {
     pub when_ms: i64,
     /// Unread messages.
     pub unread: u32,
+    /// Subscription id of its latest message ([`Sim::id`]); `None` when
+    /// the phone doesn't know it (some OEM builds and restored backups
+    /// store none) or is older than this field.
+    #[serde(default)]
+    pub sim: Option<i32>,
+}
+
+/// One active SIM (an Android subscription: physical or eSIM) on the phone.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Sim {
+    /// Android subscription id: what a send or a dial names.
+    pub id: i32,
+    /// SIM slot, from 0 (shown as "SIM 1").
+    pub slot: u8,
+    /// The name the phone shows for it (often the carrier's).
+    pub name: String,
+    /// The phone's default SIM for texts.
+    pub sms_default: bool,
+    /// The phone's default SIM for calls.
+    pub voice_default: bool,
+}
+
+/// A phone contact's number, as a contacts search finds it.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub struct Contact {
+    /// The contact's name.
+    pub name: String,
+    /// One of their numbers, as the phone stores it.
+    pub number: String,
 }
 
 /// One SMS message.
@@ -100,7 +135,8 @@ pub enum CallState {
     },
     /// A call is in progress.
     Active {
-        /// When it was answered (ms since the Unix epoch).
+        /// When it was answered, or dialled when `outgoing` (ms since the
+        /// Unix epoch).
         since_ms: i64,
         /// The microphone is muted.
         muted: bool,
@@ -108,6 +144,11 @@ pub enum CallState {
         /// link or a headset (Android can't tell them apart). It says nothing
         /// about the speaker; a computer reads its own audio side locally.
         on_laptop_audio: bool,
+        /// Placed from the phone, not answered there: Android tells no app
+        /// when the other side picks up, so it has no known start. Absent
+        /// from older phones: an answered call.
+        #[serde(default)]
+        outgoing: bool,
     },
     /// The call ended.
     Ended {
@@ -183,7 +224,8 @@ pub enum PhoneEvent {
     /// The call state changed.
     Call(CallState),
     /// The phone's event queue overflowed and dropped `count` events;
-    /// the receiver resends its snapshot.
+    /// the receiver resends its snapshot. `count` 0: nothing was lost,
+    /// but the last snapshot is stale (notification access was granted).
     Dropped {
         /// Events lost.
         count: u32,
@@ -254,6 +296,9 @@ pub enum PhonePerm {
     Contacts,
     /// Bluetooth connection, for call audio.
     BluetoothConnect,
+    /// Exempt from battery optimisation, so the link stays up while the
+    /// app is closed ("Stay connected when closed").
+    Battery,
 }
 
 /// Whether a [`PhonePerm`] is held.
@@ -291,11 +336,14 @@ pub enum CallAudioStatus {
     Unsupported,
 }
 
+/// Arms a watch's listener again ([`PhoneWatch::rearm`]).
+type Rearm = Box<dyn Fn(PhonePerm) -> Result<(), PlatformError> + Send>;
+
 /// The phone's events being watched, until the guard is dropped. Dropping
 /// it stops the watch, so the event callback is never called afterwards.
-#[derive(Debug)]
 #[must_use = "the watch stops as soon as the guard is dropped"]
 pub struct PhoneWatch {
+    rearm: Option<Rearm>,
     _stop: StopGuard,
 }
 
@@ -304,8 +352,38 @@ impl PhoneWatch {
     /// so adapters and test fakes outside this crate can return one.
     pub fn new(stop: impl FnOnce() + Send + 'static) -> Self {
         Self {
+            rearm: None,
             _stop: StopGuard::new(stop),
         }
+    }
+
+    /// This watch, arming its listener that needs a permission again
+    /// with `rearm` (see [`Self::rearm`]).
+    pub fn with_rearm(
+        mut self,
+        rearm: impl Fn(PhonePerm) -> Result<(), PlatformError> + Send + 'static,
+    ) -> Self {
+        self.rearm = Some(Box::new(rearm));
+        self
+    }
+
+    /// Arm the listener that needs `perm` ([`PhonePerm::Calls`] or
+    /// [`PhonePerm::Sms`]) again, once it is granted: a phone may arm
+    /// none without it, and says nothing when it is granted later. Events
+    /// already flowing are neither lost nor repeated.
+    ///
+    /// # Errors
+    /// The listener could not be armed.
+    pub fn rearm(&self, perm: PhonePerm) -> Result<(), PlatformError> {
+        self.rearm.as_ref().map_or(Ok(()), |rearm| rearm(perm))
+    }
+}
+
+impl fmt::Debug for PhoneWatch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PhoneWatch")
+            .field("rearm", &self.rearm.is_some())
+            .finish_non_exhaustive()
     }
 }
 
@@ -340,6 +418,7 @@ impl fmt::Debug for Note {
             .field("can_reply", &self.can_reply)
             .field("icon", &self.icon.as_deref().map(|i| Len(i.len())))
             .field("hidden", &self.hidden)
+            .field("sms_app", &self.sms_app)
             .finish_non_exhaustive()
     }
 }
@@ -353,6 +432,25 @@ impl fmt::Debug for SmsThread {
             .field("snippet", &len(&self.snippet))
             .field("unread", &self.unread)
             .finish_non_exhaustive()
+    }
+}
+
+impl fmt::Debug for Sim {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Sim")
+            .field("slot", &self.slot)
+            .field("sms_default", &self.sms_default)
+            .field("voice_default", &self.voice_default)
+            .finish_non_exhaustive()
+    }
+}
+
+impl fmt::Debug for Contact {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Contact")
+            .field("name", &len(&self.name))
+            .field("number", &len(&self.number))
+            .finish()
     }
 }
 
@@ -379,11 +477,13 @@ impl fmt::Debug for CallState {
             Self::Active {
                 muted,
                 on_laptop_audio,
+                outgoing,
                 ..
             } => f
                 .debug_struct("Active")
                 .field("muted", muted)
                 .field("on_laptop_audio", on_laptop_audio)
+                .field("outgoing", outgoing)
                 .finish_non_exhaustive(),
             Self::Ended { missed } => f.debug_struct("Ended").field("missed", missed).finish(),
         }

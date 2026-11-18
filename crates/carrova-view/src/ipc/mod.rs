@@ -17,12 +17,14 @@ use crate::lan::CodeView;
 
 mod about;
 mod defaults;
+mod phone;
 mod recipes;
 mod reply;
 mod settings;
 
 pub use about::{About, UpdateInfo, UpdateStatus};
 pub use defaults::EngineDefaults;
+pub use phone::{CallAction, CallOutcome, NoteAction, NoteOutcome};
 pub use recipes::{
     CatalogEntry, CatalogItem, RecipeOrigin, RecipeTier, RecipesCheck, RecipesStatus, RecipesUpdate,
 };
@@ -153,6 +155,10 @@ pub enum ErrorCode {
     KnownDevice,
     /// A stored device key is refused.
     DeviceKey,
+    /// This device or OS can't do it.
+    Unsupported,
+    /// A phone permission it needs is not granted.
+    PermissionDenied,
     /// Anything else.
     Internal,
 }
@@ -176,6 +182,7 @@ impl From<ErrorKind> for ErrorCode {
             ErrorKind::Session => Self::Session,
             ErrorKind::KnownDevice => Self::KnownDevice,
             ErrorKind::DeviceKey => Self::DeviceKey,
+            ErrorKind::Unsupported => Self::Unsupported,
             ErrorKind::Internal => Self::Internal,
         }
     }

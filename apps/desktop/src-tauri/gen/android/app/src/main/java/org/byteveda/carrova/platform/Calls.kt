@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.CallLog
+import android.provider.ContactsContract
 import android.telecom.TelecomManager
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
@@ -32,6 +33,10 @@ object Calls {
     @Volatile
     private var activeSince: Long? = null
 
+    /** The active call was placed here: off-hook with no ringing before it. */
+    @Volatile
+    private var outgoing = false
+
     /** The call now, in the event format: ringing, active or idle. */
     @JvmStatic
     fun state(context: Context): String {
@@ -46,6 +51,7 @@ object Calls {
                 event.put("type", "call_active")
                     // Best effort: unknown when the call began before the listener.
                     .put("since_ms", activeSince ?: System.currentTimeMillis())
+                    .put("outgoing", outgoing)
                     .put("muted", audio(context).isMicrophoneMute)
                     .put("bt", btCallAudio(context))
             else -> event.put("type", "call_idle")
@@ -91,9 +97,12 @@ object Calls {
         audio(context).isMicrophoneMute = on
     }
 
+    /** Call [number] from subscription [sub] (-1: the default SIM). */
     @JvmStatic
-    fun dial(context: Context, number: String) {
-        telecom(context).placeCall(Uri.fromParts("tel", number, null), Bundle())
+    fun dial(context: Context, number: String, sub: Int) {
+        val extras = Bundle()
+        Sims.account(context, sub)?.let { extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
+        telecom(context).placeCall(Uri.fromParts("tel", number, null), extras)
     }
 
     @JvmStatic
@@ -144,6 +153,35 @@ object Calls {
         return records.toString()
     }
 
+    /**
+     * At most [limit] contact numbers whose name or number matches [query]
+     * (Android's own matching), each name and number once. Rust checks the
+     * contacts permission first.
+     */
+    @JvmStatic
+    fun contacts(context: Context, query: String, limit: Int): String {
+        val found = JSONArray()
+        val seen = HashSet<String>()
+        val uri = Uri.withAppendedPath(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_FILTER_URI, Uri.encode(query),
+        )
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER,
+            ContactsContract.CommonDataKinds.Phone.NORMALIZED_NUMBER,
+        )
+        context.contentResolver.query(uri, projection, null, null, null)?.use { c ->
+            while (found.length() < limit && c.moveToNext()) {
+                val name = c.getString(0) ?: continue
+                val number = c.getString(1) ?: continue
+                // One row per number, however often it's stored.
+                if (!seen.add(name + "\u0000" + (c.getString(2) ?: number))) continue
+                found.put(JSONObject().put("name", name).put("number", number))
+            }
+        }
+        return found.toString()
+    }
+
     private fun telecom(context: Context) = context.getSystemService(TelecomManager::class.java)
 
     private fun audio(context: Context) = context.getSystemService(AudioManager::class.java)
@@ -170,16 +208,21 @@ object Calls {
                         .put("name", Sms.contactName(context, caller) ?: JSONObject.NULL)
                 }
                 TelephonyManager.CALL_STATE_OFFHOOK -> {
+                    // Android goes off-hook as soon as a call is dialled, and tells
+                    // no other app when it is answered: only an incoming call
+                    // (ringing first) has a known start.
+                    outgoing = !ringing
                     answered = true
                     val since = System.currentTimeMillis()
                     activeSince = since
-                    event.put("type", "call_active").put("since_ms", since)
+                    event.put("type", "call_active").put("since_ms", since).put("outgoing", outgoing)
                         .put("muted", audio(context).isMicrophoneMute)
                         .put("bt", btCallAudio(context))
                 }
                 else -> {
                     ringingNumber = null
                     activeSince = null
+                    outgoing = false
                     // The first report on listening is the idle phone: nothing ended.
                     if (!ringing && !answered) return
                     event.put("type", "call_ended").put("missed", ringing && !answered)

@@ -11,8 +11,8 @@ use std::time::Duration;
 use carrova_crypto::identity::DeviceId;
 use carrova_link::{
     ClipItem, Feature, FeatureState, FileOffer, LaneGate, LaneKind, LinkError, OfferAnswer,
-    ReceivedHandoff, RefuseReason, RingMsg, accept_lane, open_lane, receive_file, recv_clip,
-    recv_handoff, recv_policy, recv_ring, send_policy, serve_ping,
+    PolicyUpdate, ReceivedHandoff, RefuseReason, RingMsg, accept_lane, open_lane, receive_file,
+    recv_clip, recv_handoff, recv_policy, recv_ring, send_policy, serve_ping,
 };
 use carrova_platform::{ClipContent, ClipKind, PlatformError};
 use carrova_transport::{Connection, ProtocolViolation, Stream, TransportError};
@@ -20,9 +20,12 @@ use serde::{Deserialize, Serialize};
 
 use super::asks::{Answer, AskKind};
 use super::clip::lock_clips;
+use super::phone::give::{self, Gives};
+use super::phone::mirror;
 use super::sink::Download;
 use super::supervisor::Shared;
 use crate::cancel::Cancel;
+use crate::devices::KnownDevices;
 use crate::error::{CoreError, Result};
 use crate::session::Event;
 
@@ -77,8 +80,9 @@ pub(super) fn offer_id() -> Result<u64> {
     Ok(u64::from_le_bytes(b) & MAX_JS_ID)
 }
 
-/// Send this side's policy for `device` on a new `Policy` lane; a failure
-/// is logged (the link dropping redoes it at the next link).
+/// Send this side's policy for `device`, with this device's current name,
+/// on a new `Policy` lane; a failure is logged (the link dropping redoes it
+/// at the next link).
 pub(super) fn push_policy(shared: &Shared, device: &DeviceId, conn: &Connection) {
     let Some(doc) = shared
         .peers()
@@ -88,7 +92,11 @@ pub(super) fn push_policy(shared: &Shared, device: &DeviceId, conn: &Connection)
     else {
         return;
     };
-    let sent = open_lane(conn, LaneKind::Policy).and_then(|mut s| send_policy(&mut s, &doc));
+    let update = PolicyUpdate {
+        doc,
+        name: crate::about::device_name(shared.platform().as_ref()),
+    };
+    let sent = open_lane(conn, LaneKind::Policy).and_then(|mut s| send_policy(&mut s, &update));
     if let Err(e) = sent {
         tracing::debug!(error = %e, "policy not sent");
     }
@@ -116,8 +124,9 @@ impl LaneGate for Gate<'_> {
             LaneKind::File => off(Feature::Files) && off(Feature::Handoff),
             LaneKind::Handoff => off(Feature::Handoff),
             LaneKind::Ring => off(Feature::Ring),
-            // Not served yet: phone lanes stay refused until their handlers land.
-            LaneKind::Notify | LaneKind::Messages | LaneKind::Calls => true,
+            LaneKind::Notify => off(Feature::Notifications),
+            LaneKind::Messages => off(Feature::Messages),
+            LaneKind::Calls => off(Feature::Calls),
         };
         if refused {
             Err(RefuseReason::NotAllowed)
@@ -128,7 +137,7 @@ impl LaneGate for Gate<'_> {
 }
 
 /// This side's setting of `feature` for `device` (off once forgotten).
-fn local(shared: &Shared, device: &DeviceId, feature: Feature) -> FeatureState {
+pub(super) fn local(shared: &Shared, device: &DeviceId, feature: Feature) -> FeatureState {
     shared
         .peers()
         .iter()
@@ -200,8 +209,15 @@ impl Lane {
             LaneKind::File => return self.file(stream),
             LaneKind::Handoff => self.handoff(stream),
             LaneKind::Ring => self.ring(stream),
-            // Refused by the gate before they get here.
-            LaneKind::Notify | LaneKind::Messages | LaneKind::Calls => return,
+            LaneKind::Notify => {
+                give::serve_notify(&self.shared, self.device, self.generation, stream)
+            }
+            LaneKind::Messages => {
+                give::serve_messages(&self.shared, self.device, self.generation, stream)
+            }
+            LaneKind::Calls => {
+                give::serve_calls(&self.shared, self.device, self.generation, stream)
+            }
         };
         if let Err(e) = served {
             tracing::debug!(lane = ?kind, error = %e, "lane failed");
@@ -229,24 +245,55 @@ impl Lane {
 
     /// Run `f` on this lane's link, if it is still the live one.
     fn with_link<T>(&self, f: impl FnOnce(&mut super::peer::Link) -> T) -> Option<T> {
-        let mut peers = self.shared.peers();
-        let link = peers
-            .iter_mut()
-            .find(|p| p.id() == self.device)?
-            .link
-            .as_mut()
-            .filter(|l| l.generation == self.generation)?;
-        Some(f(link))
+        self.shared.with_link(&self.device, self.generation, f)
     }
 
+    /// Take the device's policy and name; send it the phone state it now
+    /// takes.
     fn policy(&self, mut stream: Stream) -> Result<()> {
-        let doc = recv_policy(&mut stream, POLICY_WAIT)?;
-        if self.with_link(|l| l.remote = Some(doc)).is_some() {
+        let PolicyUpdate { doc, name } = recv_policy(&mut stream, POLICY_WAIT)?;
+        let changed = {
+            let mut peers = self.shared.peers();
+            let peer = peers.iter_mut().find(|p| p.id() == self.device);
+            peer.and_then(|p| {
+                let link = p
+                    .link
+                    .as_mut()
+                    .filter(|l| l.generation == self.generation)?;
+                // Under the peers lock, so a newer link's name never lands
+                // before this older one's.
+                if let Some(name) = name.and_then(|name| self.follow_name(&name)) {
+                    p.record.name = name;
+                }
+                let before = Gives::of(&p.local, link.remote.as_ref());
+                link.remote = Some(doc);
+                let cleared = link.mirror.follow_policy(&p.local, link.remote.as_ref());
+                Some((
+                    Gives::of(&p.local, link.remote.as_ref()).since(before),
+                    cleared,
+                ))
+            })
+        };
+        if let Some((gives, cleared)) = changed {
             self.emit(Event::PolicyChanged {
                 device: self.device,
             });
+            mirror::cleared(&self.shared, self.device, cleared);
+            gives.send(&self.shared, self.device);
         }
         Ok(())
+    }
+
+    /// Store the name the device announces as its own unless the user
+    /// renamed it; the new name if it changed. A failure is logged: the
+    /// old name stays until the next policy.
+    fn follow_name(&self, announced: &str) -> Option<String> {
+        let platform = &**self.shared.platform();
+        KnownDevices::open(platform)
+            .and_then(|known| known.follow_name(platform, &self.device, announced))
+            .inspect_err(|e| tracing::warn!(error = %e, "device name not updated"))
+            .ok()
+            .flatten()
     }
 
     fn clipboard(&self, stream: Stream) -> Result<()> {

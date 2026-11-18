@@ -81,6 +81,7 @@ fn a_known_device_shows_its_history_and_only_whether_it_has_a_wake_hint() {
         last_move: Some(20),
         moves: 3,
         mac_hint: Some([1, 2, 3, 4, 5, 6]),
+        renamed: false,
     };
     assert_eq!(
         known_device_views(&[record]),

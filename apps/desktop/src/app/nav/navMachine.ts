@@ -2,7 +2,7 @@ import type { SettingsSection } from '../../screens/settings/sections';
 import { flowStart, position, stepIndex, type FlowId, type FlowPosition } from './flows';
 
 /** Places reachable from the hub's top bar. */
-export type HubPage = 'home' | 'nearby' | 'history' | 'apps' | 'settings';
+export type HubPage = 'home' | 'nearby' | 'messages' | 'calls' | 'history' | 'apps' | 'settings';
 
 /** What fills the window. */
 export type View =
@@ -10,7 +10,9 @@ export type View =
   | { readonly kind: 'hub'; readonly page: HubPage; readonly section?: SettingsSection }
   | { readonly kind: 'flow'; readonly at: FlowPosition }
   /** One linked device's page (under Nearby). */
-  | { readonly kind: 'device'; readonly id: string };
+  | { readonly kind: 'device'; readonly id: string }
+  /** A linked phone's calls (its call log, under its page). */
+  | { readonly kind: 'calls'; readonly id: string };
 
 /** Why an override dialog is open: each names one rule the user may bend. */
 export type OverrideKind = 'unmovable' | 'running' | 'space' | 'cross_os' | 'elsewhere';
@@ -46,7 +48,9 @@ export type Overlay =
   /** Confirm forgetting a linked device. */
   | { readonly kind: 'forget-device'; readonly id: string }
   /** Clips received from linked devices. */
-  | { readonly kind: 'clip-history' };
+  | { readonly kind: 'clip-history' }
+  /** Calls setup: this computer's mic and speakers for a linked phone's calls. */
+  | { readonly kind: 'calls-setup' };
 
 /** Navigation state: one view, the hub page a flow returns to, and a stack of overlays (top last). */
 export interface Nav {
@@ -60,6 +64,7 @@ export interface Nav {
 export type NavEvent =
   | { readonly type: 'openHub'; readonly page: HubPage; readonly section?: SettingsSection }
   | { readonly type: 'openDevice'; readonly id: string }
+  | { readonly type: 'openCalls'; readonly id: string }
   | { readonly type: 'startFlow'; readonly flow: FlowId }
   | { readonly type: 'enterFlow'; readonly at: FlowPosition }
   | { readonly type: 'next' }
@@ -96,6 +101,8 @@ export function navigate(nav: Nav, event: NavEvent): Nav {
         : { view: { kind: 'hub', page: event.page }, origin: event.page, overlays: [] };
     case 'openDevice':
       return show(nav, { kind: 'device', id: event.id });
+    case 'openCalls':
+      return show(nav, { kind: 'calls', id: event.id });
     case 'startFlow':
       return show(nav, { kind: 'flow', at: flowStart(event.flow) });
     case 'enterFlow':

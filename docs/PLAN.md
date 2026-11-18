@@ -179,10 +179,10 @@ Spec: `docs/superpowers/specs/2026-11-11-manual-mode-design.md` · Plan: `docs/s
 | # | Phase | Outcome | Status |
 |---|-------|---------|--------|
 | 1 | Link + clipboard, files, Handoff, Ring | `carrova-link`, supervisor, CLI `devices`, `link`, `clip`, `file`, `handoff`, desktop screens, Android shell | Implemented; exit gate pending (user: real hardware, checklist in `tasks/todo.md`) |
-| 2 | Phone on the laptop | Notifications, messages (SMS), calls (Android restricted-settings step) | Not started |
+| 2 | Phone on the laptop | Notifications, messages (SMS), calls (Android restricted-settings step) | Implemented; exit gate pending (user: real hardware, checklist in `tasks/todo.md`) |
 | 3 | Screens and input | Screen sharing and control, shared keyboard and mouse | Not started |
 
-Specs: `docs/superpowers/specs/2026-11-15-ecosystem-design.md` (whole), `docs/superpowers/specs/2026-11-15-ecosystem-phase1-design.md` (Phase 1) · Plan: `docs/superpowers/plans/2026-11-15-ecosystem-phase1.md`, `docs/superpowers/specs/2026-11-16-ecosystem-phase2-design.md` (Phase 2, draft) · Plan: `docs/superpowers/plans/2026-11-16-ecosystem-phase2.md`
+Specs: `docs/superpowers/specs/2026-11-15-ecosystem-design.md` (whole), `docs/superpowers/specs/2026-11-15-ecosystem-phase1-design.md` (Phase 1) · Plan: `docs/superpowers/plans/2026-11-15-ecosystem-phase1.md`, `docs/superpowers/specs/2026-11-16-ecosystem-phase2-design.md` (Phase 2) · Plan: `docs/superpowers/plans/2026-11-16-ecosystem-phase2.md`
 
 **Decision (user, 2026-11-16):** `carrova link serve` announces presence like the app (saved visibility honoured), so computers already linked find each other from the CLI. A first link still needs the desktop app to show the pairing code (the CLI only joins).
 

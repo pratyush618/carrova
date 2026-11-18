@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderPhone, scanToLinked } from '../../support/phone';
 
 describe('adding a computer from the phone', () => {
-  it('Onboarding scan → linking → choose what to share shows Phase 1 rows only', async () => {
+  it('Onboarding scan → linking → choose what to share shows the Phase 2 rows', async () => {
     const user = userEvent.setup();
     await renderPhone();
     expect(
@@ -29,7 +29,7 @@ describe('adding a computer from the phone', () => {
     expect(await screen.findByText('Desk PC')).toBeInTheDocument();
   });
 
-  it('Choose what to share preselects clipboard and ring', async () => {
+  it('Choose what to share preselects clipboard, ring and notifications', async () => {
     const user = userEvent.setup();
     const { port } = await renderPhone();
     await scanToLinked(user);
@@ -37,6 +37,7 @@ describe('adding a computer from the phone', () => {
 
     expect(await screen.findByRole('switch', { name: 'Shared clipboard' })).toBeChecked();
     expect(screen.getByRole('switch', { name: 'Ring' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Phone notifications' })).toBeChecked();
     await user.click(screen.getByRole('switch', { name: 'Ring' }));
     await user.click(screen.getByRole('button', { name: 'Done' }));
     await waitFor(async () => {

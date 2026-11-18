@@ -16,5 +16,7 @@ export const errors = {
   recipes: "Carrova's app list couldn't be loaded",
   known_device: "Check the computer's name or fingerprint",
   device_key: "A saved computer key can't be used",
+  unsupported: "This device can't do that",
+  permission_denied: 'The phone needs a permission first',
   internal: 'Something went wrong',
 } as const;

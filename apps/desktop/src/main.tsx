@@ -6,6 +6,7 @@ import './i18n/i18n';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
+import { NotePopupRoot, notePopupTarget } from './app/popup/NotePopupRoot';
 import { detectHost } from './engine/hosts';
 import { createPort } from './ipc';
 
@@ -15,10 +16,16 @@ if (!container) {
 }
 
 const root = createRoot(container);
+// A phone notification's pop-up window loads the same bundle with its target in the query.
+const popup = notePopupTarget(window.location.search);
 void createPort().then((port) => {
   root.render(
     <StrictMode>
-      <App port={port} host={detectHost()} />
+      {popup ? (
+        <NotePopupRoot port={port} target={popup} />
+      ) : (
+        <App port={port} host={detectHost()} />
+      )}
     </StrictMode>,
   );
 });

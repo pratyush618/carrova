@@ -51,3 +51,23 @@ fn error_report_carries_the_redacted_source_chain_outermost_first() {
     assert!(report.backtrace_frames.is_empty());
     assert!(report.when > 0);
 }
+
+/// The report pipeline redacts by shape and does not drop free text, so a
+/// phone number is removed but prose (a note, SMS text) would survive:
+/// callers must keep content out of error messages. This pins the part the
+/// pipeline guarantees.
+#[test]
+fn report_from_phone_failure_hides_numbers() {
+    let error = Failure {
+        message: "phone reply rejected: sms from +91 98765 43210 and (415) 555-0100",
+        source: None,
+    };
+    let context = ReportContext::new("0.0.1", "Linux", Some(Path::new("/home/ana")));
+
+    let report = ErrorReport::from_error(&error, &context);
+
+    assert_eq!(
+        report.headline(),
+        "phone reply rejected: sms from <phone> and <phone>"
+    );
+}

@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io;
 use std::net::UdpSocket;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread::{self, ThreadId};
@@ -15,14 +15,19 @@ use std::time::Duration;
 
 use carrova_platform::fake::FakePlatform;
 use carrova_platform::phone::{
-    AudioSide, CallAudioStatus, CallRecord, CallState, Cursor, Note, PermState, PhoneEvent,
-    PhonePerm, PhoneWatch, SendOutcome, SmsMessage, SmsThread,
+    AudioSide, CallAudioStatus, CallRecord, CallState, Contact, Cursor, Note, PermState,
+    PhoneEvent, PhonePerm, PhoneWatch, SendOutcome, Sim, SmsMessage, SmsThread,
 };
 use carrova_platform::{
     ClipContent, ClipboardWatch, DirEntry, DirWatch, FileLock, FileMeta, LanInterface, LinkNotice,
     LocalListener, LocalStream, OsKind, PermissionModel, Platform, PlatformError, ProcessInfo,
-    SemanticRoot, SnapshotCapability, SocketBuffers,
+    ScreenLock, SemanticRoot, SnapshotCapability, SocketBuffers,
 };
+
+/// `action` as recorded: with the SIM it names, if any.
+fn with_sim(action: &str, sim: Option<i32>) -> String {
+    sim.map_or_else(|| action.to_owned(), |id| format!("{action} sim {id}"))
+}
 
 /// What a [`Recording`] platform was asked to do.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,6 +44,10 @@ pub struct Recording {
     done: Mutex<Vec<Done>>,
     /// Plays an OS without local sockets (Windows, macOS today).
     no_local_socket: AtomicBool,
+    /// Plays an OS slow to say whether the screen is locked.
+    slow_lock: AtomicBool,
+    /// How many times `screen_lock` answered.
+    lock_reads: AtomicUsize,
     /// The scripted phone's data; tests fill it through [`Recording::phone`].
     phone: Mutex<Phone>,
     events: Arc<Mutex<Events>>,
@@ -52,11 +61,24 @@ pub struct Phone {
     pub messages: Vec<SmsMessage>,
     pub history: Vec<CallRecord>,
     pub send_outcome: SendOutcome,
+    /// What `phone_sims` reports.
+    pub sims: Vec<Sim>,
+    /// The phone's contacts `phone_contacts` searches by name.
+    pub contacts: Vec<Contact>,
     /// Permissions not listed are granted.
     pub perms: Vec<(PhonePerm, PermState)>,
+    /// Whether `phone_perm` fails.
+    pub perms_fail: bool,
     pub audio: CallAudioStatus,
     /// What `call_state` reports.
     pub call: CallState,
+    /// What `call` becomes once `call_answer` runs (`None`: unchanged).
+    pub answered: Option<CallState>,
+    /// Whether `call_speaker` fails.
+    pub speaker_fails: bool,
+    /// What `call_audio_side` reports (read without being recorded: it is
+    /// polled during a call).
+    pub side: AudioSide,
     /// Method names and ids of every phone call made, never content.
     actions: Vec<String>,
 }
@@ -69,9 +91,15 @@ impl Default for Phone {
             messages: Vec::new(),
             history: Vec::new(),
             send_outcome: SendOutcome::Sent,
+            sims: Vec::new(),
+            contacts: Vec::new(),
             perms: Vec::new(),
+            perms_fail: false,
             audio: CallAudioStatus::Ready,
             call: CallState::Idle,
+            answered: None,
+            speaker_fails: false,
+            side: AudioSide::Phone,
             actions: Vec::new(),
         }
     }
@@ -87,6 +115,18 @@ struct Events {
     generation: u64,
     /// The live watch's thread, to wait out when the watch stops.
     worker: Option<Worker>,
+    /// The live watch's listeners not armed: their permission was missing
+    /// as it opened (as on Android), so their events never come.
+    unarmed: Vec<PhonePerm>,
+}
+
+/// The listener `event` comes from, if it needs a permission to arm.
+fn listener(event: &PhoneEvent) -> Option<PhonePerm> {
+    match event {
+        PhoneEvent::Call(_) => Some(PhonePerm::Calls),
+        PhoneEvent::SmsStored { .. } => Some(PhonePerm::Sms),
+        _ => None,
+    }
 }
 
 /// A watch's delivery thread. It holds `delivery` across each generation
@@ -112,6 +152,7 @@ impl fmt::Debug for Events {
         f.debug_struct("Events")
             .field("watched", &self.live.is_some())
             .field("pending", &self.pending.len())
+            .field("unarmed", &self.unarmed)
             .finish()
     }
 }
@@ -141,6 +182,8 @@ impl Recording {
             inner,
             done: Mutex::default(),
             no_local_socket: AtomicBool::new(false),
+            slow_lock: AtomicBool::new(false),
+            lock_reads: AtomicUsize::new(0),
             phone: Mutex::default(),
             events: Arc::default(),
         }
@@ -155,11 +198,25 @@ impl Recording {
     /// until one is registered.
     pub fn script_event(&self, event: PhoneEvent) {
         let mut events = lock(&self.events);
+        if events.live.is_some() && listener(&event).is_some_and(|p| events.unarmed.contains(&p)) {
+            return;
+        }
         let unsent = match &events.live {
             Some(live) => live.send(event).err().map(|e| e.0),
             None => Some(event),
         };
         events.pending.extend(unsent);
+    }
+
+    /// Whether the live watch's listener needing `perm` is armed.
+    pub fn armed(&self, perm: PhonePerm) -> bool {
+        let events = lock(&self.events);
+        events.live.is_some() && !events.unarmed.contains(&perm)
+    }
+
+    /// Whether a `watch_phone_events` callback is registered now.
+    pub fn watching(&self) -> bool {
+        lock(&self.events).live.is_some()
     }
 
     /// Phone methods called so far: names and ids only.
@@ -177,6 +234,16 @@ impl Recording {
     fn record_action(&self, action: &str) -> Result<(), PlatformError> {
         self.phone().actions.push(action.to_owned());
         Ok(())
+    }
+
+    /// Make `screen_lock` take 200 ms to answer.
+    pub fn slow_screen_lock(&self) {
+        self.slow_lock.store(true, Ordering::SeqCst);
+    }
+
+    /// How many times `screen_lock` answered so far.
+    pub fn lock_reads(&self) -> usize {
+        self.lock_reads.load(Ordering::SeqCst)
     }
 
     pub fn refuse_local_sockets(&self) {
@@ -345,11 +412,31 @@ impl Platform for Recording {
     fn links_paused(&self) -> bool {
         self.inner.links_paused()
     }
+    fn screen_lock(&self) -> ScreenLock {
+        if self.slow_lock.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        let lock = self.inner.screen_lock();
+        self.lock_reads.fetch_add(1, Ordering::SeqCst);
+        lock
+    }
     fn watch_phone_events(
         &self,
         on_event: Box<dyn Fn(PhoneEvent) + Send>,
     ) -> Result<PhoneWatch, PlatformError> {
         self.record_action("watch_phone_events")?;
+        let unarmed: Vec<PhonePerm> = {
+            let phone = self.phone();
+            [PhonePerm::Calls, PhonePerm::Sms]
+                .into_iter()
+                .filter(|p| {
+                    phone
+                        .perms
+                        .iter()
+                        .any(|&(q, s)| q == *p && s != PermState::Granted)
+                })
+                .collect()
+        };
         let (live, queue) = mpsc::channel();
         let delivery = Arc::new(Mutex::new(()));
         let (generation, replaced) = {
@@ -359,6 +446,7 @@ impl Platform for Recording {
                 let _ = live.send(event); // `queue` is alive: cannot fail
             }
             events.live = Some(live);
+            events.unarmed = unarmed;
             let generation = events.generation;
             // Deliver on the watch's own thread and never under `events`:
             // the scripting thread or a supervisor may hold a lock the
@@ -398,6 +486,16 @@ impl Platform for Recording {
             };
             if let Some(worker) = stopped {
                 worker.finish();
+            }
+        })
+        .with_rearm({
+            let events = Arc::clone(&self.events);
+            move |perm| {
+                let mut events = lock(&events);
+                if events.generation == generation {
+                    events.unarmed.retain(|&p| p != perm);
+                }
+                Ok(())
             }
         }))
     }
@@ -457,11 +555,34 @@ impl Platform for Recording {
             limit,
         ))
     }
-    fn sms_send(&self, _to: &str, _text: &str) -> Result<SendOutcome, PlatformError> {
-        Ok(self.act("sms_send".into()).send_outcome)
+    fn phone_sims(&self) -> Result<Vec<Sim>, PlatformError> {
+        Ok(self.act("phone_sims".into()).sims.clone())
+    }
+    fn phone_contacts(&self, query: &str, limit: usize) -> Result<Vec<Contact>, PlatformError> {
+        let phone = self.act("phone_contacts".into());
+        let query = query.to_lowercase();
+        Ok(phone
+            .contacts
+            .iter()
+            .filter(|c| c.name.to_lowercase().contains(&query))
+            .take(limit)
+            .cloned()
+            .collect())
+    }
+    fn sms_send(
+        &self,
+        _to: &str,
+        _text: &str,
+        sim: Option<i32>,
+    ) -> Result<SendOutcome, PlatformError> {
+        Ok(self.act(with_sim("sms_send", sim)).send_outcome)
     }
     fn call_answer(&self) -> Result<(), PlatformError> {
-        self.record_action("call_answer")
+        let mut phone = self.act("call_answer".into());
+        if let Some(state) = phone.answered.clone() {
+            phone.call = state;
+        }
+        Ok(())
     }
     fn call_decline(&self) -> Result<(), PlatformError> {
         self.record_action("call_decline")
@@ -472,11 +593,14 @@ impl Platform for Recording {
     fn call_mute(&self, on: bool) -> Result<(), PlatformError> {
         self.record_action(&format!("call_mute {on}"))
     }
-    fn call_dial(&self, _number: &str) -> Result<(), PlatformError> {
-        self.record_action("call_dial")
+    fn call_dial(&self, _number: &str, sim: Option<i32>) -> Result<(), PlatformError> {
+        self.record_action(&with_sim("call_dial", sim))
     }
     fn call_speaker(&self, on: bool) -> Result<(), PlatformError> {
-        self.record_action(&format!("call_speaker {on}"))
+        if self.act(format!("call_speaker {on}")).speaker_fails {
+            return Err(PlatformError::Unsupported("call_speaker"));
+        }
+        Ok(())
     }
     fn call_history(
         &self,
@@ -497,8 +621,12 @@ impl Platform for Recording {
     fn call_state(&self) -> Result<CallState, PlatformError> {
         Ok(self.act("call_state".into()).call.clone())
     }
+    // Read without being recorded: it is polled while linked.
     fn phone_perm(&self, p: PhonePerm) -> Result<PermState, PlatformError> {
-        let phone = self.act(format!("phone_perm {p:?}"));
+        let phone = self.phone();
+        if phone.perms_fail {
+            return Err(PlatformError::Unsupported("phone_perm"));
+        }
         Ok(phone
             .perms
             .iter()
@@ -507,6 +635,9 @@ impl Platform for Recording {
     }
     fn open_perm_settings(&self, p: PhonePerm) -> Result<(), PlatformError> {
         self.record_action(&format!("open_perm_settings {p:?}"))
+    }
+    fn remind_access(&self, p: PhonePerm) -> Result<(), PlatformError> {
+        self.record_action(&format!("remind_access {p:?}"))
     }
     fn call_audio_status(&self) -> Result<CallAudioStatus, PlatformError> {
         Ok(self.act("call_audio_status".into()).audio)
@@ -525,5 +656,8 @@ impl Platform for Recording {
     }
     fn call_audio_to(&self, side: AudioSide) -> Result<(), PlatformError> {
         self.record_action(&format!("call_audio_to {side:?}"))
+    }
+    fn call_audio_side(&self) -> Result<AudioSide, PlatformError> {
+        Ok(self.phone().side)
     }
 }

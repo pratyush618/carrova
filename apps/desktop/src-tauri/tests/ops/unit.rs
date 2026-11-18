@@ -8,6 +8,7 @@ mod contract;
 mod devices;
 mod ecosystem;
 mod inbox;
+mod phone;
 mod record;
 mod selection;
 mod services;

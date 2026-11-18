@@ -4,6 +4,7 @@ import { historyEntry, homeModel, sessionModel } from '../../../flows/history/hi
 import { nearbyEntries, visibilityModel, wakeFailure } from '../../../flows/nearby/nearbyViews';
 import { useNearby } from '../../../flows/nearby/useNearby';
 import { pausedUntil } from '../../../flows/settings/settingsViews';
+import { useCallsSettings } from '../../../flows/calls/useCallsSettings';
 import { useClipSettings } from '../../../flows/ecosystem/useClipSettings';
 import { useUndoPreview } from '../../../flows/undo/useUndoPreview';
 import { current, type Remote } from '../../../flows/remote';
@@ -19,6 +20,7 @@ import { usePort } from '../../../engine/port';
 import { HubLayout } from '../../../ui';
 import { useControllers } from '../../controllers/Controllers';
 import { useNav } from '../nav';
+import { HomeCallBar } from './CallRoutes';
 import { useStartFlows } from './useStartFlows';
 
 /** A list the page can't render until it has answered once (a failure counts: render empty). */
@@ -41,14 +43,17 @@ export function HomeRoute() {
         failed: settings.fileManagerFailed,
       })}
       glance={
-        linked.devices.length > 0 && (
-          <Glance
-            devices={linked.devices}
-            onOpen={(id) => {
-              nav.go({ type: 'openDevice', id });
-            }}
-          />
-        )
+        <>
+          <HomeCallBar />
+          {linked.devices.length > 0 && (
+            <Glance
+              devices={linked.devices}
+              onOpen={(id) => {
+                nav.go({ type: 'openDevice', id });
+              }}
+            />
+          )}
+        </>
       }
       on={{
         onSend: start.send,
@@ -206,6 +211,7 @@ export function SettingsRoute({ section }: { readonly section: SettingsSection }
   const { settings, update, report, devices, linked } = useControllers();
   const nav = useNav();
   const { clip, setClip, failed: clipFailed } = useClipSettings(usePort());
+  const calls = useCallsSettings(usePort());
   const { model } = settings;
   if (model === null) return <HubLayout>{null}</HubLayout>;
   return (
@@ -215,6 +221,21 @@ export function SettingsRoute({ section }: { readonly section: SettingsSection }
       linked={linked.devices}
       clip={clip}
       clipFailed={clipFailed}
+      calls={{
+        phone: calls.phone,
+        failed: calls.failed,
+        on: {
+          onPhone: calls.setPhone,
+          onAudioAgain: () => {
+            calls.audioOff(() => {
+              nav.open({ kind: 'calls-setup' });
+            });
+          },
+          onAudioOff: () => {
+            calls.audioOff();
+          },
+        },
+      }}
       on={{
         onClip: setClip,
         onOpenDevice: (id) => {

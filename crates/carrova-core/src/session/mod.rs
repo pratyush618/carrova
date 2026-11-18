@@ -17,7 +17,7 @@ pub mod log;
 pub mod progress;
 mod state;
 
-pub use events::{Event, EventSink, NullSink, PauseReason, RollbackOutcome, VecSink};
+pub use events::{Event, EventSink, NoteKey, NullSink, PauseReason, RollbackOutcome, VecSink};
 pub use log::LogSink;
 pub use progress::{Metered, Phase, ProgressMeter};
 pub use state::{Role, SessionId, State};

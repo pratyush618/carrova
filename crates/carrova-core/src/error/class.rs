@@ -50,6 +50,8 @@ pub enum ErrorKind {
     /// This device's key or a known device's key file is refused (forget
     /// the device, or reset this computer's identity).
     DeviceKey,
+    /// The request does not apply to this device or feature.
+    Unsupported,
     /// Anything else.
     Internal,
 }
@@ -164,6 +166,7 @@ impl CoreError {
             | Self::NoWakeHint => C::new(K::KnownDevice),
             Self::KeyMismatch | Self::PairRejected => C::new(K::PairingFailed),
             Self::DeviceKey { .. } => C::new(K::DeviceKey),
+            Self::NoPhoneAccess(_) => C::new(K::Unsupported),
             other if out_of_space(other) => C::new(K::NoSpace),
             _ => C::new(K::Internal),
         }

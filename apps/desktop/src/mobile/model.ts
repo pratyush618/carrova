@@ -48,15 +48,29 @@ export const shareChanges = (
     (feature) => device.features.find((f) => f.feature === feature)?.local !== choices[feature],
   ).map((feature) => [feature, choices[feature]] as const);
 
+/** Why `feature` can't reach a linked device now (the first the user can act on). */
+export type Unreachable = 'offHere' | 'away' | 'connecting' | 'offThere';
+
+/**
+ * Why `feature` can't reach `device` now; `null` if it can (linked, with it
+ * on or asking on both sides). Off here comes first: the one fix on this phone.
+ */
+export function unreachable(device: LinkedDeviceView, feature: Phase2Feature): Unreachable | null {
+  const row = device.features.find((f) => f.feature === feature);
+  if (row?.local === 'off') return 'offHere';
+  if (device.state !== 'linked') return device.state;
+  if (row?.effective !== 'off') return null;
+  // Its setting arrives just after the link comes up.
+  return row.remote === null ? 'connecting' : 'offThere';
+}
+
 /** The devices `feature` reaches now: linked, with it on or asking on both sides. */
 export const readyFor = (
   devices: readonly LinkedDeviceView[],
   feature: Phase2Feature,
 ): readonly LinkedDeviceView[] =>
   devices.filter(
-    (d) =>
-      d.state === 'linked' &&
-      d.features.some((f) => f.feature === feature && f.effective !== 'off'),
+    (d) => d.features.some((f) => f.feature === feature) && unreachable(d, feature) === null,
   );
 
 /** What a link the app was opened with asks for. */

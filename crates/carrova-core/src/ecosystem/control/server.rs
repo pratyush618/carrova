@@ -179,6 +179,16 @@ impl Served {
             ControlRequest::ClipSettings => ControlResponse::ClipSettings(sup.clip_settings()),
             ControlRequest::SetClipSettings(s) => sup.set_clip_settings(s).map(done)?,
             ControlRequest::RetryFile(id) => sup.retry_file(id).map(done)?,
+            ControlRequest::Notes(d) => ControlResponse::Notes(sup.notes(&d)?),
+            ControlRequest::NoteAction(d, a) => {
+                ControlResponse::NoteAction(sup.note_action(&d, &a)?)
+            }
+            ControlRequest::Sms(d, r) => ControlResponse::Sms(sup.sms(&d, &r)?),
+            ControlRequest::Call(d, c) => ControlResponse::Call(sup.call(&d, &c)?),
+            ControlRequest::PhoneSettings => ControlResponse::PhoneSettings(sup.phone_settings()),
+            ControlRequest::SetPhoneSettings(s) => sup.set_phone_settings(s).map(done)?,
+            ControlRequest::PhoneApps(d) => ControlResponse::PhoneApps(sup.phone_apps(&d)?),
+            ControlRequest::Remind(d, f) => ControlResponse::Reminded(sup.remind(&d, f)?),
             // Answered with more than one message ([`serve_connection`]).
             ControlRequest::ClipHistory | ControlRequest::Subscribe => {
                 return Err(ControlError::Unexpected.into());

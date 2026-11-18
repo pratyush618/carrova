@@ -48,6 +48,7 @@ fn remember(machine: &Machine, seed: u8, name: &str) {
         last_move: None,
         moves: 0,
         mac_hint: None,
+        renamed: false,
     };
     KnownDevices::open(&machine.platform)
         .unwrap()

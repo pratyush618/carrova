@@ -66,10 +66,28 @@ export const ICONS = {
     'M12 18.6v.2M8.64 15.36a4.8 4.8 0 0 1 6.72 0M5.52 12.24a9.12 9.12 0 0 1 12.96 0M2.64 9.12a13.2 13.2 0 0 1 18.72 0',
   ],
   refresh: ['M19.2 12a7.2 7.2 0 1 1-2.16-5.16M19.2 4.2v3.6h-3.6'],
+  // Phone features (desktop ecosystem mockup, scaled from its 20-unit grid).
+  ring: [
+    'M12 3.6v1.8M6 10.2a6 6 0 0 1 12 0v4.8l1.8 2.4H4.2l1.8-2.4zM10.2 20.4h3.6M3 8.4a9.6 9.6 0 0 1 2.4-4.2M21 8.4a9.6 9.6 0 0 0-2.4-4.2',
+  ],
+  msg: ['M4.2 5.4h15.6v10.8h-8.4l-4.8 3.6v-3.6H4.2z'],
   // Phone (Android mockup `scan`, scaled from its 20-unit grid).
   camera: [
     'M3.6 7.8h3.6l1.8-2.4h6l1.8 2.4h3.6v11.4H3.6zM12 10.2a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2z',
   ],
+  // Calls (desktop mockup, scaled from its 20-unit grid).
+  call: [
+    'M6 4.2h3.6l1.8 4.8-2.4 1.44a9.6 9.6 0 0 0 4.56 4.56l1.44-2.4 4.8 1.8v3.6a1.2 1.2 0 0 1-1.2 1.2A15.6 15.6 0 0 1 4.8 5.4a1.2 1.2 0 0 1 1.2-1.2z',
+  ],
+  callEnd: [
+    'M3 13.8c4.8-4.2 13.2-4.2 18 0l-2.16 2.64-3.6-1.44v-2.4a10.8 10.8 0 0 0-6.48 0v2.4l-3.6 1.44z',
+  ],
+  mic: ['M9.6 4.2h4.8v9.6H9.6zM6 12a6 6 0 0 0 12 0M12 18v3'],
+  micOff: ['M9.6 4.2h4.8v9.6H9.6zM6 12a6 6 0 0 0 12 0M12 18v3M4.2 4.2l15.6 15.6'],
+  keypad: [
+    'M6 4.8h.01M12 4.8h.01M18 4.8h.01M6 10.8h.01M12 10.8h.01M18 10.8h.01M6 16.8h.01M12 16.8h.01M18 16.8h.01M12 21.6h.01',
+  ],
+  bt: ['M7.2 7.8l9.6 8.4-4.8 4.2V3.6l4.8 4.2-9.6 8.4'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconName = keyof typeof ICONS;

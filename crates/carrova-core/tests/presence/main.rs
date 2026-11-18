@@ -62,6 +62,7 @@ fn remember_with(
         last_move,
         moves: 0,
         mac_hint: None,
+        renamed: false,
     };
     KnownDevices::open(&*side.platform)
         .unwrap()
@@ -231,6 +232,7 @@ fn a_known_peer_finds_a_present_device_by_its_stored_name_and_strangers_do_not()
         last_move: None,
         moves: 1,
         mac_hint: None,
+        renamed: false,
     };
     KnownDevices::open(&*laptop.platform)
         .unwrap()

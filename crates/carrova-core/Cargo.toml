@@ -48,7 +48,7 @@ workspace = true
 
 [features]
 # TypeScript bindings (ts-rs) for every type a front-end receives or sends.
-ts = ["dep:ts-rs", "carrova-archive/ts", "carrova-platform/ts"]
+ts = ["dep:ts-rs", "carrova-archive/ts", "carrova-link/ts", "carrova-platform/ts"]
 # Test-only fault injection (fail apply after N actions). Never in release builds.
 failpoints = []
 # Exposes the private write-capable modules (apply, stage, rollback, handlers,

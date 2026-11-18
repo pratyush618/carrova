@@ -3,10 +3,12 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use carrova_crypto::identity::DeviceId;
+use carrova_link::Feature;
+use carrova_platform::phone::{CallState, Note, SmsMessage};
 use serde::{Deserialize, Serialize};
 
 use crate::checklist::Checklist;
-use crate::ecosystem::{AskId, AskKind, ClipSkip, FileFailure};
+use crate::ecosystem::{AskId, AskKind, CallView, ClipSkip, FileFailure};
 use crate::key::ItemKey;
 use crate::lan::{Inventory, PlanSummary};
 use crate::session::{Phase, SessionId, State};
@@ -199,6 +201,76 @@ pub enum Event {
         #[cfg_attr(feature = "ts", ts(type = "string"))]
         device: DeviceId,
     },
+    /// A linked phone's notification to pop up (new or changed; at most
+    /// one per app every 2 s, all of them in
+    /// [`crate::ecosystem::Supervisor::notes`]). While this computer is
+    /// locked it carries no content (`hidden: locked`).
+    PhoneNote {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        note: Note,
+    },
+    /// A linked phone's notification `key` is gone.
+    PhoneNoteGone {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        key: NoteKey,
+    },
+    /// A text new to this computer from a linked phone. One with `id` 0 is
+    /// provisional (not stored on the phone yet); a stored one (`id` not
+    /// 0) replaces the provisional texts of its thread.
+    PhoneSms {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        message: SmsMessage,
+    },
+    /// A linked phone's call changed, as the phone reports it. Front-ends
+    /// render [`Event::CallView`] instead.
+    PhoneCall {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        state: CallState,
+    },
+    /// What this computer shows of a linked phone's call now: the one
+    /// source of truth for the ringing window, call window, home bar and
+    /// tray.
+    CallView(CallView),
+    /// What this computer held of a linked phone's `feature` was dropped
+    /// (link closed, device forgotten, feature off, or the phone asked to
+    /// resync): views of it fetch again or close.
+    PhoneCleared {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        feature: Feature,
+    },
+    /// A linked phone lost (`granted` false) or regained the access its
+    /// `feature` needs (notification access, SMS permission): device
+    /// views refresh ([`crate::ecosystem::LinkedPeer::missing`]).
+    PhoneAccess {
+        #[cfg_attr(feature = "ts", ts(type = "string"))]
+        device: DeviceId,
+        feature: Feature,
+        granted: bool,
+    },
+}
+
+/// A phone notification's key (it names the posting app). Serialised as
+/// the plain string; its `Debug` shows only the length.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct NoteKey(pub String);
+
+impl From<String> for NoteKey {
+    fn from(key: String) -> Self {
+        Self(key)
+    }
+}
+
+impl std::fmt::Debug for NoteKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "NoteKey(<{} bytes>)", self.0.len())
+    }
 }
 
 /// Why a LAN transfer paused.

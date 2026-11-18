@@ -313,3 +313,68 @@ fn device_key_error_hides_the_fingerprint() {
         "known devices: the key of <device> has mode 644, not 600; refusing to use it"
     );
 }
+
+#[test]
+fn redacts_phone_numbers() {
+    for number in ["+91 98765 43210", "9876543210", "(415) 555-0100"] {
+        assert_eq!(
+            redactor().redact(&format!("sms to {number} failed")),
+            "sms to <phone> failed",
+            "{number}"
+        );
+    }
+    assert_eq!(redactor().redact("call +91 98765 43210."), "call <phone>.");
+}
+
+#[test]
+fn redacts_phone_numbers_after_a_field_name() {
+    assert_eq!(redactor().redact("sender:4155550100"), "sender:<phone>");
+    assert_eq!(redactor().redact("tel:+14155550100"), "tel:<phone>");
+}
+
+#[test]
+fn digits_inside_emails_do_not_hide_the_email() {
+    for email in ["alice+4155550100@example.com", "4155550100@example.com"] {
+        assert_eq!(
+            redactor().redact(&format!("to {email}")),
+            "to <email>",
+            "{email}"
+        );
+    }
+}
+
+#[test]
+fn keeps_short_numbers_and_versions() {
+    for text in [
+        "carrova v0.2.0 on port 4433",
+        "error 13 at line 4433, build 20261116",
+        "on 2026-11-16 chunk 12 of 3000",
+        "file-1234567890.txt and 1234567890.5",
+    ] {
+        assert_eq!(Redactor::default().redact(text), text);
+    }
+}
+
+#[test]
+fn phone_redaction_is_idempotent() {
+    let once = redactor().redact("(415) 555-0100 and +91 98765 43210");
+    assert_eq!(redactor().redact(&once), once);
+}
+
+#[test]
+fn long_digit_runs_are_scanned_in_linear_time() {
+    let text = "1 ".repeat(200_000);
+    let start = std::time::Instant::now();
+    let out = redactor().redact(&text);
+    assert!(start.elapsed() < std::time::Duration::from_secs(5));
+    // Runs over 15 digits are not a phone number; only the short tail is.
+    assert!(out.starts_with("1 1 1 ") && out.trim_end().ends_with("<phone>"));
+}
+
+#[test]
+fn separator_runs_are_scanned_in_linear_time() {
+    let text = "(".repeat(200_000);
+    let start = std::time::Instant::now();
+    assert_eq!(redactor().redact(&text), text);
+    assert!(start.elapsed() < std::time::Duration::from_secs(5));
+}

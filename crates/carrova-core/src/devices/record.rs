@@ -13,8 +13,16 @@ use serde::{Deserialize, Serialize};
 pub struct DeviceRecord {
     /// The device's identity key ([`DeviceId`](carrova_crypto::identity::DeviceId)).
     pub public: DevicePublic,
-    /// Display name (set at pairing, renamable).
+    /// Display name: the one the device announces, until the user renames
+    /// it ([`Self::renamed`]).
     pub name: String,
+    /// Whether the user named it ([`KnownDevices::rename`]): the name the
+    /// device announces then no longer replaces it. Records saved before
+    /// this was tracked read as renamed: their name may be the user's.
+    ///
+    /// [`KnownDevices::rename`]: super::KnownDevices::rename
+    #[serde(default = "legacy_renamed")]
+    pub renamed: bool,
     /// The device's operating system.
     pub os: OsKind,
     /// When it was first remembered (unix seconds).
@@ -25,6 +33,11 @@ pub struct DeviceRecord {
     pub moves: u32,
     /// Opt-in Wake-on-LAN hint. Personal data: never logged.
     pub mac_hint: Option<[u8; 6]>,
+}
+
+/// `renamed` of a record saved before it was written.
+const fn legacy_renamed() -> bool {
+    true
 }
 
 impl DeviceRecord {
@@ -40,6 +53,7 @@ impl fmt::Debug for DeviceRecord {
         f.debug_struct("DeviceRecord")
             .field("fingerprint", &self.fingerprint())
             .field("name", &self.name)
+            .field("renamed", &self.renamed)
             .field("os", &self.os)
             .field("first_seen", &self.first_seen)
             .field("last_move", &self.last_move)

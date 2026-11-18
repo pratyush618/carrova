@@ -6,7 +6,7 @@ use std::fmt::Debug;
 
 use carrova_platform::phone::{
     AudioSide, CallKind, CallRecord, CallState, Cursor, Hidden, Note, PermState, PhoneEvent,
-    PhonePerm, SendOutcome, SmsMessage, SmsThread,
+    PhonePerm, SendOutcome, Sim, SmsMessage, SmsThread,
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -30,6 +30,7 @@ fn phone_types_cbor_roundtrip() {
         can_reply: true,
         icon: Some(vec![0x89, b'P', b'N', b'G']),
         hidden: Some(Hidden::Code),
+        sms_app: true,
     };
     let message = SmsMessage {
         id: 9,
@@ -46,6 +47,14 @@ fn phone_types_cbor_roundtrip() {
         snippet: "hi".into(),
         when_ms: 1,
         unread: 2,
+        sim: Some(4),
+    });
+    roundtrip(&Sim {
+        id: 4,
+        slot: 1,
+        name: "Airtel".into(),
+        sms_default: false,
+        voice_default: true,
     });
     roundtrip(&CallRecord {
         id: 12,
@@ -66,6 +75,7 @@ fn phone_types_cbor_roundtrip() {
             since_ms: 5,
             muted: true,
             on_laptop_audio: false,
+            outgoing: true,
         },
         CallState::Ended { missed: true },
     ] {
@@ -100,6 +110,7 @@ fn phone_types_cbor_roundtrip() {
         PhonePerm::Calls,
         PhonePerm::Contacts,
         PhonePerm::BluetoothConnect,
+        PhonePerm::Battery,
     ] {
         roundtrip(&perm);
     }
@@ -121,6 +132,7 @@ fn debug_output_hides_phone_content() {
         can_reply: false,
         icon: None,
         hidden: None,
+        sms_app: false,
     };
     let shown = [
         format!("{note:?}"),
@@ -133,6 +145,17 @@ fn debug_output_hides_phone_content() {
                 snippet: s(),
                 when_ms: 1,
                 unread: 0,
+                sim: Some(7_654_321),
+            }
+        ),
+        format!(
+            "{:?}",
+            Sim {
+                id: 7_654_321,
+                slot: 0,
+                name: s(),
+                sms_default: true,
+                voice_default: false,
             }
         ),
         format!(
@@ -168,6 +191,7 @@ fn debug_output_hides_phone_content() {
     ];
     for out in shown {
         assert!(!out.contains("SECRET"), "{out}");
+        assert!(!out.contains("7654321"), "SIM id logged: {out}");
     }
 }
 
@@ -191,6 +215,7 @@ fn icon_is_a_cbor_byte_string() {
         can_reply: false,
         icon: Some(vec![0xAB; 1000]),
         hidden: None,
+        sms_app: false,
     };
     let mut bytes = Vec::new();
     ciborium::into_writer(&note, &mut bytes).unwrap();
@@ -200,4 +225,49 @@ fn icon_is_a_cbor_byte_string() {
     ciborium::into_writer(&note, &mut bytes).unwrap();
     let back: Note = ciborium::from_reader(bytes.as_slice()).unwrap();
     assert_eq!(back, note);
+}
+
+#[test]
+fn sms_app_mark_is_compatible_with_older_peers() {
+    /// A note as peers before `sms_app` encode it.
+    #[derive(Debug, PartialEq, Serialize, serde::Deserialize)]
+    struct OldNote {
+        key: String,
+        app_id: String,
+        app_name: String,
+        title: String,
+        text: String,
+        when_ms: i64,
+        can_reply: bool,
+        #[serde(with = "serde_bytes", default)]
+        icon: Option<Vec<u8>>,
+        hidden: Option<Hidden>,
+    }
+    fn cbor(v: &impl Serialize) -> Vec<u8> {
+        let mut out = Vec::new();
+        ciborium::into_writer(v, &mut out).unwrap();
+        out
+    }
+    let old = OldNote {
+        key: "k".into(),
+        app_id: "com.google.android.apps.messaging".into(),
+        app_name: "Messages".into(),
+        title: "Ana".into(),
+        text: "hi".into(),
+        when_ms: 1,
+        can_reply: true,
+        icon: Some(vec![1]),
+        hidden: None,
+    };
+    // An older peer's note reads as no SMS app's.
+    let read: Note = ciborium::from_reader(cbor(&old).as_slice()).unwrap();
+    assert!(!read.sms_app);
+    assert_eq!(read.app_name, "Messages");
+    // An older peer reads a marked note, ignoring the mark.
+    let marked = Note {
+        sms_app: true,
+        ..read
+    };
+    let back: OldNote = ciborium::from_reader(cbor(&marked).as_slice()).unwrap();
+    assert_eq!(back, old);
 }

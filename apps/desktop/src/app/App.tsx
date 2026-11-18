@@ -6,6 +6,7 @@ import { wantsGallery } from '../gallery/useHashTarget';
 import { PreferencesProvider } from '../preferences/preferences';
 import { ControllersProvider } from './controllers/Controllers';
 import { SettingsSync } from './controllers/SettingsSync';
+import { CallWindowRoute } from './shell/routes/CallRoutes';
 import { Startup } from './Startup';
 import { EngineStateProvider } from './state/EngineState';
 
@@ -51,6 +52,13 @@ export function App({ port, host }: { readonly port: CarrovaPort; readonly host:
         <Suspense fallback={null}>
           <Gallery />
         </Suspense>
+      ) : host.window === 'call' ? (
+        // A call's own window: the call only, none of the app's state.
+        <PortProvider port={port}>
+          <HostProvider host={host}>
+            <CallWindowRoute />
+          </HostProvider>
+        </PortProvider>
       ) : (
         <Live port={port} host={host}>
           <Startup />

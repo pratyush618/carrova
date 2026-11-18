@@ -2,15 +2,22 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useControllers } from '../app/controllers/Controllers';
 import { EcosystemToasts } from '../app/shell/EcosystemToasts';
-import type { LinkedDeviceView } from '../engine/types';
+import type { Feature, LinkedDeviceView } from '../engine/types';
+import { PHASE2_FEATURES, type Phase2Feature } from '../screens/devices/model';
 import { Toast, Window } from '../ui';
-import { PhoneDevice } from './home/PhoneDevice';
+import { PhoneDevice, type PhoneScreen } from './home/PhoneDevice';
 import { PhoneHome } from './home/PhoneHome';
 import { shareChanges, type OpenedIntent } from './model';
 import { ChooseShare } from './pairing/ChooseShare';
 import { PhonePairing } from './pairing/PhonePairing';
 import { Welcome } from './pairing/Welcome';
 import { PhoneActivity } from './PhoneActivity';
+import { Calls } from './phone/Calls';
+import { Messages } from './phone/Messages';
+import { FEATURE_PERMS, permsFor } from './phone/model';
+import { NotifyApps } from './phone/NotifyApps';
+import { PermStep } from './phone/PermStep';
+import { usePermGate } from './phone/usePermGate';
 import { PhoneOverlay, type PhoneOverlayModel } from './PhoneOverlay';
 import { PhoneSettings } from './PhoneSettings';
 import { PhoneTabs, type PhoneTab } from './PhoneTabs';
@@ -23,7 +30,9 @@ type PhoneView =
   | { readonly kind: PhoneTab }
   | { readonly kind: 'pair' }
   | { readonly kind: 'choose'; readonly device: LinkedDeviceView }
-  | { readonly kind: 'device'; readonly id: string };
+  | { readonly kind: 'device'; readonly id: string }
+  /** A phone feature's own screen, opened from computer `id`'s page. */
+  | { readonly kind: PhoneScreen; readonly id: string };
 
 /**
  * The phone app (`about.os === 'android'`): the same engine, controllers and
@@ -44,6 +53,11 @@ export function PhoneApp() {
   // Welcome or Home only once the list is known, so neither flashes.
   const [loaded, setLoaded] = useState(false);
   const { reload, setFeature, sendClipboard } = linked;
+  // Android permissions, asked when a feature needing them turns on.
+  const gate = usePermGate();
+  const turnOn = (feature: Feature) => {
+    gate.ask(FEATURE_PERMS[feature as Phase2Feature] ?? []);
+  };
   useOpened((intent) => {
     setOpened((queue) => [...queue, intent]);
   });
@@ -85,9 +99,12 @@ export function PhoneApp() {
         return (
           <ChooseShare
             device={view.device}
+            onTurnOn={turnOn}
             onDone={(choices) => {
               for (const [feature, state] of shareChanges(view.device, choices))
                 setFeature(view.device.id, feature, state);
+              // Preselected features never turned on here: ask for theirs now.
+              gate.ask(permsFor(PHASE2_FEATURES.filter((f) => choices[f] === 'on')));
               setView({ kind: 'home' });
             }}
           />
@@ -102,9 +119,13 @@ export function PhoneApp() {
             onBack={() => {
               setView({ kind: 'home' });
             }}
+            onScreen={(kind) => {
+              setView({ kind, id: device.id });
+            }}
             on={{
               onFeature: (feature, state) => {
                 setFeature(device.id, feature, state);
+                if (state === 'on') turnOn(feature);
               },
               // Computers cannot ring.
               onRing: () => undefined,
@@ -115,6 +136,35 @@ export function PhoneApp() {
               onForget: () => {
                 setOverlay({ kind: 'forget', id: device.id, name: device.name });
               },
+            }}
+          />
+        );
+      }
+      case 'notifications':
+      case 'messages':
+      case 'calls': {
+        const device = linked.devices.find((d) => d.id === view.id);
+        const name = device?.name ?? '';
+        const back = () => {
+          setView({ kind: 'device', id: view.id });
+        };
+        const allow = () => {
+          gate.ask(FEATURE_PERMS[view.kind] ?? []);
+        };
+        if (view.kind === 'notifications')
+          return <NotifyApps name={name} onBack={back} onAllow={allow} />;
+        if (view.kind === 'calls') {
+          const on =
+            device?.features.some((f) => f.feature === 'calls' && f.effective !== 'off') ?? false;
+          return <Calls name={name} on={on} onBack={back} onAllow={allow} />;
+        }
+        return (
+          <Messages
+            name={name}
+            onBack={back}
+            onAllow={allow}
+            onNotifications={() => {
+              setView({ kind: 'notifications', id: view.id });
             }}
           />
         );
@@ -174,7 +224,20 @@ export function PhoneApp() {
         }
       >
         <div className="m-frame">
-          {page}
+          {gate.asking !== null && (
+            <PermStep
+              perm={gate.asking.perm}
+              step={gate.asking.step}
+              refused={gate.refused}
+              onAllow={gate.allow}
+              onOpen={gate.open}
+              onBack={gate.close}
+            />
+          )}
+          {/* Kept mounted under a permission step, so Choose what to share keeps its choices. */}
+          <div className="m-keep" hidden={gate.asking !== null}>
+            {page}
+          </div>
           {tab && linked.devices.length > 0 && (
             <PhoneTabs
               current={view.kind}

@@ -142,6 +142,7 @@ fn remember(f: &Fixture, devices: &KnownDevices, id: DeviceId) {
         last_move: None,
         moves: 0,
         mac_hint: None,
+        renamed: false,
     };
     devices
         .remember(&f.platform, record, &KnownSecret::from_bytes([7; 32]))

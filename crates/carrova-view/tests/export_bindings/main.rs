@@ -19,7 +19,7 @@
 
 use std::path::{Path, PathBuf};
 
-use carrova_core::ecosystem::ClipSettings;
+use carrova_core::ecosystem::{CallView, ClipSettings, PhoneSettings, RingHere, SyncWindow};
 use carrova_core::lan::{Inventory, PlanSummary};
 use carrova_core::plan::SpaceNeed;
 use carrova_core::{
@@ -31,8 +31,8 @@ use carrova_core::{
 use carrova_link::{Feature, FeatureState, Group};
 use carrova_platform::FileManagerStatus;
 use carrova_platform::phone::{
-    AudioSide, CallAudioStatus, CallKind, CallRecord, CallState, Cursor, Hidden, Note, PermState,
-    PhonePerm, SendOutcome, SmsMessage, SmsThread,
+    AudioSide, CallAudioStatus, CallKind, CallRecord, CallState, Contact, Cursor, Hidden, Note,
+    PermState, PhonePerm, SendOutcome, SmsMessage, SmsThread,
 };
 use carrova_report::{ErrorReport, IssueDraft, ReportConsent, ReportId, ReportSummary};
 use carrova_view::devices::{
@@ -43,12 +43,18 @@ use carrova_view::ecosystem::{
     PairInviteView, PairPeerView, TransferState, TransferView,
 };
 use carrova_view::ipc::{
-    About, AlertChannel, AlertSettings, BackgroundSettings, BridgeError, BridgeEvent, CatalogEntry,
-    EngineDefaults, NearbySettings, Picked, PlanReview, RecipesCheck, RecipesStatus, RecipesUpdate,
-    ScanResult, SessionOpened, Settings, UpdateStatus,
+    About, AlertChannel, AlertSettings, BackgroundSettings, BridgeError, BridgeEvent, CallAction,
+    CallOutcome, CatalogEntry, EngineDefaults, NearbySettings, NoteAction, NoteOutcome, Picked,
+    PlanReview, RecipesCheck, RecipesStatus, RecipesUpdate, ScanResult, SessionOpened, Settings,
+    UpdateStatus,
 };
 use carrova_view::lan::{CodeView, InventoryView, NearbyPeer, PauseView, SummaryView};
 use carrova_view::offer::OfferedItem;
+use carrova_view::phone::{
+    CallLogGroup, CallLogView, CallRow, CallSetupStep, CallWindowView, Caller, LocalClock,
+    MessageRow, NoteView, NotesView, NotifyAppRow, NotifyAppsView, PermStep, SimChoice, ThreadRow,
+    ThreadView, ThreadsView,
+};
 use carrova_view::plan::{PlanView, SpaceView};
 use carrova_view::selection::SelectionView;
 use ts_rs::{Config, TS};
@@ -139,12 +145,17 @@ fn export_typescript_bindings() {
         TransferView::export_all,
         TransferState::export_all,
         ClipSettings::export_all,
+        PhoneSettings::export_all,
+        RingHere::export_all,
+        SyncWindow::export_all,
+        CallView::export_all,
         Note::export_all,
         Hidden::export_all,
         SmsThread::export_all,
         SmsMessage::export_all,
         CallState::export_all,
         CallRecord::export_all,
+        Contact::export_all,
         CallKind::export_all,
         Cursor::export_all,
         SendOutcome::export_all,
@@ -152,6 +163,23 @@ fn export_typescript_bindings() {
         CallAudioStatus::export_all,
         PhonePerm::export_all,
         PermState::export_all,
+        LocalClock::export_all,
+        NotesView::export_all,
+        NoteView::export_all,
+        ThreadsView::export_all,
+        ThreadRow::export_all,
+        ThreadView::export_all,
+        MessageRow::export_all,
+        CallWindowView::export_all,
+        Caller::export_all,
+        CallLogView::export_all,
+        CallLogGroup::export_all,
+        CallRow::export_all,
+        CallSetupStep::export_all,
+        PermStep::export_all,
+        NotifyAppsView::export_all,
+        NotifyAppRow::export_all,
+        SimChoice::export_all,
         // Desktop IPC contract.
         BridgeEvent::export_all,
         BridgeError::export_all,
@@ -174,6 +202,10 @@ fn export_typescript_bindings() {
         FileManagerStatus::export_all,
         Notice::export_all,
         ForgetDevices::export_all,
+        NoteAction::export_all,
+        NoteOutcome::export_all,
+        CallAction::export_all,
+        CallOutcome::export_all,
         // Error reports (carrova-report).
         ErrorReport::export_all,
         ReportSummary::export_all,

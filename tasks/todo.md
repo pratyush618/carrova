@@ -614,3 +614,19 @@ Real hardware (user): Ubuntu 24.04 laptop + Android 13+ phone, plus a second Ubu
 Notes
 - `just e2e --link` drives the real CLI as the joining computer; the other computer is the test-only example `apps/cli/examples/link_host.rs` (the CLI never offers a pair code or answers an ask). Clipboard and Handoff are covered by in-process tests only.
 - Decision: `carrova link serve` announces presence (user, 2026-11-16), under the saved visibility; so already-linked computers find each other from the CLI; a first link still needs the app to show the code. `just e2e --link` covers one dialing order (its guest runs the real `link serve`); the reverse order is not tested.
+
+## Ecosystem Phase 2 — exit gate (2026-11-17)
+Automated: `just ci` green and `just e2e --link` PASS (controller). Do not mark Phase 2 complete until the user reports the hardware checks below.
+
+Real hardware (user): Ubuntu 24.04 laptop + Android 13+ phone
+- [ ] Reply to a chat-app notification from the laptop
+- [ ] Receive an SMS on the laptop and reply; send a new SMS
+- [ ] No Bluetooth: answer and end a call from the laptop (talk on phone, speaker on); decline; call back from history
+- [ ] Audio set up on Ubuntu 24.04: hold a 5-minute call on the laptop, clear both ways; keypad digits reach an IVR; move to phone and back
+- [ ] Idle phone battery over 8 h with notifications + messages + calls on: Carrova below 2% of total
+- [ ] Android emulator smoke (controller)
+
+Follow-ups (not in this round)
+- Calls setup wizard: no pairing/passkey IPC (`bt_pair` not exposed), no mic/test-sound step, "Bluetooth off" offers Check again only, wizard says "your phone" not its name, Install can't tell oFono installed from drop-in missing
+- Phone access revoked on Android is only noticed on the next feature start or resync (no Android event)
+- Laptop's read-only phone apps sheet omits the "How they show" filters (`AppEntry` carries none)

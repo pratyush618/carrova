@@ -38,6 +38,7 @@ fn remember_with_hint(machine: &Machine, seed: u8, name: &str, mac_hint: Option<
         last_move: None,
         moves: 0,
         mac_hint,
+        renamed: false,
     };
     KnownDevices::open(&machine.platform)
         .unwrap()

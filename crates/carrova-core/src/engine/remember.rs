@@ -79,6 +79,7 @@ impl Session {
             last_move: None,
             moves: 0,
             mac_hint: None,
+            renamed: false,
         };
         // Off never collects and drops what was saved (ADR 0001).
         let hint = || {

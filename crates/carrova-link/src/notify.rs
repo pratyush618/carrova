@@ -1,11 +1,12 @@
 //! Phone notifications and the `Notify` lane.
 //!
 //! Wire (opener = sender), via [`request`]/[`serve`]: opener → `NotifyFrame`
-//! (a message from the phone or an action from the laptop); the receiver
-//! acknowledges a message with `()`, or answers an action with an
-//! [`ActionResult`], and finishes. Over-limit frames are refused unanswered: text, title, reply and
-//! snapshot length by the `MAX_*` constants, key, app id and app name at 256
-//! bytes. An oversize icon is dropped, not refused.
+//! (a message from the phone, or an action or app-list request from the
+//! laptop); the receiver acknowledges a message with `()`, answers an action
+//! with an [`ActionResult`] or a list request with its [`AppEntry`] list,
+//! and finishes. Over-limit frames are refused unanswered: text, title, reply,
+//! snapshot and app-list length by the `MAX_*` constants, key, app id and app
+//! name at 256 bytes. An oversize icon is dropped, not refused.
 
 use std::fmt;
 use std::time::Duration;
@@ -16,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::LinkError;
 use crate::lane::LaneKind;
-use crate::reply::{Responder, request, serve};
+use crate::reply::{Pending, Responder, request, serve};
 
 /// Longest notification text, in bytes.
 pub const MAX_NOTE_TEXT: usize = 4096;
@@ -28,6 +29,10 @@ pub const MAX_REPLY: usize = 4096;
 pub const MAX_ICON: usize = 65536;
 /// Most notifications in one snapshot.
 pub const MAX_SNAPSHOT: usize = 50;
+/// Most apps in the phone's per-app list.
+pub const MAX_APPS: usize = 500;
+/// Longest app name in that list, in bytes.
+pub const MAX_APP_NAME: usize = MAX_ID;
 
 /// Most icon bytes in one snapshot: 50 maximum icons would overrun the frame cap.
 const SNAPSHOT_ICON_BUDGET: usize = 512 * 1024;
@@ -49,6 +54,13 @@ pub enum NotifyMsg {
     },
     /// Everything currently showing, at most [`MAX_SNAPSHOT`].
     Snapshot(Vec<Note>),
+    /// Whether the phone has notification access now: without it nothing
+    /// is mirrored. Sent when it changes, and to a device that starts
+    /// taking notifications while it is missing.
+    Access {
+        /// Access held.
+        granted: bool,
+    },
 }
 
 /// What the laptop asks the phone to do with a notification.
@@ -71,6 +83,21 @@ pub enum NotifyAction {
         /// Notification key.
         key: String,
     },
+    /// Remind the user on the phone to grant notification access (a local
+    /// notification that opens the settings page).
+    Remind,
+}
+
+/// One app in the phone's per-app notification list. `Debug` prints no
+/// names or ids.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AppEntry {
+    /// Package id, at most 256 bytes.
+    pub app_id: String,
+    /// Display name, at most [`MAX_APP_NAME`] bytes.
+    pub app_name: String,
+    /// Whether its notifications reach linked devices.
+    pub on: bool,
 }
 
 /// How the phone got on with an action.
@@ -89,15 +116,19 @@ pub enum ActionResult {
 enum NotifyFrame {
     Msg(NotifyMsg),
     Action(NotifyAction),
+    ListApps,
 }
 
 /// What arrived on an accepted `Notify` lane.
 #[derive(Debug)]
 pub enum Incoming {
-    /// A message, already acknowledged.
-    Msg(NotifyMsg),
+    /// A message; acknowledge it through the [`Pending`] once applied, so
+    /// the sender's next message waits for this one.
+    Msg(NotifyMsg, Pending),
     /// An action to carry out, then answer through the [`Responder`].
     Action(NotifyAction, Responder<ActionResult>),
+    /// A request for the per-app list: answer with [`fit_apps`]'s result.
+    ListApps(Responder<Vec<AppEntry>>),
 }
 
 // Debug never prints titles, text or reply bodies.
@@ -107,6 +138,7 @@ impl fmt::Debug for NotifyMsg {
             Self::Posted(_) => "NotifyMsg::Posted(..)",
             Self::Removed { .. } => "NotifyMsg::Removed(..)",
             Self::Snapshot(_) => "NotifyMsg::Snapshot(..)",
+            Self::Access { .. } => "NotifyMsg::Access(..)",
         })
     }
 }
@@ -117,8 +149,37 @@ impl fmt::Debug for NotifyAction {
             Self::Reply { .. } => "NotifyAction::Reply(..)",
             Self::Dismiss { .. } => "NotifyAction::Dismiss(..)",
             Self::Open { .. } => "NotifyAction::Open(..)",
+            Self::Remind => "NotifyAction::Remind",
         })
     }
+}
+
+impl fmt::Debug for AppEntry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("AppEntry(..)")
+    }
+}
+
+/// Fit an app list to the wire: entries whose id is over 256 bytes are
+/// dropped, names cut on a char boundary, and at most [`MAX_APPS`] kept.
+#[must_use]
+pub fn fit_apps(apps: Vec<AppEntry>) -> Vec<AppEntry> {
+    apps.into_iter()
+        .filter(|a| a.app_id.len() <= MAX_ID)
+        .take(MAX_APPS)
+        .map(|mut a| {
+            cut(&mut a.app_name, MAX_APP_NAME);
+            a
+        })
+        .collect()
+}
+
+fn check_apps(apps: &[AppEntry]) -> Result<(), LinkError> {
+    check(apps.len(), MAX_APPS)?;
+    apps.iter().try_for_each(|a| {
+        check(a.app_id.len(), MAX_ID)?;
+        check(a.app_name.len(), MAX_APP_NAME)
+    })
 }
 
 /// Fit a snapshot to the wire. The result is newest first and holds at most
@@ -202,6 +263,9 @@ fn check_frame(frame: &NotifyFrame) -> Result<(), LinkError> {
             check(key.len(), MAX_ID)?;
             check(text.len(), MAX_REPLY)
         }
+        NotifyFrame::Msg(NotifyMsg::Access { .. })
+        | NotifyFrame::Action(NotifyAction::Remind)
+        | NotifyFrame::ListApps => Ok(()),
     }
 }
 
@@ -235,8 +299,27 @@ pub fn send_action(conn: &Connection, action: &NotifyAction) -> Result<ActionRes
     request(conn, LaneKind::Notify, &frame, NOTIFY_TIMEOUT)
 }
 
-/// Read the one frame on an accepted `Notify` lane. A message is
-/// acknowledged here; an action comes with the [`Responder`] to answer.
+/// Ask the phone for its per-app notification list.
+///
+/// # Errors
+///
+/// [`LinkError::TooBig`] if the list breaks a limit (see [`fit_apps`]);
+/// other [`LinkError`]s if the lane is refused, the peer is gone or the
+/// answer is late.
+pub fn list_apps(conn: &Connection) -> Result<Vec<AppEntry>, LinkError> {
+    let apps: Vec<AppEntry> = request(
+        conn,
+        LaneKind::Notify,
+        &NotifyFrame::ListApps,
+        NOTIFY_TIMEOUT,
+    )?;
+    check_apps(&apps)?;
+    Ok(apps)
+}
+
+/// Read the one frame on an accepted `Notify` lane. A message comes with
+/// its [`Pending`] acknowledgement; an action with the [`Responder`] to
+/// answer.
 /// An oversize icon is dropped and the note kept.
 ///
 /// # Errors
@@ -252,10 +335,8 @@ pub fn recv_notify(stream: Stream) -> Result<Incoming, LinkError> {
         _ => {}
     }
     match frame {
-        NotifyFrame::Msg(msg) => {
-            pending.ack()?;
-            Ok(Incoming::Msg(msg))
-        }
+        NotifyFrame::Msg(msg) => Ok(Incoming::Msg(msg, pending)),
         NotifyFrame::Action(action) => Ok(Incoming::Action(action, pending.responder())),
+        NotifyFrame::ListApps => Ok(Incoming::ListApps(pending.responder())),
     }
 }

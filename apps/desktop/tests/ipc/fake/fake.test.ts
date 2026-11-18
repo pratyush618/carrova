@@ -292,6 +292,45 @@ describe('the fake port, nearby', () => {
   });
 });
 
+describe('the fake port, a linked phone', () => {
+  it('times an active call and offers the keypad only with audio here', async () => {
+    const { port } = await fake();
+    const view = await port.callWindow(
+      { kind: 'active', device: 'p8', since_ms: 0, muted: false, audio: 'laptop', outgoing: false },
+      3_725_000,
+    );
+    expect(view).toEqual({
+      kind: 'active',
+      device: 'p8',
+      timer: '1:02:05',
+      muted: false,
+      audio: 'laptop',
+      keypad: true,
+    });
+    await expect(port.callWindow({ kind: 'left', device: 'p8' }, 0)).resolves.toEqual({
+      kind: 'closed',
+    });
+  });
+
+  it('walks call audio from install to pairing once configured', async () => {
+    const { port } = await fake();
+    await expect(port.callAudioStep()).resolves.toBe('install');
+    await port.installCallAudio();
+    await port.setCallAudioConfig(true);
+    await expect(port.callAudioStep()).resolves.toBe('pair');
+    await port.setCallAudioConfig(false);
+    await expect(port.callAudioStep()).resolves.toBe('install');
+  });
+
+  it('asks for runtime permissions and opens settings for notification access', async () => {
+    const { port } = await fake();
+    await expect(port.phonePermStep('sms')).resolves.toBe('ask');
+    await expect(port.phonePermStep('notification_access')).resolves.toBe('open_settings');
+    await expect(port.requestPhonePerm('sms')).resolves.toBe('ok');
+    await expect(port.phonePermStep('sms')).resolves.toBe('ok');
+  });
+});
+
 describe('scenario selection', () => {
   it('reads ?fake=<scenario>, falling back to happy for unknown names', () => {
     expect(scenarioFromSearch('?fake=disk-full')).toBe('disk-full');

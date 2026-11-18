@@ -9,9 +9,9 @@ use std::thread;
 
 use carrova_link::{
     AudioSide, CallCommand, CallIncoming, CallReply, HISTORY_PAGE, LaneKind, LinkError,
-    accept_lane, call_command, open_lane, recv_calls, send_call_state,
+    MAX_CONTACTS, MAX_SIMS, accept_lane, call_command, open_lane, recv_calls, send_call_state,
 };
-use carrova_platform::phone::{CallKind, CallRecord, CallState, Cursor};
+use carrova_platform::phone::{CallKind, CallRecord, CallState, Contact, Cursor, Sim};
 use support::{Open, T, linked};
 
 #[test]
@@ -25,19 +25,32 @@ fn state_roundtrip() {
         let server = s.spawn(|| {
             let (kind, stream) = accept_lane(&b, &Open, T).unwrap();
             assert_eq!(kind, LaneKind::Calls);
-            recv_calls(stream).unwrap()
+            let incoming = recv_calls(stream).unwrap();
+            let shown = format!("{incoming:?}");
+            assert!(
+                !shown.contains("5551234") && !shown.contains("Ada"),
+                "{shown}"
+            );
+            let CallIncoming::State(got, ack) = incoming else {
+                panic!("not a state")
+            };
+            ack.ack().unwrap();
+            got
         });
         send_call_state(&a, &state).unwrap();
         server.join().unwrap()
     });
-    assert!(matches!(got, CallIncoming::State(s) if s == state));
+    assert_eq!(got, state);
 }
 
 #[test]
 fn dial_rejects_letters_and_long() {
     let (a, _b) = linked();
     for bad in ["", "call me", "555-1234", &"1".repeat(33)] {
-        let dial = CallCommand::Dial { number: bad.into() };
+        let dial = CallCommand::Dial {
+            number: bad.into(),
+            sim: None,
+        };
         assert!(matches!(
             call_command(&a, &dial),
             Err(LinkError::Protocol("number"))
@@ -109,7 +122,10 @@ fn recv_raw(command: CallCommand) -> Result<CallIncoming, LinkError> {
 
 #[test]
 fn receiver_rejects_a_bad_number() {
-    let dial = CallCommand::Dial { number: "x".into() };
+    let dial = CallCommand::Dial {
+        number: "x".into(),
+        sim: None,
+    };
     assert!(matches!(recv_raw(dial), Err(LinkError::Protocol("number"))));
 }
 
@@ -135,14 +151,11 @@ fn mute_and_end_commands_roundtrip() {
 fn debug_hides_numbers() {
     let dial = CallCommand::Dial {
         number: "5551234".into(),
+        sim: Some(7_654_321),
     };
-    let incoming = CallIncoming::State(CallState::Ringing {
-        number: "5551234".into(),
-        name: Some("Ada".into()),
-    });
     let tones = CallCommand::Tones("5551234".into());
-    assert!(!format!("{dial:?}{incoming:?}{tones:?}").contains("5551234"));
-    assert!(!format!("{incoming:?}").contains("Ada"));
+    let shown = format!("{dial:?}{tones:?}");
+    assert!(!shown.contains("5551234") && !shown.contains("7654321"));
 }
 
 #[test]
@@ -182,4 +195,174 @@ fn oversized_history_page_is_refused() {
         call_command(&a, &CallCommand::History { before: None })
     });
     assert!(matches!(got, Err(LinkError::Protocol("history"))));
+}
+
+fn sim(id: i32) -> Sim {
+    Sim {
+        id,
+        slot: 0,
+        name: "Airtel".into(),
+        sms_default: false,
+        voice_default: true,
+    }
+}
+
+#[test]
+fn sims_and_dial_from_one_roundtrip() {
+    let sims = CallReply::Sims(vec![sim(3), sim(5)]);
+    let (reply, seen) = command(&CallCommand::Sims, &sims);
+    assert_eq!((reply, seen), (sims.clone(), CallCommand::Sims));
+    assert!(!format!("{sims:?}").contains("Airtel"));
+    let dial = CallCommand::Dial {
+        number: "+1555".into(),
+        sim: Some(5),
+    };
+    let (reply, seen) = command(&dial, &CallReply::Done);
+    assert_eq!((reply, seen), (CallReply::Done, dial));
+}
+
+#[test]
+fn oversized_sim_list_is_refused() {
+    let (a, b) = linked();
+    let got = thread::scope(|s| {
+        s.spawn(|| {
+            let (_, stream) = accept_lane(&b, &Open, T).unwrap();
+            let CallIncoming::Command(_, r) = recv_calls(stream).unwrap() else {
+                panic!("expected a command");
+            };
+            r.reply(&CallReply::Sims(vec![sim(1); MAX_SIMS + 1]))
+                .unwrap();
+        });
+        call_command(&a, &CallCommand::Sims)
+    });
+    assert!(matches!(got, Err(LinkError::TooBig { .. })));
+}
+
+/// The dial command before SIMs, as an older build has it.
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+enum OldCommand {
+    Dial { number: String },
+}
+
+fn cbor<T: serde::Serialize>(value: &T) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    ciborium::into_writer(value, &mut bytes).unwrap();
+    bytes
+}
+
+#[test]
+fn dial_interoperates_with_older_builds() {
+    let old = OldCommand::Dial {
+        number: "+1555".into(),
+    };
+    let got: CallCommand = ciborium::from_reader(cbor(&old).as_slice()).unwrap();
+    assert_eq!(
+        got,
+        CallCommand::Dial {
+            number: "+1555".into(),
+            sim: None,
+        }
+    );
+    let new = CallCommand::Dial {
+        number: "+1555".into(),
+        sim: Some(2),
+    };
+    let got: OldCommand = ciborium::from_reader(cbor(&new).as_slice()).unwrap();
+    assert_eq!(got, old);
+    assert!(ciborium::from_reader::<OldCommand, _>(cbor(&CallCommand::Sims).as_slice()).is_err());
+}
+
+fn contact() -> Contact {
+    Contact {
+        name: "Hanuman".into(),
+        number: "+91 98765 43210".into(),
+    }
+}
+
+#[test]
+fn contacts_search_roundtrip_hides_what_it_carries() {
+    let search = CallCommand::Contacts {
+        query: "hanu".into(),
+    };
+    let found = CallReply::Contacts(vec![contact()]);
+    let (reply, seen) = command(&search, &found);
+    assert_eq!((reply, seen.clone()), (found.clone(), search));
+    let shown = format!("{seen:?} {found:?}");
+    assert!(
+        !shown.contains("hanu") && !shown.contains("Hanuman") && !shown.contains("98765"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn contacts_search_rejects_empty_long_and_control() {
+    let (a, _b) = linked();
+    for bad in ["", "a\nb", &"a".repeat(65)] {
+        let search = CallCommand::Contacts { query: bad.into() };
+        assert!(matches!(
+            call_command(&a, &search),
+            Err(LinkError::Protocol("query"))
+        ));
+    }
+}
+
+#[test]
+fn oversized_contacts_list_is_refused() {
+    let (a, b) = linked();
+    let got = thread::scope(|s| {
+        s.spawn(|| {
+            let (_, stream) = accept_lane(&b, &Open, T).unwrap();
+            let CallIncoming::Command(_, r) = recv_calls(stream).unwrap() else {
+                panic!("expected a command");
+            };
+            r.reply(&CallReply::Contacts(vec![contact(); MAX_CONTACTS + 1]))
+                .unwrap();
+        });
+        call_command(&a, &CallCommand::Contacts { query: "an".into() })
+    });
+    assert!(matches!(got, Err(LinkError::TooBig { .. })));
+}
+
+#[test]
+fn older_builds_cannot_read_a_contacts_search() {
+    let search = CallCommand::Contacts { query: "an".into() };
+    assert!(ciborium::from_reader::<OldCommand, _>(cbor(&search).as_slice()).is_err());
+}
+
+/// The active call state before `outgoing`, as an older build has it.
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum OldState {
+    Active {
+        since_ms: i64,
+        muted: bool,
+        on_laptop_audio: bool,
+    },
+}
+
+#[test]
+fn outgoing_interoperates_with_older_builds() {
+    let old = OldState::Active {
+        since_ms: 5,
+        muted: false,
+        on_laptop_audio: true,
+    };
+    let got: CallState = ciborium::from_reader(cbor(&old).as_slice()).unwrap();
+    assert_eq!(
+        got,
+        CallState::Active {
+            since_ms: 5,
+            muted: false,
+            on_laptop_audio: true,
+            outgoing: false,
+        }
+    );
+    let new = CallState::Active {
+        since_ms: 5,
+        muted: false,
+        on_laptop_audio: true,
+        outgoing: true,
+    };
+    let got: OldState = ciborium::from_reader(cbor(&new).as_slice()).unwrap();
+    assert_eq!(got, old);
 }

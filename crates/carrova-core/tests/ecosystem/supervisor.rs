@@ -5,7 +5,7 @@ mod clip_settings;
 pub(crate) mod device;
 mod gating;
 mod phone_fake;
-mod recording;
+pub(crate) mod recording;
 mod retry;
 
 use std::thread;
@@ -82,6 +82,28 @@ fn link_up_when_feature_on() {
     assert_eq!(status[0].local, PolicyDoc::phone_defaults());
     wait_remote(&sh, &low.id, Feature::Ring, FeatureState::On);
     assert!(sl.ping(&high.id).unwrap() < T);
+}
+
+#[test]
+fn a_linked_device_shows_the_name_it_announces_unless_renamed() {
+    use carrova_core::devices::KnownDevices;
+    let doc = PolicyDoc::phone_defaults();
+    let (low, high, secret) = pair(&doc);
+    // Paired while High still called itself "localhost".
+    low.know(&high, "localhost", &secret, &doc);
+    let known = KnownDevices::open(&*high.platform).unwrap();
+    known.rename(&*high.platform, &low.id, "My laptop").unwrap();
+    let (sl, sh) = start_both(&low, &high);
+
+    wait_until("High's announced name", || {
+        sl.status()
+            .iter()
+            .any(|p| p.id == high.id && p.name == "High")
+    });
+    let stored = KnownDevices::open(&*low.platform).unwrap();
+    assert_eq!(stored.list(&*low.platform).unwrap()[0].name, "High");
+    wait_remote(&sh, &low.id, Feature::Ring, FeatureState::On);
+    assert_eq!(sh.status()[0].name, "My laptop");
 }
 
 #[test]

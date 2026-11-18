@@ -2,5 +2,6 @@
 
 #![allow(clippy::unwrap_used)]
 
+mod phone;
 mod recipes;
 mod settings;

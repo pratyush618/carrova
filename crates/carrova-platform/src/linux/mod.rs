@@ -22,6 +22,7 @@ mod call_audio;
 mod clipboard;
 mod file_manager;
 mod mounts;
+mod name;
 mod open;
 mod roots;
 mod screen;
@@ -343,7 +344,7 @@ impl Platform for LinuxPlatform {
     }
 
     fn device_name(&self) -> Option<String> {
-        crate::device::sanitize_device_name(&crate::netops::host_name())
+        name::device_name()
     }
 
     fn lan_ipv4_interfaces(&self) -> Result<Vec<crate::LanInterface>, PlatformError> {

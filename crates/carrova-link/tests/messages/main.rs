@@ -10,11 +10,11 @@ use std::thread;
 use serde::{Deserialize, Serialize};
 
 use carrova_link::{
-    LaneKind, LinkError, MAX_SMS_TEXT, MESSAGE_PAGE, SendOutcome, SmsIncoming, SmsPush, SmsReply,
-    SmsRequest, THREAD_PAGE, accept_lane, check_sms_reply, open_lane, push_sms, recv_sms,
+    LaneKind, LinkError, MAX_SIMS, MAX_SMS_TEXT, MESSAGE_PAGE, SendOutcome, SmsIncoming, SmsPush,
+    SmsReply, SmsRequest, THREAD_PAGE, accept_lane, check_sms_reply, open_lane, push_sms, recv_sms,
     request_sms,
 };
-use carrova_platform::phone::{Cursor, SmsMessage, SmsThread};
+use carrova_platform::phone::{Cursor, Sim, SmsMessage, SmsThread};
 use support::{Open, T, linked};
 
 fn thread_row(id: i64) -> SmsThread {
@@ -25,6 +25,7 @@ fn thread_row(id: i64) -> SmsThread {
         snippet: "hi".into(),
         when_ms: id,
         unread: 0,
+        sim: Some(2),
     }
 }
 
@@ -103,6 +104,7 @@ fn send_result_roundtrip() {
         to: "+1 555".replace(' ', ""),
         text: "hello".into(),
         client_id: 7,
+        sim: None,
     };
     let reply = SmsReply::SendResult {
         client_id: 7,
@@ -120,6 +122,7 @@ fn send_text_over_cap_refused() {
         to: "+1555".into(),
         text: "x".repeat(MAX_SMS_TEXT + 1),
         client_id: 1,
+        sim: None,
     };
     assert!(matches!(
         request_sms(&a, &req),
@@ -134,6 +137,7 @@ fn implausible_number_refused() {
         to: "call me; rm".into(),
         text: "x".into(),
         client_id: 1,
+        sim: None,
     };
     assert!(matches!(
         request_sms(&a, &req),
@@ -149,12 +153,17 @@ fn incoming_push_roundtrip() {
         let rx = s.spawn(|| {
             let (kind, stream) = accept_lane(&laptop, &Open, T).unwrap();
             assert_eq!(kind, LaneKind::Messages);
-            recv_sms(stream).unwrap()
+            let incoming = recv_sms(stream).unwrap();
+            let shown = format!("{incoming:?}");
+            assert!(!shown.contains("secret"), "{shown}");
+            let SmsIncoming::Push(got, ack) = incoming else {
+                panic!("not a push")
+            };
+            ack.ack().unwrap();
+            got
         });
         push_sms(&phone, &push).unwrap();
-        let SmsIncoming::Push(got) = rx.join().unwrap() else {
-            panic!("not a push")
-        };
+        let got = rx.join().unwrap();
         assert_eq!(got, push);
     });
 }
@@ -165,12 +174,17 @@ fn resync_push_roundtrip() {
     thread::scope(|s| {
         let rx = s.spawn(|| {
             let (_, stream) = accept_lane(&laptop, &Open, T).unwrap();
-            recv_sms(stream).unwrap()
+            let incoming = recv_sms(stream).unwrap();
+            let shown = format!("{incoming:?}");
+            assert!(!shown.contains("secret"), "{shown}");
+            let SmsIncoming::Push(got, ack) = incoming else {
+                panic!("not a push")
+            };
+            ack.ack().unwrap();
+            got
         });
         push_sms(&phone, &SmsPush::Resync).unwrap();
-        let SmsIncoming::Push(got) = rx.join().unwrap() else {
-            panic!("not a push")
-        };
+        let got = rx.join().unwrap();
         assert_eq!(got, SmsPush::Resync);
     });
 }
@@ -181,12 +195,17 @@ fn stored_push_roundtrip() {
     thread::scope(|s| {
         let rx = s.spawn(|| {
             let (_, stream) = accept_lane(&laptop, &Open, T).unwrap();
-            recv_sms(stream).unwrap()
+            let incoming = recv_sms(stream).unwrap();
+            let shown = format!("{incoming:?}");
+            assert!(!shown.contains("secret"), "{shown}");
+            let SmsIncoming::Push(got, ack) = incoming else {
+                panic!("not a push")
+            };
+            ack.ack().unwrap();
+            got
         });
         push_sms(&phone, &SmsPush::Stored { thread_id: 7 }).unwrap();
-        let SmsIncoming::Push(got) = rx.join().unwrap() else {
-            panic!("not a push")
-        };
+        let got = rx.join().unwrap();
         assert_eq!(got, SmsPush::Stored { thread_id: 7 });
     });
 }
@@ -198,11 +217,10 @@ fn debug_hides_contents() {
         to: "+15550100".into(),
         text: "secret".into(),
         client_id: 1,
+        sim: None,
     };
     let reply = SmsReply::ThreadsPage(vec![thread_row(1)]);
-    let incoming = SmsIncoming::Push(push.clone());
     for s in [
-        format!("{incoming:?}"),
         format!("{push:?}"),
         format!("{req:?}"),
         format!("{reply:?}"),
@@ -272,6 +290,7 @@ fn reply_must_match_request() {
         to: "+1555".into(),
         text: "x".into(),
         client_id: 7,
+        sim: None,
     };
     let wrong_id = SmsReply::SendResult {
         client_id: 8,
@@ -288,6 +307,8 @@ fn reply_must_match_request() {
         ),
         (send.clone(), SmsReply::ThreadsPage(vec![])),
         (send, wrong_id),
+        (SmsRequest::Remind, SmsReply::ThreadsPage(vec![])),
+        (threads(), SmsReply::Reminded { posted: true }),
     ] {
         assert!(matches!(
             hostile_phone(&req, &reply),
@@ -317,6 +338,7 @@ fn phone_refuses_hostile_requests_and_pushes() {
             to: to.into(),
             text,
             client_id: 1,
+            sim: None,
         })
     };
     for bad in ["", "+1 555", "call;rm", &"1".repeat(33)] {
@@ -334,4 +356,148 @@ fn phone_refuses_hostile_requests_and_pushes() {
         hostile_laptop(&push),
         Err(LinkError::TooBig { .. })
     ));
+}
+
+#[test]
+fn access_push_roundtrip() {
+    let (phone, laptop) = linked();
+    thread::scope(|s| {
+        let rx = s.spawn(|| {
+            let (_, stream) = accept_lane(&laptop, &Open, T).unwrap();
+            let SmsIncoming::Push(got, ack) = recv_sms(stream).unwrap() else {
+                panic!("not a push")
+            };
+            ack.ack().unwrap();
+            got
+        });
+        let push = SmsPush::Access { granted: false };
+        push_sms(&phone, &push).unwrap();
+        assert_eq!(rx.join().unwrap(), push);
+    });
+}
+
+#[test]
+fn remind_roundtrip() {
+    let reply = SmsReply::Reminded { posted: true };
+    let (out, got) = ask(&SmsRequest::Remind, &reply);
+    assert_eq!(got, SmsRequest::Remind);
+    assert_eq!(out.unwrap(), reply);
+}
+
+fn sim(id: i32, slot: u8) -> Sim {
+    Sim {
+        id,
+        slot,
+        name: "Jio".into(),
+        sms_default: slot == 0,
+        voice_default: slot == 0,
+    }
+}
+
+#[test]
+fn sims_roundtrip_and_send_names_one() {
+    let reply = SmsReply::Sims(vec![sim(3, 0), sim(5, 1)]);
+    let (out, got) = ask(&SmsRequest::Sims, &reply);
+    assert_eq!(got, SmsRequest::Sims);
+    assert_eq!(out.unwrap(), reply);
+    let req = SmsRequest::Send {
+        to: "+1555".into(),
+        text: "x".into(),
+        client_id: 9,
+        sim: Some(5),
+    };
+    let result = SmsReply::SendResult {
+        client_id: 9,
+        outcome: SendOutcome::Sent,
+    };
+    let (_, got) = ask(&req, &result);
+    assert_eq!(got, req);
+    assert!(!format!("{reply:?}").contains("Jio"));
+}
+
+#[test]
+fn laptop_refuses_oversized_sim_lists() {
+    let many = SmsReply::Sims((0..=MAX_SIMS as i32).map(|i| sim(i, 0)).collect());
+    assert!(matches!(
+        hostile_phone(&SmsRequest::Sims, &many),
+        Err(LinkError::TooBig { .. })
+    ));
+    let mut long = sim(1, 0);
+    long.name = "x".repeat(257);
+    assert!(matches!(
+        hostile_phone(&SmsRequest::Sims, &SmsReply::Sims(vec![long])),
+        Err(LinkError::TooBig { .. })
+    ));
+    assert!(matches!(
+        hostile_phone(&SmsRequest::Sims, &SmsReply::ThreadsPage(vec![])),
+        Err(LinkError::Protocol("reply"))
+    ));
+}
+
+/// The request and thread shapes before SIMs, as an older build has them.
+mod old {
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    pub enum SmsRequest {
+        Send {
+            to: String,
+            text: String,
+            client_id: u64,
+        },
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    pub struct SmsThread {
+        pub id: i64,
+        pub name: Option<String>,
+        pub address: String,
+        pub snippet: String,
+        pub when_ms: i64,
+        pub unread: u32,
+    }
+}
+
+fn cbor<T: Serialize>(value: &T) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    ciborium::into_writer(value, &mut bytes).unwrap();
+    bytes
+}
+
+#[test]
+fn older_builds_interoperate() {
+    // An older laptop's send: the phone's default SIM.
+    let from_old = old::SmsRequest::Send {
+        to: "+1555".into(),
+        text: "x".into(),
+        client_id: 4,
+    };
+    let got: SmsRequest = ciborium::from_reader(cbor(&from_old).as_slice()).unwrap();
+    assert_eq!(
+        got,
+        SmsRequest::Send {
+            to: "+1555".into(),
+            text: "x".into(),
+            client_id: 4,
+            sim: None,
+        }
+    );
+    // An older phone reads a send naming a SIM (it ignores the SIM).
+    let to_old = SmsRequest::Send {
+        to: "+1555".into(),
+        text: "x".into(),
+        client_id: 4,
+        sim: Some(2),
+    };
+    let got: old::SmsRequest = ciborium::from_reader(cbor(&to_old).as_slice()).unwrap();
+    assert_eq!(got, from_old);
+    // ... but can't read a SIM list request: the lane fails, so no choice shows.
+    assert!(
+        ciborium::from_reader::<old::SmsRequest, _>(cbor(&SmsRequest::Sims).as_slice()).is_err()
+    );
+    // Threads cross both ways; an older phone's know no SIM.
+    let old_row: old::SmsThread = ciborium::from_reader(cbor(&thread_row(3)).as_slice()).unwrap();
+    assert_eq!(old_row.id, 3);
+    let row: SmsThread = ciborium::from_reader(cbor(&old_row).as_slice()).unwrap();
+    assert_eq!(row.sim, None);
 }

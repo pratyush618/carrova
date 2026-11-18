@@ -136,7 +136,7 @@ pub fn linked_now(state: &AppState) -> Vec<LinkedDeviceView> {
 }
 
 /// Run `call` on the served supervisor, off the async runtime.
-async fn with_link<R: Send + 'static>(
+pub(crate) async fn with_link<R: Send + 'static>(
     state: &AppState,
     call: impl Fn(&SupervisorHandle) -> Result<R, CoreError> + Send + 'static,
 ) -> Result<R, CommandError> {

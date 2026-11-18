@@ -95,6 +95,7 @@ describe('nearby views', () => {
       fingerprint: 'AAAA·BBBB',
       state,
       features: [],
+      missing: [],
     });
     const { here, away } = nearbyEntries(
       [answer({ known: true, id: 'a1', name: "Ana's laptop", fingerprint: 'A100·0000' })],
@@ -120,6 +121,7 @@ describe('nearby views', () => {
       fingerprint: 'AAAA·BBBB',
       state: 'connecting',
       features: [],
+      missing: [],
     });
     const { here, away } = nearbyEntries(
       [answer({ known: true, id: 'a1', name: "Ana's laptop", fingerprint: 'A100·0000' })],

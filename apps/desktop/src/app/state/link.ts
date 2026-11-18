@@ -1,3 +1,4 @@
+import type { SmsMessage } from '../../bindings/SmsMessage';
 import type { AskId, AskKind, ClipSkip, EngineEvent, TransferState } from '../../engine/types';
 
 /** The bridge's session for linked-device events (`carrova_view::ipc::LINK_SESSION`). */
@@ -31,6 +32,23 @@ export type ClipNote =
   | { readonly kind: 'skipped'; readonly reason: ClipSkip }
   | { readonly kind: 'received'; readonly device: string };
 
+/** A phone notification to pop up: its key only (the pop-up fetches it); `locked`: no content may show. */
+export interface NoteAlert {
+  readonly device: string;
+  readonly key: string;
+  readonly locked: boolean;
+  /** Posted by the phone's default SMS app. */
+  readonly smsApp: boolean;
+  /** Bumped per notification, so the same one twice pops up twice. */
+  readonly n: number;
+}
+
+/** A text a phone received that it has not stored yet (`phone_sms` with id 0). */
+export interface ProvisionalText {
+  readonly device: string;
+  readonly message: SmsMessage;
+}
+
 /** What linked devices did that the UI shows outside any page. */
 export interface LinkState {
   readonly asks: readonly PendingAsk[];
@@ -42,9 +60,54 @@ export interface LinkState {
   readonly changes: number;
   /** Bumped when a clip arrives: the history is stale. */
   readonly clips: number;
+  /** The last phone notification to pop up. */
+  readonly note: NoteAlert | null;
+  /** Received texts the phones have not stored yet, for the conversation list. */
+  readonly sms: readonly ProvisionalText[];
+  /** Bumped when a phone's texts change: loaded conversations are stale. */
+  readonly texts: number;
 }
 
-export const emptyLink: LinkState = { asks: [], transfers: [], clip: null, changes: 0, clips: 0 };
+export const emptyLink: LinkState = {
+  asks: [],
+  transfers: [],
+  clip: null,
+  changes: 0,
+  clips: 0,
+  note: null,
+  sms: [],
+  texts: 0,
+};
+
+/** `link` without `device`'s provisional texts. */
+const dropTexts = (link: LinkState, device: string): LinkState => ({
+  ...link,
+  sms: link.sms.filter((p) => p.device !== device),
+  texts: link.texts + 1,
+});
+
+/** How far apart a provisional text and its stored copy may be dated (the engine's `STORED_SLACK_MS`). */
+const STORED_SLACK_MS = 60_000;
+
+/**
+ * `link` once `device` stored `row`: without the provisional text it is the
+ * copy of (same thread, body and direction; the nearest in time), as the
+ * engine's mirror matches them. Other provisional texts stay.
+ */
+function storeText(link: LinkState, device: string, row: SmsMessage): LinkState {
+  let at = -1;
+  let best = STORED_SLACK_MS;
+  link.sms.forEach(({ device: d, message: m }, i) => {
+    const gap = Math.abs(m.when_ms - row.when_ms);
+    const copy =
+      d === device &&
+      m.thread_id === row.thread_id &&
+      m.text === row.text &&
+      m.outgoing === row.outgoing;
+    if (copy && gap <= best) [at, best] = [i, gap];
+  });
+  return { ...link, sms: link.sms.filter((_, i) => i !== at), texts: link.texts + 1 };
+}
 
 /** Things the user did to the link state (answered, dismissed). */
 export type LinkAction =
@@ -95,6 +158,7 @@ export function applyLinkEvent(link: LinkState, event: EngineEvent): LinkState {
     case 'link_up':
     case 'link_down':
     case 'policy_changed':
+    case 'phone_access':
       return { ...link, changes: link.changes + 1 };
     case 'ask_received':
       return {
@@ -134,6 +198,28 @@ export function applyLinkEvent(link: LinkState, event: EngineEvent): LinkState {
         ...t,
         state: { kind: 'failed', reason: event.reason, retry: event.retry },
       }));
+    case 'phone_note':
+      return {
+        ...link,
+        note: {
+          device: event.device,
+          key: event.note.key,
+          locked: event.note.hidden === 'locked',
+          smsApp: event.note.sms_app,
+          n: (link.note?.n ?? 0) + 1,
+        },
+      };
+    case 'phone_sms':
+      // A stored text replaces its provisional copy.
+      return event.message.id === 0
+        ? {
+            ...link,
+            sms: [...link.sms, { device: event.device, message: event.message }],
+            texts: link.texts + 1,
+          }
+        : storeText(link, event.device, event.message);
+    case 'phone_cleared':
+      return event.feature === 'messages' ? dropTexts(link, event.device) : link;
     default:
       // Sent clips, Handoff and Ring need no note: the user just did them.
       return link;

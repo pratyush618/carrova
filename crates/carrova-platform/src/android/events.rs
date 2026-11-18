@@ -30,6 +30,8 @@ enum Wire {
         muted: bool,
         #[serde(default)]
         bt: bool,
+        #[serde(default)]
+        outgoing: bool,
     },
     CallEnded {
         missed: bool,
@@ -60,10 +62,12 @@ pub(super) fn parse(json: &str) -> Result<Option<PhoneEvent>, PlatformError> {
             since_ms,
             muted,
             bt,
+            outgoing,
         } => PhoneEvent::Call(CallState::Active {
             since_ms,
             muted,
             on_laptop_audio: bt,
+            outgoing,
         }),
         Wire::CallEnded { missed } => PhoneEvent::Call(CallState::Ended { missed }),
         Wire::Dropped { count } => PhoneEvent::Dropped { count },

@@ -14,6 +14,7 @@ export const settings = {
     features: 'Features',
     linked: 'Linked devices',
     clipboard: 'Clipboard',
+    calls: 'Calls and Bluetooth',
     sending: 'Sending',
     nearby: 'Nearby & devices',
     notifications: 'Notifications',

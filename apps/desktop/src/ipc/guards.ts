@@ -26,6 +26,8 @@ const ERROR_CODES: Readonly<Record<ErrorCode, true>> = {
   recipes: true,
   known_device: true,
   device_key: true,
+  unsupported: true,
+  permission_denied: true,
   internal: true,
 };
 

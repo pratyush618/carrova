@@ -50,6 +50,7 @@ fn link_status_json_shape() {
             "os": "linux",
             "fingerprint": Fingerprint::of(&desk).to_string(),
             "state": "away",
+            "missing": [],
             "features": rows,
         }])
     );

@@ -199,6 +199,8 @@ pub struct LinkedDeviceView {
     pub state: PeerState,
     /// What each feature does on this link.
     pub features: Vec<FeatureRowView>,
+    /// The phone features it lacks the access for: "Remind on phone".
+    pub missing: Vec<Feature>,
 }
 
 impl LinkedDeviceView {
@@ -224,6 +226,7 @@ pub fn linked_device_views(peers: &[LinkedPeer]) -> Vec<LinkedDeviceView> {
             fingerprint: Fingerprint::of(&p.id).to_string(),
             state: p.state,
             features: feature_rows(&p.local, p.remote.as_ref()),
+            missing: p.missing.clone(),
         })
         .collect()
 }

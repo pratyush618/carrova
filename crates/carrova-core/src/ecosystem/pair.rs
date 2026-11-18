@@ -220,6 +220,7 @@ fn store(platform: &dyn Platform, peer: &PairedPeer) -> Result<Stored> {
         last_move: None,
         moves: 0,
         mac_hint: None,
+        renamed: false,
     };
     known.remember(platform, record, &peer.identity.secret)?;
     let stored = Stored {

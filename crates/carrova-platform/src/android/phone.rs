@@ -11,8 +11,8 @@ use ::jni::objects::{JString, JValue, JValueOwned};
 use super::{events, files, jni};
 use crate::PlatformError;
 use crate::phone::{
-    CallRecord, CallState, Cursor, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch, SendOutcome,
-    SmsMessage, SmsThread,
+    CallRecord, CallState, Contact, Cursor, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch,
+    SendOutcome, Sim, SmsMessage, SmsThread,
 };
 
 const STRING: &str = "Ljava/lang/String;";
@@ -89,6 +89,12 @@ fn limit(limit: usize) -> Arg<'static> {
     Arg::Int(i32::try_from(limit).unwrap_or(i32::MAX))
 }
 
+/// A SIM as the glue takes it: `-1` (Android's invalid subscription id)
+/// is the phone's default.
+fn sim_arg(sim: Option<i32>) -> Arg<'static> {
+    Arg::Int(sim.unwrap_or(-1))
+}
+
 // ---- events ----
 
 /// `Events.open()`: start a watch (replacing any); returns its generation.
@@ -123,7 +129,8 @@ fn take(generation: i64) -> Result<Option<String>, PlatformError> {
 /// nothing). If `Events.take()` itself fails, the watch ends silently.
 pub(super) fn watch(on_event: Box<dyn Fn(PhoneEvent) + Send>) -> Result<PhoneWatch, PlatformError> {
     let generation = open_events()?;
-    // Without phone permission there are no call events; notes and SMS still flow.
+    // Without its permission a listener fails to arm (`rearm` once granted);
+    // notes still flow.
     let _ = listen_calls(true, generation);
     let _ = listen_sms(true, generation);
     let pull = std::thread::Builder::new()
@@ -156,6 +163,11 @@ pub(super) fn watch(on_event: Box<dyn Fn(PhoneEvent) + Send>) -> Result<PhoneWat
         if pull.thread().id() != std::thread::current().id() {
             let _ = pull.join();
         }
+    })
+    .with_rearm(move |perm| match perm {
+        PhonePerm::Calls => listen_calls(true, generation),
+        PhonePerm::Sms => listen_sms(true, generation),
+        _ => Ok(()),
     }))
 }
 
@@ -253,8 +265,29 @@ pub(super) fn sms_thread(
     events::list("Sms.thread", &json)
 }
 
-pub(super) fn sms_send(to: &str, body: &str) -> Result<SendOutcome, PlatformError> {
-    match text("Sms.send", "Sms", "send", &[Arg::Str(to), Arg::Str(body)])?.as_str() {
+/// Contact numbers matching `query` (`Calls.contacts`).
+pub(super) fn phone_contacts(query: &str, max: usize) -> Result<Vec<Contact>, PlatformError> {
+    let json = text(
+        "Calls.contacts",
+        "Calls",
+        "contacts",
+        &[Arg::Str(query), limit(max)],
+    )?;
+    events::list("Calls.contacts", &json)
+}
+
+/// The active SIMs (`Sims.list`: empty without `READ_PHONE_STATE`).
+pub(super) fn phone_sims() -> Result<Vec<Sim>, PlatformError> {
+    events::list("Sims.list", &text("Sims.list", "Sims", "list", &[])?)
+}
+
+pub(super) fn sms_send(
+    to: &str,
+    body: &str,
+    sim: Option<i32>,
+) -> Result<SendOutcome, PlatformError> {
+    let args = [Arg::Str(to), Arg::Str(body), sim_arg(sim)];
+    match text("Sms.send", "Sms", "send", &args)?.as_str() {
         "sent" => Ok(SendOutcome::Sent),
         "no_signal" => Ok(SendOutcome::NoSignal),
         "failed" => Ok(SendOutcome::Failed),
@@ -284,8 +317,13 @@ pub(super) fn call_mute(on: bool) -> Result<(), PlatformError> {
     void("Calls.mute", "Calls", "mute", &[Arg::Bool(on)])
 }
 
-pub(super) fn call_dial(number: &str) -> Result<(), PlatformError> {
-    void("Calls.dial", "Calls", "dial", &[Arg::Str(number)])
+pub(super) fn call_dial(number: &str, sim: Option<i32>) -> Result<(), PlatformError> {
+    void(
+        "Calls.dial",
+        "Calls",
+        "dial",
+        &[Arg::Str(number), sim_arg(sim)],
+    )
 }
 
 pub(super) fn call_speaker(on: bool) -> Result<(), PlatformError> {
@@ -328,16 +366,27 @@ fn perm_name(p: PhonePerm) -> &'static str {
         PhonePerm::Calls => "calls",
         PhonePerm::Contacts => "contacts",
         PhonePerm::BluetoothConnect => "bluetooth_connect",
+        PhonePerm::Battery => "battery",
     }
 }
 
 pub(super) fn phone_perm(p: PhonePerm) -> Result<PermState, PlatformError> {
-    match text("Perms.state", "Perms", "state", &[Arg::Str(perm_name(p))])?.as_str() {
+    perm_state("Perms.state", "state", p)
+}
+
+/// Shows Android's runtime-permission dialog; blocks until it is answered.
+pub(super) fn request_phone_perm(p: PhonePerm) -> Result<PermState, PlatformError> {
+    perm_state("Perms.request", "request", p)
+}
+
+/// Call `Perms.<method>(name)` and map the state string it returns.
+fn perm_state(call: &'static str, method: &str, p: PhonePerm) -> Result<PermState, PlatformError> {
+    match text(call, "Perms", method, &[Arg::Str(perm_name(p))])?.as_str() {
         "granted" => Ok(PermState::Granted),
         "denied" => Ok(PermState::Denied),
         "restricted" => Ok(PermState::Restricted),
         _ => Err(PlatformError::Android {
-            call: "Perms.state",
+            call,
             cause: "unknown state".into(),
         }),
     }
@@ -350,4 +399,8 @@ pub(super) fn open_perm_settings(p: PhonePerm) -> Result<(), PlatformError> {
         "openSettings",
         &[Arg::Str(perm_name(p))],
     )
+}
+
+pub(super) fn remind_access(p: PhonePerm) -> Result<(), PlatformError> {
+    void("Perms.remind", "Perms", "remind", &[Arg::Str(perm_name(p))])
 }

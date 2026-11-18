@@ -16,8 +16,9 @@ import org.byteveda.Carrova.R
 /**
  * Foreground service (`connectedDevice`) that keeps the process, and the Rust link supervisor
  * in it, alive without the app's window (ADR 0003, lifetime mechanism 2). Rust starts, updates
- * and stops it (`Platform::keep_running`): while some device is linked, and after boot only if
- * one is. No decisions here; Pause/Resume only record the tap, which Rust reads.
+ * and stops it (`Platform::keep_running`): while some device is linked, and after boot or an
+ * app update only if one is. No decisions here; Pause/Resume only record the tap, which Rust
+ * reads.
  */
 class LinkService : Service() {
     /** What Rust last asked the notification to show. */
@@ -112,7 +113,7 @@ class LinkService : Service() {
             System.loadLibrary("carrova_desktop")
         }
 
-        /** Start the service (boot), before Rust has said what it shows. */
+        /** Start the service (boot, app update), before Rust has said what it shows. */
         fun start(context: Context) {
             context.startForegroundService(Intent(context, LinkService::class.java))
         }

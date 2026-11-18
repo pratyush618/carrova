@@ -28,6 +28,7 @@ fn note(key: &str) -> Note {
         can_reply: true,
         icon: None,
         hidden: None,
+        sms_app: false,
     }
 }
 
@@ -104,9 +105,15 @@ fn scripted_answers_and_content_free_actions() {
     assert!(!p.note_reply("gone", "secret reply").unwrap());
     p.note_dismiss("k1").unwrap();
     assert!(p.active_notes().unwrap().is_empty());
-    assert_eq!(p.sms_send("555", "secret").unwrap(), SendOutcome::Sent);
+    assert_eq!(
+        p.sms_send("555", "secret", None).unwrap(),
+        SendOutcome::Sent
+    );
     p.phone().send_outcome = SendOutcome::NoSignal;
-    assert_eq!(p.sms_send("555", "secret").unwrap(), SendOutcome::NoSignal);
+    assert_eq!(
+        p.sms_send("555", "secret", None).unwrap(),
+        SendOutcome::NoSignal
+    );
     let actions = p.actions();
     assert_eq!(actions[0], "note_reply k1");
     assert!(

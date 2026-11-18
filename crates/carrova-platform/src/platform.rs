@@ -8,8 +8,8 @@ use std::process::{Child, Command};
 use std::time::Duration;
 
 use crate::phone::{
-    AudioSide, CallAudioStatus, CallRecord, CallState, Cursor, Note, PermState, PhoneEvent,
-    PhonePerm, PhoneWatch, SendOutcome, SmsMessage, SmsThread,
+    AudioSide, CallAudioStatus, CallRecord, CallState, Contact, Cursor, Note, PermState,
+    PhoneEvent, PhonePerm, PhoneWatch, SendOutcome, Sim, SmsMessage, SmsThread,
 };
 use crate::{
     Allocation, ClipContent, ClipboardWatch, DirEntry, DirWatch, DiskInfo, DownloadSink, FileLock,
@@ -634,14 +634,40 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         Err(PlatformError::Unsupported("sms_thread"))
     }
 
-    /// Send `text` by SMS to the number `to`.
+    /// The phone's active SIMs, by slot; empty when it may not read them
+    /// (then texts and calls use the default SIM).
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn phone_sims(&self) -> Result<Vec<Sim>, PlatformError> {
+        Err(PlatformError::Unsupported("phone_sims"))
+    }
+
+    /// At most `limit` of the phone's contact numbers whose name or number
+    /// matches `query`.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise
+    /// (as without contacts permission).
+    fn phone_contacts(&self, query: &str, limit: usize) -> Result<Vec<Contact>, PlatformError> {
+        let _ = (query, limit);
+        Err(PlatformError::Unsupported("phone_contacts"))
+    }
+
+    /// Send `text` by SMS to the number `to`, from SIM `sim` (a
+    /// [`Sim::id`]; `None`: the phone's default).
     ///
     /// # Errors
     /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise
     /// (a send that merely fails is [`SendOutcome::Failed`], one with no
     /// clear answer [`SendOutcome::Unknown`]).
-    fn sms_send(&self, to: &str, text: &str) -> Result<SendOutcome, PlatformError> {
-        let _ = (to, text);
+    fn sms_send(
+        &self,
+        to: &str,
+        text: &str,
+        sim: Option<i32>,
+    ) -> Result<SendOutcome, PlatformError> {
+        let _ = (to, text, sim);
         Err(PlatformError::Unsupported("sms_send"))
     }
 
@@ -678,12 +704,13 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         Err(PlatformError::Unsupported("call_mute"))
     }
 
-    /// Place a call to `number`.
+    /// Place a call to `number` from SIM `sim` (a [`Sim::id`]; `None`: the
+    /// phone's default).
     ///
     /// # Errors
     /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
-    fn call_dial(&self, number: &str) -> Result<(), PlatformError> {
-        let _ = number;
+    fn call_dial(&self, number: &str, sim: Option<i32>) -> Result<(), PlatformError> {
+        let _ = (number, sim);
         Err(PlatformError::Unsupported("call_dial"))
     }
 
@@ -728,6 +755,16 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
         Err(PlatformError::Unsupported("phone_perm"))
     }
 
+    /// Ask the user for `p` with the system's own prompt, then return its
+    /// state. Blocks until the user answers; call off the UI thread.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise.
+    fn request_phone_perm(&self, p: PhonePerm) -> Result<PermState, PlatformError> {
+        let _ = p;
+        Err(PlatformError::Unsupported("request_phone_perm"))
+    }
+
     /// Open the system settings screen where the user grants `p`.
     ///
     /// # Errors
@@ -735,6 +772,17 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     fn open_perm_settings(&self, p: PhonePerm) -> Result<(), PlatformError> {
         let _ = p;
         Err(PlatformError::Unsupported("open_perm_settings"))
+    }
+
+    /// Remind the user, with a notification on this phone, to grant `p`;
+    /// tapping it opens the screen [`Self::open_perm_settings`] opens.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] off a phone; OS failures otherwise
+    /// (this app may not post notifications).
+    fn remind_access(&self, p: PhonePerm) -> Result<(), PlatformError> {
+        let _ = p;
+        Err(PlatformError::Unsupported("remind_access"))
     }
 
     /// Whether this computer can carry a phone call's audio over Bluetooth.

@@ -37,6 +37,15 @@ describe('useDevices', () => {
     });
   });
 
+  it('asks again when a link changes (a linked device may have a new name)', async () => {
+    const { port } = await devices();
+    const known = vi.spyOn(port, 'knownDevices');
+    await act(() => port.linkComputer('123-acid-bath'));
+    await waitFor(() => {
+      expect(known).toHaveBeenCalled();
+    });
+  });
+
   it("never lets a refresh that started before the user's change undo it", async () => {
     const { port, hook } = await devices();
     let answer: (view: VisibilityView) => void = () => undefined;

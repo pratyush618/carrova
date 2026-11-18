@@ -5,8 +5,10 @@ import { renderScreen } from '../../support/render';
 import { AddDeviceDialog } from '@/screens/devices/AddDeviceDialog';
 import { DevicePage } from '@/screens/devices/DevicePage';
 import { LinkComputerDialog } from '@/screens/devices/LinkComputerDialog';
+import { PhoneAppsSheet } from '@/screens/devices/PhoneAppsSheet';
 import { pixel, pixelInvite, pixelPeer } from '@/screens/devices/fixtures';
 import type { DeviceIntents } from '@/screens/devices/model';
+import type { LinkedDeviceView } from '@/engine/types';
 import { revealDuration } from '@/ui/CodeDisplay/flaps';
 
 const deviceOn = (): DeviceIntents => ({
@@ -16,7 +18,25 @@ const deviceOn = (): DeviceIntents => ({
   onSendClipboard: vi.fn(),
   onSendFiles: vi.fn(),
   onForget: vi.fn(),
+  onRemind: vi.fn(),
+  onApps: vi.fn(),
 });
+
+/** Pixel 8 giving notifications and messages here. */
+const phone = {
+  ...pixel,
+  features: [
+    ...pixel.features,
+    {
+      feature: 'notifications',
+      group: 'quiet',
+      local: 'on',
+      remote: 'on',
+      effective: 'on',
+    },
+    { feature: 'messages', group: 'quiet', local: 'on', remote: 'on', effective: 'on' },
+  ],
+} satisfies LinkedDeviceView;
 
 const pairOn = () => ({
   onCancel: vi.fn(),
@@ -62,6 +82,56 @@ describe('Device page', () => {
     renderScreen(<DevicePage device={{ ...pixel, state: 'away' }} on={deviceOn()} />);
     expect(screen.getByText(/Pixel 8 is away/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Ring' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Phone access and apps', () => {
+  it('asks to remind on the phone for each access it lacks', async () => {
+    const user = userEvent.setup();
+    const on = deviceOn();
+    renderScreen(
+      <DevicePage device={{ ...phone, missing: ['notifications', 'messages'] }} on={on} />,
+    );
+    expect(screen.getByText('Notifications need access on Pixel 8')).toBeInTheDocument();
+    expect(screen.getByText('Messages need SMS access on Pixel 8')).toBeInTheDocument();
+    expect(screen.getAllByText('Waiting for access on the phone')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Apps' })).not.toBeInTheDocument();
+
+    const [, messages] = screen.getAllByRole('button', { name: 'Remind on phone' });
+    if (messages === undefined) throw new Error('no Messages reminder');
+    await user.click(messages);
+    expect(on.onRemind).toHaveBeenCalledWith('messages');
+  });
+
+  it("opens the phone's app list from the notifications row", async () => {
+    const user = userEvent.setup();
+    const on = deviceOn();
+    renderScreen(<DevicePage device={phone} on={on} />);
+    expect(screen.queryByRole('button', { name: 'Remind on phone' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Apps' }));
+    expect(on.onApps).toHaveBeenCalledOnce();
+  });
+
+  it("shows the phone's app list read only", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderScreen(
+      <PhoneAppsSheet
+        name="Pixel 8"
+        apps={[
+          { id: 'org.bank', name: 'Bank of Example', on: false, private: true },
+          { id: 'org.chat', name: 'Chat', on: true, private: false },
+        ]}
+        onClose={onClose}
+      />,
+    );
+    expect(screen.getByText('Notifications from Pixel 8')).toBeInTheDocument();
+    expect(screen.getByText('Bank of Example')).toBeInTheDocument();
+    expect(screen.getByText('Off: banking apps start off')).toBeInTheDocument();
+    expect(screen.getByText('Shows here')).toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });
 

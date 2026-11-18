@@ -21,6 +21,14 @@ export interface DesktopHost {
   readonly revealPath?: (path: string) => Promise<void>;
   /** Ask to show notifications (Android 13+) unless already allowed; a refusal changes nothing else. */
   readonly askNotifications?: () => Promise<void>;
+  /** Pop up a phone notification in Carrova's own small window, which loads `index.html?{query}`. */
+  readonly showNotePopup?: (query: string) => Promise<void>;
+  /** A system notification saying only `title` (it stays in the OS history: never phone content). */
+  readonly notify?: (title: string) => Promise<void>;
+  /** Which window this is: the app (`main`, the default) or a phone's call. */
+  readonly window?: 'main' | 'call';
+  /** Close this window (the call window, once the call is over). */
+  readonly closeWindow?: () => Promise<void>;
 }
 
 const HostContext = createContext<DesktopHost>({});

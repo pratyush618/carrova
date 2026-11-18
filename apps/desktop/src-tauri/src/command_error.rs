@@ -12,6 +12,7 @@ use std::fmt;
 
 use carrova_bundle::{BundleError, FetchError};
 use carrova_core::{CoreError, ErrorClass, Hint};
+use carrova_platform::PlatformError;
 use carrova_view::ipc::{BridgeError, ErrorCode};
 use carrova_view::passphrase::PassphraseRejected;
 use serde::Serialize;
@@ -182,6 +183,20 @@ impl From<PassphraseRejected> for CommandError {
     }
 }
 
+impl From<PlatformError> for CommandError {
+    /// The OS refusals the UI words itself keep their class; any other
+    /// platform failure is internal.
+    fn from(error: PlatformError) -> Self {
+        let code = match &error {
+            PlatformError::Cancelled(_) => ErrorCode::Cancelled,
+            PlatformError::Unsupported(_) => ErrorCode::Unsupported,
+            PlatformError::PermissionDenied(_) => ErrorCode::PermissionDenied,
+            _ => ErrorCode::Internal,
+        };
+        Self::chained(code, &error)
+    }
+}
+
 /// Errors that only ever mean "something went wrong inside the app".
 macro_rules! internal_errors {
     ($($error:ty),* $(,)?) => {$(
@@ -195,7 +210,6 @@ macro_rules! internal_errors {
 
 internal_errors!(
     carrova_report::ReportError,
-    carrova_platform::PlatformError,
     carrova_view::ipc::SettingsError,
     carrova_view::ecosystem::QrError,
     serde_json::Error,

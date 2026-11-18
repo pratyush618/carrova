@@ -161,10 +161,12 @@ describe('appReducer peer facts', () => {
       link({ event: 'file_progress', device: 'p8', id: 1, done: 4, total: 9 }),
       link({ event: 'file_saved', device: 'p8', id: 1, path: '/home/ana/Downloads/a.pdf' }),
       link({ event: 'clip_skipped', reason: 'sensitive' }),
+      link({ event: 'phone_access', device: 'p8', feature: 'messages', granted: false }),
     ];
     const state = steps.reduce((s, step) => step(s), initialAppState);
     expect(state.sessions).toEqual({});
-    expect(state.link.changes).toBe(1);
+    // A link and a phone's access both change what the device page shows.
+    expect(state.link.changes).toBe(2);
     expect(state.link.asks).toEqual([
       { id: 7, device: 'p8', kind: { kind: 'file', name: 'a.pdf', size: 9 } },
     ]);
@@ -186,6 +188,58 @@ describe('appReducer peer facts', () => {
     expect(expired.link.asks).toEqual([]);
     const answered = appReducer(state, { type: 'ask_answered', id: 7 });
     expect(answered.link.asks).toEqual([]);
+  });
+
+  it('holds provisional texts until the phone stores their thread', () => {
+    const fold = (...events: EngineEvent[]) => feed(LINK_SESSION, ...events).link;
+    const text = (id: number, thread_id: number) => ({
+      event: 'phone_sms' as const,
+      device: 'p8',
+      message: { id, thread_id, outgoing: false, text: 'hi', when_ms: 5 },
+    });
+    expect(fold(text(0, 1), text(0, 2)).sms.map((p) => p.message.thread_id)).toEqual([1, 2]);
+    expect(fold(text(0, 1), text(0, 2), text(9, 1)).sms.map((p) => p.message.thread_id)).toEqual([
+      2,
+    ]);
+    expect(
+      fold(text(0, 1), { event: 'phone_cleared', device: 'p8', feature: 'messages' }).sms,
+    ).toEqual([]);
+  });
+
+  it('lets a stored text replace only its own provisional copy', () => {
+    const sms = (id: number, text: string, when_ms: number) => ({
+      event: 'phone_sms' as const,
+      device: 'p8',
+      message: { id, thread_id: 5, outgoing: false, text, when_ms },
+    });
+    const link = feed(
+      LINK_SESSION,
+      sms(0, 'A', 1_000),
+      sms(0, 'B', 2_000),
+      sms(7, 'A', 3_000),
+    ).link;
+    expect(link.sms.map((p) => p.message.text)).toEqual(['B']);
+    expect(link.texts).toBe(3);
+  });
+
+  it('pops a phone notification up by key, noting a locked screen', () => {
+    const note = feed(LINK_SESSION, {
+      event: 'phone_note',
+      device: 'p8',
+      note: {
+        key: 'k',
+        app_id: '',
+        app_name: '',
+        title: '',
+        text: '',
+        when_ms: 0,
+        can_reply: false,
+        icon: null,
+        hidden: 'locked',
+        sms_app: true,
+      },
+    }).link.note;
+    expect(note).toEqual({ device: 'p8', key: 'k', locked: true, smsApp: true, n: 1 });
   });
 
   it('keeps a transfer dismissed while it runs on, and drops it once finished', () => {

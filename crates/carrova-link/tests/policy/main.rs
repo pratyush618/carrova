@@ -137,7 +137,7 @@ fn invalid_group_state_reads_off() {
 
 #[test]
 fn policy_lane_roundtrip_drops_unknown_features() {
-    use carrova_link::{LaneKind, accept_lane, open_lane, recv_policy, send_policy};
+    use carrova_link::{LaneKind, PolicyUpdate, accept_lane, open_lane, recv_policy, send_policy};
     use serde::Serialize;
 
     #[derive(Serialize)]
@@ -162,10 +162,38 @@ fn policy_lane_roundtrip_drops_unknown_features() {
             first
         });
         let mut stream = open_lane(&a, LaneKind::Policy).unwrap();
-        send_policy(&mut stream, &PolicyDoc::phone_defaults()).unwrap();
+        let mine = PolicyUpdate {
+            doc: PolicyDoc::phone_defaults(),
+            name: Some("Pixel 8".into()),
+        };
+        send_policy(&mut stream, &mine).unwrap();
         let theirs = recv_policy(&mut stream, support::T).unwrap();
-        assert_eq!(peer.join().unwrap(), PolicyDoc::phone_defaults());
-        assert_eq!(theirs.get(Feature::Clipboard), On);
-        assert_eq!(theirs.features.len(), 1);
+        assert_eq!(peer.join().unwrap(), mine);
+        assert_eq!(theirs.name, None);
+        assert_eq!(theirs.doc.get(Feature::Clipboard), On);
+        assert_eq!(theirs.doc.features.len(), 1);
     });
+}
+
+#[test]
+fn policy_update_name_is_compatible_with_older_peers() {
+    use carrova_link::PolicyUpdate;
+
+    fn cbor(v: &impl serde::Serialize) -> Vec<u8> {
+        let mut out = Vec::new();
+        ciborium::into_writer(v, &mut out).unwrap();
+        out
+    }
+    // An older peer's update is its bare document: no name.
+    let old: PolicyUpdate =
+        ciborium::from_reader(cbor(&PolicyDoc::phone_defaults()).as_slice()).unwrap();
+    assert_eq!(old.doc, PolicyDoc::phone_defaults());
+    assert_eq!(old.name, None);
+    // An older peer reads a named update as the document alone.
+    let named = PolicyUpdate {
+        doc: PolicyDoc::phone_defaults(),
+        name: Some("Pixel 8".into()),
+    };
+    let read: PolicyDoc = ciborium::from_reader(cbor(&named).as_slice()).unwrap();
+    assert_eq!(read, PolicyDoc::phone_defaults());
 }

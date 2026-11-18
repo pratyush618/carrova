@@ -6,11 +6,13 @@ import android.app.PendingIntent
 import android.app.RemoteInput
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Build
 import android.os.Bundle
+import android.provider.Telephony
 import android.service.notification.StatusBarNotification
 import org.json.JSONArray
 import org.json.JSONObject
@@ -20,6 +22,16 @@ import java.io.ByteArrayOutputStream
 object Notify {
     /** Edge of the app icon sent with a note, in pixels. */
     private const val ICON_PX = 48
+
+    /**
+     * The posting app's [ApplicationInfo], which the system stamps on every
+     * note (`Notification.EXTRA_BUILDER_APPLICATION_INFO`, hidden; what
+     * `Notification.Builder.recoverBuilder` reads).
+     */
+    private const val EXTRA_APP_INFO = "android.appInfo"
+
+    /** A system app's stand-in name (`Notification.EXTRA_SUBSTITUTE_APP_NAME`, system API). */
+    private const val EXTRA_SUBSTITUTE_NAME = "android.substName"
 
     /**
      * Whether a note leaves the phone at all: not ongoing (media, calls,
@@ -37,15 +49,20 @@ object Notify {
         val extras = sbn.notification.extras
         val text = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
             ?: extras.getCharSequence(Notification.EXTRA_TEXT)
+        val pm = context.packageManager
+        val app = appInfo(pm, sbn)
+        val label = app?.let(pm::getApplicationLabel)
         val note = JSONObject()
             .put("key", sbn.key)
             .put("app_id", sbn.packageName)
-            .put("app_name", appName(context, sbn.packageName))
+            .put("app_name", appName(extras.getCharSequence(EXTRA_SUBSTITUTE_NAME), label, sbn.packageName))
             .put("title", extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: "")
             .put("text", text?.toString() ?: "")
             .put("when_ms", sbn.postTime)
             .put("can_reply", replyAction(sbn) != null)
-        icon(context, sbn.packageName)?.let { png ->
+            // Needs the SMS_DELIVER `<queries>` entry (package visibility); no permission.
+            .put("sms_app", sbn.packageName == Telephony.Sms.getDefaultSmsPackage(context))
+        app?.let { icon(pm, it) }?.let { png ->
             note.put("icon", JSONArray().apply { png.forEach { put(it.toInt() and 0xff) } })
         }
         return note
@@ -113,22 +130,33 @@ object Notify {
             action.remoteInputs?.any { it.allowFreeFormInput } == true
         }
 
-    private fun appName(context: Context, pkg: String): String {
-        val pm = context.packageManager
-        return try {
-            pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+    /** The name a note shows: the app's stand-in name, else its label, else (last resort) [pkg]. */
+    fun appName(substitute: CharSequence?, label: CharSequence?, pkg: String): String =
+        listOf(substitute, label).firstOrNull { !it.isNullOrBlank() }?.toString()?.trim() ?: pkg
+
+    /**
+     * The posting app, from the note itself: since Android 11 package
+     * visibility hides other apps from a `PackageManager` lookup, and the
+     * note's own copy needs neither `<queries>` nor `QUERY_ALL_PACKAGES`.
+     */
+    private fun appInfo(pm: PackageManager, sbn: StatusBarNotification): ApplicationInfo? {
+        val extras = sbn.notification.extras
+        val stamped = if (Build.VERSION.SDK_INT >= 33) {
+            extras.getParcelable(EXTRA_APP_INFO, ApplicationInfo::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            extras.getParcelable(EXTRA_APP_INFO)
+        }
+        return stamped ?: try {
+            pm.getApplicationInfo(sbn.packageName, 0)
         } catch (e: PackageManager.NameNotFoundException) {
-            pkg
+            null
         }
     }
 
-    /** The app's icon as a small PNG; null if it cannot be had. */
-    private fun icon(context: Context, pkg: String): ByteArray? {
-        val drawable = try {
-            context.packageManager.getApplicationIcon(pkg)
-        } catch (e: PackageManager.NameNotFoundException) {
-            return null
-        }
+    /** The app's icon as a small PNG. */
+    private fun icon(pm: PackageManager, app: ApplicationInfo): ByteArray {
+        val drawable = pm.getApplicationIcon(app)
         val bitmap = Bitmap.createBitmap(ICON_PX, ICON_PX, Bitmap.Config.ARGB_8888)
         drawable.setBounds(0, 0, ICON_PX, ICON_PX)
         drawable.draw(Canvas(bitmap))

@@ -35,11 +35,11 @@ export const isPhase2 = (feature: Feature): feature is Phase2Feature =>
 /** Each Phase 2 feature's glyph. */
 export const FEATURE_ICON: Readonly<Record<Phase2Feature, IconName>> = {
   clipboard: 'copy',
-  ring: 'bell',
+  ring: 'ring',
   files: 'file',
   handoff: 'external',
   notifications: 'bell',
-  messages: 'pen',
+  messages: 'msg',
   calls: 'phone',
 };
 
@@ -51,7 +51,18 @@ export interface DeviceIntents {
   /** Absent where this build has no file picker. */
   readonly onSendFiles?: () => void;
   readonly onForget: () => void;
+  /** Have the phone remind its user to grant what `feature` needs (absent: not offered). */
+  readonly onRemind?: (feature: Feature) => void;
+  /** Show the phone's per-app notification list (absent: not offered). */
+  readonly onApps?: () => void;
+  /** Open the phone's call log (absent: no calls page here). */
+  readonly onCalls?: () => void;
+  /** Set up this computer's mic and speakers for calls (absent: not offered here). */
+  readonly onCallAudio?: () => void;
 }
+
+/** The phone features that need a permission on the phone, in banner order. */
+export const NEEDS_ACCESS = ['notifications', 'messages'] as const;
 
 /** The Add a device dialog: making a code, waiting for a scan, the key check, and how it ended. */
 export type AddDeviceModel =

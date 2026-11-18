@@ -102,6 +102,13 @@ each one checks the binary still exists and otherwise does nothing.
 what Carrova wrote. Flatpak support for the entries is deferred with
 Flathub (the sandbox can't write these folders).
 
+## Bundled sounds
+
+`apps/desktop/src/flows/calls/ringtone.wav` (the incoming-call ringtone) is
+synthesised for Carrova: two 0.4 s bursts of a 440 + 480 Hz dual tone, then
+a pause, 8 kHz 8-bit mono. No third-party audio; it is dedicated to the
+public domain under CC0 1.0.
+
 ## Keys
 
 Two independent key systems; neither private key is ever committed.

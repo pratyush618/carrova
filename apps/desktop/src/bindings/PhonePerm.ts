@@ -3,4 +3,4 @@
 /**
  * An Android permission a phone feature needs.
  */
-export type PhonePerm = "notification_access" | "sms" | "calls" | "contacts" | "bluetooth_connect";
+export type PhonePerm = "notification_access" | "sms" | "calls" | "contacts" | "bluetooth_connect" | "battery";

@@ -76,6 +76,7 @@ const phone = (handoffOnPhone: FeatureState = 'ask'): LinkedDeviceView => ({
     row('messages', 'off'),
     row('calls', 'off'),
   ],
+  missing: [],
 });
 
 /** A linked computer: everything starts off (`existing known computer`). */
@@ -86,6 +87,7 @@ const computer = (): LinkedDeviceView => ({
   fingerprint: 'B04E·88D1',
   state: 'linked',
   features: [row('clipboard', 'off'), row('files', 'off'), row('handoff', 'off')],
+  missing: [],
 });
 
 /** A computer as a phone sees it: the new phone link's defaults on both sides. */

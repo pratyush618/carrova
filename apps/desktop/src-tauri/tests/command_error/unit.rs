@@ -85,3 +85,26 @@ fn the_message_is_the_cause_chain_without_repeats() {
     assert_eq!(error.bridge().message, "I/O error: disk on fire");
     assert_eq!(error.to_string(), error.bridge().message);
 }
+
+#[test]
+fn platform_refusals_keep_a_class_the_ui_can_show() {
+    use carrova_platform::PlatformError;
+    use carrova_platform::phone::PhonePerm;
+    let table = [
+        (PlatformError::Cancelled("install"), ErrorCode::Cancelled),
+        (
+            PlatformError::Unsupported("call_audio_status"),
+            ErrorCode::Unsupported,
+        ),
+        (
+            PlatformError::PermissionDenied(PhonePerm::Sms),
+            ErrorCode::PermissionDenied,
+        ),
+        (PlatformError::Network("down".into()), ErrorCode::Internal),
+    ];
+    for (error, code) in table {
+        let mapped = CommandError::from(error);
+        assert_eq!(mapped.bridge().code, code);
+        assert!(!mapped.is_engine_failure());
+    }
+}
