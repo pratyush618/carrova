@@ -1,5 +1,6 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { renderScreen, testChrome } from '../../../support/render';
 import type { SimChoice } from '@/bindings/SimChoice';
@@ -61,6 +62,15 @@ const intents = (): MessagesIntents => ({
   onOlderMessages: vi.fn(),
   onMoreThreads: vi.fn(),
 });
+
+/** `ui` in the chrome `renderScreen` wraps it in, for `rerender`. */
+const chrome = (ui: ReactElement) => (
+  <ReduceMotionOverride value={false}>
+    <ChromeContext value={testChrome}>
+      <Window overlays={[]}>{ui}</Window>
+    </ChromeContext>
+  </ReduceMotionOverride>
+);
 
 /** The screen over the real send hook, as the route wires them. */
 function Sending({
@@ -261,15 +271,52 @@ describe('Messages', () => {
         next: null,
       },
     });
-    rerender(
-      <ReduceMotionOverride value={false}>
-        <ChromeContext value={testChrome}>
-          <Window overlays={[]}>
-            <MessagesScreen model={arrived('Running late?', 0, 50_000)} on={intents()} />
-          </Window>
-        </ChromeContext>
-      </ReduceMotionOverride>,
-    );
+    rerender(chrome(<MessagesScreen model={arrived('Running late?', 0, 50_000)} on={intents()} />));
     expect(live()).toHaveTextContent('Running late?');
+  });
+
+  it('announces a stored text that repeats the one before it', () => {
+    const live = () => document.querySelector('[aria-live="polite"]');
+    const ok = (id: number, when_ms: number) => ({
+      id,
+      outgoing: false,
+      text: 'OK',
+      when_ms,
+      provisional: false,
+    });
+    const first: MessagesModel = { ...model, thread: { messages: [ok(11, 0)], next: null } };
+    const { rerender } = renderScreen(<MessagesScreen model={first} on={intents()} />);
+    expect(live()).toHaveTextContent('');
+
+    const again: MessagesModel = {
+      ...model,
+      thread: { messages: [ok(11, 0), ok(12, 30_000)], next: null },
+    };
+    rerender(chrome(<MessagesScreen model={again} on={intents()} />));
+    expect(live()).toHaveTextContent('OK');
+  });
+
+  it('announces no received text an older page brings', () => {
+    const live = () => document.querySelector('[aria-live="polite"]');
+    const mine = { id: 21, outgoing: true, text: 'See you', when_ms: 9_000, provisional: false };
+    const newest: MessagesModel = {
+      ...model,
+      thread: { messages: [mine], next: { when_ms: 9_000, id: 21 } },
+    };
+    const { rerender } = renderScreen(<MessagesScreen model={newest} on={intents()} />);
+
+    const older: MessagesModel = {
+      ...model,
+      thread: {
+        messages: [
+          { id: 5, outgoing: false, text: 'Old news', when_ms: 0, provisional: false },
+          mine,
+        ],
+        next: null,
+      },
+    };
+    rerender(chrome(<MessagesScreen model={older} on={intents()} />));
+    expect(screen.getByText('Old news')).toBeInTheDocument();
+    expect(live()).toHaveTextContent('');
   });
 });

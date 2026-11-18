@@ -161,4 +161,26 @@ describe('Messages route', () => {
     expect(thread).toHaveBeenLastCalledWith('p8', 1, { when_ms: 0, id: 100 });
     expect(screen.queryByRole('button', { name: 'Show older messages' })).not.toBeInTheDocument();
   });
+
+  it('keeps older texts loaded while a sent text’s reload was on its way', async () => {
+    const user = userEvent.setup();
+    const { port, thread } = await phonePort();
+    const newest = { ...page('Hi from Sam', 'On my way'), next: { when_ms: 0, id: 100 } };
+    thread.mockImplementation((_device, _id, before) =>
+      Promise.resolve(before === null ? newest : page('Way back')),
+    );
+    await renderApp({ port, returning: true });
+    await openMessages(user);
+    const stored = deferred<ThreadView>();
+    thread.mockReturnValueOnce(stored.promise);
+
+    await user.type(screen.getByRole('textbox', { name: 'Text message' }), 'On my way');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    await user.click(screen.getByRole('button', { name: 'Show older messages' }));
+    expect(await screen.findByText('Way back')).toBeInTheDocument();
+
+    stored.settle(newest);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByText('Way back')).toBeInTheDocument();
+  });
 });

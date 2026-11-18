@@ -83,6 +83,8 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
       loadPages((before) => port.phoneThread(id, thread, before), count, joinMessages),
     [port, id],
   );
+  // Each load of the open conversation takes a ticket: only the newest shows.
+  const latest = useRef(0);
 
   useEffect(() => {
     if (away) return;
@@ -109,12 +111,13 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
   useEffect(() => {
     if (away || open === null) return;
     let live = true;
+    const ticket = ++latest.current;
     loadThread(open, pages).then(
       (view) => {
-        if (live) setThread(view);
+        if (live && ticket === latest.current) setThread(view);
       },
       () => {
-        if (live) setFailed(true);
+        if (live && ticket === latest.current) setFailed(true);
       },
     );
     return () => {
@@ -135,9 +138,11 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
         return;
       }
       const shown = now.current.open === s.thread;
+      // A hidden conversation loads itself when opened again, after this.
+      const ticket = shown ? ++latest.current : latest.current;
       try {
         const view = await loadThread(s.thread, shown ? now.current.pages : 1);
-        if (now.current.open === s.thread) setThread(view);
+        if (ticket === latest.current && now.current.open === s.thread) setThread(view);
       } catch {
         setFailed(true);
       }
