@@ -45,14 +45,12 @@ describe('useCallLog', () => {
   });
 
   /** The hook over a port whose first page for any phone is `page(9)`. */
-  async function loaded(id = 'p8') {
+  async function loaded() {
     const port = createFakePort({ stepMs: 0 });
     const history = vi.spyOn(port, 'callHistory').mockResolvedValue(page(9));
     const hook = renderHook(
       (props: { id: string; on: boolean }) => useCallLog(port, props.id, props.on),
-      {
-        initialProps: { id, on: true },
-      },
+      { initialProps: { id: 'p8', on: true } },
     );
     await waitFor(() => {
       expect(hook.result.current.log).not.toBeNull();
@@ -67,5 +65,15 @@ describe('useCallLog', () => {
       result.current.more();
     });
     expect(history).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks for an older page once while it is on its way', async () => {
+    const { history, result } = await loaded();
+    history.mockReturnValue(new Promise(() => undefined));
+    act(() => {
+      result.current.more();
+      result.current.more();
+    });
+    expect(history).toHaveBeenCalledTimes(2);
   });
 });

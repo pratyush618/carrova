@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CallLogView } from '../../bindings/CallLogView';
 import type { CarrovaPort } from '../../engine/types';
 
@@ -46,13 +46,18 @@ export function useCallLog(
       live = false;
     };
   }, [port, id, on]);
+  // Set at once (not on the next render), so a second click finds it.
+  const asking = useRef(false);
   const more = useCallback(() => {
-    if (!on || log?.next == null) return;
+    if (!on || log?.next == null || asking.current) return;
+    asking.current = true;
     port.callHistory(id, log.next, clock()).then(
       (page) => {
+        asking.current = false;
         setLog((now) => (now === null ? page : appendPage(now, page)));
       },
       () => {
+        asking.current = false;
         setFailed(true);
       },
     );
