@@ -594,6 +594,36 @@ fn posted_then_removed_leaves_no_note() {
     assert!(sl.notes(&phone.id).unwrap().is_empty());
 }
 
+#[test]
+fn note_cleared_while_its_pop_up_waits_never_pops_up() {
+    let (phone, _sp, laptop, sl) = linked(&[NOTES], |_| {});
+    // The pop-up waits 200 ms for the lock: the feature goes off meanwhile.
+    laptop.platform.slow_screen_lock();
+    wait_watching(&phone);
+    let (asks, reads) = (laptop.platform.lock_asks(), laptop.platform.lock_reads());
+
+    let posted = note("k1", "org.example.chat");
+    phone.platform.script_event(PhoneEvent::NotePosted(posted));
+    wait_until("the pop-up's lock read", || {
+        laptop.platform.lock_asks() > asks
+    });
+    sl.set_feature(&phone.id, NOTES, FeatureState::Off).unwrap();
+    wait_until("the lock answered", || laptop.platform.lock_reads() > reads);
+    // A pop-up would be emitted right after the answer.
+    std::thread::sleep(std::time::Duration::from_millis(100));
+
+    let events = laptop.events();
+    let gone = Event::PhoneCleared {
+        device: phone.id,
+        feature: NOTES,
+    };
+    let at = events.iter().position(|e| *e == gone).unwrap();
+    let late = events[at..]
+        .iter()
+        .any(|e| matches!(e, Event::PhoneNote { .. }));
+    assert!(!late, "a pop-up came after its feature was cleared");
+}
+
 /// Script `msg` arriving on the phone (provisional, `id` 0).
 fn receive(phone: &Device, msg: &SmsMessage) {
     let received = PhoneEvent::SmsReceived(msg.clone());
@@ -680,6 +710,29 @@ fn identical_provisional_texts_match_rows_one_to_one() {
     wait_until("both stored texts", || texts(&laptop).len() == 4);
 
     assert_eq!(newest(&sl, &phone, 5), rows);
+}
+
+#[test]
+fn page_fetched_before_stored_shows_a_text_once() {
+    let at = now_ms();
+    // Loaded before the text arrived: never taken for its stored copy.
+    let old = text(1, 5, at - 30_000);
+    let (phone, _sp, laptop, sl) = linked(&[SMS], |p| {
+        p.platform.phone().messages = vec![old.clone()];
+    });
+    wait_watching(&phone);
+    assert_eq!(newest(&sl, &phone, 5), std::slice::from_ref(&old));
+    let provisional = text(0, 5, at);
+    receive(&phone, &provisional);
+    wait_until("the provisional text", || texts(&laptop).len() == 1);
+
+    // Stored on the phone; its `Stored` has not come yet.
+    let stored = text(2, 5, at - 50);
+    phone.platform.phone().messages.push(stored.clone());
+
+    assert_eq!(newest(&sl, &phone, 5), [stored.clone(), old]);
+    // Views holding the provisional text hear it was stored.
+    assert_eq!(texts(&laptop), [provisional, stored]);
 }
 
 #[test]

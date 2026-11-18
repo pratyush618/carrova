@@ -46,8 +46,10 @@ pub(crate) struct Mirror {
     pub(super) call: Call,
     /// Stored messages of the threads loaded here, newest first.
     threads: HashMap<i64, Vec<SmsMessage>>,
-    /// Incoming texts the phone has not stored yet (`id` 0), and when.
-    provisional: Vec<(SmsMessage, Instant)>,
+    /// Incoming texts the phone has not stored yet (`id` 0), when each
+    /// arrived and the ids of its thread's rows loaded then (none of them
+    /// is its stored copy).
+    provisional: Vec<(SmsMessage, Instant, HashSet<i64>)>,
     /// Features the phone lacks the access for (notifications, texts).
     missing: Vec<Feature>,
     /// Ids of the stored rows that replaced a provisional text: never
@@ -248,14 +250,23 @@ impl Mirror {
 
     /// Whether thread `id` is loaded here or waits for a stored text.
     fn wants(&self, id: i64) -> bool {
-        self.threads.contains_key(&id) || self.provisional.iter().any(|(m, _)| m.thread_id == id)
+        self.threads.contains_key(&id) || self.provisional.iter().any(|(m, ..)| m.thread_id == id)
+    }
+
+    /// Keep `message`, provisional, until its stored row arrives.
+    fn hold(&mut self, message: SmsMessage, now: Instant) {
+        let known = self
+            .threads
+            .get(&message.thread_id)
+            .map_or_else(HashSet::new, |thread| thread.iter().map(|m| m.id).collect());
+        self.provisional.push((message, now, known));
     }
 
     /// Whether thread `id` still has a provisional text from `since`.
     fn waits_since(&self, id: i64, since: Instant) -> bool {
         self.provisional
             .iter()
-            .any(|(m, at)| m.thread_id == id && *at <= since)
+            .any(|(m, at, _)| m.thread_id == id && *at <= since)
     }
 
     /// Take `page`, the newest of thread `id` after it was stored: each
@@ -284,14 +295,15 @@ impl Mirror {
 
     /// Drop each provisional text of thread `id` whose stored row `page`
     /// holds (matched by content, as the two sides' clocks differ, each
-    /// row at most once ever); returns those rows.
+    /// row at most once ever, never to a row loaded before the text
+    /// arrived); returns those rows.
     fn reconcile(&mut self, id: i64, page: &[SmsMessage]) -> Vec<SmsMessage> {
         let mut free: Vec<&SmsMessage> = page
             .iter()
             .filter(|m| m.id != 0 && !self.matched.contains(&m.id))
             .collect();
         let mut new: Vec<SmsMessage> = Vec::new();
-        self.provisional.retain(|(p, _)| {
+        self.provisional.retain(|(p, _, known)| {
             if p.thread_id != id {
                 return true;
             }
@@ -299,7 +311,7 @@ impl Mirror {
             let row = free
                 .iter()
                 .enumerate()
-                .filter(|(_, m)| is_stored_copy(p, m))
+                .filter(|(_, m)| !known.contains(&m.id) && is_stored_copy(p, m))
                 .min_by_key(|(_, m)| close(m))
                 .map(|(i, _)| i);
             match row {
@@ -333,8 +345,8 @@ impl Mirror {
             shown.extend(
                 self.provisional
                     .iter()
-                    .filter(|(m, _)| m.thread_id == id)
-                    .map(|(m, _)| m.clone()),
+                    .filter(|(m, ..)| m.thread_id == id)
+                    .map(|(m, ..)| m.clone()),
             );
             shown.sort_by_key(|m| std::cmp::Reverse(m.when_ms));
         }
@@ -469,10 +481,14 @@ pub(crate) fn take_notify(
             let settings = shared.phone_settings();
             // Away: the notes stay in the list, without pop-ups.
             if !settings.only_while_active || lock == ScreenLock::Unlocked {
-                for note in changes.pop {
-                    let note = shown(note, lock, settings);
-                    shared.emit(Event::PhoneNote { device, note });
-                }
+                // Rechecked and emitted under the lock every clear takes:
+                // a clear during the read drops them, a later one follows.
+                with_mirror(shared, device, generation, Feature::Notifications, |_| {
+                    for note in changes.pop {
+                        let note = shown(note, lock, settings);
+                        shared.emit(Event::PhoneNote { device, note });
+                    }
+                });
             }
         }
     }
@@ -496,7 +512,7 @@ pub(crate) fn take_sms(
             let (id, provisional) = (message.thread_id, message.id == 0);
             let kept = with_mirror(shared, device, generation, SMS, |m| {
                 if provisional {
-                    m.provisional.push((message.clone(), now));
+                    m.hold(message.clone(), now);
                 } else {
                     m.merge(id, std::slice::from_ref(&message));
                 }
@@ -585,6 +601,9 @@ fn refetch(shared: &Shared, device: DeviceId, generation: u64, id: i64) {
 
 /// Take `reply` to `request`, sent on `device`'s link `generation`: a
 /// thread's page is kept, with its provisional texts on top when newest.
+/// A newest page may already hold the stored row of a provisional text
+/// whose `Stored` is not in yet: that text goes ([`Event::PhoneSms`] for
+/// the row, as after a `Stored`).
 pub(crate) fn take_sms_reply(
     shared: &Shared,
     device: DeviceId,
@@ -595,11 +614,21 @@ pub(crate) fn take_sms_reply(
     let (&SmsRequest::Thread { id, before }, SmsReply::ThreadPage(page)) = (request, &reply) else {
         return reply;
     };
+    let newest = before.is_none();
     let shown = with_mirror(shared, device, generation, Feature::Messages, |m| {
+        if newest {
+            // Emitted under the lock every clear takes: never after one.
+            for message in m.reconcile(id, page) {
+                shared.emit(Event::PhoneSms { device, message });
+            }
+        }
         m.merge(id, page);
-        m.with_provisional(id, before.is_none(), page)
+        m.with_provisional(id, newest, page)
     });
-    shown.map_or(reply, SmsReply::ThreadPage)
+    match shown {
+        Some(shown) => SmsReply::ThreadPage(shown),
+        None => reply,
+    }
 }
 
 #[cfg(test)]

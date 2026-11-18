@@ -5,13 +5,16 @@
 //! taking notifications or texts hears when the phone lacks the access
 //! they need, and again once it is back.
 //!
-//! One thread does all sending, so a device sees events in order. The
-//! phone's events are watched only while some linked device takes a phone
-//! feature. Never logs keys, titles, text, app names, numbers or names.
+//! One thread handles the phone's events; each linked device has its own
+//! sender ([`Outbox`]), so a device sees events in order and a slow one
+//! never holds up the others. The phone's events are watched only while
+//! some linked device takes a phone feature. Never logs keys, titles,
+//! text, app names, numbers or names.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use std::sync::mpsc::{Receiver, RecvTimeoutError};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use carrova_crypto::identity::DeviceId;
@@ -48,6 +51,9 @@ const LISTENERS: [(PhonePerm, Feature); 2] = [
 const ANSWER_SETTLE: Duration = Duration::from_secs(2);
 /// How often the call state is read meanwhile.
 const ANSWER_POLL: Duration = Duration::from_millis(50);
+/// Updates a device's [`Outbox`] holds (the one being sent included)
+/// before it falls behind and is resynced instead.
+const OUTBOX: usize = 64;
 
 /// Work for the giving thread.
 #[derive(Debug)]
@@ -68,6 +74,13 @@ pub(crate) struct Gives {
 }
 
 impl Gives {
+    /// Everything a device may take.
+    const ALL: Self = Self {
+        notes: true,
+        calls: true,
+        sms: true,
+    };
+
     /// What this side gives a device on `local` whose policy is `remote`.
     pub(crate) fn of(local: &PolicyDoc, remote: Option<&PolicyDoc>) -> Self {
         let on = |f| remote.is_some_and(|r| allowed(local, r, f) == FeatureState::On);
@@ -107,10 +120,13 @@ pub(crate) fn run(shared: &Arc<Shared>, jobs: &Receiver<Job>) {
         tried: Vec::new(),
         sent: HashSet::new(),
         seen: HashMap::new(),
+        outboxes: HashMap::new(),
+        turns: HashMap::new(),
     };
     while !shared.stop.is_cancelled() {
         giver.follow();
         giver.recheck();
+        giver.resync_drained();
         match jobs.recv_timeout(shared.config.tick) {
             Ok(Job::Event(event)) => giver.event(event),
             Ok(Job::Opened { device, gives }) => {
@@ -127,6 +143,129 @@ pub(crate) fn run(shared: &Arc<Shared>, jobs: &Receiver<Job>) {
 
 type Targets = Vec<(DeviceId, Arc<Connection>)>;
 
+/// One update for a device.
+#[derive(Clone)]
+enum Update {
+    Notify(NotifyMsg),
+    Call(CallState),
+    Sms(SmsPush),
+}
+
+impl Update {
+    /// Send it on `conn`; returns once acknowledged.
+    fn send(&self, conn: &Connection) -> std::result::Result<(), LinkError> {
+        match self {
+            Self::Notify(msg) => send_notify(conn, msg),
+            Self::Call(state) => send_call_state(conn, state),
+            Self::Sms(push) => push_sms(conn, push),
+        }
+    }
+
+    /// The feature a device must take to be sent it.
+    fn feature(&self) -> Feature {
+        match self {
+            Self::Notify(_) => Feature::Notifications,
+            Self::Call(_) => Feature::Calls,
+            Self::Sms(_) => Feature::Messages,
+        }
+    }
+}
+
+/// A linked device's sender: its own thread sends the updates queued for
+/// one link, in order. A device that falls [`OUTBOX`] updates behind has
+/// those dropped and owes a resync, sent once its queue drains.
+struct Outbox {
+    conn: Arc<Connection>,
+    queue: Sender<(u64, Update)>,
+    /// Updates queued and not yet sent or dropped.
+    queued: Arc<AtomicUsize>,
+    /// Bumped as the device falls behind: updates queued before are dropped.
+    epoch: Arc<AtomicU64>,
+    /// The device fell behind and was not resynced yet.
+    behind: bool,
+}
+
+impl Outbox {
+    /// Start the sender for `device`'s link `conn`; it ends with the outbox.
+    /// It sends only while holding `turn`, the device's: an outbox
+    /// replacing a dropped one waits for its send in flight to end.
+    fn open(
+        shared: &Arc<Shared>,
+        device: DeviceId,
+        conn: Arc<Connection>,
+        turn: Arc<Mutex<()>>,
+    ) -> Result<Self> {
+        let (queue, updates) = mpsc::channel::<(u64, Update)>();
+        let queued = Arc::new(AtomicUsize::new(0));
+        let epoch = Arc::new(AtomicU64::new(0));
+        let (link, left, now, giver) = (
+            Arc::clone(&conn),
+            Arc::clone(&queued),
+            Arc::clone(&epoch),
+            Arc::clone(shared),
+        );
+        shared.spawn("carrova-phone-out", move || {
+            for (at, update) in updates {
+                // Checked under the turn: a dropped outbox's epoch moved
+                // before any replacement sent.
+                let _turn = turn.lock().unwrap_or_else(PoisonError::into_inner);
+                // Still taken: the feature may have gone off while queued.
+                let current = at == now.load(Ordering::Acquire)
+                    && giver
+                        .linked_with(update.feature())
+                        .iter()
+                        .any(|(d, c)| *d == device && Arc::ptr_eq(c, &link));
+                if current
+                    && !giver.stop.is_cancelled()
+                    && let Err(e) = update.send(&link)
+                {
+                    tracing::debug!(error = %e, "phone update not sent");
+                }
+                left.fetch_sub(1, Ordering::AcqRel);
+            }
+        })?;
+        Ok(Self {
+            conn,
+            queue,
+            queued,
+            epoch,
+            behind: false,
+        })
+    }
+
+    /// Queue `update`, unless the device is behind (its resync covers it).
+    fn push(&mut self, update: Update) {
+        if self.behind {
+            return;
+        }
+        if self.queued.load(Ordering::Acquire) >= OUTBOX {
+            tracing::debug!("a device fell behind on phone updates; resyncing it");
+            self.epoch.fetch_add(1, Ordering::AcqRel);
+            self.behind = true;
+            return;
+        }
+        self.queued.fetch_add(1, Ordering::AcqRel);
+        let at = self.epoch.load(Ordering::Acquire);
+        if self.queue.send((at, update)).is_err() {
+            // Its sender ended: the supervisor is stopping.
+            self.queued.fetch_sub(1, Ordering::AcqRel);
+        }
+    }
+
+    /// Behind, and every dropped update has left the queue.
+    fn drained_behind(&self) -> bool {
+        self.behind && self.queued.load(Ordering::Acquire) == 0
+    }
+}
+
+impl Drop for Outbox {
+    /// What is still queued is dropped: the link went, or the device no
+    /// longer takes a phone feature.
+    fn drop(&mut self) {
+        self.epoch.fetch_add(1, Ordering::AcqRel);
+    }
+}
+
 struct Giver<'a> {
     shared: &'a Arc<Shared>,
     watch: Option<PhoneWatch>,
@@ -142,6 +281,10 @@ struct Giver<'a> {
     /// The access last seen for each feature taken (`false`: reported
     /// missing), rechecked each tick.
     seen: HashMap<Feature, bool>,
+    /// Each linked device's sender, for its live link.
+    outboxes: HashMap<DeviceId, Outbox>,
+    /// Each device's send turn, kept while a sender of it lives.
+    turns: HashMap<DeviceId, Arc<Mutex<()>>>,
 }
 
 impl Giver<'_> {
@@ -151,15 +294,24 @@ impl Giver<'_> {
 
     /// Watch the phone while a linked device takes a phone feature.
     fn follow(&mut self) {
-        let want: Vec<(DeviceId, Feature)> = PHONE
+        let linked: Vec<(Feature, DeviceId, Arc<Connection>)> = PHONE
             .iter()
             .flat_map(|&f| {
                 self.shared
                     .linked_with(f)
                     .into_iter()
-                    .map(move |(d, _)| (d, f))
+                    .map(move |(d, c)| (f, d, c))
             })
             .collect();
+        // A link gone or replaced ends its sender.
+        self.outboxes.retain(|device, outbox| {
+            linked
+                .iter()
+                .any(|(_, d, c)| d == device && Arc::ptr_eq(c, &outbox.conn))
+        });
+        // A turn only this map holds has no sender left.
+        self.turns.retain(|_, turn| Arc::strong_count(turn) > 1);
+        let want: Vec<(DeviceId, Feature)> = linked.into_iter().map(|(f, d, _)| (d, f)).collect();
         if want.is_empty() {
             self.watch = None;
             self.unarmed.clear();
@@ -240,52 +392,119 @@ impl Giver<'_> {
                     None if self.sent.remove(&key) => NotifyMsg::Removed { key },
                     None => return,
                 };
-                send(&targets, |c| send_notify(c, &msg));
+                self.send(&targets, &Update::Notify(msg));
             }
             PhoneEvent::NoteRemoved { key } => {
                 if self.sent.remove(&key) {
                     let msg = NotifyMsg::Removed { key };
                     let targets = self.shared.linked_with(Feature::Notifications);
-                    send(&targets, |c| send_notify(c, &msg));
+                    self.send(&targets, &Update::Notify(msg));
                 }
             }
-            PhoneEvent::SmsReceived(message) => self.push(&SmsPush::Incoming(message)),
-            PhoneEvent::SmsStored { thread_id } => self.push(&SmsPush::Stored { thread_id }),
+            PhoneEvent::SmsReceived(message) => self.push(SmsPush::Incoming(message)),
+            PhoneEvent::SmsStored { thread_id } => self.push(SmsPush::Stored { thread_id }),
             PhoneEvent::Call(state) => {
                 let targets = self.shared.linked_with(Feature::Calls);
-                send(&targets, |c| send_call_state(c, &state));
+                self.send(&targets, &Update::Call(state));
             }
             PhoneEvent::Dropped { count } => {
                 tracing::debug!(count, "phone events dropped; resending state");
-                let all = Gives {
-                    notes: true,
-                    calls: true,
-                    sms: true,
-                };
-                self.resend(None, all);
-                self.push(&SmsPush::Resync);
+                self.resync(None);
             }
         }
     }
 
-    fn push(&self, push: &SmsPush) {
+    fn push(&mut self, push: SmsPush) {
         let targets = self.shared.linked_with(Feature::Messages);
-        send(&targets, |c| push_sms(c, push));
+        self.send(&targets, &Update::Sms(push));
+    }
+
+    /// Queue `update` for each of `targets`, on its link's own sender.
+    fn send(&mut self, targets: &Targets, update: &Update) {
+        for (device, conn) in targets {
+            let live = self
+                .outboxes
+                .get(device)
+                .is_some_and(|o| Arc::ptr_eq(&o.conn, conn));
+            if !live {
+                let turn = Arc::clone(self.turns.entry(*device).or_default());
+                match Outbox::open(self.shared, *device, Arc::clone(conn), turn) {
+                    Ok(outbox) => {
+                        self.outboxes.insert(*device, outbox);
+                    }
+                    Err(e) => {
+                        tracing::debug!(error = %e, "phone update not sent");
+                        continue;
+                    }
+                }
+            }
+            if let Some(outbox) = self.outboxes.get_mut(device) {
+                outbox.push(update.clone());
+            }
+        }
+    }
+
+    /// Resync each device that fell behind, once its queue drained.
+    fn resync_drained(&mut self) {
+        let drained: Vec<DeviceId> = self
+            .outboxes
+            .iter_mut()
+            .filter(|(_, o)| o.drained_behind())
+            .map(|(&d, o)| {
+                o.behind = false;
+                d
+            })
+            .collect();
+        for device in drained {
+            // A dropped update may have said access came back: say it
+            // again (`resend` tells access that is missing).
+            for feature in [Feature::Notifications, Feature::Messages] {
+                let targets = self.targets(feature, Some(device));
+                if !targets.is_empty() && self.access(feature) == Some(true) {
+                    self.tell_access(&targets, feature, true);
+                }
+            }
+            // Notes unreadable: still behind, so the next round tries again.
+            if !self.resync(Some(device))
+                && let Some(outbox) = self.outboxes.get_mut(&device)
+            {
+                outbox.behind = true;
+            }
+        }
+    }
+
+    /// Send `only` (or every device) all the state it takes, after
+    /// updates were lost; views of texts refetch. Whether the notes
+    /// showing could be read.
+    fn resync(&mut self, only: Option<DeviceId>) -> bool {
+        let read = self.resend(only, Gives::ALL);
+        let targets = self.targets(Feature::Messages, only);
+        self.send(&targets, &Update::Sms(SmsPush::Resync));
+        read
+    }
+
+    /// The devices taking `feature`: only `only`, if given.
+    fn targets(&self, feature: Feature, only: Option<DeviceId>) -> Targets {
+        let mut targets = self.shared.linked_with(feature);
+        targets.retain(|(d, _)| only.is_none_or(|o| o == *d));
+        targets
     }
 
     /// Send the notes showing and the call state, as `gives` says, to
-    /// `only` (or to every device taking them).
-    fn resend(&mut self, only: Option<DeviceId>, gives: Gives) {
-        let targets = |f| -> Targets {
-            let mut t = self.shared.linked_with(f);
-            t.retain(|(d, _)| only.is_none_or(|o| o == *d));
-            t
+    /// `only` (or to every device taking them). Whether the notes, if
+    /// wanted, could be read.
+    fn resend(&mut self, only: Option<DeviceId>, gives: Gives) -> bool {
+        let mut read = true;
+        let pick = |on: bool, f| {
+            if on {
+                self.targets(f, only)
+            } else {
+                Vec::new()
+            }
         };
-        let notes = if gives.notes {
-            targets(Feature::Notifications)
-        } else {
-            Vec::new()
-        };
+        let notes = pick(gives.notes, Feature::Notifications);
+        let calls = pick(gives.calls, Feature::Calls);
+        let sms = pick(gives.sms, Feature::Messages);
         if !notes.is_empty() && self.has_access(&notes, Feature::Notifications) {
             match self.platform().active_notes() {
                 Ok(active) => {
@@ -295,28 +514,24 @@ impl Giver<'_> {
                     }
                     self.sent.extend(snapshot.iter().map(|n| n.key.clone()));
                     let msg = NotifyMsg::Snapshot(snapshot);
-                    send(&notes, |c| send_notify(c, &msg));
+                    self.send(&notes, &Update::Notify(msg));
                 }
-                Err(e) => tracing::debug!(error = %e, "notifications unreadable"),
+                Err(e) => {
+                    tracing::debug!(error = %e, "notifications unreadable");
+                    read = false;
+                }
             }
         }
-        let calls = if gives.calls {
-            targets(Feature::Calls)
-        } else {
-            Vec::new()
-        };
         if !calls.is_empty() {
             match self.platform().call_state() {
-                Ok(state) => send(&calls, |c| send_call_state(c, &state)),
+                Ok(state) => self.send(&calls, &Update::Call(state)),
                 Err(e) => tracing::debug!(error = %e, "call state unreadable"),
             }
         }
-        if gives.sms {
-            let sms = targets(Feature::Messages);
-            if !sms.is_empty() {
-                self.has_access(&sms, Feature::Messages);
-            }
+        if !sms.is_empty() {
+            self.has_access(&sms, Feature::Messages);
         }
+        read
     }
 
     /// Whether the phone holds the access `feature` needs; if not, tell
@@ -327,7 +542,7 @@ impl Giver<'_> {
         let held = self.access(feature).or(known).unwrap_or(true);
         self.seen.insert(feature, held);
         if !held {
-            tell_access(targets, feature, false);
+            self.tell_access(targets, feature, false);
         }
         held
     }
@@ -353,7 +568,7 @@ impl Giver<'_> {
             if now != was {
                 tracing::debug!(?feature, granted = now, "phone access changed");
                 self.seen.insert(feature, now);
-                tell_access(&targets, feature, now);
+                self.tell_access(&targets, feature, now);
                 // Notes that showed while access was missing were never sent.
                 if now && feature == Feature::Notifications {
                     let notes = Gives {
@@ -364,6 +579,16 @@ impl Giver<'_> {
                 }
             }
         }
+    }
+
+    /// Tell `targets` whether the phone holds the access `feature` needs.
+    fn tell_access(&mut self, targets: &Targets, feature: Feature, granted: bool) {
+        let update = if feature == Feature::Notifications {
+            Update::Notify(NotifyMsg::Access { granted })
+        } else {
+            Update::Sms(SmsPush::Access { granted })
+        };
+        self.send(targets, &update);
     }
 
     /// Whether the phone holds the access `feature` needs (`None`: unreadable).
@@ -403,25 +628,6 @@ fn perm(feature: Feature) -> PhonePerm {
         PhonePerm::NotificationAccess
     } else {
         PhonePerm::Sms
-    }
-}
-
-/// Tell `targets` whether the phone holds the access `feature` needs.
-fn tell_access(targets: &Targets, feature: Feature, granted: bool) {
-    if feature == Feature::Notifications {
-        let msg = NotifyMsg::Access { granted };
-        send(targets, |c| send_notify(c, &msg));
-    } else {
-        send(targets, |c| push_sms(c, &SmsPush::Access { granted }));
-    }
-}
-
-/// Send to each target in turn; a failure is logged and skipped.
-fn send(targets: &Targets, f: impl Fn(&Connection) -> std::result::Result<(), LinkError>) {
-    for (_, conn) in targets {
-        if let Err(e) = f(conn) {
-            tracing::debug!(error = %e, "phone update not sent");
-        }
     }
 }
 

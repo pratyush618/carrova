@@ -46,6 +46,8 @@ pub struct Recording {
     no_local_socket: AtomicBool,
     /// Plays an OS slow to say whether the screen is locked.
     slow_lock: AtomicBool,
+    /// How many times `screen_lock` was asked.
+    lock_asks: AtomicUsize,
     /// How many times `screen_lock` answered.
     lock_reads: AtomicUsize,
     /// The scripted phone's data; tests fill it through [`Recording::phone`].
@@ -69,6 +71,8 @@ pub struct Phone {
     pub perms: Vec<(PhonePerm, PermState)>,
     /// Whether `phone_perm` fails.
     pub perms_fail: bool,
+    /// Whether `active_notes` fails.
+    pub notes_fail: bool,
     pub audio: CallAudioStatus,
     /// What `call_state` reports.
     pub call: CallState,
@@ -95,6 +99,7 @@ impl Default for Phone {
             contacts: Vec::new(),
             perms: Vec::new(),
             perms_fail: false,
+            notes_fail: false,
             audio: CallAudioStatus::Ready,
             call: CallState::Idle,
             answered: None,
@@ -183,6 +188,7 @@ impl Recording {
             done: Mutex::default(),
             no_local_socket: AtomicBool::new(false),
             slow_lock: AtomicBool::new(false),
+            lock_asks: AtomicUsize::new(0),
             lock_reads: AtomicUsize::new(0),
             phone: Mutex::default(),
             events: Arc::default(),
@@ -239,6 +245,11 @@ impl Recording {
     /// Make `screen_lock` take 200 ms to answer.
     pub fn slow_screen_lock(&self) {
         self.slow_lock.store(true, Ordering::SeqCst);
+    }
+
+    /// How many times `screen_lock` was asked so far (answered or not).
+    pub fn lock_asks(&self) -> usize {
+        self.lock_asks.load(Ordering::SeqCst)
     }
 
     /// How many times `screen_lock` answered so far.
@@ -413,6 +424,7 @@ impl Platform for Recording {
         self.inner.links_paused()
     }
     fn screen_lock(&self) -> ScreenLock {
+        self.lock_asks.fetch_add(1, Ordering::SeqCst);
         if self.slow_lock.load(Ordering::SeqCst) {
             std::thread::sleep(Duration::from_millis(200));
         }
@@ -500,7 +512,11 @@ impl Platform for Recording {
         }))
     }
     fn active_notes(&self) -> Result<Vec<Note>, PlatformError> {
-        Ok(self.act("active_notes".into()).notes.clone())
+        let phone = self.act("active_notes".into());
+        if phone.notes_fail {
+            return Err(PlatformError::Unsupported("active_notes"));
+        }
+        Ok(phone.notes.clone())
     }
     fn note_reply(&self, key: &str, _text: &str) -> Result<bool, PlatformError> {
         let phone = self.act(format!("note_reply {key}"));
