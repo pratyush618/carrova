@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CallAction } from '../../../bindings/CallAction';
-import type { CallView } from '../../../bindings/CallView';
+import type { CallWindowView } from '../../../bindings/CallWindowView';
 import { useHost } from '../../../engine/host';
 import { usePort } from '../../../engine/port';
 import type { CarrovaPort } from '../../../engine/types';
@@ -23,8 +23,9 @@ import { fitWindow } from '../../fitWindow';
 import { useControllers } from '../../controllers/Controllers';
 import { useNav } from '../nav';
 
-/** The phone a call view belongs to (`null`: no call). */
-const deviceOf = (view: CallView): string | null => ('device' in view ? view.device : null);
+/** The phone the shown call belongs to (`null`: none shown), so actions reach that call. */
+const deviceOf = (shown: CallWindowView | null): string | null =>
+  shown !== null && 'device' in shown ? shown.device : null;
 
 /** Send `action` to the call on `device`; an outcome other than done changes nothing shown. */
 function act(port: CarrovaPort, device: string | null, action: CallAction): void {
@@ -41,7 +42,7 @@ export function CallWindowRoute() {
   const { closeWindow } = useHost();
   const { track, ready, dismiss } = useCallTrack(port);
   const shown = useCallWindowView(port, track.view);
-  const device = deviceOf(track.view);
+  const device = deviceOf(shown);
   const phone = useLinkedName(port, device);
   useRingtone(shown?.kind === 'ringing' && shown.ring_here);
   const sims = usePhoneSims(
@@ -99,7 +100,7 @@ export function HomeCallBar() {
   const port = usePort();
   const { track } = useCallTrack(port);
   const shown = useCallWindowView(port, track.view);
-  const device = deviceOf(track.view);
+  const device = deviceOf(shown);
   const phone = useLinkedName(port, device ?? track.left);
   const send = (action: CallAction) => {
     act(port, device, action);

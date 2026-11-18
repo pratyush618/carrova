@@ -43,7 +43,7 @@ function renderCallWindow(now: CallView = { kind: 'none' }, sims: SimChoice[] = 
         listener({ kind: 'engine', session: 'link', event: { event: 'call_view', ...view } });
     });
   };
-  return { emit, phoneCall, closeWindow };
+  return { emit, phoneCall, closeWindow, port };
 }
 
 describe('the call window', () => {
@@ -81,6 +81,17 @@ describe('the call window', () => {
     expect(screen.getByRole('button', { name: 'Mute' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Keypad' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'End' })).toBeInTheDocument();
+  });
+
+  it('sends actions to the phone whose call is shown', async () => {
+    const user = userEvent.setup();
+    const { emit, phoneCall, port } = renderCallWindow(ringing);
+    await screen.findByRole('button', { name: 'Answer' });
+    // The second phone's call is never looked up: the first one stays shown.
+    vi.spyOn(port, 'callWindow').mockReturnValue(new Promise(() => undefined));
+    emit({ ...ringing, device: 'd2' });
+    await user.click(screen.getByRole('button', { name: 'Answer' }));
+    expect(phoneCall).toHaveBeenCalledWith('p8', { kind: 'answer' });
   });
 
   it('left_state_closes_window', async () => {

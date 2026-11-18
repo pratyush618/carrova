@@ -17,6 +17,7 @@ import {
   Input,
   LinkButton,
   Row,
+  Status,
 } from '../../../ui';
 import { Group } from '../../settings/Group';
 import { SimPicker } from '../SimPicker';
@@ -141,6 +142,7 @@ export function CallsScreen({
         </Group>
       )}
       {model.failed && <Banner tone="warning" title={t('calls.log.failed', { phone })} />}
+      {log === null && !model.failed && <Status>{t('calls.log.loading', { phone })}</Status>}
       {log !== null && log.groups.length === 0 && (
         <Empty
           art="call"

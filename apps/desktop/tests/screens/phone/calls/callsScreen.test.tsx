@@ -126,6 +126,11 @@ describe('Calls', () => {
     expect(screen.getByRole('heading', { name: 'No calls yet' })).toBeInTheDocument();
   });
 
+  it('says the log is on its way until the phone answers', () => {
+    renderScreen(<CallsScreen model={model({ log: null })} on={intents()} />);
+    expect(screen.getByRole('status')).toHaveTextContent('Pixel 8');
+  });
+
   it('offers to turn calls on while they are off', async () => {
     const user = userEvent.setup();
     const on = intents();

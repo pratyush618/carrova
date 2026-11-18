@@ -72,7 +72,7 @@ describe('calls on the laptop', () => {
     });
     const bar = await screen.findByText(/Sam Rivera ·/);
     await waitFor(() => {
-      expect(bar).toHaveTextContent(/^Sam Rivera · \d\d:\d\d · on Pixel 8$/);
+      expect(bar.parentElement).toHaveTextContent(/^Sam Rivera · on Pixel 8 · \d\d:\d\d$/);
     });
     await user.click(screen.getByRole('button', { name: 'End' }));
     expect(call).toHaveBeenCalledWith('p8', { kind: 'end' });
