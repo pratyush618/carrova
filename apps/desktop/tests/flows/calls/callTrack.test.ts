@@ -24,6 +24,18 @@ describe('foldCall', () => {
     expect(track.caller).toEqual({ number: '+15550101', name: 'Sam Rivera' });
   });
 
+  it('names no caller for a call made from the phone after a missed one', () => {
+    const missed: CallView = { kind: 'missed', device: 'p8', number: '+1', name: 'Ann' };
+    const track = foldCall(foldCall(foldCall(noCall, missed), { kind: 'none' }), active);
+    expect(track.caller).toBeNull();
+  });
+
+  it('keeps the caller as an answered call changes', () => {
+    const muted: CallView = { ...active, muted: true };
+    const track = foldCall(foldCall(foldCall(noCall, ringing), active), muted);
+    expect(track.caller).toEqual({ number: '+15550101', name: 'Sam Rivera' });
+  });
+
   it('closes on left and names the phone that left', () => {
     const track = foldCall(foldCall(noCall, active), { kind: 'left', device: 'p8' });
     expect(track.view.kind).toBe('none');

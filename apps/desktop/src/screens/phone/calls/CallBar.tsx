@@ -30,10 +30,14 @@ export function CallBar({
   readonly on: CallBarIntents;
 }) {
   const { t } = useTranslation();
-  const bar = (text: string, acts: ReactNode = null) => (
-    <div className="s-callbar" role="status">
+  // Only `text` is announced: a running timer outside it doesn't re-read the bar every second.
+  const bar = (text: string, acts: ReactNode = null, timer: string | null = null) => (
+    <div className="s-callbar">
       <Icon name="call" />
-      <span className="s-callbar__text">{text}</span>
+      <span className="s-callbar__text">
+        <span role="status">{text}</span>
+        {timer !== null && ` · ${timer}`}
+      </span>
       {acts}
     </div>
   );
@@ -54,7 +58,7 @@ export function CallBar({
       const where =
         view.audio === 'laptop' ? t('calls.bar.here') : t('calls.bar.onPhone', { phone });
       return bar(
-        [who ?? t('calls.bar.active'), view.timer, where].join(' · '),
+        [who ?? t('calls.bar.active'), where].join(' · '),
         <>
           <Button
             size="sm"
@@ -70,6 +74,7 @@ export function CallBar({
             {t('calls.window.end')}
           </Button>
         </>,
+        view.timer,
       );
     }
     default:

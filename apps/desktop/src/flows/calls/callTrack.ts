@@ -26,8 +26,11 @@ export function foldCall(track: CallTrack, view: CallView): CallTrack {
     case 'ringing':
     case 'missed':
       return { view, caller: { number: view.number, name: view.name }, left: null };
-    case 'active':
-      return { view, caller: track.caller, left: null };
+    case 'active': {
+      // Only an answered (or running) call keeps its caller; one made from the phone has none.
+      const answered = track.view.kind === 'ringing' || track.view.kind === 'active';
+      return { view, caller: answered ? track.caller : null, left: null };
+    }
     case 'left':
       return { ...noCall, left: view.device };
     case 'none':

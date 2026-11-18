@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CallLogView } from '../../bindings/CallLogView';
 import type { CarrovaPort } from '../../engine/types';
 
@@ -31,10 +31,17 @@ export function useCallLog(
 } {
   const [log, setLog] = useState<CallLogView | null>(null);
   const [failed, setFailed] = useState(false);
+  // The first page's clock, for every older page: a day stays one group across midnight.
+  const at = useRef(clock());
+  // Set at once (not on the next render), so a second click finds it.
+  const asking = useRef(false);
+  // Which log (phone, calls on) is shown: bumped each time one ends.
+  const run = useRef(0);
   useEffect(() => {
     if (!on) return;
     let live = true;
-    port.callHistory(id, null, clock()).then(
+    at.current = clock();
+    port.callHistory(id, null, at.current).then(
       (page) => {
         if (live) setLog(page);
       },
@@ -44,18 +51,27 @@ export function useCallLog(
     );
     return () => {
       live = false;
+      // An older page still on its way belongs to the log that ends here.
+      run.current += 1;
+      asking.current = false;
     };
   }, [port, id, on]);
   const more = useCallback(() => {
-    if (log?.next == null) return;
-    port.callHistory(id, log.next, clock()).then(
+    if (!on || log?.next == null || asking.current) return;
+    asking.current = true;
+    const mine = run.current;
+    port.callHistory(id, log.next, at.current).then(
       (page) => {
+        if (run.current !== mine) return;
+        asking.current = false;
         setLog((now) => (now === null ? page : appendPage(now, page)));
       },
       () => {
+        if (run.current !== mine) return;
+        asking.current = false;
         setFailed(true);
       },
     );
-  }, [port, id, log]);
+  }, [port, id, on, log]);
   return { log, failed, more };
 }
