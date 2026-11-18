@@ -4,7 +4,7 @@
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -127,6 +127,29 @@ impl Device {
 
     pub fn count(&self, f: impl Fn(&Event) -> bool) -> usize {
         self.events().iter().filter(|e| f(e)).count()
+    }
+
+    /// Hold the first event matching `hold` in the sink for 200 ms, so its
+    /// emitter waits there; the receiver hears when the hold starts.
+    pub fn hold_first(&self, hold: impl Fn(&Event) -> bool + Send + 'static) -> mpsc::Receiver<()> {
+        let (started, rx) = mpsc::channel();
+        let mut held = false;
+        self.sink.set_hook(move |e| {
+            if !held && hold(e) {
+                held = true;
+                started.send(()).unwrap();
+                thread::sleep(Duration::from_millis(200));
+            }
+        });
+        rx
+    }
+
+    /// Whether an event matching `later` was emitted after `first` (which
+    /// must have been).
+    pub fn any_after(&self, first: &Event, later: impl Fn(&Event) -> bool) -> bool {
+        let events = self.events();
+        let at = events.iter().position(|e| e == first).unwrap();
+        events[at..].iter().any(later)
     }
 
     pub fn wait(&self, what: &str, f: impl Fn(&Event) -> bool) -> Event {

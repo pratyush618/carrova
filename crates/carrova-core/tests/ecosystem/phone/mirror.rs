@@ -12,7 +12,7 @@ use carrova_platform::phone::{
     CallState, Hidden, Note, PermState, PhoneEvent, PhonePerm, SmsMessage,
 };
 
-use crate::supervisor::device::{Device, fast, pair, start_both, wait_until};
+use crate::supervisor::device::{Device, T, fast, pair, start_both, wait_until};
 
 const NOTES: Feature = Feature::Notifications;
 const SMS: Feature = Feature::Messages;
@@ -622,6 +622,36 @@ fn note_cleared_while_its_pop_up_waits_never_pops_up() {
         .iter()
         .any(|e| matches!(e, Event::PhoneNote { .. }));
     assert!(!late, "a pop-up came after its feature was cleared");
+}
+
+#[test]
+fn notes_gone_never_follow_their_feature_cleared() {
+    let (phone, _sp, laptop, sl) = linked(&[NOTES], |p| {
+        p.platform.phone().notes = vec![
+            note("k1", "org.example.chat"),
+            note("k2", "org.example.mail"),
+            note("k3", "org.example.news"),
+        ];
+    });
+    wait_watching(&phone);
+    wait_notes(&sl, &phone, 3);
+    let gone = |e: &Event| matches!(e, Event::PhoneNoteGone { .. });
+    // The feature goes off while the first of two notes gone is emitted.
+    let held = laptop.hold_first(gone);
+
+    phone.platform.phone().notes = vec![note("k3", "org.example.news")];
+    phone
+        .platform
+        .script_event(PhoneEvent::Dropped { count: 1 });
+    held.recv_timeout(T).unwrap();
+    sl.set_feature(&phone.id, NOTES, FeatureState::Off).unwrap();
+    wait_until("both notes gone", || laptop.count(gone) == 2);
+
+    let off = Event::PhoneCleared {
+        device: phone.id,
+        feature: NOTES,
+    };
+    assert!(!laptop.any_after(&off, gone), "a note went after the clear");
 }
 
 /// Script `msg` arriving on the phone (provisional, `id` 0).

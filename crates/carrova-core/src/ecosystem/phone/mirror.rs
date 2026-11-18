@@ -458,10 +458,9 @@ pub(crate) fn take_notify(
     pending: Pending,
 ) {
     let now = Instant::now();
-    let changes = with_mirror(shared, device, generation, Feature::Notifications, |m| {
-        m.notify(msg, now)
-    });
-    if let Some(changes) = changes {
+    let pop = with_mirror(shared, device, generation, Feature::Notifications, |m| {
+        let changes = m.notify(msg, now);
+        // Emitted under the lock every clear takes: never after one.
         if let Some(granted) = changes.access {
             shared.emit(Event::PhoneAccess {
                 device,
@@ -475,21 +474,22 @@ pub(crate) fn take_notify(
                 key: key.into(),
             });
         }
-        if !changes.pop.is_empty() {
-            // Read outside the supervisor's lock: the OS may be slow to answer.
-            let lock = shared.platform().screen_lock();
-            let settings = shared.phone_settings();
-            // Away: the notes stay in the list, without pop-ups.
-            if !settings.only_while_active || lock == ScreenLock::Unlocked {
-                // Rechecked and emitted under the lock every clear takes:
-                // a clear during the read drops them, a later one follows.
-                with_mirror(shared, device, generation, Feature::Notifications, |_| {
-                    for note in changes.pop {
-                        let note = shown(note, lock, settings);
-                        shared.emit(Event::PhoneNote { device, note });
-                    }
-                });
-            }
+        changes.pop
+    });
+    if let Some(pop) = pop.filter(|pop| !pop.is_empty()) {
+        // Read outside the supervisor's lock: the OS may be slow to answer.
+        let lock = shared.platform().screen_lock();
+        let settings = shared.phone_settings();
+        // Away: the notes stay in the list, without pop-ups.
+        if !settings.only_while_active || lock == ScreenLock::Unlocked {
+            // Rechecked and emitted under the lock every clear takes:
+            // a clear during the read drops them, a later one follows.
+            with_mirror(shared, device, generation, Feature::Notifications, |_| {
+                for note in pop {
+                    let note = shown(note, lock, settings);
+                    shared.emit(Event::PhoneNote { device, note });
+                }
+            });
         }
     }
     ack(pending);
@@ -533,16 +533,16 @@ pub(crate) fn take_sms(
             }
         }
         SmsPush::Access { granted } => {
-            let changed = with_mirror(shared, device, generation, SMS, |m| {
-                m.set_access(SMS, granted)
+            with_mirror(shared, device, generation, SMS, |m| {
+                if m.set_access(SMS, granted) {
+                    // Under the lock every clear takes: never after one.
+                    shared.emit(Event::PhoneAccess {
+                        device,
+                        feature: SMS,
+                        granted,
+                    });
+                }
             });
-            if changed == Some(true) {
-                shared.emit(Event::PhoneAccess {
-                    device,
-                    feature: SMS,
-                    granted,
-                });
-            }
             ack(pending);
         }
         SmsPush::Resync => {
