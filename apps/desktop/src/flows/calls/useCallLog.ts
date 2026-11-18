@@ -47,7 +47,7 @@ export function useCallLog(
     };
   }, [port, id, on]);
   const more = useCallback(() => {
-    if (log?.next == null) return;
+    if (!on || log?.next == null) return;
     port.callHistory(id, log.next, clock()).then(
       (page) => {
         setLog((now) => (now === null ? page : appendPage(now, page)));
@@ -56,6 +56,6 @@ export function useCallLog(
         setFailed(true);
       },
     );
-  }, [port, id, log]);
+  }, [port, id, on, log]);
   return { log, failed, more };
 }
