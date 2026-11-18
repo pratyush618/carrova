@@ -223,4 +223,28 @@ describe('Messages', () => {
     rerender(chrome(<MessagesScreen model={again} on={intents()} />));
     expect(live()).toHaveTextContent('OK');
   });
+
+  it('announces no received text an older page brings', () => {
+    const live = () => document.querySelector('[aria-live="polite"]');
+    const mine = { id: 21, outgoing: true, text: 'See you', when_ms: 9_000, provisional: false };
+    const newest: MessagesModel = {
+      ...model,
+      thread: { messages: [mine], next: { when_ms: 9_000, id: 21 } },
+    };
+    const { rerender } = renderScreen(<MessagesScreen model={newest} on={intents()} />);
+
+    const older: MessagesModel = {
+      ...model,
+      thread: {
+        messages: [
+          { id: 5, outgoing: false, text: 'Old news', when_ms: 0, provisional: false },
+          mine,
+        ],
+        next: null,
+      },
+    };
+    rerender(chrome(<MessagesScreen model={older} on={intents()} />));
+    expect(screen.getByText('Old news')).toBeInTheDocument();
+    expect(live()).toHaveTextContent('');
+  });
 });

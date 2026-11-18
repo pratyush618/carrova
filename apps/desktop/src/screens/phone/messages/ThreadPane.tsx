@@ -21,16 +21,18 @@ const sameText = (a: MessageRow, b: MessageRow): boolean =>
  */
 function useArrived(thread: ThreadView | null): string {
   const [news, setNews] = useState('');
-  // `undefined` until loaded; `null`: nothing received yet.
-  const heard = useRef<MessageRow | null | undefined>(undefined);
-  const last = thread?.messages.findLast((m) => !m.outgoing);
+  // The newest text as last loaded: `undefined` until loaded; `null`: none yet.
+  const tail = useRef<MessageRow | null | undefined>(undefined);
   useEffect(() => {
     if (thread === null) return;
-    const was = heard.current;
-    heard.current = last ?? null;
-    if (was !== undefined && last !== undefined && (was === null || !sameText(was, last)))
-      setNews(last.text);
-  }, [thread, last]);
+    const was = tail.current;
+    tail.current = thread.messages.at(-1) ?? null;
+    if (was === undefined) return;
+    // Older pages load above that text, arrivals below it.
+    const from = was === null ? 0 : thread.messages.findLastIndex((m) => sameText(was, m)) + 1;
+    const last = thread.messages.slice(from).findLast((m) => !m.outgoing);
+    if (last !== undefined) setNews(last.text);
+  }, [thread]);
   return news;
 }
 
