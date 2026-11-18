@@ -86,4 +86,27 @@ describe('useCallLog', () => {
     });
     expect(history.mock.calls[1]?.[2]).toEqual(history.mock.calls[0]?.[2]);
   });
+
+  it('drops an older page that lands after the log restarted', async () => {
+    const { history, result, rerender } = await loaded();
+    let finish: (value: CallLogView) => void = () => undefined;
+    history.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    act(() => {
+      result.current.more();
+    });
+    history.mockResolvedValue(page(7));
+    rerender({ id: 'd2', on: true });
+    await waitFor(() => {
+      expect(result.current.log).toEqual(page(7));
+    });
+    await act(async () => {
+      finish(page(8));
+      await Promise.resolve();
+    });
+    expect(result.current.log).toEqual(page(7));
+  });
 });

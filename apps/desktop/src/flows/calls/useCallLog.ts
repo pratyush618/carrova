@@ -33,6 +33,10 @@ export function useCallLog(
   const [failed, setFailed] = useState(false);
   // The first page's clock, for every older page: a day stays one group across midnight.
   const at = useRef(clock());
+  // Set at once (not on the next render), so a second click finds it.
+  const asking = useRef(false);
+  // Which log (phone, calls on) is shown: bumped each time one ends.
+  const run = useRef(0);
   useEffect(() => {
     if (!on) return;
     let live = true;
@@ -47,19 +51,23 @@ export function useCallLog(
     );
     return () => {
       live = false;
+      // An older page still on its way belongs to the log that ends here.
+      run.current += 1;
+      asking.current = false;
     };
   }, [port, id, on]);
-  // Set at once (not on the next render), so a second click finds it.
-  const asking = useRef(false);
   const more = useCallback(() => {
     if (!on || log?.next == null || asking.current) return;
     asking.current = true;
+    const mine = run.current;
     port.callHistory(id, log.next, at.current).then(
       (page) => {
+        if (run.current !== mine) return;
         asking.current = false;
         setLog((now) => (now === null ? page : appendPage(now, page)));
       },
       () => {
+        if (run.current !== mine) return;
         asking.current = false;
         setFailed(true);
       },
