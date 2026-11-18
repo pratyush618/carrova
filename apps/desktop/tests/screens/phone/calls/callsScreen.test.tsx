@@ -109,6 +109,15 @@ describe('Calls', () => {
     expect(screen.queryByRole('radiogroup', { name: 'Call from' })).not.toBeInTheDocument();
   });
 
+  it('dials nothing for a name search with digits in it', async () => {
+    const user = userEvent.setup();
+    const on = intents();
+    renderScreen(<CallsScreen model={model()} on={on} />);
+    await user.type(screen.getByLabelText('Call a name or number'), 'Sam 2{Enter}');
+    expect(screen.getByRole('button', { name: 'Call' })).toBeDisabled();
+    expect(on.onDial).not.toHaveBeenCalled();
+  });
+
   it('calls from the default SIM, or the one picked, on a dual-SIM phone', async () => {
     const user = userEvent.setup();
     const on = intents();

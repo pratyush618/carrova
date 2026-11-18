@@ -82,7 +82,8 @@ export function CallsScreen({
         />
       </HubLayout>
     );
-  const dial = dialable(number);
+  // A name search ("Sam 2") is no number to dial.
+  const dial = /\p{L}/u.test(number) ? '' : dialable(number);
   const shown = log === null ? null : filterLog(log, number);
   const call = () => {
     if (dial !== '') on.onDial(dial, sim);
