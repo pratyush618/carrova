@@ -7,7 +7,7 @@ use carrova_link::{CallCommand, CallReply, Feature, FeatureState, PolicyDoc};
 use carrova_platform::ScreenLock;
 use carrova_platform::phone::{AudioSide, CallState, PhoneEvent};
 
-use crate::supervisor::device::{Device, pair, start_both, wait_until};
+use crate::supervisor::device::{Device, T, pair, start_both, wait_until};
 
 const NUMBER: &str = "5550100";
 
@@ -160,6 +160,29 @@ fn ringing_clears_when_link_drops() {
     sp.stop();
 
     wait_view(&laptop, &CallView::Left { device: phone.id });
+}
+
+#[test]
+fn a_call_view_never_follows_its_feature_cleared() {
+    let (phone, _sp, laptop, sl) = linked();
+    // The feature goes off between the call state and its view.
+    let held = laptop.hold_first(|e| matches!(e, Event::PhoneCall { .. }));
+
+    phone_call(&phone, ringing());
+    held.recv_timeout(T).unwrap();
+    sl.set_feature(&phone.id, Feature::Calls, FeatureState::Off)
+        .unwrap();
+    let ringing = |e: &Event| matches!(e, Event::CallView(CallView::Ringing { .. }));
+    wait_until("the ringing view", || laptop.count(ringing) == 1);
+
+    let off = Event::PhoneCleared {
+        device: phone.id,
+        feature: Feature::Calls,
+    };
+    assert!(
+        !laptop.any_after(&off, ringing),
+        "a view came after the clear"
+    );
 }
 
 #[test]

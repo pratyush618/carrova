@@ -229,19 +229,17 @@ pub(crate) fn take_call(
         CallState::Active { .. } => audio_side(&**shared.platform()),
         _ => AudioSide::Phone,
     };
+    // Lock order: call views, then peers (in `with_mirror`).
     let views = shared.call_views();
-    let taken = with_mirror(shared, device, generation, Feature::Calls, |m| {
+    let poll = with_mirror(shared, device, generation, Feature::Calls, |m| {
         let view = m.call.take(device, state.clone(), ring_here, audio);
-        let poll = m.call.active() && !std::mem::replace(&mut m.call.polling, true);
-        (view, poll)
-    });
-    let poll = taken.is_some_and(|(view, poll)| {
+        // Under the lock every clear takes: never after its `Left`.
         shared.emit(Event::PhoneCall { device, state });
         shared.emit(Event::CallView(view));
-        poll
+        m.call.active() && !std::mem::replace(&mut m.call.polling, true)
     });
     drop(views);
-    if poll {
+    if poll == Some(true) {
         watch_audio(shared, device, generation);
     }
     ack(pending);
@@ -258,20 +256,18 @@ pub(crate) fn reread_audio(
 ) -> bool {
     let audio = audio_side(&**shared.platform());
     let _views = shared.call_views();
-    let step = with_mirror(shared, device, generation, Feature::Calls, |m| {
+    let active = with_mirror(shared, device, generation, Feature::Calls, |m| {
         let active = m.call.active();
         if poller && !active {
             m.call.polling = false;
         }
-        (active, m.call.audio_now(device, audio))
+        if let Some(view) = m.call.audio_now(device, audio) {
+            // Under the lock every clear takes: never after its `Left`.
+            shared.emit(Event::CallView(view));
+        }
+        active
     });
-    let Some((active, view)) = step else {
-        return false;
-    };
-    if let Some(view) = view {
-        shared.emit(Event::CallView(view));
-    }
-    active
+    active == Some(true)
 }
 
 /// Poll the audio side of `device`'s active call until it ends, its link
