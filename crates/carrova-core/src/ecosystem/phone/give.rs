@@ -9,7 +9,7 @@
 //! phone's events are watched only while some linked device takes a phone
 //! feature. Never logs keys, titles, text, app names, numbers or names.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::{Duration, Instant};
@@ -98,7 +98,7 @@ pub(crate) fn run(shared: &Arc<Shared>, jobs: &Receiver<Job>) {
         watch: None,
         tried: Vec::new(),
         sent: HashSet::new(),
-        missing: Vec::new(),
+        seen: HashMap::new(),
     };
     while !shared.stop.is_cancelled() {
         giver.follow();
@@ -127,9 +127,9 @@ struct Giver<'a> {
     tried: Vec<(DeviceId, Feature)>,
     /// Keys of the notes sent, so a removal of one never sent stays here.
     sent: HashSet<String>,
-    /// Features whose access was reported missing: rechecked each tick
-    /// (Android says nothing when a permission is granted).
-    missing: Vec<Feature>,
+    /// The access last seen for each feature taken (`false`: reported
+    /// missing), rechecked each tick.
+    seen: HashMap<Feature, bool>,
 }
 
 impl Giver<'_> {
@@ -267,40 +267,58 @@ impl Giver<'_> {
     }
 
     /// Whether the phone holds the access `feature` needs; if not, tell
-    /// `targets` (unreadable: assumed held, as before access was known).
+    /// `targets` (unreadable: as last seen, else assumed held, as before
+    /// access was known).
     fn has_access(&mut self, targets: &Targets, feature: Feature) -> bool {
-        if self.access(feature) {
-            return true;
+        let known = self.seen.get(&feature).copied();
+        let held = self.access(feature).or(known).unwrap_or(true);
+        self.seen.insert(feature, held);
+        if !held {
+            tell_access(targets, feature, false);
         }
-        if !self.missing.contains(&feature) {
-            self.missing.push(feature);
-        }
-        tell_access(targets, feature, false);
-        false
+        held
     }
 
-    /// Tell every device taking a feature whose access was missing that it
-    /// is back; forget those no device takes now.
+    /// Tell the devices taking a feature when the access it needs goes
+    /// missing or comes back (Android says neither); forget features no
+    /// device takes now.
     fn recheck(&mut self) {
-        let missing = std::mem::take(&mut self.missing);
-        for feature in missing {
+        for feature in [Feature::Notifications, Feature::Messages] {
             let targets = self.shared.linked_with(feature);
             if targets.is_empty() {
+                self.seen.remove(&feature);
                 continue;
             }
-            if self.access(feature) {
-                tracing::debug!(?feature, "phone access granted");
-                tell_access(&targets, feature, true);
-            } else {
-                self.missing.push(feature);
+            // Unknown until a device opens it (`has_access`); unreadable:
+            // no change seen.
+            let Some(&was) = self.seen.get(&feature) else {
+                continue;
+            };
+            let Some(now) = self.access(feature) else {
+                continue;
+            };
+            if now != was {
+                tracing::debug!(?feature, granted = now, "phone access changed");
+                self.seen.insert(feature, now);
+                tell_access(&targets, feature, now);
+                // Notes that showed while access was missing were never sent.
+                if now && feature == Feature::Notifications {
+                    let notes = Gives {
+                        notes: true,
+                        ..Gives::default()
+                    };
+                    self.resend(None, notes);
+                }
             }
         }
     }
 
-    fn access(&self, feature: Feature) -> bool {
+    /// Whether the phone holds the access `feature` needs (`None`: unreadable).
+    fn access(&self, feature: Feature) -> Option<bool> {
         self.platform()
             .phone_perm(perm(feature))
-            .map_or(true, |state| state == PermState::Granted)
+            .ok()
+            .map(|state| state == PermState::Granted)
     }
 
     /// `notes` as they may leave the phone (none if the app list is

@@ -15,26 +15,37 @@ const PERMS = FEATURE_PERMS.calls ?? [];
  */
 export function Calls({
   name,
+  on,
   onBack,
   onAllow,
 }: {
   /** The computer whose page this was opened from. */
   readonly name: string;
+  /** Whether calls reach that computer (on for it on both sides). */
+  readonly on: boolean;
   readonly onBack: () => void;
   /** Grant the calls and contacts permissions. */
   readonly onAllow: () => void;
 }) {
   const { t } = useTranslation();
   const steps = usePermSteps(PERMS);
-  const ready = steps !== null && pendingPerm(PERMS, steps) === null;
+  const granted = steps !== null && pendingPerm(PERMS, steps) === null;
   return (
     <PhonePage title={t('mobile.calls.title')} onBack={onBack}>
-      {ready ? (
-        <Banner
-          tone="success"
-          title={t('mobile.calls.ready')}
-          body={t('mobile.calls.readyBody', { name })}
-        />
+      {granted ? (
+        on ? (
+          <Banner
+            tone="success"
+            title={t('mobile.calls.ready')}
+            body={t('mobile.calls.readyBody', { name })}
+          />
+        ) : (
+          <Banner
+            tone="warning"
+            title={t('mobile.calls.off')}
+            body={t('mobile.calls.offBody', { name })}
+          />
+        )
       ) : (
         <>
           <p>{t('mobile.calls.lede', { name })}</p>

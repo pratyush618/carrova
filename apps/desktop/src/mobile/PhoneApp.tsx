@@ -143,7 +143,8 @@ export function PhoneApp() {
       case 'notifications':
       case 'messages':
       case 'calls': {
-        const name = linked.devices.find((d) => d.id === view.id)?.name ?? '';
+        const device = linked.devices.find((d) => d.id === view.id);
+        const name = device?.name ?? '';
         const back = () => {
           setView({ kind: 'device', id: view.id });
         };
@@ -152,7 +153,11 @@ export function PhoneApp() {
         };
         if (view.kind === 'notifications')
           return <NotifyApps name={name} onBack={back} onAllow={allow} />;
-        if (view.kind === 'calls') return <Calls name={name} onBack={back} onAllow={allow} />;
+        if (view.kind === 'calls') {
+          const on =
+            device?.features.some((f) => f.feature === 'calls' && f.effective !== 'off') ?? false;
+          return <Calls name={name} on={on} onBack={back} onAllow={allow} />;
+        }
         return (
           <Messages
             name={name}
