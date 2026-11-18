@@ -615,22 +615,20 @@ pub(crate) fn take_sms_reply(
         return reply;
     };
     let newest = before.is_none();
-    let taken = with_mirror(shared, device, generation, Feature::Messages, |m| {
-        let stored = if newest {
-            m.reconcile(id, page)
-        } else {
-            Vec::new()
-        };
+    let shown = with_mirror(shared, device, generation, Feature::Messages, |m| {
+        if newest {
+            // Emitted under the lock every clear takes: never after one.
+            for message in m.reconcile(id, page) {
+                shared.emit(Event::PhoneSms { device, message });
+            }
+        }
         m.merge(id, page);
-        (m.with_provisional(id, newest, page), stored)
+        m.with_provisional(id, newest, page)
     });
-    let Some((shown, stored)) = taken else {
-        return reply;
-    };
-    for message in stored {
-        shared.emit(Event::PhoneSms { device, message });
+    match shown {
+        Some(shown) => SmsReply::ThreadPage(shown),
+        None => reply,
     }
-    SmsReply::ThreadPage(shown)
 }
 
 #[cfg(test)]
