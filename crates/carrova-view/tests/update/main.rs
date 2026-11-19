@@ -1,6 +1,8 @@
 //! App update download: what the user sees of it, and what it waits for.
 #![allow(clippy::unwrap_used)]
 
+mod apk;
+
 use std::time::{Duration, Instant};
 
 use carrova_view::update::{
@@ -143,4 +145,13 @@ fn a_move_holds_the_install_before_a_call() {
     assert_eq!(update_blocker(true, false), Some(UpdateBlocker::Move));
     assert_eq!(update_blocker(false, true), Some(UpdateBlocker::Call));
     assert_eq!(update_blocker(true, true), Some(UpdateBlocker::Move));
+}
+
+#[test]
+fn a_still_download_shows_how_far_without_speed() {
+    let view = DownloadView::still(25 * MB, Some(100 * MB));
+    assert_eq!(view.percent, Some(25));
+    assert_eq!(view.bytes_per_sec, None);
+    assert_eq!(view.secs_left, None);
+    assert_eq!(DownloadView::still(MB, None).percent, None);
 }

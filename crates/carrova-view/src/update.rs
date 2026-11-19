@@ -1,6 +1,9 @@
 //! App update download as the user sees it: how far, how fast, how long,
 //! and what an install waits for. Front-ends feed [`DownloadMeter`] the
-//! updater's chunks and show the [`DownloadView`]s it lets through.
+//! updater's chunks and show the [`DownloadView`]s it lets through. A
+//! sideloaded phone's own update rules are in [`apk`].
+
+pub mod apk;
 
 use std::time::{Duration, Instant};
 
@@ -31,6 +34,21 @@ pub struct DownloadView {
     pub bytes_per_sec: Option<u64>,
     /// Seconds left at that speed; `None` without a size or a usable speed.
     pub secs_left: Option<u64>,
+}
+
+impl DownloadView {
+    /// A download standing still at `done` of `total` bytes (paused, or
+    /// waiting): no speed, no time left.
+    #[must_use]
+    pub fn still(done: u64, total: Option<u64>) -> Self {
+        Self {
+            done,
+            total,
+            percent: total.map(|total| percent(done, total)),
+            bytes_per_sec: None,
+            secs_left: None,
+        }
+    }
 }
 
 /// Turns the updater's chunk callbacks into [`DownloadView`]s, at most one
@@ -80,15 +98,13 @@ impl DownloadMeter {
     fn view(&self, total: Option<u64>) -> DownloadView {
         let remaining = total.map(|total| total.saturating_sub(self.done));
         DownloadView {
-            done: self.done,
-            total,
-            percent: total.map(|total| percent(self.done, total)),
             bytes_per_sec: self.speed.map(|speed| speed.round() as u64),
             secs_left: remaining.and_then(|remaining| match self.speed {
                 _ if remaining == 0 => Some(0),
                 Some(speed) if speed >= MIN_SPEED => Some((remaining as f64 / speed).ceil() as u64),
                 _ => None,
             }),
+            ..DownloadView::still(self.done, total)
         }
     }
 }
@@ -101,7 +117,8 @@ fn percent(done: u64, total: u64) -> u8 {
     u8::try_from(done.saturating_mul(100) / total).map_or(100, |p| p.min(100))
 }
 
-/// What a downloaded update waits for before it installs.
+/// What holds an update: an install waits while a move or call runs, a
+/// phone's download while it is off Wi-Fi.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
@@ -110,6 +127,8 @@ pub enum UpdateBlocker {
     Move,
     /// A linked phone's call is running on this computer.
     Call,
+    /// A phone is off Wi-Fi and may not download on mobile data.
+    Wifi,
 }
 
 /// Why an update must not install now, if anything: installing can
