@@ -163,6 +163,30 @@ fn ringing_clears_when_link_drops() {
 }
 
 #[test]
+fn a_call_view_never_follows_its_feature_cleared() {
+    let (phone, _sp, laptop, sl) = linked();
+    // The feature goes off between the call state and its view.
+    let held = laptop.hold_first(|e| matches!(e, Event::PhoneCall { .. }));
+
+    phone_call(&phone, ringing());
+    let off = Event::PhoneCleared {
+        device: phone.id,
+        feature: Feature::Calls,
+    };
+    laptop.clear_while_held(&held, &off, || {
+        sl.set_feature(&phone.id, Feature::Calls, FeatureState::Off)
+            .unwrap();
+    });
+    let ringing = |e: &Event| matches!(e, Event::CallView(CallView::Ringing { .. }));
+    wait_until("the ringing view", || laptop.count(ringing) == 1);
+
+    assert!(
+        !laptop.any_after(&off, ringing),
+        "a view came after the clear"
+    );
+}
+
+#[test]
 fn idle_link_drop_shows_nothing() {
     let (_phone, sp, laptop, _sl) = linked();
     laptop.wait("the idle call state", |e| {

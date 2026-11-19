@@ -624,6 +624,64 @@ fn note_cleared_while_its_pop_up_waits_never_pops_up() {
     assert!(!late, "a pop-up came after its feature was cleared");
 }
 
+#[test]
+fn notes_gone_never_follow_their_feature_cleared() {
+    let (phone, _sp, laptop, sl) = linked(&[NOTES], |p| {
+        p.platform.phone().notes = vec![
+            note("k1", "org.example.chat"),
+            note("k2", "org.example.mail"),
+            note("k3", "org.example.news"),
+        ];
+    });
+    wait_watching(&phone);
+    wait_notes(&sl, &phone, 3);
+    let gone = |e: &Event| matches!(e, Event::PhoneNoteGone { .. });
+    // The feature goes off while the first of two notes gone is emitted.
+    let held = laptop.hold_first(gone);
+
+    phone.platform.phone().notes = vec![note("k3", "org.example.news")];
+    phone
+        .platform
+        .script_event(PhoneEvent::Dropped { count: 1 });
+    let off = Event::PhoneCleared {
+        device: phone.id,
+        feature: NOTES,
+    };
+    laptop.clear_while_held(&held, &off, || {
+        sl.set_feature(&phone.id, NOTES, FeatureState::Off).unwrap();
+    });
+    wait_until("both notes gone", || laptop.count(gone) == 2);
+
+    assert!(!laptop.any_after(&off, gone), "a note went after the clear");
+}
+
+#[test]
+fn stored_texts_never_follow_their_feature_cleared() {
+    let at = now_ms();
+    let (phone, _sp, laptop, sl) = linked(&[SMS], |_| {});
+    wait_watching(&phone);
+    receive(&phone, &saying(0, 5, at, "ok"));
+    receive(&phone, &saying(0, 5, at + 1000, "ok"));
+    wait_until("both provisional texts", || texts(&laptop).len() == 2);
+    // The feature goes off while the first of two stored rows is emitted.
+    let held =
+        laptop.hold_first(|e| matches!(e, Event::PhoneSms { message, .. } if message.id != 0));
+
+    let rows = [saying(3, 5, at + 950, "ok"), saying(2, 5, at - 50, "ok")];
+    store(&phone, 5, &rows);
+    let off = Event::PhoneCleared {
+        device: phone.id,
+        feature: SMS,
+    };
+    laptop.clear_while_held(&held, &off, || {
+        sl.set_feature(&phone.id, SMS, FeatureState::Off).unwrap();
+    });
+    wait_until("both stored texts", || texts(&laptop).len() == 4);
+
+    let sms = |e: &Event| matches!(e, Event::PhoneSms { .. });
+    assert!(!laptop.any_after(&off, sms), "a text came after the clear");
+}
+
 /// Script `msg` arriving on the phone (provisional, `id` 0).
 fn receive(phone: &Device, msg: &SmsMessage) {
     let received = PhoneEvent::SmsReceived(msg.clone());

@@ -4,7 +4,7 @@
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -129,6 +129,61 @@ impl Device {
         self.events().iter().filter(|e| f(e)).count()
     }
 
+    /// Hold the first event matching `hold` in the sink until released,
+    /// so its emitter waits there (see [`Device::clear_while_held`]).
+    pub fn hold_first(&self, hold: impl Fn(&Event) -> bool + Send + 'static) -> Held {
+        let (started, started_rx) = mpsc::channel();
+        let (release, release_rx) = mpsc::channel::<()>();
+        let mut held = false;
+        self.sink.set_hook(move |e| {
+            if !held && hold(e) {
+                held = true;
+                started.send(()).unwrap();
+                // Bounded only so a broken test fails instead of hanging.
+                let _ = release_rx.recv_timeout(T);
+            }
+        });
+        Held {
+            started: started_rx,
+            release,
+        }
+    }
+
+    /// Once `held` is reached, run `clear` (which emits `cleared`) on
+    /// another thread and release the held event once `cleared` went out,
+    /// or 1 s after `clear` started without it (it is then taken to wait
+    /// on the held emitter: the mirror lock is the first thing a clear
+    /// takes). An emitter outside that lock thus emits after the clear;
+    /// one under it holds the clear back until its event is out.
+    // shortcut: "waiting on the lock" is inferred from time, not observed;
+    // observing it needs a hook inside the supervisor's lock.
+    pub fn clear_while_held(&self, held: &Held, cleared: &Event, clear: impl FnOnce() + Send) {
+        held.started.recv_timeout(T).unwrap();
+        let (running, started) = mpsc::channel();
+        thread::scope(|s| {
+            let clearing = s.spawn(move || {
+                running.send(()).unwrap();
+                clear();
+            });
+            // Bounded only so a broken test fails instead of hanging.
+            started.recv_timeout(T).unwrap();
+            let until = Instant::now() + Duration::from_secs(1);
+            while !self.events().contains(cleared) && Instant::now() < until {
+                thread::sleep(Duration::from_millis(10));
+            }
+            let _ = held.release.send(());
+            clearing.join().unwrap();
+        });
+    }
+
+    /// Whether an event matching `later` was emitted after `first` (which
+    /// must have been).
+    pub fn any_after(&self, first: &Event, later: impl Fn(&Event) -> bool) -> bool {
+        let events = self.events();
+        let at = events.iter().position(|e| e == first).unwrap();
+        events[at..].iter().any(later)
+    }
+
     pub fn wait(&self, what: &str, f: impl Fn(&Event) -> bool) -> Event {
         let mut found = None;
         wait_until(what, || {
@@ -216,4 +271,10 @@ pub fn start_both(low: &Device, high: &Device) -> (Supervisor, Supervisor) {
     low.sees(high, &sh);
     high.sees(low, &sl);
     (sl, sh)
+}
+
+/// An event held in a device's sink by [`Device::hold_first`].
+pub struct Held {
+    started: mpsc::Receiver<()>,
+    release: mpsc::Sender<()>,
 }
