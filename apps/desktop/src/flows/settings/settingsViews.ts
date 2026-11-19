@@ -136,6 +136,7 @@ export function settingsModel(s: SettingsSources, now: Date): SettingsModel {
       headline: r.headline,
     })),
     update: offer?.status === 'available' ? { version: offer.version } : null,
+    appVersion: s.about?.app_version ?? null,
     moveDefaults: s.settings.move_defaults,
     startInManual: s.settings.start_in_manual,
     fileManager:

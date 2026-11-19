@@ -146,6 +146,7 @@ export const settings = {
     updateReady: 'Carrova {{version}} is ready',
     upToDate: 'Carrova is up to date',
     checkApp: 'Check for a newer Carrova',
+    version: 'Version {{version}} · check for a newer one',
     about: 'About and licences',
   },
   sending: {

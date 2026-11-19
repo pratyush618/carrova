@@ -65,6 +65,8 @@ export interface SettingsModel {
   readonly reports: readonly ReportLine[];
   /** A newer Carrova the last check found, if any. */
   readonly update: { readonly version: string } | null;
+  /** The running Carrova's version; `null` until the engine answered. */
+  readonly appVersion: string | null;
   /** What every new move starts with (each move can still change it). */
   readonly moveDefaults: MoveDefaults;
   /** Send opens in Manual mode. */

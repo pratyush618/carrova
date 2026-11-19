@@ -30,6 +30,7 @@ export const settingsModel: SettingsModel = {
   errorReports: false,
   reports: [],
   update: { version: '0.2.0' },
+  appVersion: '0.1.0',
   moveDefaults: { conflict_rule: 'replace', retention: 'until_dismissed', include_caches: false },
   startInManual: false,
   fileManager: { on: true, skipped: [], failed: false },
