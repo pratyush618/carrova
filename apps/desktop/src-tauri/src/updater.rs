@@ -3,17 +3,25 @@
 //!
 //! Nothing installs on its own: the UI calls `check_update`, shows the
 //! version and notes, and only on the user's go-ahead calls
-//! `install_update` for that exact version, then offers
-//! `restart_app`.
+//! `install_update` for that exact version (progress arrives as
+//! [`BridgeEvent::Update`](carrova_view::ipc::BridgeEvent::Update); see
+//! `install`), then offers `restart_app`.
+
+mod install;
 
 use std::sync::Mutex;
 use std::time::Duration;
 
 use carrova_view::ipc::{ErrorCode, UpdateInfo, UpdateStatus};
-use tauri::{AppHandle, State};
+use carrova_view::update::update_blocker;
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_updater::{Update, UpdaterExt};
+use tokio::sync::watch;
 
+use crate::call_window::LastCall;
 use crate::command_error::CommandError;
+use crate::state::AppState;
+use install::Signal;
 
 /// Longest wait for the release feed before the check reports a network error.
 const CHECK_TIMEOUT: Duration = Duration::from_secs(10);
@@ -52,13 +60,24 @@ impl PendingUpdate {
             .unwrap_or_else(std::sync::PoisonError::into_inner) = update;
     }
 
-    /// Takes the pending update if it is `version`.
-    fn take_if(&self, version: &str) -> Option<Update> {
-        let mut pending = self
-            .0
+    /// The pending update, if it is `version`. It stays pending until
+    /// installed, so a failed or cancelled install can run again.
+    fn offered(&self, version: &str) -> Option<Update> {
+        self.0
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        pending.take_if(|update| update.version == version)
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+            .filter(|update| update.version == version)
+    }
+}
+
+/// Carries the user's Cancel and Install anyway to the install in progress.
+#[derive(Debug)]
+pub struct UpdateControl(watch::Sender<Signal>);
+
+impl Default for UpdateControl {
+    fn default() -> Self {
+        Self(watch::Sender::new(Signal::Go))
     }
 }
 
@@ -88,20 +107,47 @@ pub async fn check_update(
 
 /// `CarrovaPort.installUpdate`: downloads, verifies (minisign) and
 /// installs `version`, which must be the one the last `check_update`
-/// offered.
+/// offered. A verified package waits while a move or call runs.
 #[tauri::command]
 pub async fn install_update(
+    app: AppHandle,
+    state: State<'_, AppState>,
     pending: State<'_, PendingUpdate>,
+    control: State<'_, UpdateControl>,
     version: String,
 ) -> Result<UpdateStatus, CommandError> {
-    let update = pending.take_if(&version).ok_or_else(|| {
+    let update = pending.offered(&version).ok_or_else(|| {
         CommandError::new(
             ErrorCode::Session,
             format!("version {version} is not on offer; check for updates again"),
         )
     })?;
-    update.download_and_install(|_, _| {}, || {}).await?;
+    control.0.send_replace(Signal::Go);
+    let blocker = || {
+        let on_call = app
+            .try_state::<LastCall>()
+            .is_some_and(|call| call.running().is_some());
+        update_blocker(state.sessions.busy(), on_call)
+    };
+    install::install(&update, &app, blocker, control.0.subscribe()).await?;
+    pending.replace(None);
     Ok(UpdateStatus::Installed { version })
+}
+
+/// `CarrovaPort.cancelUpdate`: stops the install in progress before it
+/// installs anything.
+#[tauri::command]
+pub async fn cancel_update(control: State<'_, UpdateControl>) -> Result<(), CommandError> {
+    control.0.send_replace(Signal::Cancel);
+    Ok(())
+}
+
+/// `CarrovaPort.installUpdateAnyway`: installs the waiting update now,
+/// while a move or call runs.
+#[tauri::command]
+pub async fn install_update_anyway(control: State<'_, UpdateControl>) -> Result<(), CommandError> {
+    control.0.send_replace(Signal::Anyway);
+    Ok(())
 }
 
 /// `CarrovaPort.restartApp`: restarts Carrova gracefully (after an
