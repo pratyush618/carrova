@@ -1,8 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useControllers } from '../app/controllers/Controllers';
 import { EcosystemToasts } from '../app/shell/EcosystemToasts';
+import { usePort } from '../engine/port';
 import type { Feature, LinkedDeviceView } from '../engine/types';
+import { current } from '../flows/remote';
 import { PHASE2_FEATURES, type Phase2Feature } from '../screens/devices/model';
 import { Toast, Window } from '../ui';
 import { PhoneDevice, type PhoneScreen } from './home/PhoneDevice';
@@ -21,6 +23,9 @@ import { usePermGate } from './phone/usePermGate';
 import { PhoneOverlay, type PhoneOverlayModel } from './PhoneOverlay';
 import { PhoneSettings } from './PhoneSettings';
 import { PhoneTabs, type PhoneTab } from './PhoneTabs';
+import { UpdatedToast } from './update/UpdatedToast';
+import { UpdatePage } from './update/UpdatePage';
+import { useUpdated } from './update/useUpdated';
 import { useOpened } from './useOpened';
 import { useSendNote, NOTE_KEY } from './useSendNote';
 import './mobile.css';
@@ -29,6 +34,7 @@ import './mobile.css';
 type PhoneView =
   | { readonly kind: PhoneTab }
   | { readonly kind: 'pair' }
+  | { readonly kind: 'update' }
   | { readonly kind: 'choose'; readonly device: LinkedDeviceView }
   | { readonly kind: 'device'; readonly id: string }
   /** A phone feature's own screen, opened from computer `id`'s page. */
@@ -41,7 +47,7 @@ type PhoneView =
  */
 export function PhoneApp() {
   const { t } = useTranslation();
-  const { linked } = useControllers();
+  const { linked, update, settings } = useControllers();
   const [view, setView] = useState<PhoneView>({ kind: 'home' });
   // What the user opened here (a send, Forget), then the links the app was
   // opened with, in turn: one never replaces another.
@@ -53,6 +59,18 @@ export function PhoneApp() {
   // Welcome or Home only once the list is known, so neither flashes.
   const [loaded, setLoaded] = useState(false);
   const { reload, setFeature, sendClipboard } = linked;
+  const updated = useUpdated(usePort());
+  const offer = current(update.check);
+  const offered = offer?.status === 'available' ? offer.version : null;
+  // Once settings load, look for an update if the user lets Carrova (never downloads by itself).
+  const autoCheck = settings.settings?.auto_check_app;
+  const runCheck = update.runCheck;
+  const autoChecked = useRef(false);
+  useEffect(() => {
+    if (autoCheck !== true || autoChecked.current) return;
+    autoChecked.current = true;
+    runCheck();
+  }, [autoCheck, runCheck]);
   // Android permissions, asked when a feature needing them turns on.
   const gate = usePermGate();
   const turnOn = (feature: Feature) => {
@@ -82,8 +100,19 @@ export function PhoneApp() {
   const open = (id: string) => {
     setView({ kind: 'device', id });
   };
+  const openUpdate = () => {
+    setView({ kind: 'update' });
+  };
   const page = ((): ReactNode => {
     switch (view.kind) {
+      case 'update':
+        return (
+          <UpdatePage
+            onBack={() => {
+              setView({ kind: 'home' });
+            }}
+          />
+        );
       case 'pair':
         return (
           <PhonePairing
@@ -180,6 +209,7 @@ export function PhoneApp() {
               onActivity: () => {
                 setView({ kind: 'activity' });
               },
+              onUpdate: openUpdate,
             }}
           />
         );
@@ -190,9 +220,11 @@ export function PhoneApp() {
         ) : (
           <PhoneHome
             devices={linked.devices}
+            update={offered}
             on={{
               onAdd: pair,
               onOpen: open,
+              onUpdate: openUpdate,
               onSendClipboard: () => {
                 setOverlay({ kind: 'clipboard' });
               },
@@ -248,6 +280,9 @@ export function PhoneApp() {
           )}
         </div>
         <EcosystemToasts />
+        {updated.version !== null && (
+          <UpdatedToast version={updated.version} onDismiss={updated.dismiss} />
+        )}
         {note !== null && (
           <Toast icon={note.kind === 'actionFailed' ? 'warn' : 'check'} onDismiss={dismiss}>
             {t(NOTE_KEY[note.kind], { name: note.name })}
