@@ -148,6 +148,8 @@ export interface SettingsIntents {
 /**
  * The app update dialog: checking, nothing new, an offer, then the install's steps
  * (download, signature check, waiting for a move or call, install) and the restart.
+ * A phone's download can also pause, wait for Wi-Fi and wait for the install permission;
+ * `installed` there means handed to Android's installer.
  */
 export type UpdateModel =
   | { readonly status: 'checking' | 'up_to_date' }
@@ -158,8 +160,14 @@ export type UpdateModel =
       /** `null` until the first bytes arrive. */
       readonly progress: DownloadView | null;
     }
+  /** A phone's download, paused by the user. */
+  | { readonly status: 'paused'; readonly version: string; readonly progress: DownloadView }
   | { readonly status: 'waiting'; readonly version: string; readonly blocker: UpdateBlocker }
-  | { readonly status: 'verifying' | 'installing' | 'installed'; readonly version: string }
+  /** A phone's checked download, waiting for Android's "Install unknown apps". */
+  | {
+      readonly status: 'verifying' | 'permission' | 'installing' | 'installed';
+      readonly version: string;
+    }
   | {
       readonly status: 'failed';
       readonly error: BridgeError;

@@ -18,5 +18,6 @@ export const errors = {
   device_key: "A saved computer key can't be used",
   unsupported: "This device can't do that",
   permission_denied: 'The phone needs a permission first',
+  bad_update: "The update didn't install",
   internal: 'Something went wrong',
 } as const;

@@ -6,8 +6,8 @@ import type { UpdateBlocker } from "./UpdateBlocker";
  * Where an approved update install is now, between the user's go-ahead
  * and the `install_update` result.
  */
-export type UpdateStep = { "step": "downloading" } & DownloadView | { "step": "verifying" } | { "step": "waiting", 
+export type UpdateStep = { "step": "downloading" } & DownloadView | { "step": "paused" } & DownloadView | { "step": "verifying" } | { "step": "waiting", 
 /**
- * What is running.
+ * What holds it.
  */
-blocker: UpdateBlocker, } | { "step": "installing" };
+blocker: UpdateBlocker, } | { "step": "needs_permission" } | { "step": "installing" };

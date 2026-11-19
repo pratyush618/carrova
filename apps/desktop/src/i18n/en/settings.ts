@@ -191,9 +191,18 @@ export const settings = {
     noEstimate: 'No estimate',
     verifying: 'Checking the signature',
     verifyingBody: "Making sure this package was signed by Carrova's release key.",
+    paused: 'Download paused',
+    pausedBody: 'It picks up from here when you resume.',
+    pause: 'Pause',
+    resume: 'Resume',
+    permission: {
+      title: 'Allow updates',
+      body: "Android needs your OK first: Carrova isn't allowed to install apps yet. The update is downloaded and checked.",
+    },
     waiting: {
       move: 'Waiting until the move finishes',
       call: 'Waiting until the call ends',
+      wifi: 'Waiting for Wi-Fi',
     },
     waitingBody: "Carrova {{version}} installs after it ends; you don't need to do anything.",
     again: 'Download again',
@@ -202,10 +211,12 @@ export const settings = {
       title: {
         move: 'Install while the move runs?',
         call: 'Install during the call?',
+        wifi: 'Download on mobile data?',
       },
       body: {
         move: 'Installing can close Carrova, which would stop the move.',
         call: 'Installing can close Carrova, which would end the call.',
+        wifi: 'The update comes out of your data plan.',
       },
       wait: 'Wait for it',
       confirm: 'Install anyway',

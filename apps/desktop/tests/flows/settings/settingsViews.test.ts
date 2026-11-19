@@ -30,6 +30,7 @@ const SETTINGS: Settings = {
     updates: 'bell_only',
   },
   nearby: { remember: true, accept_known: true, wol_hints: false },
+  app_update: { mobile_data: false, last_checked: null, last_run: null },
 };
 
 /** Visibility not loaded, nothing remembered. */
@@ -268,6 +269,35 @@ describe('settings views', () => {
       blocker: 'call',
     });
     expect(updateModel(offer, loading, '0.3.0', { step: 'installing' }).status).toBe('installing');
+  });
+
+  it("follows a phone's download through pause, Wi-Fi and the install permission", () => {
+    const offer = {
+      status: 'ready',
+      value: {
+        status: 'available',
+        version: '0.3.0',
+        current_version: '0.2.0',
+        notes: null,
+        date: null,
+      },
+    } as const;
+    const loading = { status: 'loading', last: null } as const;
+    const still = { done: 40, total: 100, percent: 40, bytes_per_sec: null, secs_left: null };
+    expect(updateModel(offer, loading, '0.3.0', { step: 'paused', ...still })).toMatchObject({
+      status: 'paused',
+      version: '0.3.0',
+      progress: still,
+    });
+    expect(updateModel(offer, loading, '0.3.0', { step: 'waiting', blocker: 'wifi' })).toEqual({
+      status: 'waiting',
+      version: '0.3.0',
+      blocker: 'wifi',
+    });
+    expect(updateModel(offer, loading, '0.3.0', { step: 'needs_permission' })).toEqual({
+      status: 'permission',
+      version: '0.3.0',
+    });
   });
 
   it('offers a failed install again, and goes back to the offer when cancelled', () => {

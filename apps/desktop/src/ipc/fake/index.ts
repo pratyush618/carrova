@@ -63,6 +63,7 @@ const DEFAULT_SETTINGS: Settings = {
     updates: 'bell_only',
   },
   nearby: { remember: true, accept_known: true, wol_hints: false },
+  app_update: { mobile_data: false, last_checked: null, last_run: null },
 };
 
 /** This (fake) machine, for the About sheet. */
@@ -277,6 +278,9 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
     installUpdate: () => later(() => undefined),
     cancelUpdate: () => later(() => undefined),
     installUpdateAnyway: () => later(() => undefined),
+    pauseUpdate: () => later(() => undefined),
+    openInstallPermission: () => later(() => undefined),
+    takeUpdated: () => later(() => null),
     restartApp: () => later(() => undefined),
 
     errorReportConsent: () => later(() => consent),

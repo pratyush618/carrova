@@ -157,11 +157,14 @@ export function createTauriPort(): CarrovaPort {
     setBackground: (patch) => call('set_background', { patch }),
 
     checkUpdate: () => call('check_update'),
-    installUpdate: async (version) => {
-      await call('install_update', { version });
+    installUpdate: async (version, mobileData) => {
+      await call('install_update', { version, mobileData });
     },
     cancelUpdate: () => call('cancel_update'),
     installUpdateAnyway: () => call('install_update_anyway'),
+    pauseUpdate: (paused) => call('pause_update', { paused }),
+    openInstallPermission: () => call('open_install_permission'),
+    takeUpdated: () => call('take_updated'),
     restartApp: () => call('restart_app'),
 
     errorReportConsent: () => call('error_report_consent'),

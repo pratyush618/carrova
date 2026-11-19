@@ -185,8 +185,12 @@ function installStep(version: string, step: UpdateStep | null): UpdateModel {
   switch (step.step) {
     case 'downloading':
       return { status: 'downloading', version, progress: step };
+    case 'paused':
+      return { status: 'paused', version, progress: step };
     case 'waiting':
       return { status: 'waiting', version, blocker: step.blocker };
+    case 'needs_permission':
+      return { status: 'permission', version };
     case 'verifying':
     case 'installing':
       return { status: step.step, version };

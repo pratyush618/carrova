@@ -21,8 +21,15 @@ function useUpdateText(model: UpdateModel): { title: string; body: string | null
         title: t('settings.update.downloading', { version: model.version }),
         body: t('settings.update.downloadingBody'),
       };
+    case 'paused':
+      return { title: t('settings.update.paused'), body: t('settings.update.pausedBody') };
     case 'verifying':
       return { title: t('settings.update.verifying'), body: t('settings.update.verifyingBody') };
+    case 'permission':
+      return {
+        title: t('settings.update.permission.title'),
+        body: t('settings.update.permission.body'),
+      };
     case 'waiting':
       return {
         title: t(`settings.update.waiting.${model.blocker}`),
@@ -41,7 +48,7 @@ function useUpdateText(model: UpdateModel): { title: string; body: string | null
 }
 
 /** The download bar and its numbers: percent, size, speed and time left, as measured. */
-function DownloadBar({ progress }: { readonly progress: DownloadView | null }) {
+export function DownloadBar({ progress }: { readonly progress: DownloadView | null }) {
   const { t } = useTranslation();
   const format = useFormat();
   const timeLeft = useTimeLeft();
@@ -137,7 +144,9 @@ function UpdateFoot({
         </>
       );
     case 'downloading':
+    case 'paused':
     case 'verifying':
+    case 'permission':
       return (
         <>
           {cancel}
@@ -224,7 +233,9 @@ export function UpdateDialog({
       }
     >
       {text.body !== null && <p>{text.body}</p>}
-      {model.status === 'downloading' && <DownloadBar progress={model.progress} />}
+      {(model.status === 'downloading' || model.status === 'paused') && (
+        <DownloadBar progress={model.progress} />
+      )}
       {(model.status === 'checking' ||
         model.status === 'verifying' ||
         model.status === 'installing') && <Status>{t('settings.update.wait')}</Status>}

@@ -30,6 +30,7 @@ const ERROR_CODES: Readonly<Record<ErrorCode, true>> = {
   device_key: true,
   unsupported: true,
   permission_denied: true,
+  bad_update: true,
   internal: true,
 };
 
