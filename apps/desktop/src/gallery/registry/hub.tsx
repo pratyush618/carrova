@@ -21,7 +21,8 @@ import {
 } from '../../screens/nearby/fixtures';
 import type { NearbyModel } from '../../screens/nearby/model';
 import { ForgetDevicesDialog, KnownDevicesSheet } from '../../screens/settings/KnownDevicesSheet';
-import { AboutSheet, CrashDialog, UpdateDialog } from '../../screens/settings/SettingsDialogs';
+import { AboutSheet, CrashDialog } from '../../screens/settings/SettingsDialogs';
+import { UpdateDialog } from '../../screens/settings/UpdateDialog';
 import { SECTIONS } from '../../screens/settings/sections';
 import { SettingsScreen } from '../../screens/settings/SettingsScreen';
 import {
@@ -32,6 +33,7 @@ import {
   settingsModel,
   settingsNoFileManager,
   update,
+  UPDATE,
 } from '../../screens/settings/fixtures';
 import { UndoConfirmDialog } from '../../screens/undo/UndoConfirmDialog';
 import { undoPreview } from '../../screens/undo/fixtures';
@@ -257,13 +259,24 @@ export const hubScreens: readonly GalleryScreen[] = [
   {
     id: 'update',
     group: 'Settings',
-    title: 'Update ready (dialog)',
+    title: 'Updating Carrova (dialog)',
     view: { kind: 'hub', page: 'settings' },
-    states: [],
-    render: () => ({
+    states: states(
+      ['available', 'Ready to install'],
+      ['downloading', 'Downloading'],
+      ['verifying', 'Checking the signature'],
+      ['waiting', 'Waits for a move'],
+      ['installed', 'Restart to finish'],
+      ['failed', 'Download failed'],
+    ),
+    render: (s) => ({
       base: settingsBase,
       overlays: [
-        <UpdateDialog key="u" model={update} on={noops('onLater', 'onInstall', 'onRestart')} />,
+        <UpdateDialog
+          key="u"
+          model={UPDATE[s] ?? update}
+          on={noops('onLater', 'onInstall', 'onCancel', 'onInstallAnyway', 'onRestart')}
+        />,
       ],
     }),
   },

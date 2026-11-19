@@ -6,7 +6,8 @@ import {
 } from '../../../screens/settings/KnownDevicesSheet';
 import { ForgetDialog } from '../../../screens/history/ForgetDialog';
 import { aboutModel } from '../../../flows/settings/settingsViews';
-import { AboutSheet, CrashDialog, UpdateDialog } from '../../../screens/settings/SettingsDialogs';
+import { AboutSheet, CrashDialog } from '../../../screens/settings/SettingsDialogs';
+import { UpdateDialog } from '../../../screens/settings/UpdateDialog';
 import { UndoConfirmDialog } from '../../../screens/undo/UndoConfirmDialog';
 import { useControllers } from '../../controllers/Controllers';
 import { useNav } from '../nav';
@@ -53,7 +54,13 @@ export function UpdateOverlay() {
   return (
     <UpdateDialog
       model={update.model}
-      on={{ onLater: nav.close, onInstall: update.install, onRestart: update.restart }}
+      on={{
+        onLater: nav.close,
+        onInstall: update.install,
+        onCancel: update.cancel,
+        onInstallAnyway: update.installAnyway,
+        onRestart: update.restart,
+      }}
     />
   );
 }

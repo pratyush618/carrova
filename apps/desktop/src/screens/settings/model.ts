@@ -4,8 +4,10 @@ import type { NearbySettings } from '../../bindings/NearbySettings';
 import type {
   BridgeError,
   ClipSettings,
+  DownloadView,
   MoveDefaults,
   OsKind,
+  UpdateBlocker,
   VisibilityChoice,
 } from '../../engine/types';
 import type { DeviceChange } from '../nearby/model';
@@ -141,16 +143,36 @@ export interface SettingsIntents {
   readonly onBack: () => void;
 }
 
-/** The app update dialog: checking, nothing new, an offer, installing, or done. */
+/**
+ * The app update dialog: checking, nothing new, an offer, then the install's steps
+ * (download, signature check, waiting for a move or call, install) and the restart.
+ */
 export type UpdateModel =
   | { readonly status: 'checking' | 'up_to_date' }
   | { readonly status: 'available'; readonly version: string; readonly notes: string | null }
-  | { readonly status: 'installing' | 'installed'; readonly version: string }
-  | { readonly status: 'failed'; readonly error: BridgeError };
+  | {
+      readonly status: 'downloading';
+      readonly version: string;
+      /** `null` until the first bytes arrive. */
+      readonly progress: DownloadView | null;
+    }
+  | { readonly status: 'waiting'; readonly version: string; readonly blocker: UpdateBlocker }
+  | { readonly status: 'verifying' | 'installing' | 'installed'; readonly version: string }
+  | {
+      readonly status: 'failed';
+      readonly error: BridgeError;
+      /** The version to download again; `null` when the check itself failed. */
+      readonly version: string | null;
+    };
 
 export interface UpdateIntents {
   readonly onLater: () => void;
+  /** Install (again, after a failure) the version on offer. */
   readonly onInstall: () => void;
+  /** Stop the install in progress; nothing changes. */
+  readonly onCancel: () => void;
+  /** Install now although a move or call runs (the dialog asks first). */
+  readonly onInstallAnyway: () => void;
   readonly onRestart: () => void;
 }
 

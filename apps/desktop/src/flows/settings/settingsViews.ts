@@ -7,6 +7,7 @@ import type {
   ReportSummary,
   Settings,
   UpdateStatus,
+  UpdateStep,
 } from '../../engine/types';
 import type { RecipesCheck } from '../../bindings/RecipesCheck';
 import type {
@@ -177,20 +178,40 @@ export function aboutModel(about: About | null): AboutModel {
   };
 }
 
-/** The update dialog from the check and install calls. */
+/** The running install of `version` from its latest step (`null`: none yet). */
+function installStep(version: string, step: UpdateStep | null): UpdateModel {
+  if (step === null) return { status: 'downloading', version, progress: null };
+  switch (step.step) {
+    case 'downloading':
+      return { status: 'downloading', version, progress: step };
+    case 'waiting':
+      return { status: 'waiting', version, blocker: step.blocker };
+    case 'verifying':
+    case 'installing':
+      return { status: step.step, version };
+  }
+}
+
+/**
+ * The update dialog from the check and install calls and the install's latest step.
+ * A cancelled install goes back to the offer.
+ */
 export function updateModel(
   check: Remote<UpdateStatus>,
   install: Remote<void>,
   version: string | null,
+  step: UpdateStep | null,
 ): UpdateModel {
   if (version !== null) {
     switch (install.status) {
       case 'loading':
-        return { status: 'installing', version };
+        return installStep(version, step);
       case 'ready':
         return { status: 'installed', version };
       case 'failed':
-        return { status: 'failed', error: install.error };
+        if (install.error.code !== 'cancelled')
+          return { status: 'failed', error: install.error, version };
+        break;
       case 'idle':
         break;
     }
@@ -200,7 +221,7 @@ export function updateModel(
     case 'loading':
       return { status: 'checking' };
     case 'failed':
-      return { status: 'failed', error: check.error };
+      return { status: 'failed', error: check.error, version: null };
     case 'ready': {
       const v = check.value;
       if (v.status === 'available')

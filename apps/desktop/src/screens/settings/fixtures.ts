@@ -58,6 +58,33 @@ export const update: UpdateModel = {
   notes: 'Faster moves on busy networks, and 4 new apps.',
 };
 
+/** The install's states after "Install", by gallery state. */
+export const UPDATE: Record<string, UpdateModel> = {
+  downloading: {
+    status: 'downloading',
+    version: '0.2.0',
+    progress: {
+      done: 38_200_000,
+      total: 96_400_000,
+      percent: 39,
+      bytes_per_sec: 4_100_000,
+      secs_left: 15,
+    },
+  },
+  verifying: { status: 'verifying', version: '0.2.0' },
+  waiting: { status: 'waiting', version: '0.2.0', blocker: 'move' },
+  installed: { status: 'installed', version: '0.2.0' },
+  failed: {
+    status: 'failed',
+    version: '0.2.0',
+    error: {
+      code: 'network',
+      message: 'Download failed.',
+      hint: 'Check your network connection and try again.',
+    },
+  },
+};
+
 export const crash: CrashModel = {
   report: [
     'carrova 0.1.0, linux',
