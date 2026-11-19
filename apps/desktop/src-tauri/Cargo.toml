@@ -44,6 +44,8 @@ tauri-plugin-notification = { workspace = true }
 tauri-plugin-opener = { workspace = true }
 tauri-plugin-single-instance = { workspace = true }
 tracing = { workspace = true }
+# A phone's app update: the release feed and APK (already in the tree via carrova-bundle).
+ureq = { workspace = true }
 zeroize = { workspace = true }
 
 # Desktop only: phones update through a new APK, not the updater.

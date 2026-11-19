@@ -79,7 +79,7 @@ impl CommandError {
     }
 
     /// `error` with its cause chain as the message.
-    fn chained(code: ErrorCode, error: &(dyn Error + 'static)) -> Self {
+    pub(crate) fn chained(code: ErrorCode, error: &(dyn Error + 'static)) -> Self {
         Self::new(code, message_chain(error))
     }
 

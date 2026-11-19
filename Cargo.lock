@@ -781,6 +781,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "ureq",
  "zeroize",
 ]
 

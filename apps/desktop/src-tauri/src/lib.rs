@@ -32,10 +32,14 @@
 //!   quick-settings tile or notification action), queued for the UI.
 //! - `mobile` (phones only): one window, a process that outlives it, and
 //!   the entry of the link service that keeps it alive.
-//! - [`recipes`], [`settings`], [`error_report`], [`updater`] (desktop):
-//!   services.
+//! - [`recipes`], [`settings`], [`error_report`], [`updater`] (desktop),
+//!   `apk_update` (phones): services.
 //! - [`command_error`]: the one mapping of every failure to `BridgeError`.
 
+#[cfg(any(mobile, test))]
+pub mod apk_download;
+#[cfg(mobile)]
+pub mod apk_update;
 #[cfg(desktop)]
 pub mod call_window;
 pub mod command_error;
@@ -105,6 +109,8 @@ pub fn run() -> tauri::Result<()> {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(<updater::PendingUpdate>::default())
         .manage(updater::UpdateControl::default());
+    #[cfg(mobile)]
+    let builder = builder.manage(apk_update::ApkUpdate::default());
     builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
@@ -245,6 +251,20 @@ pub fn run() -> tauri::Result<()> {
             updater::install_update_anyway,
             #[cfg(desktop)]
             updater::restart_app,
+            #[cfg(mobile)]
+            apk_update::check_update,
+            #[cfg(mobile)]
+            apk_update::install_update,
+            #[cfg(mobile)]
+            apk_update::cancel_update,
+            #[cfg(mobile)]
+            apk_update::install_update_anyway,
+            #[cfg(mobile)]
+            apk_update::pause_update,
+            #[cfg(mobile)]
+            apk_update::open_install_permission,
+            #[cfg(mobile)]
+            apk_update::take_updated,
             commands::reports::error_report_consent,
             commands::reports::set_error_report_consent,
             commands::reports::error_reports,
