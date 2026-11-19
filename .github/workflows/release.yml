@@ -1,24 +1,26 @@
 # Two release trains from one repo, separated by tag:
 #   v*          desktop app: AppImage + .deb + .rpm, x86_64 + aarch64 (.dmg/.msi/NSIS off until Phase 5),
-#               one updater latest.json for all three OSes
+#               one updater latest.json for all three OSes; signed arm64 APK
 #   recipes-v*  recipe bundle: immutable `recipes-vN` release + the
 #               `recipes-latest` pointer (latest.json = {"version": N})
 #
 # Job graph (both trains):
-#   verify ─► sign-bundle ─┬─► app      (v*)
-#                          └─► recipes  (recipes-v*)
+#   verify ─► sign-bundle ─┬─► app ─► android  (v*)
+#                          └─► recipes         (recipes-v*)
 #
 # REPO SETTINGS REQUIRED (not expressible in YAML): the `release` environment
 # must have deployment tag rules `v*` + `recipes-v*` (no required reviewers:
 # releases run unattended; the app lands as a draft for a manual smoke test),
-# and BUNDLE_SIGNER_* / TAURI_SIGNING_* (+ optional APPLE_* / WINDOWS_*
-# OS-signing secrets, see packaging/README.md) must be environment secrets
-# (not repo secrets). Add tag protection (rulesets) for both patterns as well.
+# and BUNDLE_SIGNER_* / TAURI_SIGNING_* / ANDROID_KEYSTORE_B64 +
+# ANDROID_KEYSTORE_PASSWORD + ANDROID_KEY_ALIAS + ANDROID_KEY_PASSWORD
+# (+ optional APPLE_* / WINDOWS_* OS-signing secrets, see packaging/README.md)
+# must be environment secrets (not repo secrets). Add tag protection
+# (rulesets) for both patterns as well.
 #
 # Secret isolation: only `sign-bundle` sees BUNDLE_SIGNER_*; it installs Rust
 # and nothing else (no Node/pnpm, no Tauri libs, no caches). The app job sees
-# only the updater + OS-signing keys; the recipes job sees no environment
-# secrets at all.
+# only the updater + OS-signing keys; the android job only ANDROID_*; the
+# recipes job sees no environment secrets at all.
 name: release
 
 on:
@@ -244,6 +246,79 @@ jobs:
           cd "$RUNNER_TEMP"
           "$GITHUB_WORKSPACE"/target/release/bundle/appimage/*.AppImage --appimage-extract >/dev/null
           ls squashfs-root/usr/lib/libayatana-appindicator3.so.1
+
+  # Signed arm64 APK, attached to the draft the app job created (hence `needs: app`).
+  android:
+    name: android APK
+    needs: app
+    if: startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: release
+    permissions:
+      contents: write # upload the APK to the draft release
+    env:
+      NDK_VERSION: 27.1.12297006
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          rust: "true"
+          node: "true"
+          cache: "false"
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      # The runner ships the SDK at $ANDROID_HOME; only the pinned NDK is added.
+      - name: Android NDK + Rust target
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" >/dev/null
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+          rustup target add aarch64-linux-android
+      # Outside the workspace, so no later step can upload or cache it.
+      - name: Release keystore
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for name in ANDROID_KEYSTORE_B64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            [[ -n "${!name}" ]] || { echo "::error::release environment secret $name is not set"; missing=1; }
+          done
+          (( missing == 0 )) || exit 1
+          umask 077
+          base64 -d <<< "$ANDROID_KEYSTORE_B64" > "$RUNNER_TEMP/android-release.jks"
+      - name: Build signed APK
+        env:
+          CARROVA_ANDROID_KEYSTORE: ${{ runner.temp }}/android-release.jks
+          CARROVA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          CARROVA_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          CARROVA_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: just android-build release aarch64
+      - name: Verify signature
+        id: apk
+        run: |
+          apk=apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk # arm64-only despite the name
+          apksigner="$(printf '%s\n' "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
+          "$apksigner" verify --print-certs "$apk"
+          echo "path=$apk" >> "$GITHUB_OUTPUT"
+      - name: Upload to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          APK: ${{ steps.apk.outputs.path }}
+        run: |
+          version="$(jq -er .version apps/desktop/package.json)"
+          cp "$APK" "$RUNNER_TEMP/Carrova_${version}_android-arm64.apk"
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/Carrova_${version}_android-arm64.apk" --clobber
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/android-release.jks"
 
   recipes:
     name: publish recipe bundle
