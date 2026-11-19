@@ -165,8 +165,18 @@ fn ringing_clears_when_link_drops() {
 #[test]
 fn a_call_view_never_follows_its_feature_cleared() {
     let (phone, _sp, laptop, sl) = linked();
-    // The feature goes off between the call state and its view.
-    let held = laptop.hold_first(|e| matches!(e, Event::PhoneCall { .. }));
+    // The feature goes off between the call state and its view. Only the
+    // ringing state is held: the link-open idle state may land after the
+    // hook is set, and holding it would clear Calls before the call came.
+    let held = laptop.hold_first(|e| {
+        matches!(
+            e,
+            Event::PhoneCall {
+                state: CallState::Ringing { .. },
+                ..
+            }
+        )
+    });
 
     phone_call(&phone, ringing());
     let off = Event::PhoneCleared {
