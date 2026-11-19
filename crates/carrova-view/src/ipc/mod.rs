@@ -22,7 +22,7 @@ mod recipes;
 mod reply;
 mod settings;
 
-pub use about::{About, UpdateInfo, UpdateStatus};
+pub use about::{About, UpdateInfo, UpdateStatus, UpdateStep};
 pub use defaults::EngineDefaults;
 pub use phone::{CallAction, CallOutcome, NoteAction, NoteOutcome};
 pub use recipes::{
@@ -99,6 +99,11 @@ pub enum BridgeEvent {
     Notice {
         /// The new, unread notice.
         notice: Notice,
+    },
+    /// An app update install moved on (progress, signature check, waiting).
+    Update {
+        /// Where it is now.
+        step: UpdateStep,
     },
 }
 

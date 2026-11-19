@@ -3,6 +3,8 @@
 use carrova_platform::OsKind;
 use serde::Serialize;
 
+use crate::update::{DownloadView, UpdateBlocker};
+
 /// `about` result: what the About sheet shows.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -49,4 +51,24 @@ pub enum UpdateStatus {
         /// Installed version.
         version: String,
     },
+}
+
+/// Where an approved update install is now, between the user's go-ahead
+/// and the `install_update` result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(tag = "step", rename_all = "snake_case")]
+pub enum UpdateStep {
+    /// The package is downloading.
+    Downloading(DownloadView),
+    /// Downloaded; its signature is being checked against the release key.
+    Verifying,
+    /// Downloaded and verified; installs once `blocker` ends (or the user
+    /// says to install anyway).
+    Waiting {
+        /// What is running.
+        blocker: UpdateBlocker,
+    },
+    /// Installing now.
+    Installing,
 }

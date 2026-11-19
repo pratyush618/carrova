@@ -6,6 +6,7 @@ import type { Notice } from "./Notice";
 import type { PairInviteView } from "./PairInviteView";
 import type { PairPeerView } from "./PairPeerView";
 import type { SessionId } from "./SessionId";
+import type { UpdateStep } from "./UpdateStep";
 
 /**
  * Everything the bridge pushes to the front-end.
@@ -58,4 +59,8 @@ error: BridgeError | null, } | { "kind": "send_requested" } | { "kind": "show_ne
 /**
  * The new, unread notice.
  */
-notice: Notice, };
+notice: Notice, } | { "kind": "update", 
+/**
+ * Where it is now.
+ */
+step: UpdateStep, };
