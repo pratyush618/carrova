@@ -61,14 +61,20 @@ pub enum UpdateStatus {
 pub enum UpdateStep {
     /// The package is downloading.
     Downloading(DownloadView),
+    /// The user paused the download (a phone's); it picks up from here.
+    Paused(DownloadView),
     /// Downloaded; its signature is being checked against the release key.
     Verifying,
-    /// Downloaded and verified; installs once `blocker` ends (or the user
-    /// says to install anyway).
+    /// Held until `blocker` ends, or the user says to go on anyway: a
+    /// verified install while a move or call runs, a phone's download
+    /// while it is off Wi-Fi.
     Waiting {
-        /// What is running.
+        /// What holds it.
         blocker: UpdateBlocker,
     },
-    /// Installing now.
+    /// Downloaded and verified; the OS needs the user's leave to install
+    /// apps first (a phone's "Install unknown apps").
+    NeedsPermission,
+    /// Installing now (a phone: handed to the OS installer, which asks).
     Installing,
 }

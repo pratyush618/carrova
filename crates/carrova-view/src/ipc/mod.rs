@@ -30,8 +30,8 @@ pub use recipes::{
 };
 pub use reply::{PickedReply, PlanReply, ScanReply};
 pub use settings::{
-    AlertChannel, AlertSettings, BackgroundSettings, MoveDefaults, NearbySettings, SETTINGS_FILE,
-    Settings, SettingsError, Theme,
+    AlertChannel, AlertSettings, AppUpdateSettings, BackgroundSettings, MoveDefaults,
+    NearbySettings, SETTINGS_FILE, Settings, SettingsError, Theme,
 };
 
 /// Name of the one event channel the bridge emits on.
@@ -164,6 +164,9 @@ pub enum ErrorCode {
     Unsupported,
     /// A phone permission it needs is not granted.
     PermissionDenied,
+    /// A downloaded app update is not a trusted, newer Carrova; it was
+    /// deleted and nothing changed.
+    BadUpdate,
     /// Anything else.
     Internal,
 }
