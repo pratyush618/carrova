@@ -382,8 +382,12 @@ export interface CarrovaPort {
 
   // --- App updates (never installed without the user's click) -------------
   checkUpdate(): Promise<UpdateStatus>;
-  /** Install exactly the version that `checkUpdate` offered. */
+  /** Install exactly the version that `checkUpdate` offered; its steps arrive as `update` events. */
   installUpdate(version: string): Promise<void>;
+  /** Stop the install in progress (it then fails with `cancelled`); nothing is installed. */
+  cancelUpdate(): Promise<void>;
+  /** Install the waiting update now, while a move or call runs. */
+  installUpdateAnyway(): Promise<void>;
   restartApp(): Promise<void>;
 
   // --- Error reports (opt-in; nothing leaves the machine by itself) -------

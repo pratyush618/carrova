@@ -79,6 +79,9 @@ export function isBridgeEvent(value: unknown): value is BridgeEvent {
   if (value['kind'] === 'notice') {
     return isRecord(value['notice']) && typeof value['notice']['summary'] === 'string';
   }
+  if (value['kind'] === 'update') {
+    return isRecord(value['step']) && typeof value['step']['step'] === 'string';
+  }
   if (typeof value['session'] !== 'string') {
     return false;
   }

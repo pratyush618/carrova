@@ -24,6 +24,11 @@ describe('the IPC guards', () => {
     expect(isBridgeEvent({ kind: 'notice' })).toBe(false);
   });
 
+  it('accept an update step, which names no session, only with its step', () => {
+    expect(isBridgeEvent({ kind: 'update', step: { step: 'verifying' } })).toBe(true);
+    expect(isBridgeEvent({ kind: 'update' })).toBe(false);
+  });
+
   it('turn an unknown code into an internal error', () => {
     expect(toBridgeError({ code: 'mystery', message: 'm', hint: null }).code).toBe('internal');
   });

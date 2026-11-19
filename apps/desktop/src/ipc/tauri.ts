@@ -160,6 +160,8 @@ export function createTauriPort(): CarrovaPort {
     installUpdate: async (version) => {
       await call('install_update', { version });
     },
+    cancelUpdate: () => call('cancel_update'),
+    installUpdateAnyway: () => call('install_update_anyway'),
     restartApp: () => call('restart_app'),
 
     errorReportConsent: () => call('error_report_consent'),
