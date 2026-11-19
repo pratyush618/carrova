@@ -12,5 +12,12 @@
     <string name="remind_channel">Access reminders</string>
     <string name="remind_notifications">Carrova needs notification access</string>
     <string name="remind_sms">Carrova needs SMS access</string>
+    <string name="cancel">Cancel</string>
+    <string name="update_channel">App updates</string>
+    <string name="update_title">Downloading Carrova %1$s</string>
+    <string name="update_of">%1$s of %2$s</string>
+    <string name="update_rate">%1$s · %2$s/s</string>
+    <string name="update_paused">Paused · %1$s</string>
+    <string name="update_waiting">Waiting for Wi-Fi · %1$s</string>
     <string name="remind_text">Tap to allow it, so your linked computer can use it.</string>
 </resources>
