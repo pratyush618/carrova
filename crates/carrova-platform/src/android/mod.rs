@@ -2,13 +2,13 @@
 //!
 //! Filesystem primitives and `PATH` lookup are the Unix ones shared with
 //! Linux (`crate::sys`). Clipboard, Downloads, opening, ring, the
-//! multicast lock, the link service, the QR scanner and the phone
-//! (notifications, SMS, calls) go through one
+//! multicast lock, the link service, the QR scanner, the phone
+//! (notifications, SMS, calls) and app updates go through one
 //! static Kotlin method each (`org.byteveda.carrova.platform.*`), reached
 //! over JNI in [`jni`] (ADR 0003). The helpers here are pure, so they
 //! are tested on any host.
 
-use crate::ClipKind;
+use crate::{ClipKind, UpdateTap};
 
 #[cfg(target_os = "android")]
 mod clipboard;
@@ -32,6 +32,8 @@ mod service;
 #[cfg(test)]
 #[path = "../../tests/android/unit.rs"]
 mod tests;
+#[cfg(target_os = "android")]
+mod update;
 
 #[cfg(target_os = "android")]
 pub use jni::attach_service_context;
@@ -64,4 +66,15 @@ fn is_sensitive(extra: Option<&str>) -> bool {
 /// reads at most one byte past it, so an endless stream is refused here.
 fn within_cap(len: usize) -> bool {
     len as u64 <= crate::clipboard::MAX_BYTES
+}
+
+/// A tap on the update notification as `Updates.takeTap()` names it;
+/// `None` for none or a name this build does not know.
+fn update_tap(name: Option<&str>) -> Option<UpdateTap> {
+    match name? {
+        "pause" => Some(UpdateTap::Pause),
+        "resume" => Some(UpdateTap::Resume),
+        "cancel" => Some(UpdateTap::Cancel),
+        _ => None,
+    }
 }

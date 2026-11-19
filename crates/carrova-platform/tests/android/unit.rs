@@ -56,3 +56,16 @@ fn clip_size_cap_is_inclusive() {
     assert!(within_cap(cap));
     assert!(!within_cap(cap + 1));
 }
+
+#[test]
+fn update_taps_read_by_name() {
+    assert_eq!(update_tap(Some("pause")), Some(UpdateTap::Pause));
+    assert_eq!(update_tap(Some("resume")), Some(UpdateTap::Resume));
+    assert_eq!(update_tap(Some("cancel")), Some(UpdateTap::Cancel));
+}
+
+#[test]
+fn no_tap_or_an_unknown_one_is_none() {
+    assert_eq!(update_tap(None), None);
+    assert_eq!(update_tap(Some("install")), None);
+}

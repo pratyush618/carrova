@@ -4,6 +4,7 @@
 //! the [`Platform`] trait. Adding OS behaviour means adding a trait method here,
 //! never a `cfg(target_os)` elsewhere.
 
+mod app_update;
 mod clipboard;
 mod device;
 mod download;
@@ -50,6 +51,7 @@ use fsops as sys;
 
 #[cfg(target_os = "android")]
 pub use android::attach_service_context;
+pub use app_update::{AppPackage, UpdateNotice, UpdateStage, UpdateTap};
 pub use clipboard::{ClipContent, ClipKind, ClipboardWatch};
 pub use download::DownloadSink;
 pub use error::PlatformError;
