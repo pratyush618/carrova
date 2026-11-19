@@ -2,8 +2,8 @@
 
 Carrova ships for Ubuntu as an **AppImage** and a **.deb**, for macOS as a
 universal **.dmg** (Apple Silicon + Intel, macOS 11+), and for Windows as an
-**.msi** and an NSIS **.exe** installer, all built by the Tauri bundler from
-`apps/desktop`. Flathub repackages the `.deb`. The CLI installs with Cargo.
+**.msi** and an NSIS **.exe** installer, and for Android as an arm64 **.apk**,
+all built by the Tauri bundler from `apps/desktop`. Flathub repackages the `.deb`. The CLI installs with Cargo.
 
 | Piece | Where |
 |---|---|
@@ -159,6 +159,8 @@ Bundle keys: see `keys/README.md` (`cargo xtask bundle keygen|certify`).
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | same |
 | `BUNDLE_SIGNER_KEY` | `release.yml` recipes job (`just bundle-sign`) |
 | `BUNDLE_SIGNER_CERT` | same |
+| `ANDROID_KEYSTORE_B64` | `release.yml` android job (base64 of the release keystore) |
+| `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD` | same |
 
 ### OS code signing (optional secrets, same `release` environment)
 
@@ -197,6 +199,37 @@ instead — see <https://v2.tauri.app/distribute/sign/windows/>.
 
 `GITHUB_TOKEN` is provided by Actions. The environment should require a
 reviewer and allow only `v*` / `recipes-v*` tags.
+
+### Android release key
+
+Every `v*` release attaches `Carrova_<ver>_android-arm64.apk`, signed with
+one long-lived key. Android only installs an update signed by the same key,
+so **losing it means installed apps can never be updated**: back up the
+keystore and its passwords offline. Never commit or paste them.
+
+Create it once (keytool asks for the passwords):
+
+```sh
+mkdir -p ~/.config/carrova-release && chmod 700 ~/.config/carrova-release
+keytool -genkeypair -v -keystore ~/.config/carrova-release/android-release.jks \
+  -alias carrova -keyalg RSA -keysize 4096 -validity 10000
+```
+
+Store it as `release` environment secrets (`gh secret set` prompts for
+values it is not piped):
+
+```sh
+base64 -w0 ~/.config/carrova-release/android-release.jks | gh secret set ANDROID_KEYSTORE_B64 --env release
+gh secret set ANDROID_KEYSTORE_PASSWORD --env release
+gh secret set ANDROID_KEY_ALIAS --env release --body carrova
+gh secret set ANDROID_KEY_PASSWORD --env release
+```
+
+A local signed build reads the same values from the environment:
+`CARROVA_ANDROID_KEYSTORE=<path> CARROVA_ANDROID_KEYSTORE_PASSWORD=…
+CARROVA_ANDROID_KEY_ALIAS=carrova CARROVA_ANDROID_KEY_PASSWORD=… just
+android-build release aarch64`. The APK's `versionName`/`versionCode` come
+from `apps/desktop/package.json` (`tauri.conf.json` → `version`).
 
 ## Exit-gate smoke test (clean Ubuntu 24.04 VM)
 
