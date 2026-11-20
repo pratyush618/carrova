@@ -505,7 +505,7 @@ Ethernet, Android 13+ mid-range phone.
 | Bitrate | start 4 Mbit/s; adapt 0.5–12 Mbit/s |
 | Static screen | frames only on damage, plus 1 fps keep-alive |
 | Size | long edge capped at 1920 px in v1 (downscaled by the encoder path) |
-| Queues | sharer ≤ 2 unacked frames (a bounded in-flight pipeline: 30 fps holds while RTT + decode + ack ≤ about 66 ms; the 1080p30 targets are measured on a LAN with RTT ≤ 20 ms, and above the bound the frame rate falls and the rate controller lowers quality), skipping at capture, never after encoding (viewer acks each `seq` on the `Screen` lane, or answers a decode failure with `Keyframe { failed: seq }`, which also releases the credit, Q5); viewer ≤ 2 frames before decode |
+| Queues | sharer ≤ 2 unacked frames (a bounded in-flight pipeline: 30 fps holds while RTT + decode + ack ≤ about 66 ms; the 1080p30 targets are measured on a LAN with RTT ≤ 20 ms, and above the bound the frame rate falls and the rate controller lowers quality), skipping at capture, never after encoding (viewer acks each `seq` on the `Screen` lane, or answers a decode failure with `Keyframe { failed: seq }`, which also releases the credit; frames discarded while waiting for that keyframe are acked, so every `seq` gets one answer, Q5); viewer ≤ 2 frames before decode |
 | Idle | zero: no capture, encoder, hook or portal session without a live session |
 | Phone mirroring battery | measured in 3a, recorded here; target ≤ 8 % per 30 min |
 
@@ -725,7 +725,7 @@ Questions 1–5 came from the builder check (2026-11-20) and block ADR
    viewer fails to decode a frame it answers that `seq` with `Keyframe {
    failed: seq }` instead of an ack; this releases the sharer's credit and
    the next encoded frame is a keyframe, so recovery never waits on a
-   credit that will not come back. It measures the real end to end (network + decode),
+   credit that will not come back. Every in-flight `seq` gets exactly one answer: an ack once decoded, `Keyframe { failed: seq }` for the frame that failed, and a plain ack for frames the viewer discards while it waits for that keyframe, so no credit is ever left held. It measures the real end to end (network + decode),
    feeds the rate controller, and needs no transport change beyond
    `set_priority`. The sharer's session loop polls `recv` with a short
    timeout between sends (a timeout loses nothing, `stream.rs:38-49`).*
