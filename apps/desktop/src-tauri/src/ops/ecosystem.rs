@@ -13,7 +13,7 @@ use carrova_core::ecosystem::{
     SharedSupervisor, SupervisorHandle, accept_invite, link_with_code, offer_pairing,
 };
 use carrova_core::lan::CODE_LIFETIME;
-use carrova_core::{Cancel, CodeOffer, CoreError, Engine, NullSink, SessionId};
+use carrova_core::{Cancel, CodeOffer, CoreError, Engine, Event, EventSink, NullSink, SessionId};
 use carrova_crypto::identity::{DeviceId, Fingerprint};
 use carrova_link::{Feature, FeatureState};
 use carrova_platform::Platform;
@@ -23,9 +23,11 @@ use carrova_view::ecosystem::{
 };
 use carrova_view::ipc::{BridgeEvent, ErrorCode, LINK_SESSION};
 use carrova_view::lan::code_view;
+use carrova_view::notice::ask_news;
 
 use crate::command_error::CommandError;
-use crate::events::Emit;
+use crate::events::{Emit, SessionSink};
+use crate::ops::inbox;
 use crate::ops::receive::ticket;
 use crate::state::AppState;
 use crate::worker::blocking;
@@ -105,16 +107,49 @@ pub fn serve_link(
     start: impl FnOnce() -> Result<SharedSupervisor, CoreError>,
 ) -> Result<(), CommandError> {
     start_once(&state.link, start)?;
-    let sink = state.sink_for(&SessionId(LINK_SESSION.to_owned()));
+    let sink = link_sink(state);
     let link = Arc::clone(&state.link);
     std::thread::Builder::new()
         .name("carrova-link-events".to_owned())
         .spawn(move || {
             if let Some(link) = link.get() {
-                link.forward(&*sink);
+                link.forward(&sink);
             }
         })?;
     Ok(())
+}
+
+/// Forwards the link's events to the UI, and keeps each ask in the bell
+/// (with a pop-up, as the alert settings say): an ask answered only in a
+/// hidden window would expire unseen.
+pub(super) struct AskAlerts {
+    state: AppState,
+    ui: Arc<SessionSink>,
+}
+
+/// Where the link's events go: the UI, and the bell for asks.
+pub(super) fn link_sink(state: &AppState) -> AskAlerts {
+    AskAlerts {
+        state: state.clone(),
+        ui: state.sink_for(&SessionId(LINK_SESSION.to_owned())),
+    }
+}
+
+impl EventSink for AskAlerts {
+    fn emit(&self, event: Event) {
+        let ask = match &event {
+            Event::AskReceived { device, kind, .. } => Some((*device, ask_news(kind))),
+            _ => None,
+        };
+        self.ui.emit(event);
+        if let Some((device, (kind, words))) = ask {
+            let peer = self.state.link.get().and_then(|link| {
+                let peers = link.call(SupervisorHandle::status).ok()?;
+                peers.into_iter().find(|p| p.id == device).map(|p| p.name)
+            });
+            inbox::notify(&self.state, kind, peer, words.to_owned());
+        }
+    }
 }
 
 /// The devices linked now, for the tray. Blocking; empty (logged) when the

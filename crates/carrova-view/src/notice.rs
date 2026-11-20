@@ -1,6 +1,7 @@
 //! Which surfaces of an alert fire, by the user's preferences. The bell
 //! always keeps the notice; this decides the rest.
 
+use carrova_core::ecosystem::AskKind;
 use carrova_core::{Notice, NoticeKind};
 use carrova_platform::ScreenLock;
 
@@ -55,6 +56,18 @@ pub fn popup_text(notice: &Notice, show_names: bool) -> String {
         (Some(_), false) => format!("A known device {}", notice.summary),
         (None, _) => notice.summary.clone(),
     }
+}
+
+/// The request notice of a device's `ask`: its kind and the words that
+/// continue the device's name. No file name or host: a pop-up may show on
+/// a locked screen.
+#[must_use]
+pub fn ask_news(ask: &AskKind) -> (NoticeKind, &'static str) {
+    let words = match ask {
+        AskKind::File { .. } => "wants to send you a file.",
+        AskKind::Handoff { .. } => "wants to continue something here.",
+    };
+    (NoticeKind::SendRequest, words)
 }
 
 /// What a move that ended with `error` (`None`: it finished) is worth

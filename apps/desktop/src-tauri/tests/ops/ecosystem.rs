@@ -342,3 +342,30 @@ fn own_fingerprint_is_this_devices_key() {
         .unwrap();
     assert_eq!(shown, Fingerprint::of(&key.public()).to_string());
 }
+
+#[test]
+fn an_ask_reaches_the_bell_as_a_send_request_from_its_device() {
+    use carrova_core::ecosystem::AskKind;
+    use carrova_core::{Event, EventSink, NoticeKind};
+    let machine = Machine::new();
+    remember(&machine, 3, "Pixel");
+    let state = served(&machine);
+    let ask: AskId = serde_json::from_value(serde_json::json!(1)).unwrap();
+
+    ecosystem::link_sink(&state).emit(Event::AskReceived {
+        ask,
+        device: public(3),
+        kind: AskKind::File {
+            name: "a.png".into(),
+            size: 1,
+        },
+    });
+
+    let notices = block_on(crate::ops::inbox::list(&state)).unwrap();
+    assert_eq!(notices.len(), 1);
+    assert_eq!(notices[0].kind, NoticeKind::SendRequest);
+    assert_eq!(notices[0].peer.as_deref(), Some("Pixel"));
+    // The UI still gets the ask itself, to answer it.
+    let engine = machine.events.recorded.of_kind("engine");
+    assert!(engine.iter().any(|e| e["event"]["event"] == "ask_received"));
+}
