@@ -6,6 +6,7 @@ import type { Contact } from '../../../bindings/Contact';
 import type { SimChoice } from '../../../bindings/SimChoice';
 import { dialable, filterLog } from '../../../flows/calls/callSearch';
 import { presetSim } from '../../../flows/phone/usePhoneSims';
+import type { Unreachable } from '../../../mobile/model';
 import {
   Banner,
   Button,
@@ -28,6 +29,8 @@ export interface CallsModel {
   readonly phone: string;
   /** Calls are on for this phone (off: nothing rings here, no log). */
   readonly on: boolean;
+  /** Why the phone can't be asked now (`null`: it can). */
+  readonly unreachable: Unreachable | null;
   /** `null` until the phone answers. */
   readonly log: CallLogView | null;
   /** The log couldn't be read. */
@@ -79,6 +82,16 @@ export function CallsScreen({
               {t('calls.log.turnOn')}
             </Button>
           }
+        />
+      </HubLayout>
+    );
+  if (model.unreachable === 'offThere')
+    return (
+      <HubLayout variant="center">
+        <Empty
+          art="call"
+          title={t('calls.log.offThereTitle', { phone })}
+          body={t('calls.log.offThereBody', { phone })}
         />
       </HubLayout>
     );
@@ -143,7 +156,21 @@ export function CallsScreen({
         </Group>
       )}
       {model.failed && <Banner tone="warning" title={t('calls.log.failed', { phone })} />}
-      {log === null && !model.failed && <Status>{t('calls.log.loading', { phone })}</Status>}
+      {log === null &&
+        !model.failed &&
+        (model.unreachable === 'away' ? (
+          <Empty
+            art="call"
+            title={t('calls.log.awayTitle', { phone })}
+            body={t('calls.log.awayBody')}
+          />
+        ) : (
+          <Status>
+            {model.unreachable === 'connecting'
+              ? t('calls.log.connecting', { phone })
+              : t('calls.log.loading', { phone })}
+          </Status>
+        ))}
       {log !== null && log.groups.length === 0 && (
         <Empty
           art="call"

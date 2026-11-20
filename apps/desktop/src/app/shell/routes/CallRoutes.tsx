@@ -18,6 +18,7 @@ import { CallsSetupDialog } from '../../../screens/phone/calls-setup/CallsSetupD
 import { CallBar } from '../../../screens/phone/calls/CallBar';
 import { CallsScreen } from '../../../screens/phone/calls/CallsScreen';
 import { CallWindowScreen } from '../../../screens/phone/calls/CallWindowScreen';
+import { unreachable } from '../../../mobile/model';
 import { HubLayout } from '../../../ui';
 import { fitWindow } from '../../fitWindow';
 import { useControllers } from '../../controllers/Controllers';
@@ -131,7 +132,9 @@ export function CallsRoute({ id }: { readonly id: string }) {
   const { linked } = useControllers();
   const device = linked.devices.find((d) => d.id === id);
   const on = device?.features.some((f) => f.feature === 'calls' && f.local === 'on') ?? false;
-  const live = on && device?.state === 'linked';
+  const why = device && unreachable(device, 'calls');
+  // Linked with calls on at both ends: anything else the phone would refuse.
+  const live = why === null;
   const { log, failed, more } = useCallLog(port, id, live);
   // Until the phone answers, a call goes from its default SIM, as with one SIM.
   const sims = usePhoneSims(port, id, 'calls', live) ?? [];
@@ -140,7 +143,7 @@ export function CallsRoute({ id }: { readonly id: string }) {
   if (device === undefined) return <HubLayout>{null}</HubLayout>;
   return (
     <CallsScreen
-      model={{ phone: device.name, on, log, failed, sims, contacts }}
+      model={{ phone: device.name, on, unreachable: why ?? null, log, failed, sims, contacts }}
       on={{
         onDial: (number, sim) => {
           act(port, id, { kind: 'dial', number, sim });
