@@ -254,6 +254,11 @@ Ships without any network or crypto change. Nearby page appears in Phase 2.
 
 ## Phase 3 · Code-less send between known devices
 
+> **Superseded.** This phase is replaced by
+> `docs/superpowers/specs/2026-11-20-known-device-send-design.md` and
+> `docs/adr/0004-known-device-requests.md` (Review hands over a one-time
+> code and runs today's code-paired, pinned move). Kept as history only.
+
 ### Task 3.0: Sign-off gate — request protocol ADR
 
 **Files:** Create `docs/adr/00NN-known-device-requests.md`.
