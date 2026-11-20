@@ -5,6 +5,7 @@ export const settingsModel: SettingsModel = {
   now: NOW,
   background: { keep_running: true, start_at_login: false, lean: true },
   minimisesOnClose: false,
+  knownSend: false,
   alerts: {
     system: true,
     wake_screen: true,

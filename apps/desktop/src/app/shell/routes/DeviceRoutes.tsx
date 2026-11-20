@@ -26,9 +26,10 @@ import {
 } from '../../../screens/devices/LinkComputerDialog';
 import { useSecondsLeft } from '../../../screens/send/countdown';
 import { HubLayout, Toast } from '../../../ui';
-import { useControllers } from '../../controllers/Controllers';
+import { useControllers, useKnownSend } from '../../controllers/Controllers';
 import { useInvite } from '../../state/EngineState';
 import { useNav } from '../nav';
+import { useStartFlows } from './useStartFlows';
 
 /** What the device page last said about an action (sent, or the device didn't answer). */
 type ActionNote = 'clipSent' | 'actionFailed' | 'reminded' | 'remindFailed';
@@ -36,10 +37,12 @@ type ActionNote = 'clipSent' | 'actionFailed' | 'reminded' | 'remindFailed';
 /** One linked device's page; empty until the list has it (and after it is forgotten). */
 export function DeviceRoute({ id }: { readonly id: string }) {
   const { t } = useTranslation();
-  const { linked } = useControllers();
+  const { linked, devices } = useControllers();
   const host = useHost();
   const nav = useNav();
   const port = usePort();
+  const start = useStartFlows();
+  const knownSend = useKnownSend();
   const [note, setNote] = useState<ActionNote | null>(null);
   // The phone's app list, while its sheet is open.
   const [apps, setApps] = useState<NotifyAppRow[] | null>(null);
@@ -55,6 +58,16 @@ export function DeviceRoute({ id }: { readonly id: string }) {
         device={device}
         failed={linked.failed}
         ringing={linked.ringing.has(id)}
+        {...(knownSend &&
+          device.os !== 'android' && {
+            move: {
+              sendRequests: devices.known.find((d) => d.id === id)?.send_requests ?? true,
+              onSendSetup: start.send,
+              onSendRequests: (on) => {
+                devices.setSendRequests(id, on);
+              },
+            },
+          })}
         on={{
           onFeature: (feature, state) => {
             linked.setFeature(id, feature, state);

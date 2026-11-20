@@ -1,6 +1,6 @@
 import type { FeatureRowView, LinkedDeviceView } from '../../engine/types';
 import { useTranslation } from 'react-i18next';
-import { Banner, Button, Head, HubLayout, LinkButton } from '../../ui';
+import { Banner, Button, Head, HubLayout, LinkButton, Row, Toggle } from '../../ui';
 import { CallsLinks } from '../phone/calls/CallsLinks';
 import { Group } from '../settings/Group';
 import { FeatureRow } from './FeatureRow';
@@ -30,7 +30,57 @@ export interface DeviceDetailsProps {
   readonly failed?: boolean;
   /** This computer rang it and the ring still runs. */
   readonly ringing?: boolean;
+  /** Moves with this computer, no code (`peer:linked`, `peer:noreq`); absent for phones, or while that is off. */
+  readonly move?: DeviceMove;
   readonly on: DeviceIntents;
+}
+
+/** A trusted computer's "Move your setup" group. */
+export interface DeviceMove {
+  /** It may send this computer move requests. */
+  readonly sendRequests: boolean;
+  readonly onSendSetup: () => void;
+  readonly onSendRequests: (on: boolean) => void;
+}
+
+/** Send it a move without a code, and whether it may send you one. */
+function MoveGroup({
+  move,
+  name,
+  here,
+}: {
+  readonly move: DeviceMove;
+  readonly name: string;
+  readonly here: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Group title={t('request.device.group')}>
+      <Row
+        off={!here}
+        title={t('request.device.what')}
+        sub={t('request.device.whatSub')}
+        trail={
+          <Button size="sm" kind="primary" icon="send" disabled={!here} onClick={move.onSendSetup}>
+            {t('request.device.sendSetup')}
+          </Button>
+        }
+      />
+      <Row
+        title={t('request.device.requests')}
+        sub={t(move.sendRequests ? 'request.device.requestsOn' : 'request.device.requestsOff', {
+          name,
+        })}
+        trail={
+          <Toggle
+            on={move.sendRequests}
+            label={t('request.device.requests')}
+            onChange={move.onSendRequests}
+          />
+        }
+      />
+    </Group>
+  );
 }
 
 /**
@@ -38,7 +88,13 @@ export interface DeviceDetailsProps {
  * (things that run quietly once on, things that ask every time), and the
  * few actions it offers now. Laid out by the page around it (desktop hub, phone).
  */
-export function DeviceDetails({ device, failed = false, ringing = false, on }: DeviceDetailsProps) {
+export function DeviceDetails({
+  device,
+  failed = false,
+  ringing = false,
+  move,
+  on,
+}: DeviceDetailsProps) {
   const { t } = useTranslation();
   const here = device.state === 'linked';
   const rows = device.features.filter(isPhase2Row);
@@ -140,6 +196,7 @@ export function DeviceDetails({ device, failed = false, ringing = false, on }: D
           {ask}
         </Group>
       )}
+      {move && <MoveGroup move={move} name={device.name} here={here} />}
       <p className="s-device__foot">
         <span className="p-mono">{t('ecosystem.device.key', { key: device.fingerprint })}</span>
         <LinkButton onClick={on.onForget}>

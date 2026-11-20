@@ -94,6 +94,24 @@ describe('Nearby', () => {
     expect(within(here).getAllByRole('button', { name: /^Send with code/ })).toHaveLength(3);
   });
 
+  it('lets trusted computers here take a move without a code', async () => {
+    const user = userEvent.setup();
+    const onSendSetup = vi.fn();
+    renderScreen(page({ ...nearbyLinked, view: 'list' }, { ...nearbyOn(), onSendSetup }));
+    const here = screen.getByRole('list', { name: 'Here now' });
+    const actions = within(here)
+      .getAllByRole('button')
+      .map((b) => b.getAttribute('aria-label'));
+    expect(actions).toEqual([
+      'Open: Pixel 8',
+      "Send setup: Ana's laptop",
+      'Send setup: Desk PC',
+      'Send with code: new-mbp',
+    ]);
+    await user.click(within(here).getByRole('button', { name: 'Send setup: Desk PC' }));
+    expect(onSendSetup).toHaveBeenCalledOnce();
+  });
+
   it('wake shown only with a hint', async () => {
     const user = userEvent.setup();
     const on = nearbyOn();
