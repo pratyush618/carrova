@@ -51,6 +51,12 @@ pub enum UpdateStatus {
         /// Installed version.
         version: String,
     },
+    /// A phone's checked update was handed to the OS installer, which
+    /// asks the user; nothing is installed until they agree.
+    Handed {
+        /// Version handed over.
+        version: String,
+    },
 }
 
 /// Where an approved update install is now, between the user's go-ahead

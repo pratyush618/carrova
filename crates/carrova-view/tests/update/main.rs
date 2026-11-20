@@ -155,3 +155,74 @@ fn a_still_download_shows_how_far_without_speed() {
     assert_eq!(view.secs_left, None);
     assert_eq!(DownloadView::still(MB, None).percent, None);
 }
+
+mod phone_steps {
+    use std::time::{Duration, Instant};
+
+    use carrova_bundle::app_update::Step;
+    use carrova_platform::UpdateStage;
+    use carrova_view::ipc::UpdateStep;
+    use carrova_view::update::{NoticeChange, PhoneSteps, UpdateBlocker};
+
+    use super::MB;
+
+    fn notice_stage(change: Option<NoticeChange>) -> Option<UpdateStage> {
+        match change? {
+            NoticeChange::Show(notice) => Some(notice.stage),
+            NoticeChange::Hide => None,
+        }
+    }
+
+    #[test]
+    fn a_resumed_fetch_shows_where_it_starts_then_throttles() {
+        let (mut steps, start) = (PhoneSteps::new("0.4.0".into()), Instant::now());
+        let (shown, notice) = steps.step(
+            Step::Fetching {
+                from: 10 * MB,
+                total: Some(50 * MB),
+            },
+            start,
+        );
+        let Some(UpdateStep::Downloading(view)) = shown else {
+            panic!("{shown:?}");
+        };
+        assert_eq!((view.done, view.percent), (10 * MB, Some(20)));
+        assert_eq!(notice_stage(notice), Some(UpdateStage::Downloading));
+        // Within the report interval nothing new shows.
+        let quick = steps.step(
+            Step::Received { bytes: MB },
+            start + Duration::from_millis(10),
+        );
+        assert_eq!(quick, (None, None));
+    }
+
+    #[test]
+    fn held_downloads_show_paused_or_waiting_for_wifi() {
+        let mut steps = PhoneSteps::new("0.4.0".into());
+        let now = Instant::now();
+        let held = |stage| Step::Held {
+            stage,
+            done: MB,
+            total: Some(4 * MB),
+        };
+        let (paused, notice) = steps.step(held(UpdateStage::Paused), now);
+        assert!(matches!(paused, Some(UpdateStep::Paused(view)) if view.percent == Some(25)));
+        assert_eq!(notice_stage(notice), Some(UpdateStage::Paused));
+        let (waiting, _) = steps.step(held(UpdateStage::WaitingForWifi), now);
+        assert_eq!(
+            waiting,
+            Some(UpdateStep::Waiting {
+                blocker: UpdateBlocker::Wifi
+            })
+        );
+    }
+
+    #[test]
+    fn the_notification_goes_once_the_download_is_checked() {
+        let mut steps = PhoneSteps::new("0.4.0".into());
+        assert_eq!(
+            steps.step(Step::Verifying, Instant::now()),
+            (Some(UpdateStep::Verifying), Some(NoticeChange::Hide))
+        );
+    }
+}

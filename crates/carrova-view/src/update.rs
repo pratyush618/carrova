@@ -1,13 +1,18 @@
 //! App update download as the user sees it: how far, how fast, how long,
 //! and what an install waits for. Front-ends feed [`DownloadMeter`] the
 //! updater's chunks and show the [`DownloadView`]s it lets through. A
-//! sideloaded phone's own update rules are in [`apk`].
+//! sideloaded phone's update steps become UI steps and notification
+//! content through [`PhoneSteps`]; its rules are in [`apk`].
 
 pub mod apk;
 
 use std::time::{Duration, Instant};
 
+use carrova_bundle::app_update::Step;
+use carrova_platform::{UpdateNotice, UpdateStage};
 use serde::Serialize;
+
+use crate::ipc::UpdateStep;
 
 /// Shortest gap between two download reports (at most 4 a second).
 pub const REPORT_INTERVAL: Duration = Duration::from_millis(250);
@@ -141,5 +146,85 @@ pub fn update_blocker(moving: bool, on_call: bool) -> Option<UpdateBlocker> {
         Some(UpdateBlocker::Call)
     } else {
         None
+    }
+}
+
+/// What the phone's update notification does next.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NoticeChange {
+    /// Show (or update) it.
+    Show(UpdateNotice),
+    /// Remove it: the download is over.
+    Hide,
+}
+
+/// Turns a phone update's [`Step`]s into the [`UpdateStep`]s the UI shows
+/// (download progress at most every [`REPORT_INTERVAL`]) and the changes
+/// of its notification.
+#[derive(Debug)]
+pub struct PhoneSteps {
+    version: String,
+    meter: DownloadMeter,
+    total: Option<u64>,
+}
+
+impl PhoneSteps {
+    /// The steps of the update to `version`.
+    #[must_use]
+    pub fn new(version: String) -> Self {
+        Self {
+            version,
+            meter: DownloadMeter::default(),
+            total: None,
+        }
+    }
+
+    /// What `step`, at `now`, shows: a UI step and a notification change,
+    /// each if due.
+    pub fn step(&mut self, step: Step, now: Instant) -> (Option<UpdateStep>, Option<NoticeChange>) {
+        match step {
+            Step::Fetching { from, total } => {
+                (self.meter, self.total) = (DownloadMeter::default(), total);
+                self.downloading(from, now)
+            }
+            Step::Received { bytes } => self.downloading(bytes, now),
+            Step::Held { stage, done, total } => {
+                let view = DownloadView::still(done, total.or(self.total));
+                let shown = match stage {
+                    UpdateStage::Paused => UpdateStep::Paused(view),
+                    _ => UpdateStep::Waiting {
+                        blocker: UpdateBlocker::Wifi,
+                    },
+                };
+                (Some(shown), Some(self.notice(stage, view)))
+            }
+            Step::Verifying => (Some(UpdateStep::Verifying), Some(NoticeChange::Hide)),
+            Step::NeedsPermission => (Some(UpdateStep::NeedsPermission), None),
+            Step::Installing => (Some(UpdateStep::Installing), None),
+        }
+    }
+
+    fn downloading(
+        &mut self,
+        bytes: u64,
+        now: Instant,
+    ) -> (Option<UpdateStep>, Option<NoticeChange>) {
+        match self.meter.record(bytes, self.total, now) {
+            Some(view) => (
+                Some(UpdateStep::Downloading(view)),
+                Some(self.notice(UpdateStage::Downloading, view)),
+            ),
+            None => (None, None),
+        }
+    }
+
+    fn notice(&self, stage: UpdateStage, view: DownloadView) -> NoticeChange {
+        NoticeChange::Show(UpdateNotice {
+            version: self.version.clone(),
+            stage,
+            done: view.done,
+            total: view.total,
+            bytes_per_sec: view.bytes_per_sec,
+        })
     }
 }
