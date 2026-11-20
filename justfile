@@ -101,9 +101,10 @@ macos-loopback:
 recipes-validate:
     cargo run -q -p carrova-cli -- recipes validate recipes
 
-# Ubuntu system packages for building the desktop crate (CI + fresh dev machines)
+# Ubuntu system packages for building the desktop crate (CI + fresh dev machines).
+# GStreamer plugins: the AppImage bundles them from here (its call ringtone).
 setup-ubuntu:
-    sudo apt-get update && sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev libxdo-dev
+    sudo apt-get update && sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev libxdo-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
 
 # Format code
 fmt:
