@@ -99,6 +99,9 @@ pub struct KnownDeviceView {
     pub moves: u32,
     /// A Wake-on-LAN hint is kept (the hint itself never leaves the engine).
     pub has_wake_hint: bool,
+    /// It may send this computer move requests without a code (computers
+    /// only; on by default).
+    pub send_requests: bool,
 }
 
 /// `records` as the known-devices list shows them, in stored order.
@@ -115,6 +118,8 @@ pub fn known_device_views(records: &[DeviceRecord]) -> Vec<KnownDeviceView> {
             last_move: r.last_move,
             moves: r.moves,
             has_wake_hint: r.mac_hint.is_some(),
+            // shortcut: the record keeps no `send_requests` before ADR 0004 lands; on is the spec's default.
+            send_requests: true,
         })
         .collect()
 }

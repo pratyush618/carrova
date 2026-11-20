@@ -24,6 +24,7 @@ pub mod offer;
 pub mod passphrase;
 pub mod phone;
 pub mod plan;
+pub mod request;
 pub mod review;
 pub mod selection;
 pub mod tray;

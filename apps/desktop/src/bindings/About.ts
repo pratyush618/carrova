@@ -26,4 +26,9 @@ os: OsKind,
  * The desktop shows status-tray icons; without one, closing the
  * window minimises it instead of going to the tray.
  */
-status_tray: boolean, };
+status_tray: boolean, 
+/**
+ * Trusted computers can send moves without a code (ADR 0004). Off,
+ * every entry point to it stays hidden.
+ */
+known_send: boolean, };

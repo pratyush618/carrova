@@ -2,9 +2,11 @@
 import type { BridgeError } from "./BridgeError";
 import type { CodeView } from "./CodeView";
 import type { Event } from "./Event";
+import type { MoveRequestView } from "./MoveRequestView";
 import type { Notice } from "./Notice";
 import type { PairInviteView } from "./PairInviteView";
 import type { PairPeerView } from "./PairPeerView";
+import type { RequestEnd } from "./RequestEnd";
 import type { SessionId } from "./SessionId";
 
 /**
@@ -58,4 +60,16 @@ error: BridgeError | null, } | { "kind": "send_requested" } | { "kind": "show_ne
 /**
  * The new, unread notice.
  */
-notice: Notice, };
+notice: Notice, } | { "kind": "move_request_arrived", 
+/**
+ * Who asks, and the counts it sends.
+ */
+request: MoveRequestView, } | { "kind": "move_request_ended", 
+/**
+ * [`MoveRequestView::id`] of the request.
+ */
+id: number, 
+/**
+ * Why it ended.
+ */
+why: RequestEnd, };

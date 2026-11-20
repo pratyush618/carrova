@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ecosystem::{PairInviteView, PairPeerView};
 use crate::lan::CodeView;
+use crate::request::{MoveRequestView, RequestEnd};
 
 mod about;
 mod defaults;
@@ -100,6 +101,20 @@ pub enum BridgeEvent {
         /// The new, unread notice.
         notice: Notice,
     },
+    /// A trusted computer asks to send this one a move: show it until it
+    /// ends, and answer with the `answer_request` command. A newer request
+    /// from the same computer replaces its older one.
+    MoveRequestArrived {
+        /// Who asks, and the counts it sends.
+        request: MoveRequestView,
+    },
+    /// A request ended before it was answered: take it away.
+    MoveRequestEnded {
+        /// [`MoveRequestView::id`] of the request.
+        id: u32,
+        /// Why it ended.
+        why: RequestEnd,
+    },
 }
 
 /// Why a command failed: a stable `code` for UI logic plus a message and an
@@ -159,6 +174,13 @@ pub enum ErrorCode {
     Unsupported,
     /// A phone permission it needs is not granted.
     PermissionDenied,
+    /// The computer asked to take a move said no to it.
+    RequestDeclined,
+    /// Nobody answered a move request in time.
+    RequestExpired,
+    /// The computer asked does not take requests from this one (it forgot
+    /// it, or turned requests off): it needs a code now. Why stays private.
+    RequestRefused,
     /// Anything else.
     Internal,
 }

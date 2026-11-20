@@ -19,6 +19,9 @@ pub struct About {
     /// The desktop shows status-tray icons; without one, closing the
     /// window minimises it instead of going to the tray.
     pub status_tray: bool,
+    /// Trusted computers can send moves without a code (ADR 0004). Off,
+    /// every entry point to it stays hidden.
+    pub known_send: bool,
 }
 
 /// An app update announced by the release feed.

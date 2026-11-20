@@ -56,6 +56,7 @@ use carrova_view::phone::{
     ThreadView, ThreadsView,
 };
 use carrova_view::plan::{PlanView, SpaceView};
+use carrova_view::request::{MoveRequestView, RequestAnswer, RequestEnd, RequestSummary};
 use carrova_view::selection::SelectionView;
 use ts_rs::{Config, TS};
 
@@ -180,6 +181,10 @@ fn export_typescript_bindings() {
         NotifyAppsView::export_all,
         NotifyAppRow::export_all,
         SimChoice::export_all,
+        MoveRequestView::export_all,
+        RequestSummary::export_all,
+        RequestEnd::export_all,
+        RequestAnswer::export_all,
         // Desktop IPC contract.
         BridgeEvent::export_all,
         BridgeError::export_all,
