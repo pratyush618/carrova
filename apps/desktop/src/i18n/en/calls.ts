@@ -58,6 +58,11 @@ export const calls = {
     turnOn: 'Turn on calls',
     failed: "Couldn't reach {{phone}}. Try again.",
     loading: 'Getting calls from {{phone}}…',
+    connecting: 'Connecting to {{phone}}…',
+    awayTitle: '{{phone}} is away',
+    awayBody: "Your call history shows up here when it's back.",
+    offThereTitle: 'Calls are off on {{phone}}',
+    offThereBody: 'Turn on Calls for this computer in the Carrova app on {{phone}}.',
     more: 'Older calls',
   },
   device: {

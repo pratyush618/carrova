@@ -11,6 +11,12 @@
   min-block-size: 0;
 }
 
+/* Toasts span the phone's width: centred at 50%, the dock would only get half of it. */
+.m-app .p-window > .p-toast-dock {
+  inset-inline: var(--sp-2);
+  translate: none;
+}
+
 .m-page {
   flex: 1;
   display: flex;

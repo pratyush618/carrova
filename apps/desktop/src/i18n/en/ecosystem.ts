@@ -196,6 +196,11 @@ export const ecosystem = {
     unknown: 'May have been sent · Check your phone before resending',
     retry: 'Retry',
     loadFailed: "Couldn't reach {{name}}. Try again.",
+    loading: 'Getting texts from {{name}}…',
+    connecting: 'Connecting to {{name}}…',
+    awayEmpty: "Its texts show up here when it's back.",
+    offTitle: 'Messages are off on {{name}}',
+    offBody: 'Turn on Messages for this computer in the Carrova app on {{name}}.',
   },
   glance: 'Linked devices',
   nearby: {

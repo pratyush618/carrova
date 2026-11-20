@@ -67,6 +67,24 @@ describe('useCallLog', () => {
     expect(history).toHaveBeenCalledTimes(1);
   });
 
+  it('clears a failed read once the phone answers again', async () => {
+    const port = createFakePort({ stepMs: 0 });
+    const history = vi.spyOn(port, 'callHistory').mockRejectedValue(new Error('refused'));
+    const { result, rerender } = renderHook((on: boolean) => useCallLog(port, 'p8', on), {
+      initialProps: true,
+    });
+    await waitFor(() => {
+      expect(result.current.failed).toBe(true);
+    });
+    history.mockResolvedValue(page(9));
+    rerender(false);
+    rerender(true);
+    await waitFor(() => {
+      expect(result.current.log).toEqual(page(9));
+    });
+    expect(result.current.failed).toBe(false);
+  });
+
   it('asks for an older page once while it is on its way', async () => {
     const { history, result } = await loaded();
     history.mockReturnValue(new Promise(() => undefined));

@@ -40,6 +40,7 @@ const log: CallLogView = {
 const model = (over: Partial<CallsModel> = {}): CallsModel => ({
   phone: 'Pixel 8',
   on: true,
+  unreachable: null,
   log,
   failed: false,
   sims: [],
@@ -138,6 +139,39 @@ describe('Calls', () => {
   it('says the log is on its way until the phone answers', () => {
     renderScreen(<CallsScreen model={model({ log: null })} on={intents()} />);
     expect(screen.getByRole('status')).toHaveTextContent('Pixel 8');
+  });
+
+  it('says Calls are off on the phone, not that it could not be reached', () => {
+    renderScreen(
+      <CallsScreen model={model({ unreachable: 'offThere', log: null })} on={intents()} />,
+    );
+    expect(screen.getByRole('heading', { name: 'Calls are off on Pixel 8' })).toBeInTheDocument();
+    expect(screen.getByText(/Carrova app on Pixel 8/)).toBeInTheDocument();
+    expect(screen.queryByText(/Couldn.t reach/)).not.toBeInTheDocument();
+  });
+
+  it('says the phone is away or connecting, not that the log is on its way', () => {
+    const { unmount } = renderScreen(
+      <CallsScreen model={model({ unreachable: 'away', log: null })} on={intents()} />,
+    );
+    expect(screen.getByRole('heading', { name: 'Pixel 8 is away' })).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    unmount();
+    renderScreen(
+      <CallsScreen model={model({ unreachable: 'connecting', log: null })} on={intents()} />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Connecting to Pixel 8');
+  });
+
+  it('says the phone is away rather than an older failed read', () => {
+    renderScreen(
+      <CallsScreen
+        model={model({ unreachable: 'away', log: null, failed: true })}
+        on={intents()}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: 'Pixel 8 is away' })).toBeInTheDocument();
+    expect(screen.queryByText(/Couldn.t reach/)).not.toBeInTheDocument();
   });
 
   it('offers to turn calls on while they are off', async () => {

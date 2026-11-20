@@ -3,6 +3,7 @@ import type { LocalClock } from '../../../bindings/LocalClock';
 import type { ThreadView } from '../../../bindings/ThreadView';
 import type { ThreadsView } from '../../../bindings/ThreadsView';
 import { usePort } from '../../../engine/port';
+import { unreachable } from '../../../mobile/model';
 import type { LinkedDeviceView } from '../../../engine/types';
 import { messagesPhone } from '../../../flows/phone/messagesPhone';
 import { loadPages } from '../../../flows/phone/pages';
@@ -43,15 +44,18 @@ export function MessagesRoute() {
 }
 
 /**
- * One phone's conversations. Loads (again) while it is linked, whenever its
- * texts change; while it is away what was loaded stays and sending waits.
+ * One phone's conversations. Loads (again) while it can reach them (linked,
+ * Messages on at both ends), whenever its texts change; while it can't
+ * what was loaded stays and sending waits.
  * Received texts the phone has not stored yet join the list on top.
  */
 function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
   const port = usePort();
   const { sms, texts } = useLink();
   const { id } = phone;
-  const away = phone.state !== 'linked';
+  const why = unreachable(phone, 'messages');
+  // Away, or off on the phone (or its setting not here yet): the phone would refuse.
+  const away = why !== null;
   const incoming = useMemo(
     () => sms.filter((p) => p.device === id).map((p) => p.message),
     [sms, id],
@@ -156,7 +160,7 @@ function PhoneMessages({ phone }: { readonly phone: LinkedDeviceView }) {
     <MessagesScreen
       model={{
         phone: phone.name,
-        away,
+        unreachable: why,
         failed,
         threads,
         moreThreads: (list?.next ?? null) !== null,

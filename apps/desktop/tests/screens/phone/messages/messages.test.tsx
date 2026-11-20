@@ -32,7 +32,7 @@ const sims: SimChoice[] = [
 
 const model: MessagesModel = {
   phone: 'Pixel 8',
-  away: false,
+  unreachable: null,
   failed: false,
   threads: [sam],
   moreThreads: false,
@@ -183,7 +183,7 @@ describe('Messages', () => {
 
   it('away_disables_send', () => {
     const on = intents();
-    renderScreen(<MessagesScreen model={{ ...model, away: true }} on={on} />);
+    renderScreen(<MessagesScreen model={{ ...model, unreachable: 'away' }} on={on} />);
     expect(screen.getByText('Pixel 8 is away')).toBeInTheDocument();
     const field = screen.getByRole('textbox', { name: 'Text message' });
     expect(field).toBeDisabled();
@@ -191,6 +191,48 @@ describe('Messages', () => {
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
     // The texts loaded before it left stay readable.
     expect(screen.getAllByText('Are you still coming tonight?').length).toBeGreaterThan(0);
+  });
+
+  it('says Messages are off on the phone, not that it could not be reached', () => {
+    renderScreen(
+      <MessagesScreen
+        model={{ ...model, unreachable: 'offThere', threads: null, selected: null, thread: null }}
+        on={intents()}
+      />,
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Messages are off on Pixel 8' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Carrova app on Pixel 8/)).toBeInTheDocument();
+    expect(screen.queryByText(/Couldn.t reach/)).not.toBeInTheDocument();
+  });
+
+  it('keeps loaded texts readable when Messages turns off on the phone', () => {
+    renderScreen(<MessagesScreen model={{ ...model, unreachable: 'offThere' }} on={intents()} />);
+    expect(screen.getByText('Messages are off on Pixel 8')).toBeInTheDocument();
+    expect(screen.getAllByText('Are you still coming tonight?').length).toBeGreaterThan(0);
+    expect(screen.getByRole('textbox', { name: 'Text message' })).toBeDisabled();
+  });
+
+  it('says the phone is away or connecting before anything loaded', () => {
+    const empty = { ...model, threads: null, selected: null, thread: null };
+    const { unmount } = renderScreen(
+      <MessagesScreen model={{ ...empty, unreachable: 'away' }} on={intents()} />,
+    );
+    expect(screen.getByRole('heading', { name: 'Pixel 8 is away' })).toBeInTheDocument();
+    unmount();
+    renderScreen(<MessagesScreen model={{ ...empty, unreachable: 'connecting' }} on={intents()} />);
+    expect(screen.getByRole('status')).toHaveTextContent('Connecting to Pixel 8');
+  });
+
+  it('says the texts are on their way until the phone answers', () => {
+    renderScreen(
+      <MessagesScreen
+        model={{ ...model, threads: null, selected: null, thread: null }}
+        on={intents()}
+      />,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Getting texts from Pixel 8');
   });
 
   it('shows the empty state with a way to start a text', async () => {
