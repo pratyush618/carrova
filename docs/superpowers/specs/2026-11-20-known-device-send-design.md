@@ -81,8 +81,10 @@ them. The receiver must still decide what lands on it.
 - Per-device "Send requests" toggle on computer device pages, default on.
   Off → that device's requests are closed silently, exactly like an unknown
   device's.
-- Admission: ≤ 3 pending requests, ≤ 5 attempts/min per source address,
-  10 s handshake deadline, replay protection via the first-use nonce set.
+- Admission: ≤ 5 attempts/min per source address, 10 s handshake
+  deadline, replay protection via the first-use nonce set; then, only after
+  authentication, ≤ 3 pending requests (a device already pending replaces
+  its older request; a 4th distinct device is refused).
 - UI per the mockup. Button label "Send setup". Declined → one action
   "Change what moves". Timed out → "Send again".
 - Unknown computers always need a code, in every visibility mode (this
@@ -188,7 +190,7 @@ D (user picked L in "Send to…")             L (visibility ≠ No one, request 
   SendHandle listener, fresh code,
   no pairing advert (resume advert later)
   find L in presence: kt tag matches, rp port
-  ── QUIC + TLS ─────────────────────────▶  admission: Retry, 5/min/IP, ≤3 pending
+  ── QUIC + TLS ─────────────────────────▶  admission: Retry, 5/min/IP
   Hello{Request{nonce, tag}, identify} ──▶  tag vs ≤64 candidates (computers,
                                             requests on), nonce first use
                                        ◀──  Welcome
@@ -197,12 +199,14 @@ D (user picked L in "Send to…")             L (visibility ≠ No one, request 
                                        ◀──  Identify(L)     (DeviceLink sig)
   Identify(D) ─────────────────────────▶
                                        ◀──  Established
-  Request{apps, bytes, has_sensitive} ─▶  notice: card / pop-up + tray + wake
+  Request{apps, bytes, has_sensitive} ─▶  pending cap: same D replaces its
+                                            older; 4th distinct D → Rejected
+                                            notice: card / pop-up + tray + wake
   "Waiting for L · 2:00"                    "D wants to send you its setup"
                                             user: Review
                                        ◀──  Review
   Proceed{port, code} ─────────────────▶
-  close Normal
+  wait (≤ 30 s idle)                   ◀──  close Normal  (after reading Proceed)
   ◀── QUIC to D:port, Hello{Pair{nameplate}, identify} ── (today's move)
   SPAKE2 with code, Confirm ×2, Identify ×2 (L pins D's key, D pins L's)
   manifest → L: dry-run plan → user approves → staged apply → undo
@@ -217,6 +221,8 @@ Other endings on the request connection:
 | Sender cancels | D: `Cancelled` | flow closes | notice removed silently |
 | Either side vanishes | idle timeout (≤ 30 s) | `sendwait:away` | notice removed |
 | Dial fails, no `rp`, refused (busy, rate) | none | `sendwait:away` | nothing |
+| 3 other devices already pending | L: `Rejected` (after auth) | `sendwait:away` | nothing |
+| `Proceed` sent, L never closes | idle timeout (≤ 30 s) | `sendwait:away` | n/a |
 | Not trusted there (forgotten, requests off) | L: `LinkFailed` | open question 3 | nothing |
 | Newer request from same D | L: `Superseded` (old one) | n/a (D started the new one) | old notice replaced |
 
@@ -351,7 +357,9 @@ Transport (Task 3.1, `crates/carrova-transport/tests/request/`,
 - `known_request_is_admitted`, `unknown_device_closed_without_reply` (no
   `Reject`, close `LinkFailed`, no `IncomingRequest`),
   `link_hello_not_admitted_as_request`, `replayed_request_rejected`,
-  `sixth_attempt_in_a_minute_rejected`, `fourth_pending_request_refused`,
+  `sixth_attempt_in_a_minute_rejected`,
+  `fourth_pending_device_refused_after_auth`,
+  `pending_device_supersedes_when_cap_full`, `proceed_delivered_before_close`,
   `newer_request_from_same_device_supersedes`,
   `slow_handshake_closed_after_10s`, `wrong_identity_signature_rejected`,
   `wrong_known_secret_rejected`, `request_without_identify_rejected`,
