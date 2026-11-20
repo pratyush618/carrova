@@ -203,7 +203,7 @@ function installStep(version: string, step: UpdateStep | null): UpdateModel {
  */
 export function updateModel(
   check: Remote<UpdateStatus>,
-  install: Remote<void>,
+  install: Remote<UpdateStatus>,
   version: string | null,
   step: UpdateStep | null,
 ): UpdateModel {
@@ -212,7 +212,8 @@ export function updateModel(
       case 'loading':
         return installStep(version, step);
       case 'ready':
-        return { status: 'installed', version };
+        // A phone hands the update to Android's installer, which still asks.
+        return { status: install.value.status === 'handed' ? 'handed' : 'installed', version };
       case 'failed':
         if (install.error.code !== 'cancelled')
           return { status: 'failed', error: install.error, version };

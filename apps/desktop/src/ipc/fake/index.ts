@@ -275,7 +275,7 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
       }),
 
     checkUpdate: () => later(() => ({ status: 'up_to_date' }) as const),
-    installUpdate: () => later(() => undefined),
+    installUpdate: (version) => later(() => ({ status: 'installed', version }) as const),
     cancelUpdate: () => later(() => undefined),
     installUpdateAnyway: () => later(() => undefined),
     pauseUpdate: () => later(() => undefined),

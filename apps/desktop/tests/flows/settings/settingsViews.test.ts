@@ -230,9 +230,9 @@ describe('settings views', () => {
       version: '0.3.0',
       progress: null,
     });
-    expect(updateModel(offer, { status: 'ready', value: undefined }, '0.3.0', null).status).toBe(
-      'installed',
-    );
+    const done = (status: 'installed' | 'handed') =>
+      ({ status: 'ready', value: { status, version: '0.3.0' } }) as const;
+    expect(updateModel(offer, done('installed'), '0.3.0', null).status).toBe('installed');
     expect(updateModel({ status: 'failed', error, last: null }, idle, null, null)).toEqual({
       status: 'failed',
       error,
@@ -296,6 +296,12 @@ describe('settings views', () => {
     });
     expect(updateModel(offer, loading, '0.3.0', { step: 'needs_permission' })).toEqual({
       status: 'permission',
+      version: '0.3.0',
+    });
+    // Handed to Android's installer is not installed: Android still asks.
+    const handed = { status: 'ready', value: { status: 'handed', version: '0.3.0' } } as const;
+    expect(updateModel(offer, handed, '0.3.0', null)).toEqual({
+      status: 'handed',
       version: '0.3.0',
     });
   });

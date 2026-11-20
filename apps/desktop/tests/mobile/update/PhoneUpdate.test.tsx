@@ -87,7 +87,7 @@ describe('the phone update page', () => {
   });
 
   it("waits for Android's installer, and can open it again", async () => {
-    const on = show({ status: 'installed', version: '0.4.0' });
+    const on = show({ status: 'handed', version: '0.4.0' });
     expect(screen.getByText('Checked · waiting for Android')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Open the installer' }));
     expect(on.onDownload).toHaveBeenCalledOnce();

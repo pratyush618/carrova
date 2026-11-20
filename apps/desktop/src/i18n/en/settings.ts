@@ -180,6 +180,7 @@ export const settings = {
     checking: 'Checking for updates…',
     installing: 'Installing Carrova {{version}}…',
     installed: 'Restart to finish',
+    handed: 'Checked · waiting for Android',
     installedBody: 'Carrova closes for a few seconds and opens on {{version}}.',
     wait: 'This takes a moment.',
     downloading: 'Downloading Carrova {{version}}',

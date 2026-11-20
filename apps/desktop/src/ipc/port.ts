@@ -386,7 +386,7 @@ export interface CarrovaPort {
    * Install exactly the version that `checkUpdate` offered; its steps arrive as `update` events.
    * A phone downloads on mobile data only if Settings or `mobileData` allow it.
    */
-  installUpdate(version: string, mobileData?: boolean): Promise<void>;
+  installUpdate(version: string, mobileData?: boolean): Promise<UpdateStatus>;
   /** Stop the install in progress (it then fails with `cancelled`); nothing is installed. */
   cancelUpdate(): Promise<void>;
   /** Go on now: install while a move or call runs, or (a phone) download on mobile data. */

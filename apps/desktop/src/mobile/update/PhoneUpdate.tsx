@@ -219,11 +219,13 @@ function Step({
           <p className="m-note">{t('mobile.update.permissionFoot')}</p>
         </>
       );
-    case 'installing':
     case 'installed':
+      return <Status>{t('settings.update.installed')}</Status>;
+    case 'installing':
+    case 'handed':
       return (
         <>
-          <Status>{t('mobile.update.handed')}</Status>
+          <Status>{t('settings.update.handed')}</Status>
           <Actions>
             <Button kind="primary" size="lg" onClick={on.onDownload}>
               {t('mobile.update.openInstaller')}

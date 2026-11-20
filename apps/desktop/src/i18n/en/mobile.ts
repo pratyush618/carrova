@@ -235,7 +235,6 @@ export const mobile = {
     },
     openSettings: 'Open Android settings',
     permissionFoot: "Only Carrova's own updates use this. You can turn it off after.",
-    handed: 'Checked · waiting for Android',
     openInstaller: 'Open the installer',
     unchanged: "Nothing changed: you're still on {{version}}.",
     banner: 'Carrova {{version}} is ready',

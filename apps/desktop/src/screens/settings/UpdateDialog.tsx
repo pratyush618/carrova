@@ -37,6 +37,8 @@ function useUpdateText(model: UpdateModel): { title: string; body: string | null
       };
     case 'installing':
       return { title: t('settings.update.installing', { version: model.version }), body: null };
+    case 'handed':
+      return { title: t('settings.update.handed'), body: null };
     case 'installed':
       return {
         title: t('settings.update.installed'),
@@ -186,6 +188,7 @@ function UpdateFoot({
     case 'checking':
     case 'up_to_date':
     case 'installing':
+    case 'handed':
       return close(t('ui.close'));
   }
 }
