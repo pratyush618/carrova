@@ -1257,7 +1257,7 @@ const SECRETS = [
 ];
 
 /* ═══ Building blocks ═════════════════════════════════════════════════ */
-const btn = (label, o = {}) => `<button type="button" class="btn${o.kind ? " btn--" + o.kind : ""}${o.size ? " btn--" + o.size : ""}${o.cls ? " " + o.cls : ""}"${o.go ? ` data-go="${o.go}"` : ""}${o.dis ? " disabled" : ""}${o.label ? ` aria-label="${o.label}"` : ""}>${o.icon ? icon(o.icon) : ""}${label}${o.kbd ? ` <kbd>${o.kbd}</kbd>` : ""}</button>`;
+const btn = (label, o = {}) => `<button type="button" class="btn${o.kind ? " btn--" + o.kind : ""}${o.size ? " btn--" + o.size : ""}${o.cls ? " " + o.cls : ""}"${o.go ? ` data-go="${o.go}"` : ""}${o.to ? ` data-to="${o.to}"` : ""}${o.dis ? " disabled" : ""}${o.label ? ` aria-label="${o.label}"` : ""}>${o.icon ? icon(o.icon) : ""}${label}${o.kbd ? ` <kbd>${o.kbd}</kbd>` : ""}</button>`;
 const chip = (tone, text, ic) => `<span class="chip${tone ? " chip--" + tone : ""}">${ic ? icon(ic) : ""}${text}</span>`;
 const check = (on, o = {}) => `<span class="check${on === "mixed" ? " is-mixed" : on ? " is-on" : ""}${o.warn ? " is-warn" : ""}" role="checkbox" aria-checked="${on === "mixed" ? "mixed" : !!on}">${on === "mixed" ? icon("minus") : on ? icon("check") : ""}</span>`;
 const toggle = on => `<span class="toggle${on ? " is-on" : ""}" role="switch" aria-checked="${!!on}"></span>`;
@@ -1904,8 +1904,8 @@ const MOVE_SUM = "12 apps · 340 MB · includes keys";
 const sendTo = empty => sheet("Send your setup to…", MOVE_SUM, empty
   ? `<div class="center4" style="block-size:auto;padding:16px 0 8px"><div>${lg(icon("laptop"))}<b>No computers you trust yet</b><p>The first move to a computer needs a code. After that the two trust each other, and you can send without one.</p>${v4btn("Send with a code", "send:code")}</div></div>`
   : `${ig("No code needed", [
-      srow("Desktop PC", "Linked · Windows 11", btn("Send", { size: "sm", icon: "send", go: "sendwait:waiting" }), { g: "monitor", tone: "accent" }),
-      srow("ezio-mbp", "Moved together on 2 Nov · macOS 15", btn("Send", { size: "sm", icon: "send", go: "sendwait:waiting" }), { g: "laptop", tone: "accent" }),
+      srow("Desktop PC", "Linked · Windows 11", btn("Send", { size: "sm", icon: "send", go: "sendwait:waiting", to: PC.name }), { g: "monitor", tone: "accent" }),
+      srow("ezio-mbp", "Moved together on 2 Nov · macOS 15", btn("Send", { size: "sm", icon: "send", go: "sendwait:waiting", to: "ezio-mbp" }), { g: "laptop", tone: "accent" }),
       srow(`Old ThinkPad ${chip("", "Away")}`, "Last seen 3 weeks ago · Ubuntu", btn("Wake", { size: "sm", icon: "power" }), { g: "laptop" })])}
     ${ig("Needs a code once", [srow(`new-mbp ${chip("warn", "New")}`, "macOS · after this move, no code", v4btn("Use a code", "send:code", ""), { g: "laptop" })],
       "Sending without a code only asks. Nothing is written there until someone at that computer reviews the plan and approves it; keys still need their own yes.")}`,
@@ -1914,17 +1914,18 @@ add({ id: "sendto", group: "Move your setup", title: "Send · choose computer", 
   note: "After picking what moves, trusted computers come first with Send: no code. Trusted means you moved together before or the computers are linked; phones never appear. New computers need a code once. Away ones are greyed; Wake shows only when Wake-on-LAN is on for them.",
   render: st => migrate(sendTo(st === "empty")) });
 
+let sendTarget = PC.name; // the computer picked in "Send to…"; set by the click handler
 const WAIT = {
-  waiting: () => `<div class="pairdlg">${lg(icon("send"), "accent")}<h2 class="h2" id="ovH" style="margin-top:12px">Waiting for Desktop PC</h2><p class="lede small">A request is on its screen: ${MOVE_SUM}. Nothing is sent until someone there reviews and approves it.</p>
+  waiting: () => `<div class="pairdlg">${lg(icon("send"), "accent")}<h2 class="h2" id="ovH" style="margin-top:12px">Waiting for ${sendTarget}</h2><p class="lede small">A request is on its screen: ${MOVE_SUM}. Nothing is sent until someone there reviews and approves it.</p>
       <div class="bar4" style="margin-top:16px"><i style="width:18%"></i></div><p class="xs muted">1:38 left · the request expires after 2 minutes</p>
       <div class="dialog__foot">${btn("Cancel")}</div></div>`,
-  reviewing: () => `<div class="pairdlg">${lg(icon("eye"), "accent")}<h2 class="h2" id="ovH" style="margin-top:12px">Desktop PC is reviewing</h2><p class="lede small">They're going through the plan and choosing what to accept. The move starts when they approve. You can close this; it carries on in the tray.</p>
+  reviewing: () => `<div class="pairdlg">${lg(icon("eye"), "accent")}<h2 class="h2" id="ovH" style="margin-top:12px">${sendTarget} is reviewing</h2><p class="lede small">They're going through the plan and choosing what to accept. The move starts when they approve. You can close this; it carries on in the tray.</p>
       <div class="dialog__foot">${btn("Cancel move")}${btn("Close", { kind: "primary" })}</div></div>`,
-  declined: () => `<div class="pairdlg">${lg(icon("close"), "warn")}<h2 class="h2" id="ovH" style="margin-top:12px">Desktop PC declined</h2><p class="lede small">Nothing was sent. Whoever is there said no to this move. Maybe check with them, or send less.</p>
+  declined: () => `<div class="pairdlg">${lg(icon("close"), "warn")}<h2 class="h2" id="ovH" style="margin-top:12px">${sendTarget} declined</h2><p class="lede small">Nothing was sent. Whoever is there said no to this move. Maybe check with them, or send less.</p>
       <div class="dialog__foot">${btn("Close")}${v4btn("Change what moves", "send:pick")}</div></div>`,
-  timeout: () => `<div class="pairdlg">${lg(icon("clock"), "warn")}<h2 class="h2" id="ovH" style="margin-top:12px">No answer from Desktop PC</h2><p class="lede small">Nobody approved it within 2 minutes, so the request expired. Requests don't wait longer, so an old one can't be accepted later. Nothing was sent.</p>
+  timeout: () => `<div class="pairdlg">${lg(icon("clock"), "warn")}<h2 class="h2" id="ovH" style="margin-top:12px">No answer from ${sendTarget}</h2><p class="lede small">Nobody approved it within 2 minutes, so the request expired. Requests don't wait longer, so an old one can't be accepted later. Nothing was sent.</p>
       <div class="dialog__foot">${btn("Close")}${btn("Send again", { kind: "primary", icon: "refresh", go: "sendwait:waiting" })}</div></div>`,
-  away: () => `<div class="pairdlg">${lg(icon("noNet"), "warn")}<h2 class="h2" id="ovH" style="margin-top:12px">Can't reach Desktop PC</h2><p class="lede small">It went to sleep or left this network before answering. Nothing was sent.</p>
+  away: () => `<div class="pairdlg">${lg(icon("noNet"), "warn")}<h2 class="h2" id="ovH" style="margin-top:12px">Can't reach ${sendTarget}</h2><p class="lede small">It went to sleep or left this network before answering. Nothing was sent.</p>
       <div class="reasons"><div><b>Asleep?</b> Wake it, or wait until someone's at it.</div><div><b>Same network?</b> Both need the same Wi-Fi or wired network.</div></div>
       <div class="dialog__foot">${btn("Close")}${btn("Try again", { kind: "primary", go: "sendwait:waiting" })}</div></div>`,
 };
@@ -2014,7 +2015,11 @@ function runTransfer(root) {
 const ALL = SCREENS.flatMap(s => s.states.map(([k]) => `${s.id}:${k}`));
 document.addEventListener("click", e => {
   const t = e.target.closest("[data-go]");
-  if (t && t.dataset.go) { e.preventDefault(); go(t.dataset.go); return; }
+  if (t && t.dataset.go) {
+    e.preventDefault();
+    if (t.dataset.go.startsWith("sendwait:") && cur.id !== "sendwait") sendTarget = t.dataset.to || PC.name;
+    go(t.dataset.go); return;
+  }
   if (e.target.closest(".scrim") || e.target.closest('.sheet__head .btn, .dialog .dialog__foot .btn:not(.btn--primary)')) { const s = SCREENS.find(x => x.id === cur.id); go(`${cur.id}:${s.states[0][0]}`); }
   if (e.target.closest("a[href='#']")) e.preventDefault();
 });
