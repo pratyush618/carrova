@@ -19,6 +19,8 @@ export interface Pairing {
 
 /** How long a phone rings (`carrova_link::ring::RING_SECONDS`); the ringer gets no event when it ends. */
 const RING_MS = 30_000;
+// How long a failed send waits for its `file_failed` (sent apart from the reply).
+const FILE_FAILED_GRACE_MS = 1_000;
 
 const CANCELLED: BridgeError = { code: 'cancelled', message: 'cancelled', hint: null };
 
@@ -41,6 +43,7 @@ export interface LinkedController {
   /** Devices this computer rang, until stopped or the ring runs out. */
   readonly ringing: ReadonlySet<string>;
   readonly sendClipboard: (id: string) => Promise<void>;
+  /** Rejects only when no file got as far as its own `file_failed` note. */
   readonly sendFiles: (id: string, paths: string[]) => Promise<void>;
 }
 
@@ -184,7 +187,34 @@ export function useLinkedDevices(port: CarrovaPort): LinkedController {
     [port, ringEnded],
   );
   const sendClipboard = useCallback((id: string) => port.sendClipboard(id), [port]);
-  const sendFiles = useCallback((id: string, paths: string[]) => port.sendFiles(id, paths), [port]);
+  const sendFiles = useCallback(
+    async (id: string, paths: string[]) => {
+      // A file that failed once offered says so itself (`file_failed`): its note is the
+      // one, so the send doesn't fail a second time. The event travels apart from the
+      // reply and may land just after it, so a failed send waits briefly for it.
+      const seen = { failed: false };
+      let heard = (): void => undefined;
+      const unsubscribe = await port.subscribe((e) => {
+        if (e.kind === 'engine' && e.event.event === 'file_failed' && e.event.device === id) {
+          seen.failed = true;
+          heard();
+        }
+      });
+      try {
+        await port.sendFiles(id, paths);
+      } catch (error) {
+        if (!seen.failed)
+          await new Promise<void>((resolve) => {
+            heard = resolve;
+            setTimeout(resolve, FILE_FAILED_GRACE_MS);
+          });
+        if (!seen.failed) throw error;
+      } finally {
+        unsubscribe();
+      }
+    },
+    [port],
+  );
 
   return useMemo(
     () => ({
