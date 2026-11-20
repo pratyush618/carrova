@@ -74,4 +74,4 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 
 ## 2026-11-20 — Docs commits used scopes commitlint rejects; main checkout switched mid-task
 - **What happened:** docs commits used scopes like `mockups`, `tasks` and `plan`, which commitlint does not allow; and work done in the main checkout was at risk because other sessions share it and may switch its branch mid-task.
-- **Rule:** run `just commitlint` before pushing; allowed scopes are in the commitlint config (no `mockups`/`tasks`/`plan`: mockups and plans use `docs(spec)`, todo uses `docs`). Commit only in a dedicated worktree: the main checkout is shared with other sessions, which may switch its branch mid-task.
+- **Rule:** run `just commitlint` before pushing; allowed scopes are in the commitlint config (no `mockups`/`tasks`/`plan`: mockups and plans use `docs(spec)`, todo uses `docs`). Do all work, edits included, in a dedicated worktree, never only the commits: the main checkout is shared with other sessions, which may switch its branch mid-task.
