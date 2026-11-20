@@ -61,6 +61,29 @@ jobs:
         env:
           RECIPE: ${{ matrix.just }}
 
+  # The Android-only code (platform glue, the phone's app update commands)
+  # compiles only for Android, so `just ci` never sees it.
+  android:
+    name: android cross-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NDK_VERSION: 27.1.12297006 # as the release job
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          rust: "true"
+          cache-key: android
+      - name: Android NDK + Rust target
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" >/dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+          rustup target add aarch64-linux-android
+      - run: just android-check
+
   e2e:
     name: container e2e (archive + LAN)
     runs-on: ubuntu-latest # ships with docker
