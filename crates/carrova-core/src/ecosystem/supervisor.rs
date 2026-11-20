@@ -636,14 +636,12 @@ impl Supervisor {
         state: FeatureState,
     ) -> Result<()> {
         let platform = &**self.shared.platform();
-        if !self.shared.peers().iter().any(|p| p.id() == *device) {
-            return Err(CoreError::UnknownDevice);
-        }
-        let local = PolicyStore::open(platform)?.set(platform, device, feature, state)?;
         let (conn, gives, cleared) = {
             let mut peers = self.shared.peers();
             let peer = peers.iter_mut().find(|p| p.id() == *device);
             let peer = peer.ok_or(CoreError::UnknownDevice)?;
+            // Saved under the lock: changes made at once each read the last one's file.
+            let local = PolicyStore::open(platform)?.set(platform, device, feature, state)?;
             let remote = peer.link.as_ref().and_then(|l| l.remote.as_ref());
             let gives = Gives::of(&local, remote).since(Gives::of(&peer.local, remote));
             let cleared = match peer.link.as_mut() {

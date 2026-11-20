@@ -85,6 +85,38 @@ fn link_up_when_feature_on() {
 }
 
 #[test]
+fn features_set_at_once_are_all_kept() {
+    use carrova_core::ecosystem::PolicyStore;
+    let (low, high, _) = pair(&PolicyDoc::computer_defaults());
+    let sl = low.start(fast());
+    let on = |f: Feature| match f {
+        Feature::Files | Feature::Handoff => FeatureState::Ask,
+        _ => FeatureState::On,
+    };
+    // As "Choose what to share" saves: one call per feature, all in flight together.
+    for _ in 0..20 {
+        for f in Feature::PHASE2 {
+            sl.set_feature(&high.id, f, FeatureState::Off).unwrap();
+        }
+        thread::scope(|s| {
+            for f in Feature::PHASE2 {
+                let sl = &sl;
+                let high = &high.id;
+                s.spawn(move || sl.set_feature(high, f, on(f)).unwrap());
+            }
+        });
+        let saved = PolicyStore::open(&*low.platform)
+            .unwrap()
+            .get(&*low.platform, &high.id)
+            .unwrap();
+        for f in Feature::PHASE2 {
+            assert_eq!(saved.get(f), on(f), "{f:?} lost");
+        }
+        assert_eq!(sl.status()[0].local, saved);
+    }
+}
+
+#[test]
 fn a_device_paired_while_running_shows_at_once() {
     let low = Device::new("Low");
     let high = Device::new("High");
