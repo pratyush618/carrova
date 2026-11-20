@@ -22,6 +22,8 @@ export type Overlay =
   | { readonly kind: 'file-choose' }
   | { readonly kind: 'customize' }
   | { readonly kind: 'unrecognised' }
+  /** Choose the computer a move goes to (trusted ones need no code). */
+  | { readonly kind: 'send-to' }
   | { readonly kind: 'review-details' }
   /** Where cross-system items land (receive review). */
   | { readonly kind: 'mappings' }

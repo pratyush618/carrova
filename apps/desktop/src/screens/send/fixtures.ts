@@ -1,4 +1,6 @@
-import { APPS, GB, KB, MB, RECEIVER, SENDER } from '../shared/fixtures';
+import type { RequestSummary } from '../../engine/types';
+import { nearbyMap } from '../nearby/fixtures';
+import { APPS, GB, KB, MB, NOW, RECEIVER, SENDER } from '../shared/fixtures';
 import type { RouteEnd } from '../../ui';
 import type { AppRef } from '../shared/model';
 import type {
@@ -15,7 +17,10 @@ import type {
   PairingModel,
   SecretItem,
   SendMove,
+  SendToModel,
+  SendWaitModel,
   UnrecognisedModel,
+  WaitState,
 } from './model';
 import { transferAt } from '../shared/transferFixtures';
 
@@ -381,3 +386,31 @@ export const liveReconnecting = {
 } satisfies LiveModel;
 
 export const delivered: DeliveredModel = { peer: RECEIVER, apps: 5, bytes: 1.2 * GB };
+
+/** What the mockup's move carries before Review. */
+export const requestCounts: RequestSummary = { apps: 12, bytes: 340 * MB, has_sensitive: true };
+
+/** The mockup's network as "Send your setup to…" lists it (`sendto:choose`). */
+export const sendToChoose: SendToModel = {
+  targets: {
+    trusted: nearbyMap.here.filter((d) => d.kind === 'known').reverse(),
+    away: nearbyMap.away,
+    fresh: nearbyMap.here.filter((d) => d.kind === 'new'),
+  },
+  summary: requestCounts,
+  now: NOW,
+};
+
+/** Nobody trusted yet (`sendto:empty`). */
+export const sendToEmpty: SendToModel = {
+  ...sendToChoose,
+  targets: { trusted: [], away: [], fresh: [] },
+};
+
+/** Desk PC asked, 1:38 left while waiting (`sendwait:*`). */
+export const sendWait = (state: WaitState): SendWaitModel => ({
+  state,
+  peer: 'Desk PC',
+  expiresAt: Date.now() + 98_000,
+  summary: requestCounts,
+});

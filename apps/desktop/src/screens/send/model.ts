@@ -1,10 +1,11 @@
-import type { BridgeError } from '../../engine/types';
+import type { BridgeError, RequestSummary } from '../../engine/types';
 import type { KeyKind } from '../../bindings/KeyKind';
 import type { OsKind } from '../../bindings/OsKind';
 import type { PickKind } from '../../bindings/PickKind';
 import type { PickRejection } from '../../bindings/PickRejection';
 import type { Preset } from '../../bindings/Preset';
 import type { RouteEnd } from '../../ui';
+import type { DeviceEntry } from '../nearby/model';
 import type { PluginConsentModel } from '../receive/model';
 import type { AppRef, Bytes, ItemKey } from '../shared/model';
 import type { SensitiveWhy } from '../shared/sensitiveWhy';
@@ -356,4 +357,54 @@ export interface DeliveredModel {
 export interface DeliveredIntents {
   readonly onDetails: () => void;
   readonly onDone: () => void;
+}
+
+/** Where a move can go (`sendto:choose`); all empty: nobody trusted yet (`sendto:empty`). */
+export interface SendTargets {
+  /** Trusted computers here: they take the move without a code. */
+  readonly trusted: readonly DeviceEntry[];
+  /** Trusted computers not here, greyed (Wake where a hint is kept). */
+  readonly away: readonly DeviceEntry[];
+  /** New computers here: a code once, then they are trusted. */
+  readonly fresh: readonly DeviceEntry[];
+}
+
+export interface SendToModel {
+  readonly targets: SendTargets;
+  /** What would move, in the request's counts; `null` until the scan is in. */
+  readonly summary: RequestSummary | null;
+  readonly now: Date;
+}
+
+export interface SendToIntents {
+  /** Ask `device` to take the move, no code. */
+  readonly onSend: (device: DeviceEntry) => void;
+  readonly onWake: (device: DeviceEntry) => void;
+  /** Pair with a code instead. */
+  readonly onUseCode: () => void;
+  readonly onCancel: () => void;
+}
+
+/** A requested send's dialog (`sendwait:*`, plus a silent refusal: `needs_code`). */
+export type WaitState = 'waiting' | 'reviewing' | 'declined' | 'timeout' | 'away' | 'needs_code';
+
+export interface SendWaitModel {
+  readonly state: WaitState;
+  /** The computer asked. */
+  readonly peer: string;
+  /** When the request runs out (ms since epoch). */
+  readonly expiresAt: number;
+  /** What the request carries; `null` until the scan is in. */
+  readonly summary: RequestSummary | null;
+}
+
+export interface SendWaitIntents {
+  /** Stop asking, or stop the move (reviewing). */
+  readonly onCancel: () => void;
+  /** Close the dialog: back to the selection, or (reviewing) on to the move. */
+  readonly onClose: () => void;
+  /** Send again (timed out) or Try again (away). */
+  readonly onRetry: () => void;
+  /** Pair with a code (it needs one now). */
+  readonly onUseCode: () => void;
 }

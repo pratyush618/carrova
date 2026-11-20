@@ -83,3 +83,8 @@ export function useControllers(): Controllers {
     throw new Error('useControllers must be used inside ControllersProvider');
   return controllers;
 }
+
+/** Whether trusted computers send moves without a code here (`about().known_send`); off, its entry points stay hidden. */
+export function useKnownSend(): boolean {
+  return useControllers().settings.about?.known_send === true;
+}

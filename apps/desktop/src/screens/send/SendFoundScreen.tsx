@@ -36,6 +36,8 @@ export interface SendFoundScreenProps {
   readonly here?: RouteEnd | null;
   /** The Auto/Manual switch; absent where the screen offers none. */
   readonly mode?: ModeSwitchModel;
+  /** Continue chooses the computer (trusted ones need no code) instead of showing a code. */
+  readonly chooses?: boolean;
   readonly on: FoundIntents;
 }
 
@@ -63,7 +65,14 @@ function ModeSwitch({
 }
 
 /** "Here's what we found": the one selection screen for sending and for saving a file. */
-export function SendFoundScreen({ model, purpose, here = null, mode, on }: SendFoundScreenProps) {
+export function SendFoundScreen({
+  model,
+  purpose,
+  here = null,
+  mode,
+  chooses = false,
+  on,
+}: SendFoundScreenProps) {
   const { t } = useTranslation();
   const format = useFormat();
   const modeSwitch = mode && on.onMode ? <ModeSwitch mode={mode} onMode={on.onMode} /> : null;
@@ -78,7 +87,10 @@ export function SendFoundScreen({ model, purpose, here = null, mode, on }: SendF
       {t('send.found.saveInstead')}
     </Button>
   );
-  const continueLabel = purpose === 'save' ? t('action.continue') : t('send.found.toPairing');
+  const continueLabel =
+    purpose === 'save'
+      ? t('action.continue')
+      : t(chooses ? 'request.to.next' : 'send.found.toPairing');
   const back = (
     <Button kind="quiet" icon="back" onClick={on.onBack}>
       {t('action.back')}

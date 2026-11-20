@@ -24,7 +24,7 @@ import {
   RemapOverlay,
   ReviewDetailsOverlay,
 } from './ReceiveOverlays';
-import { CustomizeOverlay, UnrecognisedOverlay } from './SendOverlays';
+import { CustomizeOverlay, SendToOverlay, UnrecognisedOverlay } from './SendOverlays';
 import { useStartFlows } from './useStartFlows';
 
 function FileChooseOverlay() {
@@ -42,6 +42,8 @@ export function OverlayRoute({ overlay }: { readonly overlay: Overlay }) {
       return <CustomizeOverlay />;
     case 'unrecognised':
       return <UnrecognisedOverlay />;
+    case 'send-to':
+      return <SendToOverlay />;
     case 'review-details':
       return <ReviewDetailsOverlay />;
     case 'mappings':
