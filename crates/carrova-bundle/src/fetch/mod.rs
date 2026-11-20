@@ -5,6 +5,16 @@ use std::io::Read;
 
 use crate::{Asset, BundleVersion, FetchError};
 
+/// `$path` under the GitHub releases of Carrova's repository: the one
+/// place the repository is named for release downloads (recipe bundles,
+/// the phone's app update).
+macro_rules! releases_url {
+    ($path:literal) => {
+        concat!("https://github.com/pratyush618/carrova/releases/", $path)
+    };
+}
+pub(crate) use releases_url;
+
 mod dir;
 mod http;
 mod pointer;
