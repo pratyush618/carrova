@@ -31,3 +31,18 @@ fn statuses_serialize_with_a_status_tag() {
         serde_json::json!({ "status": "installed", "version": "0.2.0" })
     );
 }
+
+#[test]
+fn a_second_install_is_refused_and_keeps_the_first_ones_cancel() {
+    let control = UpdateControl::default();
+    let first = control.begin().unwrap();
+    control.0.send_replace(Signal::Cancel);
+
+    let second = control.begin().unwrap_err();
+    assert_eq!(second.bridge().code, ErrorCode::Session);
+    assert_eq!(*control.0.borrow(), Signal::Cancel);
+
+    drop(first);
+    assert!(control.begin().is_ok());
+    assert_eq!(*control.0.borrow(), Signal::Go);
+}

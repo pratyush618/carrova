@@ -20,6 +20,7 @@ use tokio::sync::watch;
 
 use crate::call_window::LastCall;
 use crate::command_error::CommandError;
+use crate::in_flight::{InFlight, Running};
 use crate::state::AppState;
 use install::Signal;
 
@@ -71,13 +72,27 @@ impl PendingUpdate {
     }
 }
 
-/// Carries the user's Cancel and Install anyway to the install in progress.
+/// Carries the user's Cancel and Install anyway to the install in
+/// progress, of which there is at most one.
 #[derive(Debug)]
-pub struct UpdateControl(watch::Sender<Signal>);
+pub struct UpdateControl(watch::Sender<Signal>, InFlight);
 
 impl Default for UpdateControl {
     fn default() -> Self {
-        Self(watch::Sender::new(Signal::Go))
+        Self(watch::Sender::new(Signal::Go), InFlight::default())
+    }
+}
+
+impl UpdateControl {
+    /// Start an install with a fresh [`Signal::Go`].
+    ///
+    /// # Errors
+    ///
+    /// [`ErrorCode::Session`] while another install runs (its signal stays).
+    fn begin(&self) -> Result<Running<'_>, CommandError> {
+        let running = self.1.start("an update install")?;
+        self.0.send_replace(Signal::Go);
+        Ok(running)
     }
 }
 
@@ -122,7 +137,7 @@ pub async fn install_update(
             format!("version {version} is not on offer; check for updates again"),
         )
     })?;
-    control.0.send_replace(Signal::Go);
+    let _running = control.begin()?;
     let blocker = || {
         let on_call = app
             .try_state::<LastCall>()

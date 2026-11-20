@@ -42,6 +42,7 @@ pub mod command_error;
 pub mod commands;
 pub mod error_report;
 pub mod events;
+pub mod in_flight;
 #[cfg(mobile)]
 pub mod mobile;
 pub mod opened;
