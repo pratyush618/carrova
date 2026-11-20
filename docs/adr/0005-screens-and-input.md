@@ -178,8 +178,10 @@ Limits and safety:
   Order: `Input` > `Screen` > `Video` > other lanes, so a file transfer or
   a keyframe never delays a keystroke. No transport parameter or
   handshake change.
-- The sender of a `Video` lane keeps at most one encoded frame unacked
-  (drop-to-latest). *Pending open question 5 (recommended (b)):* the
+- The sender of a `Video` lane keeps at most two encoded frames unacked
+  (drop-to-latest at capture; every encoded frame is sent, so the
+  reference chain stays whole). Two in flight keep 30 fps while RTT +
+  decode + ack stays under about 66 ms. *Pending open question 5 (recommended (b)):* the
   viewer acks each frame `seq` on the `Screen` lane, because `Stream` has
   no split (`crates/carrova-transport/src/stream.rs:23-88`) and the 4 MiB
   per-stream window (`tuning.rs:28`) holds about 8 s of video, so write
