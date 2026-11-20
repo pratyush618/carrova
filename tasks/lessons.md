@@ -71,3 +71,7 @@ Patterns learned from corrections. One rule per entry: what went wrong, the rule
 ## 2026-11-17 — CI overlapped an agent's cargo build
 - **What happened:** `just ci` (8G cap, 2 jobs) ran while a fix agent built in its own target dir. Memory PSI held around 40 and IO PSI 50–68 with swap passing 1 GB, though `MemAvailable` stayed near 9 GB and the CI unit never hit its cap. CI was stopped by the swap rule and has to run again.
 - **Rule:** never run `just ci` while an agent is compiling. Wait until the agents are done, or start CI before any agent and send none until it ends.
+
+## 2026-11-20 — Docs commits used scopes commitlint rejects; main checkout switched mid-task
+- **What happened:** docs commits used scopes like `mockups`, `tasks` and `plan`, which commitlint does not allow; and work done in the main checkout was at risk because other sessions share it and may switch its branch mid-task.
+- **Rule:** run `just commitlint` before pushing; allowed scopes are in the commitlint config (no `mockups`/`tasks`/`plan`: mockups and plans use `docs(spec)`, todo uses `docs`). Commit only in a dedicated worktree: the main checkout is shared with other sessions, which may switch its branch mid-task.
