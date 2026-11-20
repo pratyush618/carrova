@@ -314,6 +314,10 @@ impl Supervisor {
     /// Every known device and its link.
     #[must_use]
     pub fn status(&self) -> Vec<LinkedPeer> {
+        // A pairing stores devices outside the supervisor: follow it now, not a round later.
+        if let Err(e) = dial::refresh(&self.shared) {
+            tracing::warn!(error = %e, "known devices unreadable");
+        }
         self.shared.peers().iter().map(Peer::status).collect()
     }
 

@@ -85,6 +85,31 @@ fn link_up_when_feature_on() {
 }
 
 #[test]
+fn a_device_paired_while_running_shows_at_once() {
+    let low = Device::new("Low");
+    let high = Device::new("High");
+    // No maintenance round between the pairing and the read.
+    let slow = SupervisorConfig {
+        tick: std::time::Duration::from_secs(2),
+        ..fast()
+    };
+    let sl = low.start(slow);
+    low.source.wait_rounds(1);
+    assert!(sl.status().is_empty());
+
+    let doc = PolicyDoc::phone_defaults();
+    low.know(
+        &high,
+        "High",
+        &carrova_crypto::pairing::KnownSecret::from_bytes([7; 32]),
+        &doc,
+    );
+    let status = sl.status();
+    assert_eq!(status.len(), 1);
+    assert_eq!(status[0].id, high.id);
+}
+
+#[test]
 fn a_linked_device_shows_the_name_it_announces_unless_renamed() {
     use carrova_core::devices::KnownDevices;
     let doc = PolicyDoc::phone_defaults();
