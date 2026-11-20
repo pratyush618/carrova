@@ -1,8 +1,6 @@
 //! App update download: what the user sees of it, and what it waits for.
 #![allow(clippy::unwrap_used)]
 
-mod apk;
-
 use std::time::{Duration, Instant};
 
 use carrova_view::update::{

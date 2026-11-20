@@ -36,8 +36,6 @@
 //!   `apk_update` (phones): services.
 //! - [`command_error`]: the one mapping of every failure to `BridgeError`.
 
-#[cfg(any(mobile, test))]
-pub mod apk_download;
 #[cfg(mobile)]
 pub mod apk_update;
 #[cfg(desktop)]

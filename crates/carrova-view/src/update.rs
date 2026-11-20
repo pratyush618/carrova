@@ -2,9 +2,7 @@
 //! and what an install waits for. Front-ends feed [`DownloadMeter`] the
 //! updater's chunks and show the [`DownloadView`]s it lets through. A
 //! sideloaded phone's update steps become UI steps and notification
-//! content through [`PhoneSteps`]; its rules are in [`apk`].
-
-pub mod apk;
+//! content through [`PhoneSteps`].
 
 use std::time::{Duration, Instant};
 

@@ -108,3 +108,24 @@ fn platform_refusals_keep_a_class_the_ui_can_show() {
         assert!(!mapped.is_engine_failure());
     }
 }
+
+#[test]
+fn phone_update_failures_keep_their_class() {
+    use carrova_bundle::app_update::{ApkRejected, AppUpdateError, NetFailure};
+    let table = [
+        (AppUpdateError::Cancelled, ErrorCode::Cancelled),
+        (AppUpdateError::Busy, ErrorCode::Session),
+        (
+            AppUpdateError::Rejected(ApkRejected::WrongSigner),
+            ErrorCode::BadUpdate,
+        ),
+        (
+            AppUpdateError::Network(NetFailure::Untrusted),
+            ErrorCode::Network,
+        ),
+        (AppUpdateError::TooLarge, ErrorCode::Network),
+    ];
+    for (error, code) in table {
+        assert_eq!(CommandError::from(error).bridge().code, code);
+    }
+}
