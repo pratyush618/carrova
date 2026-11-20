@@ -21,6 +21,7 @@ import { HubLayout } from '../../../ui';
 import { useControllers } from '../../controllers/Controllers';
 import { useNav } from '../nav';
 import { HomeCallBar } from './CallRoutes';
+import { HomeMoveRequests } from './RequestRoutes';
 import { useStartFlows } from './useStartFlows';
 
 /** A list the page can't render until it has answered once (a failure counts: render empty). */
@@ -45,6 +46,7 @@ export function HomeRoute() {
       glance={
         <>
           <HomeCallBar />
+          <HomeMoveRequests />
           {linked.devices.length > 0 && (
             <Glance
               devices={linked.devices}

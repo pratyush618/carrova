@@ -13,6 +13,7 @@ import {
   type LinkAction,
   type LinkState,
 } from './link';
+import { applyRequests, noRequests, type RequestsAction, type RequestsState } from './requests';
 import { applyEvent, emptySession, type NewCodePrompt, type SessionProgress } from './session';
 
 export {
@@ -30,6 +31,8 @@ export interface AppState {
   readonly sessions: Readonly<Record<SessionId, SessionProgress>>;
   /** Linked devices' events (the `link` session is no move). */
   readonly link: LinkState;
+  /** Trusted computers asking to send this one a move. */
+  readonly requests: RequestsState;
 }
 
 /** Everything that can change {@link AppState}. Bridge events arrive via {@link bridgeAction}. */
@@ -51,11 +54,12 @@ export type AppAction =
   | { readonly type: 'pairing_answered'; readonly session: SessionId }
   | { readonly type: 'task_ended'; readonly session: SessionId; readonly error: BridgeError | null }
   | { readonly type: 'dismissed'; readonly session: SessionId }
-  | LinkAction;
+  | LinkAction
+  | RequestsAction;
 
-export const initialAppState: AppState = { sessions: {}, link: emptyLink };
+export const initialAppState: AppState = { sessions: {}, link: emptyLink, requests: noRequests };
 
-/** Bridge events about a session (everything but `send_requested`, `show_nearby`, `notice` and pairing's). */
+/** Bridge events about a session or a move request (everything but `send_requested`, `show_nearby`, `notice` and pairing's). */
 export type SessionBridgeEvent = Exclude<
   BridgeEvent,
   { kind: 'send_requested' | 'show_nearby' | 'notice' | 'pair_invite' | 'pair_peer_found' }
@@ -64,6 +68,10 @@ export type SessionBridgeEvent = Exclude<
 /** The app action for one session bridge event, received at `now` (ms since epoch). */
 export function bridgeAction(event: SessionBridgeEvent, now: number): AppAction {
   switch (event.kind) {
+    case 'move_request_arrived':
+      return { type: 'request_arrived', request: event.request };
+    case 'move_request_ended':
+      return { type: 'request_ended', id: event.id, why: event.why };
     case 'engine':
       return { type: 'engine', session: event.session, event: event.event };
     case 'pairing_code':
@@ -80,7 +88,7 @@ export function bridgeAction(event: SessionBridgeEvent, now: number): AppAction 
 }
 
 function fold(
-  action: Exclude<AppAction, { type: 'dismissed' } | LinkAction>,
+  action: Exclude<AppAction, { type: 'dismissed' } | LinkAction | RequestsAction>,
   s: SessionProgress,
 ): SessionProgress {
   switch (action.type) {
@@ -112,6 +120,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'transfer_dismissed':
     case 'clip_dismissed':
       return { ...state, link: applyLinkAction(state.link, action) };
+    case 'request_arrived':
+    case 'request_ended':
+    case 'request_answered':
+    case 'expired_dismissed':
+      return { ...state, requests: applyRequests(state.requests, action) };
     case 'dismissed': {
       const rest = Object.entries(state.sessions).filter(([id]) => id !== action.session);
       return { ...state, sessions: Object.fromEntries(rest) };

@@ -9,6 +9,7 @@ import { useInbox, type InboxController } from '../../flows/inbox/useInbox';
 import { useDevices, type DevicesController } from '../../flows/nearby/useDevices';
 import { useHistory, type HistoryController } from '../../flows/history/useHistory';
 import { useReceiveFlow, type ReceiveController } from '../../flows/receive/useReceiveFlow';
+import { useMoveRequests, type MoveRequestsController } from '../../flows/request/useMoveRequests';
 import { useSendFlow, type SendController } from '../../flows/send/useSendFlow';
 import { useAppUpdate, type AppUpdateController } from '../../flows/settings/useAppUpdate';
 import { useErrorReport, type ErrorReportController } from '../../flows/settings/useErrorReport';
@@ -20,6 +21,7 @@ export interface Controllers {
   readonly send: SendController;
   readonly save: SaveController;
   readonly receive: ReceiveController;
+  readonly requests: MoveRequestsController;
   readonly history: HistoryController;
   readonly inbox: InboxController;
   readonly catalog: CatalogController;
@@ -52,6 +54,7 @@ export function ControllersProvider({ children }: { readonly children: ReactNode
   const send = useSendFlow(port, defaults.include_caches, host);
   const save = useSaveFlow(port, send, host);
   const receive = useReceiveFlow(port, host, defaults);
+  const requests = useMoveRequests(port);
   const history = useHistory(port);
   const inbox = useInbox(port);
   const catalog = useCatalog(port);
@@ -62,6 +65,7 @@ export function ControllersProvider({ children }: { readonly children: ReactNode
       send,
       save,
       receive,
+      requests,
       history,
       inbox,
       catalog,
@@ -72,7 +76,21 @@ export function ControllersProvider({ children }: { readonly children: ReactNode
       report,
       undo,
     }),
-    [send, save, receive, history, inbox, catalog, devices, linked, settings, update, report, undo],
+    [
+      send,
+      save,
+      receive,
+      requests,
+      history,
+      inbox,
+      catalog,
+      devices,
+      linked,
+      settings,
+      update,
+      report,
+      undo,
+    ],
   );
   return <ControllersContext value={value}>{children}</ControllersContext>;
 }
