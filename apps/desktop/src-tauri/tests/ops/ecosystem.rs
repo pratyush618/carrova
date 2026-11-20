@@ -369,3 +369,15 @@ fn an_ask_reaches_the_bell_as_a_send_request_from_its_device() {
     let engine = machine.events.recorded.of_kind("engine");
     assert!(engine.iter().any(|e| e["event"]["event"] == "ask_received"));
 }
+
+#[test]
+fn only_a_file_failed_once_offered_is_left_to_its_event() {
+    use carrova_link::LinkError;
+    let told = |e: CoreError| ecosystem::told_by_file_failed(&e);
+    assert!(told(CoreError::Link(LinkError::Declined)));
+    assert!(told(CoreError::Link(LinkError::Expired)));
+    // Before any offer: nothing but the reply says so.
+    assert!(!told(CoreError::NotLinked));
+    assert!(!told(CoreError::UnknownDevice));
+    assert!(!told(CoreError::FeatureOff(Feature::Files)));
+}

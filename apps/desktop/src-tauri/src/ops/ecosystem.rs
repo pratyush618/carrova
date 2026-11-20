@@ -368,8 +368,10 @@ pub async fn send_clipboard(state: &AppState, device: DeviceId) -> Result<(), Co
 ///
 /// # Errors
 ///
-/// A path is not a readable file, not linked, files off for it, declined,
-/// expired, or the link failed. Files before the failing one were sent.
+/// A path is not a readable file, not linked, or files off for it. A file
+/// that fails once offered (declined, expired, the link failed) ends the
+/// send without an error: its [`carrova_core::Event::FileFailed`] says so.
+/// Files before the failing one were sent.
 pub async fn send_files(
     state: &AppState,
     device: DeviceId,
@@ -377,11 +379,23 @@ pub async fn send_files(
 ) -> Result<(), CommandError> {
     with_link(state, move |link| {
         for path in &paths {
-            link.send_file(&device, &std::fs::canonicalize(path)?)?;
+            match link.send_file(&device, &std::fs::canonicalize(path)?) {
+                // Its `FileFailed` already told the user: no second note.
+                Err(e) if told_by_file_failed(&e) => return Ok(()),
+                sent => sent?,
+            }
         }
         Ok(())
     })
     .await
+}
+
+/// Whether `error` ended a file only once offered, so the supervisor
+/// reported it as [`carrova_core::Event::FileFailed`]. Before the offer
+/// (not linked, files off, unreadable) nothing reports it but the reply. A
+/// supervisor in another process answers with text, never this.
+pub(super) fn told_by_file_failed(error: &CoreError) -> bool {
+    matches!(error, CoreError::Link(_) | CoreError::Transport(_))
 }
 
 /// Open `url` (`http(s)`) on `device`, once its user accepts.

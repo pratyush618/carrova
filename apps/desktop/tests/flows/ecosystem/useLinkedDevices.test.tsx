@@ -2,12 +2,10 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { EngineStateProvider } from '@/app/state/EngineState';
-import type { BridgeEvent } from '@/bindings/BridgeEvent';
 import type { CarrovaPort } from '@/engine/types';
 import { PortProvider } from '@/engine/port';
 import { useLinkedDevices } from '@/flows/ecosystem/useLinkedDevices';
 import { createFakePort } from '@/ipc/fake';
-import { raise } from '@/ipc/reject';
 import { pixel } from '@/screens/devices/fixtures';
 
 const CANCELLED = { code: 'cancelled', message: 'cancelled', hint: null } as const;
@@ -166,49 +164,5 @@ describe('useLinkedDevices ring', () => {
     const { hook } = setup(port);
     await act(() => hook.result.current.ring('p8').catch(() => undefined));
     expect(hook.result.current.ringing.has('p8')).toBe(false);
-  });
-});
-
-describe('useLinkedDevices sendFiles', () => {
-  const refused = { code: 'known_device', message: 'declined', hint: null } as const;
-
-  /** A port whose file send to Pixel 8 fails, reporting `file_failed` before or after the reply if `reported`. */
-  function failing(reported: false | 'before' | 'after') {
-    const port = createFakePort({ stepMs: 0, scenario: 'linked' });
-    const listeners: ((event: BridgeEvent) => void)[] = [];
-    const subscribe = port.subscribe.bind(port);
-    vi.spyOn(port, 'subscribe').mockImplementation((listener) => {
-      listeners.push(listener);
-      return subscribe(listener);
-    });
-    const report = () => {
-      for (const listener of listeners)
-        listener({
-          kind: 'engine',
-          session: 'link',
-          event: { event: 'file_failed', device: 'p8', id: 4, reason: 'refused', retry: false },
-        });
-    };
-    vi.spyOn(port, 'sendFiles').mockImplementation(() => {
-      if (reported === 'before') report();
-      if (reported === 'after') setTimeout(report, 10);
-      return Promise.resolve().then(() => raise(refused));
-    });
-    return port;
-  }
-
-  it('leaves a failure the engine reported as file_failed to its own note', async () => {
-    const { hook } = setup(failing('before'));
-    await expect(hook.result.current.sendFiles('p8', ['/a.txt'])).resolves.toBeUndefined();
-  });
-
-  it('leaves it to the note when file_failed lands just after the reply', async () => {
-    const { hook } = setup(failing('after'));
-    await expect(hook.result.current.sendFiles('p8', ['/a.txt'])).resolves.toBeUndefined();
-  });
-
-  it('rejects a send that failed before any file was offered', async () => {
-    const { hook } = setup(failing(false));
-    await expect(hook.result.current.sendFiles('p8', ['/a.txt'])).rejects.toEqual(refused);
   });
 });
