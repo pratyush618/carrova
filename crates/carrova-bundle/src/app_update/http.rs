@@ -165,7 +165,7 @@ fn content_range(header: Option<&str>) -> Option<(u64, Option<u64>)> {
 }
 
 /// Release downloads with `ureq`: HTTPS only, statuses and redirects left
-/// to [`open`].
+/// to the caller (see the module docs).
 #[derive(Debug)]
 pub struct Https(ureq::Agent);
 
