@@ -1644,7 +1644,7 @@ add({ id: "update", group: "Updates", title: "Update Carrova", states: [["availa
       const mobile = st === "mobile";
       return upPage(`<div class="card card--pad" style="margin:18px 0 22px"><b>What's new</b><ul class="small sec" style="margin-top:8px;display:grid;gap:6px;list-style:disc;padding-inline-start:18px"><li>See a computer's screen and control it from this phone</li><li>Use this phone as a touchpad and keyboard</li><li>Faster file transfers on busy Wi-Fi</li></ul><p style="margin-top:12px"><a class="link small" href="#">Full notes</a></p></div>
         ${mobile ? `<div class="ig"><h3 id="optData">You're on mobile data</h3><div class="pick4s" role="radiogroup" aria-labelledby="optData">${opt("data", "Wait for Wi-Fi", "Downloads by itself when you're back on Wi-Fi", 1)}${opt("data", "Use mobile data", `${UPSZ} from your data plan`, 0)}</div></div>` : ""}
-        <div class="row" style="justify-content:flex-end;gap:8px">${btn("Later", { kind: "quiet", go: "home:linked" })}${btn(mobile ? "Download on Wi-Fi" : "Download", { kind: "primary", go: mobile ? "update:queued" : "update:downloading" })}</div>
+        <div class="row" style="justify-content:flex-end;gap:8px">${btn("Later", { kind: "quiet", go: "home:linked" })}${btn(mobile ? "Download on Wi-Fi" : "Download", { kind: "primary", cls: "upgo", go: mobile ? "update:queued" : "update:downloading" })}</div>
         <p class="xs muted" style="margin-top:14px">Checked against Carrova's release key. Android asks before installing.</p>`);
     }
     if (st === "downloading") return upPage(`<div style="margin-top:18px">${upProg(35, "18.4", `<span class="num">3.2 MB/s</span> · About 11 s left`)}</div><div class="row" style="margin-top:16px;justify-content:flex-end;gap:8px">${btn("Cancel", { kind: "quiet" })}${btn("Pause", { icon: "pause", go: "update:paused" })}</div>`);
@@ -1717,6 +1717,13 @@ document.addEventListener("click", e => {
   if (sb) { sb.parentElement.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b === sb)); return; }
   if (e.target.closest(".scrim") || e.target.closest(".bsheet__foot .btn:not(.btn--primary), .pdlg .dialog__foot .btn:not(.btn--primary)")) go(first());
   if (e.target.closest("a[href='#']")) e.preventDefault();
+});
+// The data-plan choice drives the download button: Wait for Wi-Fi queues, Use mobile data downloads now.
+document.addEventListener("change", e => {
+  if (e.target.name !== "data") return;
+  const now = [...document.querySelectorAll('input[name="data"]')].indexOf(e.target) === 1, g = $(".upgo");
+  g.textContent = now ? "Download" : "Download on Wi-Fi";
+  g.dataset.go = now ? "update:downloading" : "update:queued";
 });
 const setDark = k => { document.documentElement.dataset.dark = k; document.querySelectorAll("button[data-dark]").forEach(b => b.setAttribute("aria-pressed", b.dataset.dark === k)); };
 const setTheme = th => { document.documentElement.dataset.theme = th; $("#tTheme").setAttribute("aria-pressed", th === "dark"); };
