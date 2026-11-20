@@ -499,7 +499,7 @@ Ethernet, Android 13+ mid-range phone.
 | Bitrate | start 4 Mbit/s; adapt 0.5–12 Mbit/s |
 | Static screen | frames only on damage, plus 1 fps keep-alive |
 | Size | long edge capped at 1920 px in v1 (downscaled by the encoder path) |
-| Queues | sharer ≤ 1 unacked frame (viewer acks each `seq` on the `Screen` lane, Q5); viewer ≤ 2 frames before decode |
+| Queues | sharer ≤ 1 unacked frame, skipping at capture, never after encoding (viewer acks each `seq` on the `Screen` lane, Q5); viewer ≤ 2 frames before decode |
 | Idle | zero: no capture, encoder, hook or portal session without a live session |
 | Phone mirroring battery | measured in 3a, recorded here; target ≤ 8 % per 30 min |
 
@@ -509,7 +509,7 @@ or RTT doubling → halve bitrate and skip frames; 5 s clear → +10 %. Below
 1 Mbit/s the encoder scales to 0.75× resolution, then 15 fps. Quality
 drops before frames; the viewer shows "Lower quality · slow network" when
 under the start bitrate (`viewer:slow`). A lost frame or decoder error →
-`Keyframe`.
+the viewer asks `Keyframe` and shows nothing new until it decodes one.
 
 ## Placement (respects the boundary rules)
 
@@ -713,7 +713,9 @@ Questions 1–5 came from the builder check (2026-11-20) and block ADR
    and/or a smaller `Video` window, covered by ADR 0005; (b) frame acks on
    the `Screen` lane. *Recommend (b): the viewer acks each decoded frame
    `seq` on the `Screen` lane; the sharer keeps at most one unacked frame
-   and skips the rest. It measures the real end to end (network + decode),
+   and skips the rest at capture, before encoding, so every encoded frame
+   is sent and the VP8/H.264 reference chain stays whole (if an encoded
+   frame is ever dropped, the next one is forced to a keyframe). It measures the real end to end (network + decode),
    feeds the rate controller, and needs no transport change beyond
    `set_priority`. The sharer's session loop polls `recv` with a short
    timeout between sends (a timeout loses nothing, `stream.rs:38-49`).*
