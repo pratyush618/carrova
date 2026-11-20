@@ -431,11 +431,14 @@ idle → requested → (target asks | auto-allowed by screen=on) → OS prompt
   bounding box).
 - **Crossing.** The source sets barriers on arranged edges (InputCapture
   portal on Wayland; XInput2 pointer barriers and a grab on X11). On a hit
-  it opens a `Kvm` session (asked once on the target, `kvm:request`), then
-  sends `PointerAbs` at the mirrored entry point and relative motion,
-  buttons, scroll and keys. The target owns its pointer position and sends
-  `Leave { pos }` when the pointer goes back out of the entry edge; the
-  source releases capture and warps its pointer to the matching point.
+  it reuses the live, approved `Kvm` session with that peer on this
+  connection; only if there is none does it open one (asked on the target,
+  `kvm:request`), and a new request waits until any earlier one has ended.
+  It then sends `PointerAbs` at the mirrored entry point and relative
+  motion, buttons, scroll and keys. The target owns its pointer position
+  and sends `Leave { pos }` when the pointer goes back out of the entry
+  edge; the source releases capture and warps its pointer to the matching
+  point. `Leave` does not end the session: the next crossing reuses it.
 - **Hotkeys.** Scroll Lock comes back at once; Shift + Scroll Lock pins the
   pointer to this screen (`kvm:pinned`); Ctrl + Alt + F leaves the
   viewer's full screen (`viewer:full`). While input is captured the source
