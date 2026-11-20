@@ -71,12 +71,13 @@ connection (§3).
 
 | Kind | Opener | Carries | Gate (target's local policy) |
 |---|---|---|---|
-| `Screen` | the side starting the session | `Request`, `Answer`, pause/resume, control ask/grant/take, stop, keyframe, feedback, keyboard-and-mouse `Leave` | admitted if the local `screen` or `input` for this peer is not `off` (the `Request` kind is then checked against the right one), or if it is a push offer (always asked) |
+| `Screen` | the side starting the session | `Request`, `Answer`, pause/resume, control ask/grant/take, stop, keyframe, feedback, heartbeat, keyboard-and-mouse `Leave` | admitted if the local `screen` or `input` for this peer is not `off` (the `Request` kind is then checked against the right one), or if it is a push offer (always asked) |
 | `Video` | the sharer | `Config`, then `VideoFrame { seq, pts_us, key, len }` + `len` raw bytes (`len` ≤ 4 MiB) | admitted only with a live session id (§3) |
-| `Input` | the controller | batches of ≤ 64 input events, ≤ 4 KiB | admitted only with a live, control-approved session id (§3) |
+| `Input` | the controller | batches of ≤ 64 input events, ≤ 4 KiB; target → controller `InputAck { seq }` per batch | admitted only with a live, control-approved session id (§3) |
 
 - All `version: 1`. Older peers refuse them `Unknown`; the connection
-  stays up (`lane.rs:81-115`). No change to `LaneOpen` or `LaneReply`.
+  stays up (`lane.rs:81-115`). No change to `LaneReply`; `LaneOpen`
+  changes only if open question 1 picks (a) (optional `session`, §3).
 - Frame headers stay within `MAX_FRAME_LEN`; video payload bytes are raw
   after the header, like file chunks. A video frame is not hashed (TLS
   already authenticates every byte; a hash adds cost for nothing here).
@@ -134,13 +135,10 @@ Limits and safety:
   after 2 s without events while any key is held.
 - Every session, control included, ends with its connection (§1, §3).
   Control and touchpad never come back without a new yes. *Pending open
-  question 4 (recommended):* the target keeps an in-memory per-device
-  grant for View and keyboard-and-mouse that auto-approves a **new**
-  session (new id, indicator again) on the next connection: View grants
-  lapse 30 s after the link drops, keyboard-and-mouse grants last until
-  Stop, forget, setting off, a global switch, app quit or logout (logout
-  ends the app, and the grant is memory-only). The next connection again
-  needs the ADR 0002 proofs from the same device key.
+  question 4 (recommended):* no approval is carried to a new connection.
+  Every keyboard-and-mouse session needs a fresh yes on the target too;
+  only "Always allow viewing" starts a view-only session without an ask
+  (indicator again), as it does on first connect.
 - *Pending open question 3 (recommended):* input only while the target is
   unlocked, always; the mockup toggle "Only when the other computer is
   unlocked" is dropped.
@@ -243,7 +241,7 @@ Additions to ADR 0002's table.
 | **Stranger on the Wi-Fi requests a view or injects input** | No link connection without ADR 0002 proofs; lanes exist only on it | None beyond ADR 0002 |
 | **Stolen phone (still linked)** | View and control ask on the target every time; `input` defaults `off`; "Always allow viewing" is opt-in and still shows the indicator | With "Always allow viewing" set, a thief sees the screen until the device is forgotten; the bar and GNOME's indicator show it |
 | **Peer injects input without/after approval** | `Input` lanes need a live, control-approved session id on the same connection; checked per lane open; session end closes lanes | None known |
-| **Approval replayed on a new connection** | Session bound to its `Connection`; control never resumes on reconnect | A grant (open question 4) auto-approves a new session after a reconnect; it needs the same key's fresh proofs and shows the indicator again |
+| **Approval replayed on a new connection** | Session bound to its `Connection`; control never resumes on reconnect | With "Always allow viewing", a view-only session starts again after a reconnect without an ask; it needs the same key's fresh proofs and shows the indicator |
 | **Input flood / malformed events** | Rate and size caps, clamping; violation ends the session | Up to 2000 events in the second before the cut |
 | **Stuck keys after a crash or drop** | Target-side release on every exit and on 2 s silence | A target process crash leaves the OS to release (portal/EIS sessions close with the process) |
 | **Typed secret crosses to the other computer** | No crossing while a password field is focused (best effort per OS), while locked, or pinned | Linux detection depends on AT-SPI; lock screen always blocks |
@@ -279,9 +277,11 @@ the spec's open questions 1–5:
    sharing with this device"), push always asks. *Recommend this.*
 3. **Locked target**: input only while unlocked, always; drop the mockup
    toggle. *Recommend this.*
-4. **Reconnect**: sessions end with their connection; an in-memory grant
-   (View 30 s, keyboard-and-mouse until cancelled) auto-approves a new
-   session on the next connection. *Recommend this.*
+4. **Reconnect**: sessions end with their connection; nothing carries
+   over, so every keyboard-and-mouse (and control, touchpad) session
+   needs a fresh yes. A 30 s view-only grace would conflict with the
+   anti-goal "no screen seen without a fresh yes" unless "Always allow
+   viewing" is on, which already skips the ask. *Recommend this.*
 5. **Transport scope**: frame acks on the `Screen` lane instead of
    `Stream::split` + backlog signal or a smaller `Video` window.
    *Recommend acks: no transport change beyond `set_priority`.*
@@ -291,7 +291,7 @@ Original:
 6. **No crypto or handshake change**: screens and input ride the link's
    TLS 1.3 with no extra keys. Agree?
 7. **Keyboard-and-mouse approval survives a reconnect**: superseded by
-   question 4 (grants).
+   question 4 (no carried approval).
 8. **Directional gate** for `screen`/`input` (only the target's setting
    counts). Agree?
 9. **Stream priority** (`Input` > `Screen` > `Video` > files) as the only
