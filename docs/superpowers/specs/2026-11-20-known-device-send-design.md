@@ -206,7 +206,8 @@ D (user picked L in "Send to…")             L (visibility ≠ No one, request 
                                             user: Review
                                        ◀──  Review
   Proceed{port, code} ─────────────────▶
-  wait (≤ 30 s idle)                   ◀──  close Normal  (after reading Proceed)
+  wait ≤ 30 s for move connect         ◀──  close Normal  (after reading Proceed;
+                                            D does not rely on it)
   ◀── QUIC to D:port, Hello{Pair{nameplate}, identify} ── (today's move)
   SPAKE2 with code, Confirm ×2, Identify ×2 (L pins D's key, D pins L's)
   manifest → L: dry-run plan → user approves → staged apply → undo
@@ -222,7 +223,7 @@ Other endings on the request connection:
 | Either side vanishes | idle timeout (≤ 30 s) | `sendwait:away` | notice removed |
 | Dial fails, no `rp`, refused (busy, rate) | none | `sendwait:away` | nothing |
 | 3 other devices already pending | L: `Rejected` (after auth) | `sendwait:away` | nothing |
-| `Proceed` sent, L never closes | idle timeout (≤ 30 s) | `sendwait:away` | n/a |
+| `Proceed` sent, no move connect within 30 s (close seen or not) | none needed | `sendwait:away` | n/a |
 | Not trusted there (forgotten, requests off) | L: `LinkFailed` | open question 3 | nothing |
 | Newer request from same D | L: `Superseded` (old one) | n/a (D started the new one) | old notice replaced |
 
@@ -360,6 +361,7 @@ Transport (Task 3.1, `crates/carrova-transport/tests/request/`,
   `sixth_attempt_in_a_minute_rejected`,
   `fourth_pending_device_refused_after_auth`,
   `pending_device_supersedes_when_cap_full`, `proceed_delivered_before_close`,
+  `lost_close_after_proceed_still_moves`,
   `newer_request_from_same_device_supersedes`,
   `slow_handshake_closed_after_10s`, `wrong_identity_signature_rejected`,
   `wrong_known_secret_rejected`, `request_without_identify_rejected`,

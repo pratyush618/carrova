@@ -133,7 +133,7 @@ L → D  Established
 D → L  Request { apps: u32, bytes: u64, has_sensitive: bool }
        ... listener shows the notice; at most 2 minutes ...
 L → D  Review                                        (user chose Review)
-D → L  Proceed { port: u16, code }                   D waits for L's close
+D → L  Proceed { port: u16, code }                   D waits ≤ 30 s for L's move connect
 L closes Normal                                      (after reading Proceed)
    or  L closes Declined                             (user chose Decline)
    or  D closes Cancelled                            (sender cancelled)
@@ -230,9 +230,12 @@ L closes Normal                                      (after reading Proceed)
   finds the sender by its resume tag, `connect.rs:94-100`).
 - On `Review` the dialer sends `Proceed { port, code }` (its `SendHandle`
   listener port and code) and waits. The **listener** closes `Normal` once
-  it has read `Proceed`, so a close can never drop it; the dialer treats
-  that close as delivery and gives up only on the 30 s idle timeout
-  (shown as "Away"). The listener dials
+  it has read `Proceed`, so a close can never drop it. The dialer does not
+  rely on that close (a CONNECTION_CLOSE can be lost): the move connection
+  itself is the acknowledgement. The dialer keeps its move listener up and
+  moves on when the listener connects to it (`PeerConnected`); it gives up
+  ("Away") only if no move connection arrives within 30 s of sending
+  `Proceed`, whatever happened to the request connection. The listener dials
   `<request connection's remote IPv4>:<port>` with `Target::Pairing` and
   **pins** the requester's key: the move sender's `Identify` must carry the
   same `DevicePublic` that proved the request, checked before the
