@@ -53,20 +53,29 @@ export function MessagesScreen({
   const { t } = useTranslation();
   const { phone, threads, selected } = model;
   const away = model.unreachable !== null;
-  const problem = model.failed && (
-    <Banner tone="warning" title={t('ecosystem.messages.loadFailed', { name: phone })} />
+  const off = model.unreachable === 'offThere';
+  // Off on the phone outranks an older failed load; away says so in the panes.
+  const problem = off ? (
+    <Banner
+      tone="warning"
+      title={t('ecosystem.messages.offTitle', { name: phone })}
+      body={t('ecosystem.messages.offBody', { name: phone })}
+    />
+  ) : (
+    model.failed &&
+    !away && <Banner tone="warning" title={t('ecosystem.messages.loadFailed', { name: phone })} />
   );
-  if (model.unreachable === 'offThere')
-    return (
-      <HubLayout variant="center">
-        <Empty
-          art="msg"
-          title={t('ecosystem.messages.offTitle', { name: phone })}
-          body={t('ecosystem.messages.offBody', { name: phone })}
-        />
-      </HubLayout>
-    );
   if (threads === null) {
+    if (off)
+      return (
+        <HubLayout variant="center">
+          <Empty
+            art="msg"
+            title={t('ecosystem.messages.offTitle', { name: phone })}
+            body={t('ecosystem.messages.offBody', { name: phone })}
+          />
+        </HubLayout>
+      );
     if (model.unreachable === 'away')
       return (
         <HubLayout variant="center">
@@ -79,9 +88,7 @@ export function MessagesScreen({
       );
     return (
       <HubLayout>
-        {model.failed && !away ? (
-          problem
-        ) : (
+        {problem || (
           <Status>
             {model.unreachable === 'connecting'
               ? t('ecosystem.messages.connecting', { name: phone })

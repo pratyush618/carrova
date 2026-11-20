@@ -207,6 +207,13 @@ describe('Messages', () => {
     expect(screen.queryByText(/Couldn.t reach/)).not.toBeInTheDocument();
   });
 
+  it('keeps loaded texts readable when Messages turns off on the phone', () => {
+    renderScreen(<MessagesScreen model={{ ...model, unreachable: 'offThere' }} on={intents()} />);
+    expect(screen.getByText('Messages are off on Pixel 8')).toBeInTheDocument();
+    expect(screen.getAllByText('Are you still coming tonight?').length).toBeGreaterThan(0);
+    expect(screen.getByRole('textbox', { name: 'Text message' })).toBeDisabled();
+  });
+
   it('says the phone is away or connecting before anything loaded', () => {
     const empty = { ...model, threads: null, selected: null, thread: null };
     const { unmount } = renderScreen(
