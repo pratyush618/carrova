@@ -85,7 +85,10 @@ describe('Notifications list upkeep', () => {
     document.dispatchEvent(new Event('visibilitychange'));
 
     expect(await screen.findByRole('searchbox', { name: 'Search apps' })).toBeInTheDocument();
-    expect(list.mock.calls.length).toBeGreaterThan(before);
+    // The box shows as soon as access reads `ok`; the reload starts just after.
+    await waitFor(() => {
+      expect(list.mock.calls.length).toBeGreaterThan(before);
+    });
   });
 
   it('a read from before a change does not undo it', async () => {
