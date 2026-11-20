@@ -183,8 +183,10 @@ Limits and safety:
   viewer acks each frame `seq` on the `Screen` lane, because `Stream` has
   no split (`crates/carrova-transport/src/stream.rs:23-88`) and the 4 MiB
   per-stream window (`tuning.rs:28`) holds about 8 s of video, so write
-  blocking cannot bound the queue. Flow-control windows stay as they are;
-  no `Stream::split`.
+  blocking cannot bound the queue. A decode failure is answered with
+  `Keyframe { failed: seq }` instead of an ack: it releases the credit and
+  the next encoded frame is a keyframe. Flow-control windows stay as they
+  are; no `Stream::split`.
 - Datagrams and unidirectional streams stay off. Turning on datagrams
   later would negotiate a transport parameter and needs a new ADR.
 
