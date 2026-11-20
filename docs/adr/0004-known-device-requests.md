@@ -133,7 +133,8 @@ L → D  Established
 D → L  Request { apps: u32, bytes: u64, has_sensitive: bool }
        ... listener shows the notice; at most 2 minutes ...
 L → D  Review                                        (user chose Review)
-D → L  Proceed { port: u16, code }                   then D closes Normal
+D → L  Proceed { port: u16, code }                   D waits for L's close
+L closes Normal                                      (after reading Proceed)
    or  L closes Declined                             (user chose Decline)
    or  D closes Cancelled                            (sender cancelled)
    or  D closes Normal at 2:00                       (expired, sender's clock)
@@ -196,12 +197,15 @@ D → L  Proceed { port: u16, code }                   then D closes Normal
   - **5 admitted attempts per source IP per rolling minute**; the 6th is
     refused at once (`HandshakeSlots` gains an optional per-minute budget,
     used by this listener only).
-  - **3 pending requests** (authenticated, waiting for an answer): while 3
-    are pending, new connections are refused at admission
-    (`Refusal::Full`). In-flight handshakes keep their own cap of 4 and 1
-    per IP.
+  - In-flight handshakes keep their own cap of 4 and 1 per IP.
+- After authentication (both proofs and signatures, then `Request`), the
+  pending cap applies, in this order:
   - One pending request per device: a newer authenticated request from the
-    same key replaces the older, which is closed `Superseded`.
+    same key replaces the older, which is closed `Superseded`. This does
+    not count against the cap.
+  - **3 pending requests** (authenticated, waiting for an answer): a
+    request from a 4th distinct device is closed `Rejected` (its dialer
+    shows "Away", as for a busy refusal) and gets no notice.
 - Deadlines: 2 s to stake, 10 s handshake including `Request` (existing
   constants). The listener drops a pending request it has not answered by
   2 min + 5 s grace (the dialer's clock started first and normally ends
@@ -225,7 +229,10 @@ D → L  Proceed { port: u16, code }                   then D closes Normal
   (`engine/send/pairing.rs:68-90`; a resume connect has no address and
   finds the sender by its resume tag, `connect.rs:94-100`).
 - On `Review` the dialer sends `Proceed { port, code }` (its `SendHandle`
-  listener port and code) and closes `Normal`. The listener dials
+  listener port and code) and waits. The **listener** closes `Normal` once
+  it has read `Proceed`, so a close can never drop it; the dialer treats
+  that close as delivery and gives up only on the 30 s idle timeout
+  (shown as "Away"). The listener dials
   `<request connection's remote IPv4>:<port>` with `Target::Pairing` and
   **pins** the requester's key: the move sender's `Identify` must carry the
   same `DevicePublic` that proved the request, checked before the
@@ -252,8 +259,9 @@ D → L  Proceed { port: u16, code }                   then D closes Normal
 - New `CloseCode::Declined` = 7 (appended; older peers decode it as
   unknown). Used only by the request listener when its user declines.
 - Reused: `LinkFailed` (any failed proof), `Cancelled` (dialer's user
-  cancelled), `Superseded` (newer request from the same device), `Normal`
-  (`Proceed` sent, or expired on the dialer's clock).
+  cancelled), `Superseded` (newer request from the same device), `Rejected`
+  (pending cap full, after authentication), `Normal`
+  (listener after reading `Proceed`; dialer when expired on its clock).
 
 ### 6. Compatibility
 
