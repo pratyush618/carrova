@@ -30,9 +30,20 @@ export const SCENARIOS = [
   'nearby-crowded',
   /** A phone (Handoff off on its side) and a computer are linked; three clips arrived. */
   'linked',
+  /**
+   * Trusted computers send without a code, with `nearby`'s devices and
+   * `linked`'s links: Desk PC opens Review, Ana's laptop declines.
+   */
+  'known-send',
+  /** As `known-send`, and Desk PC asks to send this computer a move. */
+  'move-request',
 ] as const;
 
 export type Scenario = (typeof SCENARIOS)[number];
+
+/** Whether trusted computers send without a code in `scenario` (`about().known_send`). */
+export const knownSend = (scenario: Scenario): boolean =>
+  scenario === 'known-send' || scenario === 'move-request';
 
 function isScenario(value: string): value is Scenario {
   return SCENARIOS.some((scenario) => scenario === value);

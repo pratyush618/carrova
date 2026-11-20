@@ -28,6 +28,9 @@ const ERROR_CODES: Readonly<Record<ErrorCode, true>> = {
   device_key: true,
   unsupported: true,
   permission_denied: true,
+  request_declined: true,
+  request_expired: true,
+  request_refused: true,
   internal: true,
 };
 
@@ -75,6 +78,19 @@ export function isBridgeEvent(value: unknown): value is BridgeEvent {
       typeof peer['os'] === 'string' &&
       typeof peer['fingerprint'] === 'string'
     );
+  }
+  if (value['kind'] === 'move_request_arrived') {
+    const request = value['request'];
+    return (
+      isRecord(request) &&
+      typeof request['id'] === 'number' &&
+      typeof request['name'] === 'string' &&
+      typeof request['expires_at'] === 'number' &&
+      isRecord(request['summary'])
+    );
+  }
+  if (value['kind'] === 'move_request_ended') {
+    return typeof value['id'] === 'number' && typeof value['why'] === 'string';
   }
   if (value['kind'] === 'notice') {
     return isRecord(value['notice']) && typeof value['notice']['summary'] === 'string';

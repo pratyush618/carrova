@@ -10,7 +10,7 @@ import type { VisibilityView } from '../../bindings/VisibilityView';
 import type { CarrovaPort } from '../port';
 import { bridgeError, raise } from '../reject';
 import { later } from './runtime';
-import type { Scenario } from './scenario';
+import { knownSend, type Scenario } from './scenario';
 
 const DAY = 86_400;
 
@@ -33,6 +33,7 @@ function seedKnown(now: number): KnownDeviceView[] {
     last_move: now - lastMove,
     moves,
     has_wake_hint: hint,
+    send_requests: true,
   });
   return [
     device('a1', '7F3A·19C2', "Ana's laptop", 'linux', 2 * DAY, 5, false),
@@ -119,13 +120,15 @@ type DevicesPort = Pick<
   | 'setVisibility'
   | 'wakeDevice'
   | 'takeShowNearby'
+  | 'setSendRequests'
 >;
 
 /** The device commands of a fake port acting out `scenario`. */
 export function fakeDevices(scenario: Scenario): DevicesPort {
-  const seeded = scenario === 'nearby' || scenario === 'nearby-crowded';
+  const remembers = scenario === 'nearby' || knownSend(scenario);
+  const seeded = remembers || scenario === 'nearby-crowded';
   const here = scenario === 'nearby-crowded' ? CROWDED : HERE;
-  let known = scenario === 'nearby' ? seedKnown(Math.floor(Date.now() / 1000)) : [];
+  let known = remembers ? seedKnown(Math.floor(Date.now() / 1000)) : [];
   let visibility: VisibilityView = { choice: 'known', until: null };
   const unknown = () => raise(bridgeError('known_device', 'no known device matches'));
   const find = (device: string) =>
@@ -181,5 +184,10 @@ export function fakeDevices(scenario: Scenario): DevicesPort {
       }),
     // The fake has no tray.
     takeShowNearby: () => later(() => false),
+    setSendRequests: (device, on) =>
+      later(() => {
+        const target = find(device);
+        known = known.map((d) => (d === target ? { ...d, send_requests: on } : d));
+      }),
   };
 }

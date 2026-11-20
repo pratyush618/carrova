@@ -67,6 +67,7 @@ import type { ReportConsent } from '../bindings/ReportConsent';
 import type { ReportId } from '../bindings/ReportId';
 import type { ReportSummary } from '../bindings/ReportSummary';
 import type { RecipesCheck } from '../bindings/RecipesCheck';
+import type { RequestAnswer } from '../bindings/RequestAnswer';
 import type { RecipesStatus } from '../bindings/RecipesStatus';
 import type { RecipesUpdate } from '../bindings/RecipesUpdate';
 import type { RollbackPreview } from '../bindings/RollbackPreview';
@@ -137,6 +138,25 @@ export interface CarrovaPort {
   runSend(session: SessionId): Promise<SendReport>;
   /** Answer a `confirm_new_code` prompt. */
   answerPairing(session: SessionId, offerNewCode: boolean): Promise<void>;
+
+  // --- Code-less moves between trusted computers (`about().known_send`) ---
+  /**
+   * Ask trusted computer `to` (a device id) to take this session's move
+   * without a code. Once someone there opens Review it connects
+   * (`peer_connected`) and the move runs as `runSend`'s does. Rejects with
+   * `request_declined`, `request_expired` (2 minutes passed),
+   * `request_refused` (it needs a code now), `network` (it can't be reached)
+   * or `cancelled` (`cancel(session)`).
+   */
+  requestSend(session: SessionId, to: string): Promise<SendReport>;
+  /**
+   * Answer a `move_request_arrived`: `review` opens its import session (plan
+   * it as after `connect`), `decline` ends it and resolves with `null`.
+   * Rejects with `session` once the request has ended.
+   */
+  answerRequest(id: number, answer: RequestAnswer): Promise<SessionOpened | null>;
+  /** Let known computer `device` send move requests (off: it needs a code, and its requests are dropped unseen). */
+  setSendRequests(device: string, on: boolean): Promise<void>;
 
   // --- Receiving side -----------------------------------------------------
   /** Open an archive file as an import session. */

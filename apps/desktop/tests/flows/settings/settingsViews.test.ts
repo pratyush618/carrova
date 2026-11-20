@@ -44,6 +44,7 @@ describe('settings views', () => {
       engine_version: '1',
       device_name: null,
       os: 'linux',
+      known_send: false,
     } as const;
     const model = (statusTray: boolean | null, keepRunning = true) =>
       settingsModel(

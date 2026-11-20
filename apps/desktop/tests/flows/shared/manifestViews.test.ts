@@ -22,6 +22,7 @@ describe('manifest views', () => {
       device_name: 'ana-laptop',
       os: 'linux',
       status_tray: true,
+      known_send: false,
     };
     expect(thisComputer({ ...about, os: 'linux' })).toEqual({ name: 'ana-laptop', os: 'linux' });
     expect(thisComputer(null)).toEqual({ name: null, os: null });

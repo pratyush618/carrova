@@ -4,7 +4,14 @@ import { isBridgeError, isBridgeEvent, toBridgeError } from '@/ipc/guards';
 
 describe('the IPC guards', () => {
   it('keep every error code the engine sends, including the newest', () => {
-    const codes: ErrorCode[] = ['invalid_selection', 'rolled_back', 'rollback_failed'];
+    const codes: ErrorCode[] = [
+      'invalid_selection',
+      'rolled_back',
+      'rollback_failed',
+      'request_declined',
+      'request_expired',
+      'request_refused',
+    ];
     for (const code of codes) {
       const error = { code, message: 'm', hint: null };
       expect(isBridgeError(error)).toBe(true);
@@ -22,6 +29,22 @@ describe('the IPC guards', () => {
     const notice = { id: 1, kind: 'move_finished', at: 1, read: false, peer: null, summary: 's' };
     expect(isBridgeEvent({ kind: 'notice', notice })).toBe(true);
     expect(isBridgeEvent({ kind: 'notice' })).toBe(false);
+  });
+
+  it('accept a move request, which names no session, only with who asks, counts and expiry', () => {
+    const request = {
+      id: 1,
+      device: 'd2',
+      name: 'Desk PC',
+      summary: { apps: 1, bytes: 2, has_sensitive: false },
+      expires_at: 3,
+    };
+    expect(isBridgeEvent({ kind: 'move_request_arrived', request })).toBe(true);
+    expect(isBridgeEvent({ kind: 'move_request_arrived', request: { ...request, name: 1 } })).toBe(
+      false,
+    );
+    expect(isBridgeEvent({ kind: 'move_request_ended', id: 1, why: 'expired' })).toBe(true);
+    expect(isBridgeEvent({ kind: 'move_request_ended', why: 'expired' })).toBe(false);
   });
 
   it('turn an unknown code into an internal error', () => {

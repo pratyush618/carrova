@@ -20,8 +20,9 @@ import { fakeEcosystem } from './ecosystem';
 import * as fx from './fixtures';
 import { fakePhone } from './phone';
 import { FakeReceiver } from './receive';
+import { fakeRequests } from './requests';
 import { later, realSleep, Runtime, type Sleep } from './runtime';
-import type { Scenario } from './scenario';
+import { knownSend, type Scenario } from './scenario';
 import { FakeSender } from './send';
 
 export { WRONG_PASSPHRASE } from './receive';
@@ -72,6 +73,7 @@ const ABOUT: About = {
   device_name: 'ana-laptop',
   os: 'linux',
   status_tray: true,
+  known_send: false,
 };
 
 /** A computer name wider than the visibility pill's cap (`nearby-crowded`). */
@@ -129,6 +131,23 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
   let settings = DEFAULT_SETTINGS;
   let consent: ReportConsent = 'unset';
   let notices = seedNotices(Math.floor(Date.now() / 1000));
+  const requests = fakeRequests(
+    runtime,
+    scenario,
+    () => receiver.openRequested(),
+    (request) => {
+      const notice: Notice = {
+        id: Math.max(0, ...notices.map((n) => n.id)) + 1,
+        kind: 'send_request',
+        at: Math.floor(Date.now() / 1000),
+        read: false,
+        peer: request.name,
+        summary: 'wants to send you its setup',
+      };
+      notices = [notice, ...notices];
+      runtime.emit({ kind: 'notice', notice });
+    },
+  );
   // shortcut: an install doesn't change `recipesStatus`; make it stateful if a test needs the new version shown.
   let recipesInstalled = false;
   const newerRecipes = () => scenario === 'recipes-update' && !recipesInstalled;
@@ -139,7 +158,12 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
   let forwarded = scenario === 'forwarded' ? [...FORWARDED] : [];
 
   return {
-    subscribe: (listener) => later(() => runtime.subscribe(listener)),
+    subscribe: (listener) =>
+      later(() => {
+        const stop = runtime.subscribe(listener);
+        requests.subscribed();
+        return stop;
+      }),
 
     scan: () => sender.scan(),
     startManual: () => sender.startManual(),
@@ -160,6 +184,8 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
       later(() => {
         runtime.answer(session, offerNewCode);
       }),
+    requestSend: (session, to) => sender.requestSend(session, to),
+    answerRequest: requests.answerRequest,
 
     openArchive: (_path, passphrase) => receiver.openArchive(passphrase),
     connect: (code) => receiver.connect(code),
@@ -246,6 +272,7 @@ export function createFakePort(options: FakeOptions = {}): CarrovaPort {
       later(() => ({
         ...ABOUT,
         os: options.os ?? ABOUT.os,
+        known_send: knownSend(scenario),
         ...(scenario === 'nearby-crowded' && { device_name: LONG_COMPUTER_NAME }),
       })),
 
