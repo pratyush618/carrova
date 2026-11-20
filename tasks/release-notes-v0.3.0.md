@@ -5,7 +5,7 @@ Everything stays on your local network, and you choose what each device may do.
 ## Linked computers and phones
 
 - **Add a device:** pair an Android 13+ phone by scanning a QR code, or another computer with a short code. Before anything is saved, you check the other device's key fingerprint.
-- **Clipboard:** copy on one device, paste on the other. Sensitive items are skipped, and history is opt-in.
+- **Clipboard:** copy on a computer, paste on your other devices. On the phone, send a copy with the "Send clipboard" tile or notification action (Android lets only the open app read the clipboard). Items the source app marks sensitive, such as password manager copies, are skipped. The last 20 received items are kept in memory; saving them to disk is opt-in.
 - **Files:** send files between linked devices, with resume and retry.
 - **Handoff:** open a link from your phone on your computer, or the other way round.
 - **Ring:** make a linked phone ring at full volume, even in silent mode.
