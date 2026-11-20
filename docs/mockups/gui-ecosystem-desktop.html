@@ -1838,6 +1838,8 @@ add({ id: "tray", group: "Settings", title: "Tray", layout: "doc", states: [["me
 
 /* ═══ App update ═════════════════════════════════════════════════════ */
 const UPD_MB = 96.4, UPD_SPEED = 4.1;
+// Download progress lives outside mount so Pause/Resume and offline keep it.
+let updMb = 38.2;
 const updBox = (g, tone, title, sub, inner, acts) => `<div class="ig"><div class="ig__box" style="padding:16px"><div class="row" style="gap:12px;align-items:flex-start">${glyph(icon(g), tone)}<div style="flex:1;min-inline-size:0"><b style="display:block;font-weight:650">${title}</b><span class="small sec">${sub}</span>${inner}</div></div>${acts ? `<div class="row" style="justify-content:flex-end;gap:10px;margin-top:14px">${acts}</div>` : ""}</div></div>`;
 const updBar = (mb, o = {}) => `<div class="bar4${o.live ? " is-live" : ""}${o.warn ? " is-warn" : ""}"><i data-fill style="width:${(mb / UPD_MB * 100).toFixed(1)}%"></i></div>
   <div class="updnums"><span><b data-pct style="color:var(--text-primary)">${Math.round(mb / UPD_MB * 100)}%</b> · <span data-mb>${mb.toFixed(1)}</span> of ${UPD_MB} MB · <span data-speed>${o.speed || UPD_SPEED + " MB/s"}</span></span><span data-eta>${o.eta || `About ${Math.ceil((UPD_MB - mb) / UPD_SPEED)} s left`}</span></div>`;
@@ -1845,11 +1847,11 @@ const UPD = {
   available: () => updBox("refresh", "accent", "Carrova 0.4.0 is ready", "96.4 MB · signed by Carrova's release key · you're on 0.3.0",
     `<ul class="updnews"><li>Screens and input: share a screen, use one keyboard and mouse on two computers</li><li>Send your setup to a trusted computer without a code</li><li>Calls reconnect faster after the phone sleeps</li></ul><button class="link small" type="button" style="margin-top:8px">Full notes</button>`,
     btn("Later", { kind: "quiet" }) + btn("Install now", { kind: "primary", go: "update:downloading" })),
-  downloading: () => updBox("arrowD", "accent", "Downloading Carrova 0.4.0", "Carrova keeps working while it downloads.", updBar(38.2, { live: 1 }),
+  downloading: () => updBox("arrowD", "accent", "Downloading Carrova 0.4.0", "Carrova keeps working while it downloads.", updBar(updMb, { live: 1 }),
     btn("Cancel", { kind: "quiet" }) + btn("Pause", { icon: "pause", go: "update:paused" })),
-  paused: () => updBox("pause", "", "Download paused", "It picks up where it stopped.", updBar(38.2, { speed: "Paused", eta: "Waiting for you" }),
+  paused: () => updBox("pause", "", "Download paused", "It picks up where it stopped.", updBar(updMb, { speed: "Paused", eta: "Waiting for you" }),
     btn("Cancel", { kind: "quiet" }) + btn("Resume", { kind: "primary", icon: "play", go: "update:downloading" })),
-  offline: () => updBox("noNet", "warn", "Waiting for the network", "This computer lost its connection. The download carries on by itself when it's back.", updBar(38.2, { warn: 1, speed: "0 MB/s", eta: "No estimate while offline" }),
+  offline: () => updBox("noNet", "warn", "Waiting for the network", "This computer lost its connection. The download carries on by itself when it's back.", updBar(updMb, { warn: 1, speed: "0 MB/s", eta: "No estimate while offline" }),
     btn("Cancel", { kind: "quiet" }) + btn("Try again", { kind: "primary", icon: "refresh", go: "update:downloading" })),
   verifying: () => updBox("shield", "accent", "Checking the signature", "Making sure this package was signed by Carrova's release key. Usually a second or two.",
     `<div class="row small muted" style="gap:8px;margin-top:12px"><span class="btn--loading" style="display:inline-flex"></span>96.4 MB downloaded · checking</div>`, ""),
@@ -1876,11 +1878,11 @@ add({ id: "update", group: "Settings", title: "Updating Carrova", layout: "doc",
     return updPage(st);
   },
   mount(st, root) {
+    if (st === "available" || st === "failed") updMb = 38.2;
     if (st !== "downloading") return;
-    let mb = 38.2;
     const q = k => root.querySelector(`[data-${k}]`);
     const iv = setInterval(() => {
-      mb = Math.min(92, mb + UPD_SPEED / 10);
+      const mb = updMb = Math.min(92, updMb + UPD_SPEED / 10);
       q("fill").style.width = (mb / UPD_MB * 100).toFixed(1) + "%";
       q("pct").textContent = Math.round(mb / UPD_MB * 100) + "%";
       q("mb").textContent = mb.toFixed(1);
