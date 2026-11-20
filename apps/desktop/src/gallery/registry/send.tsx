@@ -83,7 +83,7 @@ const LIVE: Record<string, typeof fx.liveMoving> = {
   reconnecting: fx.liveReconnecting,
 };
 
-const foundReady = (
+export const foundReady = (
   <SendFoundScreen model={fx.foundReady} purpose="send" here={fx.HERE} on={sendFoundOn} />
 );
 const customize = <CustomizeSheet key="customize" model={fx.customize} on={customizeOn} />;
