@@ -432,8 +432,11 @@ idle → requested → (target asks | auto-allowed by screen=on) → OS prompt
 - **Crossing.** The source sets barriers on arranged edges (InputCapture
   portal on Wayland; XInput2 pointer barriers and a grab on X11). On a hit
   it reuses the live, approved `Kvm` session with that peer on this
-  connection; only if there is none does it open one (asked on the target,
-  `kvm:request`), and a new request waits until any earlier one has ended.
+  connection only if that session has this computer as controller and the
+  peer as target. A session in the other direction (the peer was
+  controlling this computer) is ended first. Otherwise it opens one (asked
+  on the target, `kvm:request`), and a new request waits until any earlier
+  one has ended.
   It then sends `PointerAbs` at the mirrored entry point and relative
   motion, buttons, scroll and keys. The target owns its pointer position
   and sends `Leave { pos }` when the pointer goes back out of the entry
@@ -502,7 +505,7 @@ Ethernet, Android 13+ mid-range phone.
 | Bitrate | start 4 Mbit/s; adapt 0.5–12 Mbit/s |
 | Static screen | frames only on damage, plus 1 fps keep-alive |
 | Size | long edge capped at 1920 px in v1 (downscaled by the encoder path) |
-| Queues | sharer ≤ 1 unacked frame, skipping at capture, never after encoding (viewer acks each `seq` on the `Screen` lane, Q5); viewer ≤ 2 frames before decode |
+| Queues | sharer ≤ 1 unacked frame, skipping at capture, never after encoding (viewer acks each `seq` on the `Screen` lane, or answers a decode failure with `Keyframe { failed: seq }`, which also releases the credit, Q5); viewer ≤ 2 frames before decode |
 | Idle | zero: no capture, encoder, hook or portal session without a live session |
 | Phone mirroring battery | measured in 3a, recorded here; target ≤ 8 % per 30 min |
 
@@ -718,7 +721,11 @@ Questions 1–5 came from the builder check (2026-11-20) and block ADR
    `seq` on the `Screen` lane; the sharer keeps at most one unacked frame
    and skips the rest at capture, before encoding, so every encoded frame
    is sent and the VP8/H.264 reference chain stays whole (if an encoded
-   frame is ever dropped, the next one is forced to a keyframe). It measures the real end to end (network + decode),
+   frame is ever dropped, the next one is forced to a keyframe). If the
+   viewer fails to decode a frame it answers that `seq` with `Keyframe {
+   failed: seq }` instead of an ack; this releases the sharer's credit and
+   the next encoded frame is a keyframe, so recovery never waits on a
+   credit that will not come back. It measures the real end to end (network + decode),
    feeds the rate controller, and needs no transport change beyond
    `set_priority`. The sharer's session loop polls `recv` with a short
    timeout between sends (a timeout loses nothing, `stream.rs:38-49`).*
