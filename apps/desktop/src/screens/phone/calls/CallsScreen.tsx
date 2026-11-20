@@ -95,6 +95,8 @@ export function CallsScreen({
         />
       </HubLayout>
     );
+  // A failed read shows only while the phone can be asked: away or connecting says more.
+  const failed = model.failed && model.unreachable === null;
   // A name search ("Sam 2") is no number to dial.
   const dial = /\p{L}/u.test(number) ? '' : dialable(number);
   const shown = log === null ? null : filterLog(log, number);
@@ -155,9 +157,9 @@ export function CallsScreen({
           ))}
         </Group>
       )}
-      {model.failed && <Banner tone="warning" title={t('calls.log.failed', { phone })} />}
+      {failed && <Banner tone="warning" title={t('calls.log.failed', { phone })} />}
       {log === null &&
-        !model.failed &&
+        !failed &&
         (model.unreachable === 'away' ? (
           <Empty
             art="call"

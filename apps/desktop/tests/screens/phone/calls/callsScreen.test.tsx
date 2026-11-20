@@ -163,6 +163,17 @@ describe('Calls', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Connecting to Pixel 8');
   });
 
+  it('says the phone is away rather than an older failed read', () => {
+    renderScreen(
+      <CallsScreen
+        model={model({ unreachable: 'away', log: null, failed: true })}
+        on={intents()}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: 'Pixel 8 is away' })).toBeInTheDocument();
+    expect(screen.queryByText(/Couldn.t reach/)).not.toBeInTheDocument();
+  });
+
   it('offers to turn calls on while they are off', async () => {
     const user = userEvent.setup();
     const on = intents();
