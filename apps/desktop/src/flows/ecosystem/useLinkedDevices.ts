@@ -41,7 +41,10 @@ export interface LinkedController {
   /** Devices this computer rang, until stopped or the ring runs out. */
   readonly ringing: ReadonlySet<string>;
   readonly sendClipboard: (id: string) => Promise<void>;
-  /** Rejects only for a failure before any file was offered (one after says so as `file_failed`). */
+  /**
+   * Rejects only for a failure before the failing file was offered (one after says so as
+   * `file_failed`); files before it may already have been sent.
+   */
   readonly sendFiles: (id: string, paths: string[]) => Promise<void>;
 }
 
