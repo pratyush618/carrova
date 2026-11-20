@@ -95,9 +95,12 @@ connection (§3).
   `getrandom`, already a `carrova-core` dependency; no new primitive) and
   returns it in `Answer::Accept`. The `Video` and `Input` lanes carry it
   in `LaneOpen` (open question 1).
-- The target admits such a lane only if a session with that id is live,
-  of the right kind, approved for control (for `Input`), **and belongs to
-  the same `Connection`**. The id is not a secret against the peer (the
+- The side receiving such a lane admits it only if a session with that
+  id is live, of the right kind, approved for control (for `Input`),
+  **belongs to the same `Connection`**, and the opener holds that lane's
+  role in it (the sharer for `Video`, the controller for `Input`). This
+  covers the viewer too: in a view request the target opens `Video`, so
+  the viewer checks it against the session it requested. The id is not a secret against the peer (the
   peer is authenticated); it binds lanes to one approval and one
   connection, so nothing approved on one connection is usable on another
   and a stale lane cannot reattach to a newer session.
