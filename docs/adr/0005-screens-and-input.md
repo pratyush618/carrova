@@ -135,7 +135,9 @@ Limits and safety:
   event ends the session (`Stop { Protocol }`).
 - The target releases every key and button it pressed on any exit (stop,
   pause, lane drop, link loss, rate-limit end, forget, policy change) and
-  after 2 s without events while any key is held.
+  when the controller is lost: no message on the `Screen` lane for 2 s.
+  The 500 ms `Heartbeat` there is the held-input keepalive, so a healthy
+  session holding a key (no new input events) keeps it held.
 - Every session, control included, ends with its connection (§1, §3).
   Control and touchpad never come back without a new yes. *Pending open
   question 4 (recommended):* no approval is carried to a new connection.
@@ -246,7 +248,7 @@ Additions to ADR 0002's table.
 | **Peer injects input without/after approval** | `Input` lanes need a live, control-approved session id on the same connection; checked per lane open; session end closes lanes | None known |
 | **Approval replayed on a new connection** | Session bound to its `Connection`; control never resumes on reconnect | With "Always allow viewing", a view-only session starts again after a reconnect without an ask; it needs the same key's fresh proofs and shows the indicator |
 | **Input flood / malformed events** | Rate and size caps, clamping; violation ends the session | Up to 2000 events in the second before the cut |
-| **Stuck keys after a crash or drop** | Target-side release on every exit and on 2 s silence | A target process crash leaves the OS to release (portal/EIS sessions close with the process) |
+| **Stuck keys after a crash or drop** | Target-side release on every exit and on 2 s without `Screen` lane messages (heartbeat lost) | A target process crash leaves the OS to release (portal/EIS sessions close with the process) |
 | **Typed secret crosses to the other computer** | No crossing while a password field is focused (best effort per OS), while locked, or pinned | Linux detection depends on AT-SPI; lock screen always blocks |
 | **Hidden sharing** | Indicator always on; no session without the desktop app; GNOME's own indicator for portal sessions; Android system chip + notification | On GNOME Wayland Carrova's own bar may be covered by other windows |
 | **Sensitive windows captured** | OS protected-content flags honoured on Windows, macOS, Android; pause on lock | Linux has no protected-content mechanism: everything visible is shared (stated to the user) |

@@ -657,7 +657,7 @@ computer + Android 13+ phone):
 | Android: MediaProjection prompt every session; accessibility needs restricted-settings step; Play policy | Shown in the flow (mockups have the states); APK distribution as today; service inert outside sessions |
 | Lost packets stall the stream on bad Wi-Fi (head-of-line) | Drop-to-latest on the sender, keyframe on request; datagrams are the documented next step |
 | Secure-input detection is best effort on Linux | Lock screen always blocks; pin hotkey; the risk is stated in the kvm settings note |
-| Stuck keys after failures | Target-side release on every exit and on a 2 s silence while keys are held |
+| Stuck keys after failures | Target-side release on every exit and when the peer is gone (2 s without `Screen` lane messages; the heartbeat keeps a held key held) |
 | Laptops without Scroll Lock | Crossing back by edge always works; tray items (Q12) |
 | H.264 patents | Never ship an encoder; OS/device encoders only |
 | Lock state `Unknown` on some desktops | Counts as locked: no sharing there (fail closed), said plainly in the share dialog |
