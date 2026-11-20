@@ -145,7 +145,8 @@ Porter offers options and explains consequences; the user makes every final call
 ### Wave 3 — release engineering + e2e (3 agents)
 - [x] G git + GitHub (pulled forward; `git init` pending — blocked by permissions, user runs it): `git init`, workflows (engine, ui, recipes, release) path-filtered, CODEOWNERS trust tiers, `CONTRIBUTING.md` + recipe guide, `actionlint` clean. No push, no commit. (owns .github/, CONTRIBUTING*, .gitignore)
 - [x] H packaging: AppImage + .deb via tauri bundler, icons, updater + key handling docs, `cargo install --path apps/cli` metadata, opt-in crash reporting end to end, `just package`. (owns tauri.conf*, packaging/, src-tauri error-report module)
-- [x] I e2e: Playwright flows for every happy path + disk-full/reconnect/pairing-failure/undo; tauri-driver real-app smoke under xvfb; bundle-update e2e (local server publishes v2 bundle → app shows new recipe, no rebuild). (owns apps/desktop/e2e, tests/e2e-ui)
+- [x] I e2e: Playwright flows for every happy path + disk-full/reconnect/pairing-failure/undo; tauri-driver real-app smoke under xvfb; CLI bundle-update e2e (`tests/e2e/bundle/run.sh`: local server publishes v2 bundle → `carrova recipes` lists the new recipe, no rebuild). (owns apps/desktop/e2e, tests/e2e-ui)
+- [ ] I2 app-side bundle-update check: local server publishes a v2 bundle → the desktop app shows the new recipe, no rebuild (not covered by `tests/e2e/bundle/run.sh` (CLI only) or `smoke.e2e.ts`).
 
 ### Wave T — test relocation (after E, S1, S2; user 2026-11-08)
 - [x] Rust: 72 inline `mod tests` (263 tests) + 17 test files under `src/` → crate `tests/<module>/main.rs` (pub API, one binary per module) or `tests/<module>/unit.rs` via `#[path]` (private access) — applies to crates, apps/cli and src-tauri (user, 2026-11-08). Behaviour identical: test count before = after per crate.
