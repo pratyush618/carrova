@@ -140,12 +140,12 @@ Porter offers options and explains consequences; the user makes every final call
 ### Wave 2 — integration (3 agents)
 - [x] D `src-tauri` bridge: session worker threads, event forwarding, `SendPrompt` via oneshot, cancel, recipe source resolution via `porter-bundle`, settings store, error-report store; `apps/desktop/src/ipc/` typed client. Rust tests drive commands with a fake platform. Only one Tauri compile at a time. (owns src-tauri, src/ipc)
 - [x] E screens wired: send, receive, save/open file, history/undo, apps catalogue + recipe sheet, settings; advanced sheets (tree with size/portability/sensitivity, unmovable greyed with reason, per-item/per-file rules, overrides behind warnings). (owns apps/desktop/src except ipc/)
-- [x] F1 9 recipes + fixtures (pulled forward into W1, done) · - [ ] F2 CLI `porter recipes update|status` + bundle-aware catalog loading. (owns recipes/, apps/cli recipe commands)
+- [x] F1 9 recipes + fixtures (pulled forward into W1, done) · - [x] F2 CLI `porter recipes update|status` + bundle-aware catalog loading. (owns recipes/, apps/cli recipe commands)
 
 ### Wave 3 — release engineering + e2e (3 agents)
 - [x] G git + GitHub (pulled forward; `git init` pending — blocked by permissions, user runs it): `git init`, workflows (engine, ui, recipes, release) path-filtered, CODEOWNERS trust tiers, `CONTRIBUTING.md` + recipe guide, `actionlint` clean. No push, no commit. (owns .github/, CONTRIBUTING*, .gitignore)
 - [x] H packaging: AppImage + .deb via tauri bundler, icons, updater + key handling docs, `cargo install --path apps/cli` metadata, opt-in crash reporting end to end, `just package`. (owns tauri.conf*, packaging/, src-tauri error-report module)
-- [ ] I e2e: Playwright flows for every happy path + disk-full/reconnect/pairing-failure/undo; tauri-driver real-app smoke under xvfb; bundle-update e2e (local server publishes v2 bundle → app shows new recipe, no rebuild). (owns apps/desktop/e2e, tests/e2e-ui)
+- [x] I e2e: Playwright flows for every happy path + disk-full/reconnect/pairing-failure/undo; tauri-driver real-app smoke under xvfb; bundle-update e2e (local server publishes v2 bundle → app shows new recipe, no rebuild). (owns apps/desktop/e2e, tests/e2e-ui)
 
 ### Wave T — test relocation (after E, S1, S2; user 2026-11-08)
 - [x] Rust: 72 inline `mod tests` (263 tests) + 17 test files under `src/` → crate `tests/<module>/main.rs` (pub API, one binary per module) or `tests/<module>/unit.rs` via `#[path]` (private access) — applies to crates, apps/cli and src-tauri (user, 2026-11-08). Behaviour identical: test count before = after per crate.
@@ -367,7 +367,7 @@ Engine API: `Exporter::{new, select, capture, write_archive}`, `Importer::{open_
 - [x] H CLI: `porter export [--preset] [--include/--exclude app|app/item|app/item:path] [--confirm-sensitive ID] [--force-unmovable ID] -o FILE`, `porter import FILE [--dry-run] [--select …] [--rule ITEM[:path]=replace|keep-both|skip] [--remap ITEM=root:rel] [--ignore-running] [--ignore-free-space] [--yes]`, interactive review when stdin is a tty, `porter rollback [SESSION]`, `porter sessions [list|show|dismiss|export-log]`; passphrase via tty prompt (`rpassword`) or `PORTER_PASSPHRASE` for tests; renders events + plan + checklist. CLI tests with tempdir homes. (owns `apps/cli`)
 
 ### Wave 4 — verification + gate (main thread + up to 3 agents)
-- [ ] Integration tests: export engine → archive → import engine in one process, two fake homes; conflict rules; sensitive confirm; failpoint mid-apply → auto rollback restores byte-identical tree + modes; manual rollback; resume after simulated restart
+- [x] Integration tests: export engine → archive → import engine in one process, two fake homes; conflict rules; sensitive confirm; failpoint mid-apply → auto rollback restores byte-identical tree + modes; manual rollback; resume after simulated restart
 - [x] `tests/e2e/`: Dockerfile (clean ubuntu:24.04 + git, ssh, zsh, gpg) + `just e2e`: export fixture home on host → import in container → verify ssh perms `600`, `git config`, shell rc, VS Code settings, `gpg --list-keys`; forced failure run rolls back
 - [x] boundary-reviewer pass + security review of `porter-crypto`/`porter-archive`/apply path (fresh-eyes agent) → fix-wave, regression tests first
 - [x] `just ci` green with output (post fix-wave, after `cargo clean`: exit 0, 335 passed, 0 failed, 0 ignored; `just e2e` PASSED)
@@ -579,7 +579,7 @@ Deferred: fake port doesn't re-check sensitivity for remapped items; `planOption
 - [x] 2.3 presence adverts (`kt` tags) + visibility (Known / Everyone for a while / No one)
 - [x] 2.5 Wake-on-LAN: platform magic packet + neighbour MAC, opt-in core wake hints (cleared on opt-out)
 - [x] 2.4 Rust wiring (devices/visibility commands, background presence, tray, CLI `carrova devices|visibility`) + UI (Nearby page, known-devices settings, Wake, remembered notice, tray → Nearby)
-- [ ] 2.6 gate: `just ci`, `just e2e-ui`, boundary review, final review, PR
+- [x] 2.6 gate: `just ci`, `just e2e-ui`, boundary review, final review, PR
 - [ ] Phase 3 (code-less requests): needs its own ADR sign-off (Task 3.0)
 
 Follow-ups (after PR #9):
