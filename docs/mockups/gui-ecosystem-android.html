@@ -471,6 +471,7 @@ kbd { font: 600 11px/1 var(--mono); padding: 3px 5px; border-radius: 5px; border
 .set-sec > h2 { font-size: var(--t-sm); font-weight: 700; color: var(--text-muted); margin-block-end: 8px; padding-inline-start: 4px; }
 .set-row { display: flex; align-items: center; gap: 16px; padding: 14px 16px; }
 .set-row + .set-row { border-block-start: 1px solid var(--border); }
+.set-row--btn { inline-size: 100%; background: none; border: 0; font: inherit; color: inherit; text-align: start; }
 .set-row__t { flex: 1; min-inline-size: 0; }
 .set-row__t b { display: block; font-weight: 650; }
 .set-row__t span { font-size: var(--t-sm); color: var(--text-secondary); }
@@ -771,7 +772,10 @@ html.rm .pulse { animation: none; }
 .pick4s { display: grid; gap: 10px; }
 .pick4 { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); text-align: start; inline-size: 100%; }
 .pick4:hover { border-color: var(--border-strong); }
-.pick4.is-sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.pick4.is-sel, .pick4:has(> .pick4__in:checked) { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+label.pick4 { position: relative; cursor: pointer; }
+.pick4__in { position: absolute; inline-size: 1px; block-size: 1px; margin: 0; opacity: 0; }
+.pick4:has(> .pick4__in:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
 .pick4__ic { inline-size: 42px; block-size: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: none; }
 .pick4.is-new .pick4__ic { background: var(--surface-0); color: var(--text-secondary); }
 .pick4__t { flex: 1; min-inline-size: 0; display: grid; }
@@ -780,7 +784,7 @@ html.rm .pulse { animation: none; }
 .pick4__tag { display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-xs); font-weight: 650; color: var(--success); }
 .pick4__tag--code { color: var(--text-muted); }
 .pick4__radio { inline-size: 20px; block-size: 20px; border-radius: 50%; border: 1.5px solid var(--control); flex: none; }
-.pick4.is-sel .pick4__radio { border: 6px solid var(--accent-fill); }
+.pick4.is-sel .pick4__radio, .pick4__in:checked ~ .pick4__radio { border: 6px solid var(--accent-fill); }
 .sent4 { max-inline-size: 520px; margin: 40px auto 0; text-align: center; display: grid; justify-items: center; gap: 6px; }
 .sent4 .list { inline-size: 100%; }
 .recv4 { max-inline-size: 520px; margin: 48px auto 0; text-align: center; display: grid; justify-items: center; }
@@ -1288,7 +1292,7 @@ function phone(o) {
   return `<div class="phone"><div class="scr${hasNav ? "" : " scr--bare"}${o.full ? " scr--full" + (o.themed ? "" : " scr--ink") : ""}">${o.full || ""}${sbar}<div class="pmain">${main}</div>${nav}<div class="gbar"><i></i></div>${o.over || ""}</div></div>`;
 }
 const ig = (h, rows, foot) => `<div class="ig">${h ? `<h3>${h}</h3>` : ""}<div class="ig__box">${rows.join("")}</div>${foot ? `<p class="foot">${foot}</p>` : ""}</div>`;
-const srow = (ic, t, d, end = "", o = {}) => `<div class="set-row${o.cls ? " " + o.cls : ""}"${o.go ? ` data-go="${o.go}" style="cursor:pointer"` : ""}>${ic ? glyph(icon(ic), o.tone || "") : ""}<div class="set-row__t"><b>${t}</b>${d ? `<span>${d}</span>` : ""}</div>${end}</div>`;
+const srow = (ic, t, d, end = "", o = {}) => { const tag = o.go ? "button" : "div"; return `<${tag}${o.go ? ' type="button"' : ""} class="set-row${o.go ? " set-row--btn" : ""}${o.cls ? " " + o.cls : ""}"${o.go ? ` data-go="${o.go}" style="cursor:pointer"` : ""}>${ic ? glyph(icon(ic), o.tone || "") : ""}<${o.go ? "span" : "div"} class="set-row__t"><b>${t}</b>${d ? `<span>${d}</span>` : ""}</${o.go ? "span" : "div"}>${end}</${tag}>`; };
 const chev = `<span class="chev">${icon("chevR", "icon--sm")}</span>`;
 const ask = sel => seg(["Ask", "Off"], sel);
 const devRow = (d, o = {}) => `<div class="row4${d.away ? " row4--away" : " row4--known"}"${o.go ? ` data-go="${o.go}" style="cursor:pointer"` : ""}><span class="ic">${icon(d.ic)}</span><div class="row4__t"><b>${d.name}</b><span class="status${d.away ? " status--away" : ""}">${d.away || "Linked"}</span></div>${o.end != null ? o.end : chev}</div>`;
@@ -1420,9 +1424,9 @@ function deviceBody(away) {
     <div class="foot4"><span>Linked 15 Nov · <span class="fp">7F3A·19C2</span></span>${btn("Forget", { kind: "quiet", size: "sm", cls: "btn--danger", go: "device:forget" })}</div>`;
 }
 /* Screen and control choices: per device (device:screen) and as defaults for new computers (settings:screen) */
-const opt = (t, d, on) => `<button type="button" class="pick4${on ? " is-sel" : ""}"><span class="pick4__t"><b>${t}</b><span>${d}</span></span><span class="pick4__radio"></span></button>`;
-const screenPrefs = foot => `<div class="ig"><h3>See this screen</h3><div class="pick4s">${opt("Ask every time", "Allow or decline on this phone each time", 1)}${opt("Always allow viewing", "Starts without asking. View only, and the red chip still shows", 0)}${opt("Never", "Requests are declined without asking you", 0)}</div></div>
-  <div class="ig"><h3>Control this phone and its keyboard</h3><div class="pick4s">${opt("Ask every time", "Taps and typing need your Allow each time", 0)}${opt("Never", "Requests are declined without asking you", 1)}</div><p class="foot">Control always asks. There's no Always allow.</p></div>
+const opt = (name, t, d, on) => `<label class="pick4"><input type="radio" class="pick4__in" name="${name}"${on ? " checked" : ""}><span class="pick4__t"><b>${t}</b><span>${d}</span></span><span class="pick4__radio" aria-hidden="true"></span></label>`;
+const screenPrefs = foot => `<div class="ig"><h3 id="optSee">See this screen</h3><div class="pick4s" role="radiogroup" aria-labelledby="optSee">${opt("see", "Ask every time", "Allow or decline on this phone each time", 1)}${opt("see", "Always allow viewing", "Starts without asking. View only, and the red chip still shows", 0)}${opt("see", "Never", "Requests are declined without asking you", 0)}</div></div>
+  <div class="ig"><h3 id="optCtl">Control this phone and its keyboard</h3><div class="pick4s" role="radiogroup" aria-labelledby="optCtl">${opt("ctl", "Ask every time", "Taps and typing need your Allow each time", 0)}${opt("ctl", "Never", "Requests are declined without asking you", 1)}</div><p class="foot">Control always asks. There's no Always allow.</p></div>
   ${ig("", [srow("eye", "Sharing indicator", "Red chip in the status bar and a notification with Stop", chip("", "Always on"))], foot)}`;
 add({ id: "device", group: "Device", title: "Device page", states: [["on", "Linked"], ["away", "Away"], ["screen", "Screen and control"], ["rename", "Rename"], ["forget", "Forget"]],
   note: "One page per computer. Three groups by direction: what flows quietly, what the computer may ask of this phone (Ask / Off), and what this phone can start on the computer. Screen and control open their own page: seeing the screen can be always allowed, control never can. The fingerprint is a label, not a security check.",
@@ -1600,7 +1604,7 @@ add({ id: "settings", group: "Settings", title: "Settings", states: [["main", "S
   render(st) {
     if (st === "screen") return phone({ back: "settings:main", title: "Screen and input", body: `<p class="sec" style="margin-bottom:18px">Defaults for computers you link from now on. Each computer's page can differ.</p>${screenPrefs("The indicator can't be turned off while a computer sees or controls this phone.")}` });
     if (st === "visibility") {
-      return phone({ back: "settings:main", title: "Visibility", body: `<div class="pick4s">${opt("No one", "Linked computers can't see this phone", 0)}${opt("Known devices", "Only computers you've linked", 1)}${opt("Everyone for 10 minutes", "So a new computer can find it; then back to Known", 0)}</div>` });
+      return phone({ back: "settings:main", title: "Visibility", body: `<div class="pick4s" role="radiogroup" aria-label="Visibility">${opt("vis", "No one", "Linked computers can't see this phone", 0)}${opt("vis", "Known devices", "Only computers you've linked", 1)}${opt("vis", "Everyone for 10 minutes", "So a new computer can find it; then back to Known", 0)}</div>` });
     }
     if (st === "battery") return phone({ back: "settings:main", title: "Battery", body: `<div class="banner banner--ok" style="margin-bottom:18px">${icon("check")}<div><b>Unrestricted</b>Android won't stop Carrova in the background.</div></div>
       ${ig("", [srow("batt", "Pause below 15% battery", "", toggle(1)), srow("moon", "Pause overnight", "23:00 – 07:00", toggle(0))])}` });
@@ -1631,7 +1635,7 @@ const UPV = "0.4.0", UPSZ = "52.1 MB";
 const upHead = `<div class="devhead">${glyph(MARK, "accent")}<div style="flex:1"><b>Carrova ${UPV}</b><div class="small sec" style="margin-top:2px">${UPSZ} · you have 0.3.0</div></div></div>`;
 const upProg = (pct, got, line, broken) => `<div class="live"><div class="pct"><b>${pct}%</b><span>${got} of ${UPSZ}</span></div><div class="track${broken ? " track--broken" : ""}" style="margin-top:12px"><span class="track__fill" style="inline-size:${pct}%"></span></div><p class="small muted" style="margin-top:8px">${line}</p></div>`;
 const upPage = (body, over) => phone({ back: "settings:main", title: "Update", nav: false, body: upHead + body, over });
-add({ id: "update", group: "Updates", title: "Update Carrova", states: [["available", "Ready (Home)"], ["settings", "Ready (Settings)"], ["details", "What's new"], ["mobile", "On mobile data"], ["downloading", "Downloading"], ["paused", "Paused"], ["waiting", "Waiting for Wi-Fi"], ["verifying", "Checking signature"], ["permission", "Install permission"], ["installer", "Android installer"], ["failed", "Failed"], ["done", "Updated"]],
+add({ id: "update", group: "Updates", title: "Update Carrova", states: [["available", "Ready (Home)"], ["settings", "Ready (Settings)"], ["details", "What's new"], ["mobile", "On mobile data"], ["queued", "Queued for Wi-Fi"], ["downloading", "Downloading"], ["paused", "Paused"], ["waiting", "Waiting for Wi-Fi"], ["verifying", "Checking signature"], ["permission", "Install permission"], ["installer", "Android installer"], ["failed", "Failed"], ["done", "Updated"]],
   note: "No Play Store: Carrova downloads Carrova_<v>_android-arm64.apk from GitHub releases, checks it against the release key, then hands it to Android's package installer. It never downloads on mobile data unless you allow it, and never installs without Android's own prompt. Linked computers reconnect by themselves after the update.",
   render(st) {
     if (st === "available") return homePhone({ req: `<div class="req4">${glyph(icon("arrowD"), "accent")}<div class="req4__t"><b>Carrova ${UPV} is ready</b><span>${UPSZ} · see what's new</span></div>${btn("View", { kind: "primary", size: "sm", go: "update:details" })}</div>` });
@@ -1639,12 +1643,13 @@ add({ id: "update", group: "Updates", title: "Update Carrova", states: [["availa
     if (st === "details" || st === "mobile") {
       const mobile = st === "mobile";
       return upPage(`<div class="card card--pad" style="margin:18px 0 22px"><b>What's new</b><ul class="small sec" style="margin-top:8px;display:grid;gap:6px;list-style:disc;padding-inline-start:18px"><li>See a computer's screen and control it from this phone</li><li>Use this phone as a touchpad and keyboard</li><li>Faster file transfers on busy Wi-Fi</li></ul><p style="margin-top:12px"><a class="link small" href="#">Full notes</a></p></div>
-        ${mobile ? `<div class="ig"><h3>You're on mobile data</h3><div class="pick4s">${opt("Wait for Wi-Fi", "Downloads by itself when you're back on Wi-Fi", 1)}${opt("Use mobile data", `${UPSZ} from your data plan`, 0)}</div></div>` : ""}
-        <div class="row" style="justify-content:flex-end;gap:8px">${btn("Later", { kind: "quiet", go: "home:linked" })}${btn(mobile ? "Download on Wi-Fi" : "Download", { kind: "primary", go: "update:downloading" })}</div>
+        ${mobile ? `<div class="ig"><h3 id="optData">You're on mobile data</h3><div class="pick4s" role="radiogroup" aria-labelledby="optData">${opt("data", "Wait for Wi-Fi", "Downloads by itself when you're back on Wi-Fi", 1)}${opt("data", "Use mobile data", `${UPSZ} from your data plan`, 0)}</div></div>` : ""}
+        <div class="row" style="justify-content:flex-end;gap:8px">${btn("Later", { kind: "quiet", go: "home:linked" })}${btn(mobile ? "Download on Wi-Fi" : "Download", { kind: "primary", go: mobile ? "update:queued" : "update:downloading" })}</div>
         <p class="xs muted" style="margin-top:14px">Checked against Carrova's release key. Android asks before installing.</p>`);
     }
     if (st === "downloading") return upPage(`<div style="margin-top:18px">${upProg(35, "18.4", `<span class="num">3.2 MB/s</span> · About 11 s left`)}</div><div class="row" style="margin-top:16px;justify-content:flex-end;gap:8px">${btn("Cancel", { kind: "quiet" })}${btn("Pause", { icon: "pause", go: "update:paused" })}</div>`);
     if (st === "paused") return upPage(`<div style="margin-top:18px">${upProg(35, "18.4", "Paused · picks up from here when you resume", 1)}</div><div class="row" style="margin-top:16px;justify-content:flex-end;gap:8px">${btn("Cancel", { kind: "quiet" })}${btn("Resume", { kind: "primary", icon: "play", go: "update:downloading" })}</div>`);
+    if (st === "queued") return upPage(`<div style="margin-top:18px">${upProg(0, "0", "Waiting for Wi-Fi to start")}</div><div class="banner" style="margin-top:14px">${icon("wifi")}<div><b>Starts on Wi-Fi</b>Nothing is downloaded yet. The download starts by itself when you're on Wi-Fi.</div></div><div class="row" style="margin-top:16px;justify-content:flex-end;gap:8px">${btn("Cancel", { kind: "quiet", go: "update:details" })}${btn("Use mobile data", { kind: "primary", go: "update:downloading" })}</div>`);
     if (st === "waiting") return upPage(`<div style="margin-top:18px">${upProg(35, "18.4", "Waiting for Wi-Fi", 1)}</div><div class="banner banner--warn" style="margin-top:14px">${icon("wifi")}<div><b>Wi-Fi dropped</b>The download picks up where it stopped when you're back on Wi-Fi.</div></div><div class="row" style="margin-top:16px;justify-content:flex-end;gap:8px">${btn("Cancel", { kind: "quiet" })}${btn("Use mobile data", { kind: "primary", go: "update:downloading" })}</div>`);
     if (st === "verifying") return upPage(`<div style="margin-top:18px">${upProg(100, "52.1", `<span class="btn--loading" style="display:inline-flex;vertical-align:middle;margin-inline-end:6px"></span>Checking the signature`)}</div>`);
     if (st === "permission") return phone({ back: "update:details", title: "Allow updates", nav: false, body: `<div class="banner banner--warn" style="margin-bottom:18px">${icon("lock")}<div><b>Android needs your OK first</b>Carrova isn't allowed to install apps yet, so the update is waiting. It's downloaded and checked.</div></div>
