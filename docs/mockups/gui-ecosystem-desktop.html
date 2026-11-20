@@ -1074,6 +1074,13 @@ html.rm .pulse--loop { animation: none; }
 .radio.is-on { border-color: var(--accent-fill); }
 .radio.is-on::after { content: ""; inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--accent-fill); }
 .kbd4 { font: 600 12px var(--mono); padding: 2px 7px; border-radius: 6px; background: var(--surface-0); border: 1px solid var(--border-strong); color: var(--text-primary); }
+/* App update: live bar gets the same sheen as transfers; reduced motion drops it, numbers keep moving */
+.bar4.is-live i { position: relative; }
+.bar4.is-live i::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--surface-2) 55%, transparent), transparent); background-size: 60px 100%; background-repeat: no-repeat; animation: sheen 1.6s linear infinite; }
+html.rm .bar4.is-live i::after { display: none; }
+@media (prefers-reduced-motion: reduce) { .bar4.is-live i::after { display: none; } }
+.updnums { display: flex; justify-content: space-between; gap: 12px; font-size: var(--t-sm); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.updnews { display: grid; gap: 6px; margin: 12px 0 0 18px; list-style: disc; font-size: var(--t-sm); color: var(--text-secondary); }
 </style>
 </head>
 <body>
@@ -1250,7 +1257,7 @@ const SECRETS = [
 ];
 
 /* ═══ Building blocks ═════════════════════════════════════════════════ */
-const btn = (label, o = {}) => `<button type="button" class="btn${o.kind ? " btn--" + o.kind : ""}${o.size ? " btn--" + o.size : ""}${o.cls ? " " + o.cls : ""}"${o.go ? ` data-go="${o.go}"` : ""}${o.dis ? " disabled" : ""}${o.label ? ` aria-label="${o.label}"` : ""}>${o.icon ? icon(o.icon) : ""}${label}${o.kbd ? ` <kbd>${o.kbd}</kbd>` : ""}</button>`;
+const btn = (label, o = {}) => `<button type="button" class="btn${o.kind ? " btn--" + o.kind : ""}${o.size ? " btn--" + o.size : ""}${o.cls ? " " + o.cls : ""}"${o.go ? ` data-go="${o.go}"` : ""}${o.to ? ` data-to="${o.to}"` : ""}${o.dis ? " disabled" : ""}${o.label ? ` aria-label="${o.label}"` : ""}>${o.icon ? icon(o.icon) : ""}${label}${o.kbd ? ` <kbd>${o.kbd}</kbd>` : ""}</button>`;
 const chip = (tone, text, ic) => `<span class="chip${tone ? " chip--" + tone : ""}">${ic ? icon(ic) : ""}${text}</span>`;
 const check = (on, o = {}) => `<span class="check${on === "mixed" ? " is-mixed" : on ? " is-on" : ""}${o.warn ? " is-warn" : ""}" role="checkbox" aria-checked="${on === "mixed" ? "mixed" : !!on}">${on === "mixed" ? icon("minus") : on ? icon("check") : ""}</span>`;
 const toggle = on => `<span class="toggle${on ? " is-on" : ""}" role="switch" aria-checked="${!!on}"></span>`;
@@ -1356,6 +1363,7 @@ function bellPanel() {
     <div class="pop__day">Today</div>
     ${n("miss", "", `Missed call from <b>Sam Rivera</b>`, "21:06 · via Pixel 8", btn("Message", { size: "sm", go: "messages:thread" }) + btn("Call back", { kind: "primary", size: "sm", go: "incall:active" }), true)}
     ${n("image", "accent", `<b>Pixel 8</b> sent 3 photos`, "20:40 · saved to Downloads", "", true)}
+    ${n("refresh", "accent", `<b>Carrova 0.4.0</b> is ready to install`, "20:02 · 96.4 MB, signed", btn("Details", { size: "sm", go: "update:available" }), false)}
     <div class="pop__day">Earlier</div>
     ${n("monitor", "", `<b>Desktop PC</b> is nearby again`, "Yesterday", "")}
     ${n("bt", "", `Calls are set up with <b>Pixel 8</b>`, "Monday", "")}
@@ -1364,7 +1372,7 @@ function bellPanel() {
 }
 
 const MAINNAV = [["home", "Home", "home", "home:idle"], ["nearby", "Nearby", "radar", "nearby:map"], ["messages", "Messages", "msg", "messages:thread"], ["calls", "Calls", "call", "calls:log"], ["history", "History", "history", ""], ["apps", "Apps", "apps", ""], ["settings", "Settings", "settings", "settings:ecosystem"]];
-const ESEC = [["ecosystem", "Features", "sparkle"], ["devices", "Linked devices", "users"], ["clipboard", "Clipboard", "clip"], ["calls", "Calls and Bluetooth", "call"], ["screen", "Screen and input", "monitor"], ["nearby", "Nearby", "radar"], ["notifications", "Alerts", "bell"], ["general", "Background", "settings"]];
+const ESEC = [["ecosystem", "Features", "sparkle"], ["devices", "Linked devices", "users"], ["clipboard", "Clipboard", "clip"], ["calls", "Calls and Bluetooth", "call"], ["screen", "Screen and input", "monitor"], ["nearby", "Nearby", "radar"], ["notifications", "Alerts", "bell"], ["general", "Background", "settings"], ["updates", "Updates and about", "refresh"]];
 function w4(o) {
   const side = o.settings
     ? `<div class="w4back"><button type="button" data-go="home:idle">${icon("chevR").replace("<svg", '<svg style="transform:scaleX(-1)"')}Settings</button></div>
@@ -1384,6 +1392,9 @@ const srow = (t, s, ctl, o = {}) => `<div class="set-row${o.sub ? " set-row--sub
 const ig = (h, rows, foot) => `<div class="ig">${h ? `<h3>${h}</h3>` : ""}<div class="ig__box">${rows.join("")}</div>${foot ? `<p class="foot">${foot}</p>` : ""}</div>`;
 const chev = `<span class="chev">${icon("chevR")}</span>`;
 const askOff = sel => seg(["Ask", "Off"], sel);
+const screenPerm = (sel = "Ask every time") => seg(["Ask every time", "Always allow viewing", "Never"], sel);
+const inputPerm = (sel = "Ask every time") => seg(["Ask every time", "Never"], sel);
+const PERM_FOOT = "Asks happen on the device being shared, never on the one asking. Always allow viewing skips the ask for watching only: the bar still shows, and control still asks every time.";
 
 /* Decorative QR: three finders + seeded noise (never a real code). */
 function qr(dim) {
@@ -1404,6 +1415,8 @@ const appi = ic => `<span class="appi">${ic ? icon(ic) : MARK.replace('class="ma
 const osnote = (top, title, text, acts, extra = "", right = true) => `<div class="osnote${right ? " osnote--r" : ""}"><div class="osnote__top">${appi()}${top}</div><b>${title}</b>${text ? `<p>${text}</p>` : ""}${extra}${acts ? `<div class="osnote__acts">${acts.map((a, i) => `<span${i === acts.length - 1 ? ' style="background:#5361f0;color:#fff"' : ""}>${a}</span>`).join("")}</div>` : ""}</div>`;
 
 /* ═══ Home ═══════════════════════════════════════════════════════════ */
+/* Links into the unchanged migration flow in gui-v4.html */
+const v4btn = (label, ref, kind = "primary") => `<a class="btn${kind ? " btn--" + kind : ""} btn--sm" href="gui-v4.html#${ref}" style="text-decoration:none">${label}</a>`;
 function homeBody(st) {
   if (st === "first") return `<div class="home4"><h1>Good evening.</h1><p>Link your phone and Carrova does the rest, on your own Wi-Fi.</p>
     <div class="firstcard"><b style="font-size:17px">Link your Android phone</b>
@@ -1412,6 +1425,10 @@ function homeBody(st) {
     <div class="quiet-row">${icon("send", "icon--sm")}<button class="link" type="button" data-go="migrate:entry">Move your setup from another computer</button></div></div>`;
   const call = st === "call" ? `<div class="callbar">${icon("call")}<span style="flex:1"><b>Sam Rivera</b> · 03:12 · on this computer</span>${btn("Mute", { size: "sm", icon: "mic" })}${btn("End", { size: "sm", kind: "danger" })}</div>` : "";
   const req = st === "request" ? `<div class="req4">${glyph(icon("monitor"), "accent")}<div class="req4__t"><b>Pixel 8 wants to see this screen</b><span>View only. A bar stays on screen while it watches.</span></div>${btn("Decline", { size: "sm", kind: "quiet" })}${btn("Allow", { kind: "primary", size: "sm", go: "screen:sharing" })}</div>`
+    : st === "move" ? `<div class="req4">${glyph(icon("receive"), "accent")}<div class="req4__t"><b>Desktop PC wants to send you its setup</b><span>12 apps · 340 MB · includes keys · 1:42 left</span></div>${btn("Decline", { size: "sm", kind: "quiet" })}${v4btn("Review", "receive:review")}</div>`
+    : st === "expired" ? `<div class="banner" style="margin-bottom:26px">${icon("clock")}<div><b>A move request from Desktop PC expired</b><span class="small sec">Requests last 2 minutes. Nothing changed here. Ask them to send again when you're at this computer.</span></div><span class="banner__act">${btn("Dismiss", { size: "sm" })}</span></div>`
+    : st === "update" ? `<div class="req4">${glyph(icon("refresh"), "accent")}<div class="req4__t"><b>Carrova 0.4.0 is ready</b><span>96.4 MB · signed · installs only when you say</span></div>${btn("Later", { size: "sm", kind: "quiet" })}${btn("See what's new", { kind: "primary", size: "sm", go: "update:available" })}</div>`
+    : st === "updated" ? `<div class="toast-dock"><div class="toast">${icon("check")}Updated to 0.4.0${btn("What's new", { kind: "quiet", size: "sm" })}</div></div>`
     : st === "handoff" ? `<div class="req4">${glyph(icon("handoff"), "accent")}<div class="req4__t"><b>Continue from Pixel 8</b><span>“Async Rust, chapter 3” · docs.rs, open in Chrome a minute ago</span></div>${btn("Dismiss", { size: "sm", kind: "quiet" })}${btn("Open here", { kind: "primary", size: "sm", go: "handoff:opened" })}</div>` : "";
   return `<div class="home4"><h1>Good evening.</h1><p>Your phone and computers, working as one.</p>${call}${req}
     <div class="glance">
@@ -1439,19 +1456,21 @@ const NDEVS = [
 const visPill = `<button type="button" class="vispill" data-go="settings:nearby"><span class="ondot"></span>Visible to <b>known devices</b> as <b>${ME}</b>${icon("chevD")}</button>`;
 function nearbyBody(st) {
   if (st === "list") {
-    const r = d => `<div class="row4${d.known ? " row4--known" : ""}${d.here ? "" : " row4--away"}"><span class="ic">${icon(d.ic)}</span><div class="row4__t"><b>${d.name}${d.known ? "" : chip("warn", "New")}</b><span>${d.os}, ${d.sub.toLowerCase()}</span></div>${d.here ? (d.known ? btn("Open", { size: "sm", go: d.go }) : btn("Link with code", { size: "sm" })) : btn("Forget", { kind: "quiet", size: "sm" })}</div>`;
+    const r = d => `<div class="row4${d.known ? " row4--known" : ""}${d.here ? "" : " row4--away"}"><span class="ic">${icon(d.ic)}</span><div class="row4__t"><b>${d.name}${d.known ? "" : chip("warn", "New")}</b><span>${d.os}, ${d.sub.toLowerCase()}</span></div>${d.here ? (d.known ? `<span class="ctlrow">${d.ic === "monitor" ? btn("Send setup", { size: "sm", icon: "send", go: "sendto:choose" }) : ""}${btn("Open", { size: "sm", go: d.go })}</span>` : btn("Link with code", { size: "sm" })) : btn("Forget", { kind: "quiet", size: "sm" })}</div>`;
     return `<div style="position:relative;min-block-size:100%"><div class="list4">${ig("Here now", NDEVS.filter(d => d.here).map(r))}${ig("Linked, not here", NDEVS.filter(d => !d.here).map(r))}</div>${visPill}</div>`;
   }
   const empty = st === "empty";
-  const devs = empty ? "" : NDEVS.map(d => `<div class="dev4${d.known ? " dev4--known" : ""}${d.here ? "" : " dev4--away"}${d.id === "ph" && st === "map" ? " dev4--sel" : ""}" style="left:${d.x}%;top:${d.y}%"><span class="ic">${icon(d.ic)}</span><span><b>${d.name}</b><small>${d.sub}</small></span></div>`).join("");
+  const devs = empty ? "" : NDEVS.map(d => `<div class="dev4${d.known ? " dev4--known" : ""}${d.here ? "" : " dev4--away"}${(d.id === "ph" && st === "map") || (d.id === "pc" && st === "computer") ? " dev4--sel" : ""}" style="left:${d.x}%;top:${d.y}%"><span class="ic">${icon(d.ic)}</span><span><b>${d.name}</b><small>${d.sub}</small></span></div>`).join("");
   const card = st === "map" ? `<div class="popcard" style="left:4%;top:36%"><div class="popcard__h">${glyph(icon("phone"), "accent")}<div><b>Pixel 8</b><span>Android 15</span></div></div>
-      <div class="popcard__facts"><div>Status<b>Linked</b></div><div>Battery<b>82%</b></div><div>Working quietly<b>4 of 4</b></div></div><div class="row">${btn("Open", { kind: "primary", size: "sm", go: "phone:linked" })}${btn("Send files", { size: "sm", go: "files:picker" })}</div></div>` : "";
+      <div class="popcard__facts"><div>Status<b>Linked</b></div><div>Battery<b>82%</b></div><div>Working quietly<b>4 of 4</b></div></div><div class="row">${btn("Open", { kind: "primary", size: "sm", go: "phone:linked" })}${btn("Send files", { size: "sm", go: "files:picker" })}</div></div>`
+    : st === "computer" ? `<div class="popcard" style="left:4%;top:36%"><div class="popcard__h">${glyph(icon("monitor"), "accent")}<div><b>Desktop PC</b><span>Windows 11</span></div></div>
+      <div class="popcard__facts"><div>Status<b>Linked</b></div><div>Moving your setup<b>No code needed</b></div></div><div class="row">${btn("Send setup", { kind: "primary", size: "sm", icon: "send", go: "sendwait:waiting" })}${btn("Open", { size: "sm", go: "peer:linked" })}</div></div>` : "";
   const none = empty ? `<div class="empty4"><b>Nothing nearby yet</b><p>Link your phone to answer calls, text and share the clipboard from here. Both need the same Wi-Fi.</p>${btn("Add a phone", { kind: "primary", size: "sm", icon: "plus", go: "pair:qr" })}</div>` : "";
   return `<div class="field4">${[190, 380, 600, 840].map(s => `<div class="orb" style="width:${s}px;height:${s}px"></div>`).join("")}<div class="pulse"></div>
     <div class="me4"><span class="me4__disc">${icon("laptop")}</span><b>This computer</b></div>${devs}${card}${none}${st === "plain" ? "" : visPill}</div>`;
 }
 const nearbyTools = view => seg(["Map", "List"], view) + btn("Add a phone", { size: "sm", icon: "plus", go: "pair:qr" });
-add({ id: "nearby", group: "Devices", title: "Nearby", layout: "doc", states: [["map", "Map"], ["list", "List"], ["empty", "Nobody nearby"]],
+add({ id: "nearby", group: "Devices", title: "Nearby", layout: "doc", states: [["map", "Map"], ["computer", "Trusted computer"], ["list", "List"], ["empty", "Nobody nearby"]],
   note: "Same field as v4, now with phones. Linked devices open their page (what they can do); new ones link with a code once. “Add a phone” lives in the header because phones never show up on their own until Carrova is installed and opened on them.",
   render: st => w4({ active: "nearby", title: "Nearby", tools: nearbyTools(st === "list" ? "List" : "Map"), body: nearbyBody(st) }) });
 
@@ -1489,10 +1508,10 @@ function phonePage(st) {
   ]);
   const ask = ig("Asks you each time", [
     srow("Send files", "You accept each one.", askOff("Ask"), { g: "file", ...off }),
-    srow("See this screen", "View only, until you stop it.", askOff("Ask"), { g: "monitor", ...off }),
-    srow("Control this computer", "Use the phone as touchpad and keyboard.", askOff("Off"), { g: "kb", ...off }),
+    srow("Screen sharing", "Pixel 8 can ask to see this screen. Control always asks.", screenPerm(), { g: "monitor", ...off }),
+    srow("Keyboard and mouse", "Use the phone as touchpad and keyboard. Asks every time.", inputPerm("Never"), { g: "kb", ...off }),
     srow("Handoff", "Open links and files from the phone here.", askOff("Ask"), { g: "handoff", ...off }),
-  ], "Asks happen on the device being shared, never on the one asking.");
+  ], PERM_FOOT);
   return `<div class="w4in">${head}${banner}${quiet}${ask}<div class="devfoot"><span>Key ${PH.key} · linked 15 Nov</span><button class="link small" type="button" data-go="forget:confirm" style="color:var(--danger)">Forget Pixel 8</button></div></div>`;
 }
 add({ id: "phone", group: "Devices", title: "Device page · phone", layout: "doc", states: [["linked", "Linked"], ["ready", "Calls set up"], ["missing", "Permission missing on phone"], ["away", "Away"]],
@@ -1500,21 +1519,23 @@ add({ id: "phone", group: "Devices", title: "Device page · phone", layout: "doc
   render: st => w4({ active: "nearby", title: "Pixel 8", body: phonePage(st) }) });
 
 function peerPage(st) {
-  const away = st === "away", off = { off: away };
+  const away = st === "away", off = { off: away }, noreq = st === "noreq";
   const head = `<div class="devh">${lg(icon("monitor"), away ? "" : "accent")}<div style="flex:1"><h1>Desktop PC</h1><div class="devh__s"><span class="live-dot${away ? " is-away" : ""}"></span>${away ? "Asleep · last seen yesterday" : "Linked · same Wi-Fi"} · Windows 11</div></div>${away ? btn("Wake", { size: "sm", icon: "power" }) : btn("Send files", { size: "sm", icon: "file", go: "files:picker" })}</div>`;
   return `<div class="w4in">${head}
     ${ig("Works quietly", [srow("Shared clipboard", "Copy on one, paste on the other.", toggle(true), { g: "clip", ...off })])}
     ${ig("Asks you each time", [
       srow("Send files", "You accept each one.", askOff("Ask"), { g: "file", ...off }),
-      srow("See this screen", "View only unless you also allow control.", askOff("Ask"), { g: "monitor", ...off }),
-      srow("Share keyboard and mouse", "Move the pointer off an edge to use the other computer.", `<span class="ctlrow">${btn("Arrange", { size: "sm", kind: "quiet", go: "kvm:arrange" })}${askOff("Ask")}</span>`, { g: "kb", ...off }),
+      srow("Screen sharing", "Desktop PC can ask to see this screen. Control always asks.", screenPerm(), { g: "monitor", ...off }),
+      srow("Keyboard and mouse", "Move the pointer off an edge to use the other computer.", `<span class="ctlrow">${btn("Arrange", { size: "sm", kind: "quiet", go: "kvm:arrange" })}${inputPerm()}</span>`, { g: "kb", ...off }),
       srow("Handoff", "Continue a link or file from there, here.", askOff("Ask"), { g: "handoff", ...off }),
-    ])}
-    ${ig("Move your setup", [srow("Apps, settings and keys", "Every move is reviewed on the computer receiving it.", btn("Start a move", { size: "sm", icon: "send", go: "migrate:entry", dis: away }), { g: "box", ...off })])}
+    ], PERM_FOOT)}
+    ${ig("Move your setup", [
+      srow("Apps, settings and keys", "No code needed: you trust each other. Every move is reviewed on the computer receiving it.", btn("Send setup", { kind: "primary", size: "sm", icon: "send", go: "sendto:choose", dis: away }), { g: "box", ...off }),
+      srow("Send requests", noreq ? "Off: Desktop PC needs a code to send you a move." : "Desktop PC can send you a move without a code. You still review it, and keys still ask.", toggle(!noreq), { g: "receive", ...off })])}
     <div class="devfoot"><span>Key ${PC.key} · linked 4 Nov</span><button class="link small" type="button" style="color:var(--danger)">Forget Desktop PC</button></div></div>`;
 }
-add({ id: "peer", group: "Devices", title: "Device page · computer", layout: "doc", states: [["linked", "Linked"], ["away", "Asleep"]],
-  note: "A computer peer has no phone features, so the page is shorter. Migration lives here as one more thing two computers can do together. Asleep computers can be woken (Wake-on-LAN, opt-in).",
+add({ id: "peer", group: "Devices", title: "Device page · computer", layout: "doc", states: [["linked", "Linked"], ["noreq", "Send requests off"], ["away", "Asleep"]],
+  note: "A computer peer has no phone features, so the page is shorter. Migration lives here as one more thing two computers can do together: trusted computers send without a code. Send requests is on by default for computers and can be turned off per device; phones never get it. Asleep computers can be woken (Wake-on-LAN, opt-in).",
   render: st => w4({ active: "nearby", title: "Desktop PC", body: peerPage(st) }) });
 
 add({ id: "forget", group: "Devices", title: "Forget a device", layout: "doc", states: [["confirm", "Confirm"]],
@@ -1660,10 +1681,18 @@ const shareChoose = () => dialog(`<h2 class="h2" id="ovH">Share your screen</h2>
   <div class="list" style="margin-top:14px">${srow("Let Desktop PC control it", "Off: they can only watch. They can ask later.", toggle(false))}</div>
   <p class="xs muted" style="margin-top:10px">Your desktop asks you to confirm next. Desktop PC asks its user before it shows.</p>
   <div class="dialog__foot">${btn("Cancel")}${btn("Share", { kind: "primary", go: "screen:portal" })}</div>`, true);
-add({ id: "screen", group: "Screen sharing", title: "Share this screen", layout: "doc", states: [["prompt", "Someone asks"], ["choose", "You start it"], ["portal", "Desktop's own prompt"], ["sharing", "Being viewed"], ["control", "Being controlled"]],
-  note: "Every share is asked on this computer, then confirmed by the desktop itself on Wayland (the portal dialog is the system's, not ours). While anyone watches, a bar stays on top that can't be hidden; control is a second, separate yes.",
+add({ id: "screen", group: "Screen sharing", title: "Share this screen", layout: "doc", states: [["prompt", "Someone asks"], ["choose", "You start it"], ["portal", "Desktop's own prompt"], ["denied", "Desktop prompt cancelled"], ["sharing", "Being viewed"], ["control", "Being controlled"], ["protected", "Protected windows"], ["locked", "Paused while locked"], ["ended", "Ended"]],
+  note: "Every share is asked on this computer, then confirmed by the desktop itself on Wayland (the portal dialog is the system's, not ours). While anyone watches, a bar stays on top that can't be hidden; control is a second, separate yes. Locking pauses the share; windows that protect their content show black; the end says who watched and for how long.",
   render(st) {
     if (st === "choose") return home("idle", shareChoose());
+    if (st === "denied") return home("idle", dialog(`<div class="dialog__icon dialog__icon--warn">${icon("monitor")}</div><h2 class="h2" id="ovH">Your desktop didn't share the screen</h2>
+      <p class="small sec" style="margin-top:6px">Its own prompt was cancelled or closed, so Desktop PC sees nothing. On Wayland, Carrova can only share what the desktop hands over.</p>
+      <div class="dialog__foot">${btn("Cancel")}${btn("Try again", { kind: "primary", go: "screen:portal" })}</div>`));
+    if (st === "locked") return desk(`<div class="lock"><div class="time">21:06</div><div class="date">Saturday 15 November</div><div class="osnote"><div class="osnote__top">${appi()}Carrova · now</div><b>Screen sharing paused</b><p>Desktop PC sees a paused picture and can't control anything until you unlock.</p></div></div>`, { tray: false });
+    if (st === "ended") return desk(osnote("Carrova · now", "Desktop PC stopped viewing this screen", "Watched for 12 min. It had control for 2 min. Nothing is recorded or kept.", ""), { pip: false });
+    if (st === "protected") return desk(`<div class="sharebar"><span class="rec"></span><b>Desktop PC is viewing this screen</b><span class="muted">03:10</span>${btn("Allow control", { size: "sm", go: "screen:control" })}${btn("Stop", { size: "sm", kind: "danger-fill" })}</div>
+      <div class="winmini" style="inset-block-start:110px;inline-size:520px;block-size:340px"><div class="tb">${icon("lock")}Bitwarden</div><div class="bd" style="background:#000;color:#9a9ca3">Shown as black to Desktop PC</div></div>
+      <div class="callout" style="right:40px;top:150px">Apps that protect their content (password managers, some video) show black to the viewer. You see them as usual.</div>`);
     if (st === "prompt") return desk(osnote("Carrova · now", "Pixel 8 wants to see this screen", "View only. You can stop it any time.", ["Decline", "Allow"]), { pip: true });
     if (st === "portal") return desk(`<div class="portal"><h3>Screen Share</h3><p>Carrova wants to share your screen. Choose what to share.</p><div class="opts"><div class="opt on"><i></i>Entire screen</div><div class="opt"><i style="background:linear-gradient(#e2e4e8 0 14%,#f4f5f7 14%)"></i>Window</div></div><div class="rem"><span></span>Remember this selection</div><div class="ft"><span>Cancel</span><span>Share</span></div></div>
       <div class="callout" style="left:24px;bottom:24px">This dialog belongs to your desktop (GNOME on Wayland), not Carrova. With “Remember” it isn't asked again until you log out.</div>`);
@@ -1672,14 +1701,18 @@ add({ id: "screen", group: "Screen sharing", title: "Share this screen", layout:
   } });
 
 const remoteDesk = cursor => `<div class="remote"><div class="remote__bar">Desktop PC</div><div class="remote__win"></div><div class="remote__win b"></div>${cursor ? `<span class="cursor" style="left:58%;top:52%"></span>` : ""}</div>`;
-add({ id: "viewer", group: "Screen sharing", title: "View another screen", layout: "doc", states: [["view", "Watching"], ["asking", "Asking for control"], ["control", "Controlling"], ["phone", "Phone mirror"], ["lost", "Connection lost"]],
-  note: "Watching a computer or the phone. View/Control is one switch; turning on Control asks the other side first. Phone mirroring uses Android's screen-capture prompt on the phone; controlling the phone needs Android's accessibility permission, so it's off unless set up.",
+add({ id: "viewer", group: "Screen sharing", title: "View another screen", layout: "doc", states: [["waiting", "Waiting for them"], ["declined", "They declined"], ["view", "Watching"], ["slow", "Slow network"], ["full", "Full screen"], ["asking", "Asking for control"], ["control", "Controlling"], ["revoked", "Control taken back"], ["phone", "Phone mirror"], ["lost", "Connection lost"]],
+  note: "Watching a computer or the phone. View/Control is one switch; turning on Control asks the other side first, and they can take it back any time. On a slow network the picture drops quality before it drops frames, and says so. Full screen keeps one way out on screen. Phone mirroring uses Android's screen-capture prompt on the phone; controlling the phone needs Android's accessibility permission, so it's off unless set up.",
   render(st) {
+    if (st === "full") return desk(`<div class="viewer" style="inset:30px 0 0;border-radius:0;border:0;grid-template-rows:1fr"><div style="position:relative;display:grid">${remoteDesk(true).replace('class="remote"', 'class="remote" style="margin:0;border-radius:0"')}<span class="vchip">${chip("", "Desktop PC · full screen · Ctrl + Alt + F to leave")}</span></div></div>`);
     if (st === "phone") return desk(`<div class="viewer viewer--phone"><div class="viewer__bar"><b>Pixel 8</b><span class="muted">View only</span><span class="spacer" style="flex:1"></span>${btn("End", { size: "sm" })}</div><div style="padding:6px"><div class="remote remote--phone" style="block-size:470px"><div class="remote__bar">21:06</div><div class="remote__app">${"<i></i>".repeat(12)}</div></div></div></div>`);
-    const bar = `<div class="viewer__bar"><b>Desktop PC</b><span class="muted">Windows 11 · 18 ms</span><span class="spacer" style="flex:1"></span>${seg(["View", "Control"], st === "control" ? "Control" : "View")}${btn("", { kind: "quiet", size: "sm", icon: "expand", label: "Full screen", cls: "btn--icon" })}${btn("End", { size: "sm" })}</div>`;
+    const bar = `<div class="viewer__bar"><b>Desktop PC</b><span class="muted">Windows 11 · ${st === "slow" ? "240 ms" : "18 ms"}</span>${st === "slow" ? chip("warn", "Lower quality · slow network", "noNet") : ""}<span class="spacer" style="flex:1"></span>${seg(["View", "Control"], st === "control" ? "Control" : "View")}${btn("", { kind: "quiet", size: "sm", icon: "expand", label: "Full screen", cls: "btn--icon" })}${btn("End", { size: "sm" })}</div>`;
     const extra = st === "asking" ? `<span class="vchip">${chip("accent", "Asking Desktop PC to allow control…")}</span>`
+      : st === "revoked" ? `<span class="vchip">${chip("warn", "Desktop PC took back control. You can still watch.")}</span>`
+      : st === "waiting" ? `<div class="veil"><div><b>Waiting for Desktop PC</b><p>Someone there needs to allow it. Nothing is shown until they do.</p>${btn("Cancel")}</div></div>`
+      : st === "declined" ? `<div class="veil"><div><b>Desktop PC declined</b><p>Nothing was shared. Whoever is there said no.</p>${btn("Close")}</div></div>`
       : st === "lost" ? `<div class="veil"><div><b>Connection lost</b><p>Desktop PC left the network or went to sleep. Trying again…</p>${btn("End")}</div></div>` : "";
-    return desk(`<div class="viewer">${bar}<div style="position:relative;display:grid">${remoteDesk(st === "control")}${extra}</div></div>`);
+    return desk(`<div class="viewer">${bar}<div style="position:relative;display:grid">${["waiting", "declined"].includes(st) ? `<div class="remote" style="background:#111214"></div>` : remoteDesk(st === "control")}${extra}</div></div>`);
   } });
 
 /* ═══ Keyboard and mouse ═════════════════════════════════════════════ */
@@ -1691,11 +1724,16 @@ function arrangeBody(st) {
       <div class="scr is-me" style="left:20%;top:26%;width:34%;height:44%">${icon("laptop")}<b>${ME}</b><small>This computer</small><span class="edge" style="inset-block:12px;inset-inline-end:-3px;inline-size:4px"></span></div>
       <div class="scr${drag ? " is-drag" : ""}" style="${pcPos};width:30%;height:${drag ? 30 : 48}%">${icon("monitor")}<b>Desktop PC</b><small>${drag ? "Drop below" : "1920 × 1080"}</small></div>
     </div><p class="foot">Drag screens to match your desk. Move the pointer off the lit edge to use the other computer.</p></div>
-    ${ig("", [srow("Share keyboard and mouse", "With Desktop PC, while both are on this network.", toggle(true)), srow("Come back with", "Or move the pointer back across the edge.", `<span class="kbd4">Scroll Lock</span>`), srow("Clipboard follows the pointer", "", toggle(true)), srow("Only when the other computer is unlocked", "", toggle(true))])}</div>`;
+    ${ig("", [srow("Share keyboard and mouse", "With Desktop PC, while both are on this network.", toggle(true)), srow("Come back with", "Or move the pointer back across the edge.", `<span class="kbd4">Scroll Lock</span>`), srow("Keep the pointer on this screen", "Press again to let it cross.", `<span class="kbd4">Shift + Scroll Lock</span>`), srow("Clipboard follows the pointer", "Only while the shared clipboard is on.", toggle(true)), srow("Only when the other computer is unlocked", "", toggle(true))])}</div>`;
 }
-add({ id: "kvm", group: "Keyboard and mouse", title: "Keyboard and mouse", layout: "doc", states: [["arrange", "Arrange"], ["dragging", "Dragging a screen"], ["portal", "Desktop permission missing"], ["crossing", "Pointer crossed over"], ["request", "Someone asks"], ["touchpad", "Phone as touchpad"]],
-  note: "One keyboard and mouse across computers. The arrangement decides which edge leads where. Every computer being controlled asks first, then needs its desktop's input permission on Wayland. The phone can act as touchpad and keyboard for this computer.",
+add({ id: "kvm", group: "Keyboard and mouse", title: "Keyboard and mouse", layout: "doc", states: [["intro", "Not set up"], ["arrange", "Arrange"], ["dragging", "Dragging a screen"], ["portal", "Desktop permission missing"], ["request", "Someone asks"], ["crossing", "Pointer crossed over"], ["clipboard", "Clipboard came along"], ["pinned", "Pointer kept here"], ["secure", "Password box blocks crossing"], ["gone", "Other computer went away"], ["touchpad", "Phone as touchpad"]],
+  note: "One keyboard and mouse across computers. The arrangement decides which edge leads where. Every computer being controlled asks first, then needs its desktop's input permission on Wayland. A hotkey keeps the pointer here; a password box or lock screen keeps it here too, so typed secrets never cross. If the other computer goes away, the pointer comes home. The phone can act as touchpad and keyboard for this computer.",
   render(st) {
+    if (st === "intro") return w4({ settings: "screen", title: "Screen and input", body: `<div class="center4"><div>${lg(icon("kb"), "accent")}<b>One keyboard and mouse for two computers</b><p>Move the pointer off the edge of this screen and carry on on Desktop PC. Each computer asks before another one can use it.</p><div class="row">${btn("Not now", { kind: "quiet" })}${btn("Set up", { kind: "primary", go: "kvm:arrange" })}</div></div></div>` });
+    if (st === "clipboard") return desk(`<div class="edgeglow"></div><div class="osd">${icon("kb")}<span><b>Using Desktop PC</b> <small>· move back left or press</small></span><span class="k">Scroll Lock</span></div><div class="ostoast" style="inset-block-end:100px">${icon("clip")}What you copied came along</div>`);
+    if (st === "pinned") return desk(`<div class="osd">${icon("lock")}<span><b>Pointer stays on this screen</b> <small>· press again to let it cross</small></span><span class="k">Shift + Scroll Lock</span></div>`);
+    if (st === "secure") return desk(`<div class="osd">${icon("lock")}<span><b>Staying here while a password box is open</b> <small>· it crosses again when you leave it</small></span></div>`);
+    if (st === "gone") return desk(`<div class="osd">${icon("warn")}<span><b>Desktop PC went away</b> <small>· the pointer is back on this screen</small></span><span class="x">OK</span></div>`);
     if (["arrange", "dragging", "portal"].includes(st)) return w4({ settings: "screen", title: "Screen and input", body: arrangeBody(st) });
     if (st === "crossing") return desk(`<div class="edgeglow"></div><div class="osd">${icon("kb")}<span><b>Using Desktop PC</b> <small>· move back left or press</small></span><span class="k">Scroll Lock</span></div>`);
     if (st === "request") return desk(osnote("Carrova · now", "Desktop PC wants to use this keyboard and mouse", "Its pointer moves here when it crosses the edge. Until you stop it or log out.", ["Decline", "Allow"]), { pip: true });
@@ -1742,21 +1780,37 @@ const ESECTION = {
       srow("Ring on this computer", "", seg(["Always", "While I'm using it", "Never"], "While I'm using it")),
       srow("Microphone", "Built-in", chev, { link: 1 }),
       srow("Speakers", "Built-in audio", chev, { link: 1 })])],
-  screen: () => [ig("", [
+  screen: () => [ig("Screen sharing", [
       srow("Who can ask to see this screen", "", seg(["Linked devices", "No one"], "Linked devices")),
-      srow("Allow control requests", "Control is always a second question.", toggle(true)),
-      srow("Bar while shared", "Can't be hidden while someone watches.", chip("", "Always on")),
-      srow("Arrange screens", "For keyboard and mouse sharing", chev, { link: 1, go: "kvm:arrange" }),
-      srow("Desktop permission", "Screen capture and input go through your desktop's own prompt (Wayland).", chip("ok", "Available"))])],
+      srow("Newly linked devices", "Each device's page can change it.", screenPerm()),
+      srow("Allow control requests", "Control is always a second question, every time.", toggle(true)),
+      srow("Bar while shared", "Stays on top while anyone watches or controls. It can't be hidden.", chip("", "Always on")),
+      srow("Pause while locked", "Locking this computer pauses every share until you unlock.", chip("", "Always"))]),
+    ig("Keyboard and mouse", [
+      srow("Arrange screens", "Which edge leads to which computer", chev, { link: 1, go: "kvm:arrange" }),
+      srow("Come back with", "Or move the pointer back across the edge.", `<span class="kbd4">Scroll Lock</span>`),
+      srow("Keep the pointer on this screen", "Press again to let it cross.", `<span class="kbd4">Shift + Scroll Lock</span>`),
+      srow("Clipboard follows the pointer", "Only while the shared clipboard is on.", toggle(true))]),
+    ig("Per device", [
+      srow("Pixel 8", "Screen: ask every time · Keyboard and mouse: never", chev, { g: "phone", tone: "accent", link: 1, go: "phone:linked" }),
+      srow("Desktop PC", "Screen: ask every time · Keyboard and mouse: ask every time", chev, { g: "monitor", tone: "accent", link: 1, go: "peer:linked" })]),
+    ig("", [srow("Desktop permission", "Screen capture and input go through your desktop's own prompt (Wayland).", chip("ok", "Available"))])],
   nearby: () => [ig("", [
       srow("Visibility", "Everyone switches back to Known devices after 10 minutes.", seg(["No one", "Known devices", "Everyone · 10 min"], "Known devices")),
       srow("This computer's name", "", `<span class="field" style="block-size:32px;inline-size:180px;color:var(--text-primary)">${ME}</span>`),
-      srow("Same network only", "Devices talk only on this Wi-Fi or wired network. Nothing goes through the internet.", chip("", "Always"))])],
+      srow("Same network only", "Devices talk only on this Wi-Fi or wired network. Nothing goes through the internet.", chip("", "Always"))],
+      "Move requests from trusted computers only arrive while this computer is visible to Known devices or Everyone. With No one, a move needs a code.")],
   notifications: () => [ig("", [
       srow("Phone notifications as pop-ups", "", toggle(true)),
       srow("Ring for calls", "", toggle(true)),
       srow("Show names on the lock screen", "Off: “Pixel 8: 1 new notification.”", toggle(false)),
       srow("Pause everything", "The bell still collects it all.", seg(["Off", "1 hour", "Until tomorrow"], "Off"))])],
+  updates: () => [ig("Carrova", [
+      srow("Version", "0.3.0 · checked 2 hours ago", btn("Check now", { size: "sm", icon: "refresh" }), { g: "info" }),
+      srow("Channel", "Only signed releases, checked against Carrova's release key.", chip("", "Stable")),
+      srow("Check for updates", "When Carrova starts and once a day.", toggle(true)),
+      srow("Install updates on their own", "Off: Carrova asks first. On: signed updates install while nothing is running, then it asks before restarting.", toggle(false))]),
+    ig("This computer", [srow("Name", "", `<span class="small sec">${ME} · Ubuntu 24.04</span>`), srow("Licence", "", `<span class="small sec">Apache-2.0</span>`)])],
   general: () => [ig("", [
       srow("Keep running when the window closes", "Links stay alive from the tray. Off: closing quits and devices see this one as away.", toggle(true)),
       srow("Start at login", "Starts closed, in the tray.", toggle(true), { sub: 1 }),
@@ -1767,23 +1821,128 @@ add({ id: "settings", group: "Settings", title: "Settings", layout: "doc", state
   note: "Same pattern as v4: the sidebar becomes the sections. Features holds the defaults for every device; a device's page can only narrow them. Same network only is stated, not a switch.",
   render: settingsPage });
 
-add({ id: "tray", group: "Settings", title: "Tray", layout: "doc", states: [["menu", "Tray menu"], ["call", "During a call"], ["closed", "Window closed"]],
-  note: "With the window closed Carrova lives in the tray and keeps every link alive. Linux trays only open menus, so the quick actions are all here. A call in progress goes to the top.",
+add({ id: "tray", group: "Settings", title: "Tray", layout: "doc", states: [["menu", "Tray menu"], ["call", "During a call"], ["request", "A move request waits"], ["sharing", "Screen being viewed"], ["controlled", "Screen being controlled"], ["closed", "Window closed"]],
+  note: "With the window closed Carrova lives in the tray and keeps every link alive. Linux trays only open menus, so the quick actions are all here. Whatever is live goes to the top: a call, a waiting move request, or a share (Stop sharing first).",
   render(st) {
     if (st === "closed") return desk(`<div class="callout" style="right:120px;top:40px">Window closed → Carrova keeps linked devices connected from here.</div>`);
-    const call = st === "call" ? `<div class="req"><b>On a call · Sam Rivera</b><span>03:12 · via Pixel 8</span><div class="osnote__acts" style="margin-top:8px"><span>Mute</span><span style="background:#b42318;color:#fff">End</span></div></div>` : "";
+    const top = (b, sub, a, z, red) => `<div class="req"><b>${b}</b><span>${sub}</span><div class="osnote__acts" style="margin-top:8px"><span>${a}</span><span style="${red ? "background:#b42318" : "background:#5361f0"};color:#fff">${z}</span></div></div>`;
+    const call = { call: () => top("On a call · Sam Rivera", "03:12 · via Pixel 8", "Mute", "End", 1),
+      request: () => top("Desktop PC wants to send you its setup", `${MOVE_SUM} · 1:42 left`, "Decline", "Review"),
+      sharing: () => top("Desktop PC is viewing this screen", "00:42 · the bar stays on screen", "Allow control", "Stop sharing", 1),
+      controlled: () => top("Desktop PC is controlling this screen", "00:42 · the bar stays on screen", "Take back control", "Stop sharing", 1) }[st]?.() || "";
     return desk(`<div class="traymenu"><div class="hd">${MARK}Carrova<small>Visible to known devices</small></div>${call}
       <div class="it">${icon("phone")}Pixel 8<span class="k">82% · linked</span></div><div class="it">${icon("monitor")}Desktop PC<span class="k">linked</span></div><hr>
       <div class="it hi">${icon("msg")}Messages<span class="k">2 new</span></div><div class="it">${icon("clip")}Clipboard history</div><div class="it">${icon("file")}Send files…</div><div class="it">${icon("monitor")}Share screen…</div><div class="it">${icon("kb")}Use Desktop PC<span class="k">Scroll Lock</span></div><hr>
-      <div class="it">${icon("moon")}Pause sharing for 1 hour</div><div class="it">${icon("max")}Open Carrova</div><div class="it">${icon("power")}Quit Carrova</div></div>`, { menu: true, pip: st === "call" });
+      <div class="it">${icon("moon")}Pause sharing for 1 hour</div><div class="it">${icon("max")}Open Carrova</div><div class="it">${icon("power")}Quit Carrova</div></div>`, { menu: true, pip: st !== "menu" });
+  } });
+
+/* ═══ App update ═════════════════════════════════════════════════════ */
+const UPD_MB = 96.4, UPD_SPEED = 4.1;
+// Download progress lives outside mount so Pause/Resume and offline keep it.
+let updMb = 38.2;
+const updBox = (g, tone, title, sub, inner, acts) => `<div class="ig"><div class="ig__box" style="padding:16px"><div class="row" style="gap:12px;align-items:flex-start">${glyph(icon(g), tone)}<div style="flex:1;min-inline-size:0"><b style="display:block;font-weight:650">${title}</b><span class="small sec">${sub}</span>${inner}</div></div>${acts ? `<div class="row" style="justify-content:flex-end;gap:10px;margin-top:14px">${acts}</div>` : ""}</div></div>`;
+const updBar = (mb, o = {}) => `<div class="bar4${o.live ? " is-live" : ""}${o.warn ? " is-warn" : ""}"><i data-fill style="width:${(mb / UPD_MB * 100).toFixed(1)}%"></i></div>
+  <div class="updnums"><span><b data-pct style="color:var(--text-primary)">${Math.round(mb / UPD_MB * 100)}%</b> · <span data-mb>${mb.toFixed(1)}</span> of ${UPD_MB} MB · <span data-speed>${o.speed || UPD_SPEED + " MB/s"}</span></span><span data-eta>${o.eta || `About ${Math.ceil((UPD_MB - mb) / UPD_SPEED)} s left`}</span></div>`;
+const UPD = {
+  available: () => updBox("refresh", "accent", "Carrova 0.4.0 is ready", "96.4 MB · signed by Carrova's release key · you're on 0.3.0",
+    `<ul class="updnews"><li>Screens and input: share a screen, use one keyboard and mouse on two computers</li><li>Send your setup to a trusted computer without a code</li><li>Calls reconnect faster after the phone sleeps</li></ul><button class="link small" type="button" style="margin-top:8px">Full notes</button>`,
+    btn("Later", { kind: "quiet" }) + btn("Install now", { kind: "primary", go: "update:downloading" })),
+  downloading: () => updBox("arrowD", "accent", "Downloading Carrova 0.4.0", "Carrova keeps working while it downloads.", updBar(updMb, { live: 1 }),
+    btn("Cancel", { kind: "quiet" }) + btn("Pause", { icon: "pause", go: "update:paused" })),
+  paused: () => updBox("pause", "", "Download paused", "It picks up where it stopped.", updBar(updMb, { speed: "Paused", eta: "Waiting for you" }),
+    btn("Cancel", { kind: "quiet" }) + btn("Resume", { kind: "primary", icon: "play", go: "update:downloading" })),
+  offline: () => updBox("noNet", "warn", "Waiting for the network", "This computer lost its connection. The download carries on by itself when it's back.", updBar(updMb, { warn: 1, speed: "0 MB/s", eta: "No estimate while offline" }),
+    btn("Cancel", { kind: "quiet" }) + btn("Try again", { kind: "primary", icon: "refresh", go: "update:downloading" })),
+  verifying: () => updBox("shield", "accent", "Checking the signature", "Making sure this package was signed by Carrova's release key. Usually a second or two.",
+    `<div class="row small muted" style="gap:8px;margin-top:12px"><span class="btn--loading" style="display:inline-flex"></span>96.4 MB downloaded · checking</div>`, ""),
+  ready: () => updBox("check", "ok", "Restart to finish", "Carrova closes for a few seconds and opens on 0.4.0. Linked computers stay paired, and Pixel 8 reconnects by itself. Nothing is running that a restart would stop.", "",
+    btn("Later", { kind: "quiet" }) + btn("Tonight at 2:00") + btn("Restart now", { kind: "primary", go: "update:done" })),
+  blocked: () => updBox("clock", "", "Waiting until the move finishes", "Desktop PC is sending you its setup (64%). Carrova 0.4.0 installs after it ends; you don't need to do anything. A call or a screen share waits the same way.", "",
+    btn("Install anyway…", { kind: "quiet", go: "update:anyway" })),
+  failed: () => updBox("warn", "warn", "The update didn't pass its check", "The download was damaged or wasn't signed by Carrova's release key, so it was thrown away. Nothing changed on this computer; you're still on 0.3.0.", "",
+    btn("Download again", { kind: "primary", icon: "refresh", go: "update:downloading" })),
+};
+const updPage = (st, over) => w4({ settings: "updates", title: "Updates and about", body: `<div class="w4in">${UPD[st] ? UPD[st]() : ""}${ESECTION.updates().join("")}</div>`, over });
+add({ id: "update", group: "Settings", title: "Updating Carrova", layout: "doc", states: [["notice", "Home notice"], ["available", "Ready to install"], ["downloading", "Downloading"], ["paused", "Paused"], ["offline", "Waiting for the network"], ["verifying", "Checking the signature"], ["ready", "Restart to finish"], ["blocked", "Waits for a move"], ["anyway", "Install anyway?"], ["failed", "Check failed"], ["done", "Updated"], ["tray", "Tray while downloading"]],
+  note: "Updates never install without a yes (unless you turn on installing on their own, off by default). Packages come from the signed release feed and are checked against Carrova's release key before anything changes. Nothing installs during a move, call or screen share: it waits and says so. Progress numbers keep updating under reduced motion; only the sheen stops.",
+  render(st) {
+    if (st === "notice") return home("update");
+    if (st === "done") return home("updated");
+    if (st === "anyway") return updPage("blocked", dialog(`<div class="dialog__icon dialog__icon--warn">${icon("warn")}</div><h2 class="h2" id="ovH">Stop the move and update now?</h2>
+      <p class="small sec" style="margin-top:6px">The move from Desktop PC pauses while Carrova restarts and carries on afterwards; nothing already moved is lost. A call or screen share would end.</p>
+      <div class="dialog__foot">${btn("Wait for it")}${btn("Stop and update", { kind: "danger-fill", go: "update:downloading" })}</div>`));
+    if (st === "tray") return desk(`<div class="traymenu"><div class="hd">${MARK}Carrova<small>Visible to known devices</small></div>
+      <div class="req"><b>Downloading Carrova 0.4.0</b><span>40% · 4.1 MB/s · about 14 s left</span><div style="block-size:5px;border-radius:3px;background:#3a3c43;margin-top:8px;overflow:hidden"><i style="display:block;block-size:100%;inline-size:40%;background:#a3adff"></i></div><div class="osnote__acts" style="margin-top:8px"><span>Cancel</span><span>Pause</span></div></div>
+      <div class="it">${icon("phone")}Pixel 8<span class="k">82% · linked</span></div><div class="it">${icon("monitor")}Desktop PC<span class="k">linked</span></div><hr>
+      <div class="it">${icon("moon")}Pause sharing for 1 hour</div><div class="it">${icon("max")}Open Carrova</div><div class="it">${icon("power")}Quit Carrova</div></div>`, { menu: true, pip: true });
+    return updPage(st);
+  },
+  mount(st, root) {
+    if (st === "available" || st === "failed") updMb = 38.2;
+    if (st !== "downloading") return;
+    const q = k => root.querySelector(`[data-${k}]`);
+    const iv = setInterval(() => {
+      const mb = updMb = Math.min(92, updMb + UPD_SPEED / 10);
+      q("fill").style.width = (mb / UPD_MB * 100).toFixed(1) + "%";
+      q("pct").textContent = Math.round(mb / UPD_MB * 100) + "%";
+      q("mb").textContent = mb.toFixed(1);
+      q("eta").textContent = `About ${Math.ceil((UPD_MB - mb) / UPD_SPEED)} s left`;
+      if (mb >= 92) clearInterval(iv);
+    }, 100);
+    timers.push(iv);
   } });
 
 /* ═══ Migration (unchanged flow, new entry points) ═══════════════════ */
+const migrateBody = `<div class="home4"><h1>Move your setup</h1><p>Settings, keys and files go to the other computer. Apps are reinstalled there, never copied.</p>
+    <div class="acts2"><a class="act act--primary" href="gui-v4.html#send:pick" style="text-decoration:none">${icon("send")}<b>Send</b><span>To a linked computer or with a code</span></a><a class="act" href="gui-v4.html#receive:ready" style="text-decoration:none;color:inherit">${icon("receive")}<b>Receive</b><span>Linked computers can also just send to you</span></a></div>
+    <div class="quiet-row">${icon("archive", "icon--sm")}<button class="link" type="button">Open a saved file</button></div></div>`;
+const migrate = over => w4({ active: "home", title: "Move your setup", body: migrateBody, over });
 add({ id: "migrate", group: "Move your setup", title: "Move your setup", layout: "doc", states: [["entry", "Entry"]],
   note: "Migration is unchanged: Send and Receive open the existing flow in gui-v4.html (pick, pair, review, move, undo). It is reachable from Home, from a computer's device page, and from here.",
-  render: () => w4({ active: "home", title: "Move your setup", body: `<div class="home4"><h1>Move your setup</h1><p>Settings, keys and files go to the other computer. Apps are reinstalled there, never copied.</p>
-    <div class="acts2"><a class="act act--primary" href="gui-v4.html#send:pick" style="text-decoration:none">${icon("send")}<b>Send</b><span>To a linked computer or with a code</span></a><a class="act" href="gui-v4.html#receive:ready" style="text-decoration:none;color:inherit">${icon("receive")}<b>Receive</b><span>Linked computers can also just send to you</span></a></div>
-    <div class="quiet-row">${icon("archive", "icon--sm")}<button class="link" type="button">Open a saved file</button></div></div>` }) });
+  render: () => migrate() });
+
+/* Code-less send: trusted computers (moved together before, or linked) skip the code. Phones never receive a setup. */
+const MOVE_SUM = "12 apps · 340 MB · includes keys";
+const sendTo = empty => sheet("Send your setup to…", MOVE_SUM, empty
+  ? `<div class="center4" style="block-size:auto;padding:16px 0 8px"><div>${lg(icon("laptop"))}<b>No computers you trust yet</b><p>The first move to a computer needs a code. After that the two trust each other, and you can send without one.</p>${v4btn("Send with a code", "send:code")}</div></div>`
+  : `${ig("No code needed", [
+      srow("Desktop PC", "Linked · Windows 11", btn("Send", { size: "sm", icon: "send", go: "sendwait:waiting", to: PC.name }), { g: "monitor", tone: "accent" }),
+      srow("ezio-mbp", "Moved together on 2 Nov · macOS 15", btn("Send", { size: "sm", icon: "send", go: "sendwait:waiting", to: "ezio-mbp" }), { g: "laptop", tone: "accent" }),
+      srow(`Old ThinkPad ${chip("", "Away")}`, "Last seen 3 weeks ago · Ubuntu", btn("Wake", { size: "sm", icon: "power" }), { g: "laptop" })])}
+    ${ig("Needs a code once", [srow(`new-mbp ${chip("warn", "New")}`, "macOS · after this move, no code", v4btn("Use a code", "send:code", ""), { g: "laptop" })],
+      "Sending without a code only asks. Nothing is written there until someone at that computer reviews the plan and approves it; keys still need their own yes.")}`,
+  `${btn("Cancel")}<span class="spacer" style="flex:1"></span>`);
+add({ id: "sendto", group: "Move your setup", title: "Send · choose computer", layout: "doc", states: [["choose", "Trusted computers"], ["empty", "None trusted yet"]],
+  note: "After picking what moves, trusted computers come first with Send: no code. Trusted means you moved together before or the computers are linked; phones never appear. New computers need a code once. Away ones are greyed; Wake shows only when Wake-on-LAN is on for them.",
+  render: st => migrate(sendTo(st === "empty")) });
+
+let sendTarget = PC.name; // the computer picked in "Send to…"; set by the click handler
+const WAIT = {
+  waiting: () => `<div class="pairdlg">${lg(icon("send"), "accent")}<h2 class="h2" id="ovH" style="margin-top:12px">Waiting for ${sendTarget}</h2><p class="lede small">A request is on its screen: ${MOVE_SUM}. Nothing is sent until someone there reviews and approves it.</p>
+      <div class="bar4" style="margin-top:16px"><i style="width:18%"></i></div><p class="xs muted">1:38 left · the request expires after 2 minutes</p>
+      <div class="dialog__foot">${btn("Cancel")}</div></div>`,
+  reviewing: () => `<div class="pairdlg">${lg(icon("eye"), "accent")}<h2 class="h2" id="ovH" style="margin-top:12px">${sendTarget} is reviewing</h2><p class="lede small">They're going through the plan and choosing what to accept. The move starts when they approve. You can close this; it carries on in the tray.</p>
+      <div class="dialog__foot">${btn("Cancel move")}${btn("Close", { kind: "primary" })}</div></div>`,
+  declined: () => `<div class="pairdlg">${lg(icon("close"), "warn")}<h2 class="h2" id="ovH" style="margin-top:12px">${sendTarget} declined</h2><p class="lede small">Nothing was sent. Whoever is there said no to this move. Maybe check with them, or send less.</p>
+      <div class="dialog__foot">${btn("Close")}${v4btn("Change what moves", "send:pick")}</div></div>`,
+  timeout: () => `<div class="pairdlg">${lg(icon("clock"), "warn")}<h2 class="h2" id="ovH" style="margin-top:12px">No answer from ${sendTarget}</h2><p class="lede small">Nobody approved it within 2 minutes, so the request expired. Requests don't wait longer, so an old one can't be accepted later. Nothing was sent.</p>
+      <div class="dialog__foot">${btn("Close")}${btn("Send again", { kind: "primary", icon: "refresh", go: "sendwait:waiting" })}</div></div>`,
+  away: () => `<div class="pairdlg">${lg(icon("noNet"), "warn")}<h2 class="h2" id="ovH" style="margin-top:12px">Can't reach ${sendTarget}</h2><p class="lede small">It went to sleep or left this network before answering. Nothing was sent.</p>
+      <div class="reasons"><div><b>Asleep?</b> Wake it, or wait until someone's at it.</div><div><b>Same network?</b> Both need the same Wi-Fi or wired network.</div></div>
+      <div class="dialog__foot">${btn("Close")}${btn("Try again", { kind: "primary", go: "sendwait:waiting" })}</div></div>`,
+};
+add({ id: "sendwait", group: "Move your setup", title: "Send · waiting for them", layout: "doc", states: [["waiting", "Request sent"], ["reviewing", "They're reviewing"], ["declined", "Declined"], ["timeout", "Timed out"], ["away", "Can't reach them"]],
+  note: "The request carries only counts, never app names, until the other side opens Review. It lasts 2 minutes. Every ending says what happened and offers one way on. The move itself is the existing flow from here (gui-v4.html: move, done, undo).",
+  render: st => migrate(dialog(WAIT[st]())) });
+
+add({ id: "sendreq", group: "Move your setup", title: "Receive · a request arrives", layout: "doc", states: [["open", "Window open"], ["closed", "Window closed"], ["locked", "Screen locked"], ["expired", "Request expired"]],
+  note: "A trusted computer's request reaches this one only while it is visible (Known devices or Everyone), even with the window closed: a pop-up, the tray, and the screen wakes. Before Review it shows counts only. Review opens the normal receive review (gui-v4.html#receive:review): dry run, approve, sensitive items asked one by one. Nothing is written before that.",
+  render(st) {
+    if (st === "open") return home("move");
+    if (st === "expired") return home("expired");
+    if (st === "locked") return desk(`<div class="lock"><div class="time">21:06</div><div class="date">Saturday 15 November</div><div class="osnote"><div class="osnote__top">${appi()}Carrova · now</div><b>Desktop PC: 1 request</b><p>Unlock to see it. Details stay hidden while locked. It expires in 1:42.</p></div></div>`, { tray: false });
+    return desk(osnote("Carrova · now", "Desktop PC wants to send you its setup", `${MOVE_SUM}. Nothing changes until you review it. 1:42 left.`, ["Decline", "Review"]), { pip: true });
+  } });
 
 const $ = s => document.querySelector(s);
 let timers = [], cur = { id: "", st: "" };
@@ -1858,7 +2017,11 @@ function runTransfer(root) {
 const ALL = SCREENS.flatMap(s => s.states.map(([k]) => `${s.id}:${k}`));
 document.addEventListener("click", e => {
   const t = e.target.closest("[data-go]");
-  if (t && t.dataset.go) { e.preventDefault(); go(t.dataset.go); return; }
+  if (t && t.dataset.go) {
+    e.preventDefault();
+    if (t.dataset.go.startsWith("sendwait:") && cur.id !== "sendwait") sendTarget = t.dataset.to || PC.name;
+    go(t.dataset.go); return;
+  }
   if (e.target.closest(".scrim") || e.target.closest('.sheet__head .btn, .dialog .dialog__foot .btn:not(.btn--primary)')) { const s = SCREENS.find(x => x.id === cur.id); go(`${cur.id}:${s.states[0][0]}`); }
   if (e.target.closest("a[href='#']")) e.preventDefault();
 });

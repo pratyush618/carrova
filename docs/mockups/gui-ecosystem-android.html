@@ -471,6 +471,7 @@ kbd { font: 600 11px/1 var(--mono); padding: 3px 5px; border-radius: 5px; border
 .set-sec > h2 { font-size: var(--t-sm); font-weight: 700; color: var(--text-muted); margin-block-end: 8px; padding-inline-start: 4px; }
 .set-row { display: flex; align-items: center; gap: 16px; padding: 14px 16px; }
 .set-row + .set-row { border-block-start: 1px solid var(--border); }
+.set-row--btn { inline-size: 100%; background: none; border: 0; font: inherit; color: inherit; text-align: start; }
 .set-row__t { flex: 1; min-inline-size: 0; }
 .set-row__t b { display: block; font-weight: 650; }
 .set-row__t span { font-size: var(--t-sm); color: var(--text-secondary); }
@@ -771,7 +772,10 @@ html.rm .pulse { animation: none; }
 .pick4s { display: grid; gap: 10px; }
 .pick4 { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); text-align: start; inline-size: 100%; }
 .pick4:hover { border-color: var(--border-strong); }
-.pick4.is-sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.pick4.is-sel, .pick4:has(> .pick4__in:checked) { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+label.pick4 { position: relative; cursor: pointer; }
+.pick4__in { position: absolute; inline-size: 1px; block-size: 1px; margin: 0; opacity: 0; }
+.pick4:has(> .pick4__in:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
 .pick4__ic { inline-size: 42px; block-size: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: none; }
 .pick4.is-new .pick4__ic { background: var(--surface-0); color: var(--text-secondary); }
 .pick4__t { flex: 1; min-inline-size: 0; display: grid; }
@@ -780,7 +784,7 @@ html.rm .pulse { animation: none; }
 .pick4__tag { display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-xs); font-weight: 650; color: var(--success); }
 .pick4__tag--code { color: var(--text-muted); }
 .pick4__radio { inline-size: 20px; block-size: 20px; border-radius: 50%; border: 1.5px solid var(--control); flex: none; }
-.pick4.is-sel .pick4__radio { border: 6px solid var(--accent-fill); }
+.pick4.is-sel .pick4__radio, .pick4__in:checked ~ .pick4__radio { border: 6px solid var(--accent-fill); }
 .sent4 { max-inline-size: 520px; margin: 40px auto 0; text-align: center; display: grid; justify-items: center; gap: 6px; }
 .sent4 .list { inline-size: 100%; }
 .recv4 { max-inline-size: 520px; margin: 48px auto 0; text-align: center; display: grid; justify-items: center; }
@@ -983,10 +987,10 @@ html.rm .cam__line { animation: none; inset-block-start: 50%; }
 .scr .live { padding: 16px; }
 /* Touchpad and keyboard */
 .pad { position: relative; block-size: 380px; border-radius: 22px; background: var(--surface-0); border: 1px solid var(--border); display: grid; place-items: center; color: var(--text-muted); font-size: var(--t-sm); text-align: center; }
-.pad__dot { position: absolute; inline-size: 44px; block-size: 44px; border-radius: 50%; background: var(--accent-soft); box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent); inset-inline-start: 58%; inset-block-start: 38%; }
+.pad__dot { position: absolute; inline-size: 44px; block-size: 44px; border-radius: 50%; background: var(--accent-soft); box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 40%, transparent); inset-inline-start: 62%; inset-block-start: 18%; }
 .pad__btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-block-start: 8px; }
 .pad__btns span { block-size: 52px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); }
-.mods { display: flex; gap: 6px; overflow: hidden; margin-block-end: 8px; }
+.mods { display: flex; flex-wrap: wrap; gap: 6px; margin-block-end: 8px; }
 .mods kbd { padding: 7px 9px; font-size: 12px; }
 .kb { display: grid; gap: 6px; padding: 10px 6px 8px; margin-inline: -16px; background: var(--surface-0); border-block-start: 1px solid var(--border); }
 .kb div { display: flex; gap: 5px; justify-content: center; }
@@ -1046,8 +1050,9 @@ html.rm .cam__line { animation: none; inset-block-start: 50%; }
 .sysdlg__acts span { text-align: center; padding: 12px; border-radius: 999px; font-weight: 650; color: #a3adff; }
 .sysdlg__acts span.p { background: #a3adff; color: #151830; }
 .sysdlg__row { display: flex; justify-content: flex-end; gap: 6px; margin-block-start: 14px; }
-.sysdlg__row span { padding: 10px 14px; font-weight: 650; color: #a3adff; border-radius: 999px; }
-.sysdlg__row span.p { background: #a3adff; color: #151830; }
+.sysdlg__row span, .sysdlg__row button { padding: 10px 14px; font: inherit; font-weight: 650; color: #a3adff; background: none; border: 0; border-radius: 999px; }
+.sysdlg__row button { cursor: pointer; }
+.sysdlg__row span.p, .sysdlg__row button.p { background: #a3adff; color: #151830; }
 .share { position: absolute; z-index: 11; inset-inline: 0; inset-block-end: 0; background: #232428; color: #ececef; border-start-start-radius: 28px; border-start-end-radius: 28px; padding: 10px 18px 26px; animation: up var(--dur-3) var(--ease-out) both; }
 .share__grab { inline-size: 36px; block-size: 4px; border-radius: 2px; background: #4a4c54; margin: 0 auto 14px; }
 .share__item { display: flex; gap: 12px; align-items: center; padding: 6px 4px 14px; border-block-end: 1px solid #36383f; }
@@ -1288,7 +1293,7 @@ function phone(o) {
   return `<div class="phone"><div class="scr${hasNav ? "" : " scr--bare"}${o.full ? " scr--full" + (o.themed ? "" : " scr--ink") : ""}">${o.full || ""}${sbar}<div class="pmain">${main}</div>${nav}<div class="gbar"><i></i></div>${o.over || ""}</div></div>`;
 }
 const ig = (h, rows, foot) => `<div class="ig">${h ? `<h3>${h}</h3>` : ""}<div class="ig__box">${rows.join("")}</div>${foot ? `<p class="foot">${foot}</p>` : ""}</div>`;
-const srow = (ic, t, d, end = "", o = {}) => `<div class="set-row${o.cls ? " " + o.cls : ""}"${o.go ? ` data-go="${o.go}" style="cursor:pointer"` : ""}>${ic ? glyph(icon(ic), o.tone || "") : ""}<div class="set-row__t"><b>${t}</b>${d ? `<span>${d}</span>` : ""}</div>${end}</div>`;
+const srow = (ic, t, d, end = "", o = {}) => { const tag = o.go ? "button" : "div"; return `<${tag}${o.go ? ' type="button"' : ""} class="set-row${o.go ? " set-row--btn" : ""}${o.cls ? " " + o.cls : ""}"${o.go ? ` data-go="${o.go}" style="cursor:pointer"` : ""}>${ic ? glyph(icon(ic), o.tone || "") : ""}<${o.go ? "span" : "div"} class="set-row__t"><b>${t}</b>${d ? `<span>${d}</span>` : ""}</${o.go ? "span" : "div"}>${end}</${tag}>`; };
 const chev = `<span class="chev">${icon("chevR", "icon--sm")}</span>`;
 const ask = sel => seg(["Ask", "Off"], sel);
 const devRow = (d, o = {}) => `<div class="row4${d.away ? " row4--away" : " row4--known"}"${o.go ? ` data-go="${o.go}" style="cursor:pointer"` : ""}><span class="ic">${icon(d.ic)}</span><div class="row4__t"><b>${d.name}</b><span class="status${d.away ? " status--away" : ""}">${d.away || "Linked"}</span></div>${o.end != null ? o.end : chev}</div>`;
@@ -1410,8 +1415,8 @@ function deviceBody(away) {
       srow("call", "Calls", "Ring and answer on the laptop", btn("Set up", { size: "sm", go: "calls:setup" })),
     ])}
     ${ig(`${LAP} may ask to`, [
-      srow("file", "Send you files", "", ask("Ask")), srow("monitor", "See this screen", "", ask("Ask")),
-      srow("touch", "Control this phone", "", ask("Off")), srow("handoff", "Open links and files here", "", ask("Ask")),
+      srow("file", "Send you files", "", ask("Ask")), srow("monitor", "See this screen", "Ask every time", chev, { go: "device:screen" }),
+      srow("touch", "Control this phone", "Never", chev, { go: "device:screen" }), srow("handoff", "Open links and files here", "", ask("Ask")),
     ])}
     ${ig("Use it from here", [
       srow("monitor", "See its screen", "", chev, { go: "viewer:view", cls: dis }),
@@ -1419,9 +1424,15 @@ function deviceBody(away) {
     ])}
     <div class="foot4"><span>Linked 15 Nov · <span class="fp">7F3A·19C2</span></span>${btn("Forget", { kind: "quiet", size: "sm", cls: "btn--danger", go: "device:forget" })}</div>`;
 }
-add({ id: "device", group: "Device", title: "Device page", states: [["on", "Linked"], ["away", "Away"], ["rename", "Rename"], ["forget", "Forget"]],
-  note: "One page per computer. Three groups by direction: what flows quietly, what the computer may ask of this phone (Ask / Off), and what this phone can start on the computer. The fingerprint is a label, not a security check.",
+/* Screen and control choices: per device (device:screen) and as defaults for new computers (settings:screen) */
+const opt = (name, t, d, on) => `<label class="pick4"><input type="radio" class="pick4__in" name="${name}"${on ? " checked" : ""}><span class="pick4__t"><b>${t}</b><span>${d}</span></span><span class="pick4__radio" aria-hidden="true"></span></label>`;
+const screenPrefs = foot => `<div class="ig"><h3 id="optSee">See this screen</h3><div class="pick4s" role="radiogroup" aria-labelledby="optSee">${opt("see", "Ask every time", "Allow or decline on this phone each time", 1)}${opt("see", "Always allow viewing", "Starts without asking. View only, and the red chip still shows", 0)}${opt("see", "Never", "Requests are declined without asking you", 0)}</div></div>
+  <div class="ig"><h3 id="optCtl">Control this phone and its keyboard</h3><div class="pick4s" role="radiogroup" aria-labelledby="optCtl">${opt("ctl", "Ask every time", "Taps and typing need your Allow each time", 0)}${opt("ctl", "Never", "Requests are declined without asking you", 1)}</div><p class="foot">Control always asks. There's no Always allow.</p></div>
+  ${ig("", [srow("eye", "Sharing indicator", "Red chip in the status bar and a notification with Stop", chip("", "Always on"))], foot)}`;
+add({ id: "device", group: "Device", title: "Device page", states: [["on", "Linked"], ["away", "Away"], ["screen", "Screen and control"], ["rename", "Rename"], ["forget", "Forget"]],
+  note: "One page per computer. Three groups by direction: what flows quietly, what the computer may ask of this phone (Ask / Off), and what this phone can start on the computer. Screen and control open their own page: seeing the screen can be always allowed, control never can. The fingerprint is a label, not a security check.",
   render(st) {
+    if (st === "screen") return phone({ back: "device:on", title: "Screen and control", body: `<p class="sec" style="margin-bottom:18px">What ${LAP} may do with this phone's screen.</p>${screenPrefs("Defaults: ask every time to see, never control. Settings sets the defaults for new computers.")}` });
     const over = st === "rename" ? sheet(`<h2 class="h2" id="ovH">Rename</h2><p class="small sec" style="margin:2px 0 14px">Only on this phone.</p><div class="field" style="color:var(--text-primary)">${LAP}</div>`, `${btn("Cancel")}${btn("Save", { kind: "primary" })}`)
       : st === "forget" ? pdlg(`<h2 class="h2" id="ovH">Forget ${LAP}?</h2><p class="sec" style="margin-top:6px">It won't connect or ask for anything until you link again with a code. ${LAP} forgets this phone too.</p><div class="dialog__foot">${btn("Cancel")}${btn("Forget", { kind: "danger-fill" })}</div>`) : "";
     return phone({ back: "home:linked", actions: btn("", { kind: "quiet", icon: "pen", label: "Rename", cls: "btn--icon", go: "device:rename" }), body: deviceBody(st === "away"), over });
@@ -1513,42 +1524,54 @@ add({ id: "calls", group: "Calls", title: "Calls", states: [["setup", "Set up"],
   } });
 
 /* ═══ Screen ════════════════════════════════════════════════════════ */
-add({ id: "share-screen", group: "Screen", title: "Share this screen", states: [["ask", "Laptop asks"], ["system", "Android prompt"], ["sharing", "Sharing"], ["ended", "Stopped"]],
-  note: "Ask-each-time: the laptop asks, this phone allows, then Android's own capture prompt (MediaProjection) appears. While shared, a red chip stays in the status bar and Home shows one Stop control.",
+add({ id: "share-screen", group: "Screen", title: "Share this screen", states: [["ask", "Laptop asks"], ["system", "Android prompt"], ["cancelled", "Prompt cancelled"], ["sharing", "Sharing"], ["secure", "Protected app"], ["locked", "Phone locked"], ["ended", "Stopped"]],
+  note: "Ask-each-time: the laptop asks, this phone allows, then Android's own capture prompt (MediaProjection) appears. While shared, a red chip stays in the status bar and Home shows one Stop control. Apps that block screenshots (FLAG_SECURE, e.g. banking) show black on the laptop; locking the phone pauses the share.",
   render(st) {
     if (st === "ask") return homePhone({ over: pdlg(`<span class="dialog__icon">${icon("monitor", "icon--lg")}</span><h2 class="h2" id="ovH">${LAP} wants to see this screen</h2><p class="sec" style="margin-top:6px">View only. You can stop any time.</p><div class="dialog__foot">${btn("Decline")}${btn("Allow", { kind: "primary", go: "share-screen:system" })}</div>`) });
-    if (st === "system") return homePhone({ over: sysdlg(`<h3>Start recording or casting with Carrova?</h3><div class="sysdlg__opts"><span>Share one app</span><span class="on">Share entire screen</span></div><p style="margin-top:12px;text-align:start">When you're sharing your entire screen, anything on it is visible to Carrova. Be careful with passwords, payment details and messages.</p><div class="sysdlg__row"><span>Cancel</span><span class="p">Start</span></div>`) });
+    if (st === "system") return homePhone({ over: sysdlg(`<h3>Start recording or casting with Carrova?</h3><div class="sysdlg__opts"><span>Share one app</span><span class="on">Share entire screen</span></div><p style="margin-top:12px;text-align:start">When you're sharing your entire screen, anything on it is visible to Carrova. Be careful with passwords, payment details and messages.</p><div class="sysdlg__row"><button type="button" data-go="share-screen:cancelled">Cancel</button><span class="p">Start</span></div>`) });
+    if (st === "cancelled") return homePhone({ req: `<div class="banner banner--warn" style="margin-bottom:16px">${icon("info")}<div><b>Sharing didn't start</b>Android's prompt was cancelled, so ${LAP} sees nothing.</div><span class="banner__act">${btn("Try again", { size: "sm", go: "share-screen:system" })}</span></div>` });
+    if (st === "secure") return phone({ themed: 1, rec: "Sharing", full: appbg + `<div class="pdock" style="padding-inline:14px"><div class="banner" role="status" style="box-shadow:var(--e-3)">${icon("lock")}<div><b>Hidden on ${LAP}</b>This app protects its screen, so ${LAP} sees black while it's open.</div></div></div>` });
+    if (st === "locked") return phone({ rec: "Paused", full: `<div class="sysbg"></div><div class="sys"><div class="sys__lock"><b>9:41</b><span>Saturday, 15 November</span></div><div class="sn sn--ongoing"><div class="sn__top"><span class="appi">${MARK.replace('class="mark"', 'class="icon"')}</span>Carrova · now</div><b>Screen sharing paused</b><p>The phone is locked, so a linked computer sees nothing. Unlock to carry on.</p><div class="sn__acts"><span>Stop sharing</span></div></div></div>` });
     if (st === "ended") return homePhone({ over: toast("Stopped sharing") });
     return homePhone({ rec: "Sharing", req: `<div class="req4">${glyph(icon("monitor"), "accent")}<div class="req4__t"><b>${LAP} is viewing this screen</b><span class="num">00:42</span></div>${btn("Stop", { size: "sm", kind: "danger-fill" })}</div>` });
   } });
 
-add({ id: "viewer", group: "Screen", title: "See the laptop's screen", states: [["waiting", "Waiting"], ["view", "Viewing"], ["zoom", "Zoomed"], ["control", "Controlling"], ["declined", "Declined"]],
-  note: "Started from the device page. The laptop asks its user first (ask-each-time), so the phone waits. View only by default; asking for control is a second, separate ask.",
+add({ id: "viewer", group: "Screen", title: "See the laptop's screen", states: [["waiting", "Waiting"], ["view", "Viewing"], ["zoom", "Zoomed"], ["control", "Controlling"], ["revoked", "Control ended"], ["slow", "Slow network"], ["lost", "Connection lost"], ["declined", "Declined"]],
+  note: "Started from the device page. The laptop asks its user first (ask-each-time), so the phone waits. View only by default; asking for control is a second, separate ask, and the laptop can end control at any time. On a slow network the picture drops quality instead of freezing.",
   render(st) {
-    const waiting = st === "waiting", declined = st === "declined";
-    const stage = waiting || declined
-      ? `<div style="text-align:center;color:#b5b8c4;font-size:var(--t-sm);display:grid;gap:12px;justify-items:center">${waiting ? `<span class="btn--loading" style="display:inline-flex"></span>Waiting for ${LAP} to allow…` : `${icon("close", "icon--lg")}${LAP} declined.${btn("Ask again", { size: "sm" })}`}</div>`
-      : `<div class="lscreen${st === "zoom" ? " lscreen--zoom" : ""}"><span class="bar"></span><span class="w1"></span><span class="w2"></span>${st === "control" ? '<span class="cursor"></span>' : ""}</div>`;
-    const ctl = st === "control" ? btn("Controlling", { kind: "primary", size: "sm", icon: "touch" }) : btn("Ask to control", { size: "sm", icon: "touch", dis: waiting || declined });
-    return phone({ full: `<div class="viewer"><div class="viewer__top" style="padding-top:44px">${btn("", { kind: "quiet", icon: "back", label: "Back", cls: "btn--icon", go: "device:on" })}<b>${LAP}</b><span style="margin-inline-start:auto">${st === "control" ? "" : chip("", "View only")}</span></div>
-      <div class="viewer__stage">${stage}</div>${!waiting && !declined ? `<p class="viewer__hint">Pinch to zoom · two fingers to move</p>` : ""}<div class="viewer__tools">${ctl}${btn("", { size: "sm", icon: "kb", label: "Keyboard", dis: st !== "control" })}${btn("", { size: "sm", icon: "rotate", label: "Rotate" })}${btn("Stop", { size: "sm", kind: "danger-fill", icon: "stop" })}</div></div>` });
+    const waiting = st === "waiting", declined = st === "declined", lost = st === "lost";
+    const msg = (ic, t, act) => `<div style="text-align:center;color:#b5b8c4;font-size:var(--t-sm);display:grid;gap:12px;justify-items:center">${ic}${t}${act || ""}</div>`;
+    const stage = waiting ? msg(`<span class="btn--loading" style="display:inline-flex"></span>`, `Waiting for ${LAP} to allow…`)
+      : declined ? msg(icon("close", "icon--lg"), `${LAP} declined.`, btn("Ask again", { size: "sm" }))
+      : lost ? msg(icon("noNet", "icon--lg"), `Lost the connection to ${LAP}.<br>It may be asleep or off this Wi-Fi.`, btn("Reconnect", { size: "sm" }))
+      : `<div class="lscreen${st === "zoom" ? " lscreen--zoom" : ""}"${st === "slow" ? ' style="filter:blur(1.2px)"' : ""}><span class="bar"></span><span class="w1"></span><span class="w2"></span>${st === "control" ? '<span class="cursor"></span>' : ""}</div>`;
+    const off = waiting || declined || lost;
+    const ctl = st === "control" ? btn("Controlling", { kind: "primary", size: "sm", icon: "touch" }) : btn("Ask to control", { size: "sm", icon: "touch", dis: off });
+    const badge = st === "control" ? "" : st === "slow" ? chip("warn", "Slow network", "wifi") : chip("", "View only");
+    const hint = st === "slow" ? "Lower quality until the network catches up" : "Pinch to zoom · turn sideways to fill the screen";
+    const note = st === "revoked" ? `<div class="pdock" style="inset-block-end:96px"><div class="toast" role="status">${icon("info")}${LAP} ended control. You can still watch.</div></div>` : "";
+    return phone({ full: `<div class="viewer"><div class="viewer__top" style="padding-top:44px">${btn("", { kind: "quiet", icon: "back", label: "Back", cls: "btn--icon", go: "device:on" })}<b>${LAP}</b><span style="margin-inline-start:auto">${badge}</span></div>
+      <div class="viewer__stage">${stage}</div>${!off ? `<p class="viewer__hint">${hint}</p>` : ""}<div class="viewer__tools">${ctl}${btn("", { size: "sm", icon: "kb", label: "Keyboard", dis: st !== "control" })}${btn("", { size: "sm", icon: "rotate", label: "Rotate" })}${btn("Stop", { size: "sm", kind: "danger-fill", icon: "stop" })}</div></div>${note}` });
   } });
 
-add({ id: "control", group: "Screen", title: "Control this phone", states: [["ask", "Laptop asks"], ["a11y", "Accessibility needed"], ["active", "Being controlled"]],
-  note: "Off by default on the device page. The first time, Android requires Carrova's accessibility service to tap and type; that is a deliberate settings trip, never a silent grant. (Play Store reviews accessibility use strictly.)",
+add({ id: "control", group: "Screen", title: "Control this phone", states: [["ask", "Laptop asks"], ["a11y", "Accessibility needed"], ["active", "Being controlled"], ["stopped", "Stopped from notification"], ["a11yoff", "Accessibility turned off"]],
+  note: "Off by default on the device page, and it always asks: there is no Always allow for control. The first time, Android requires Carrova's accessibility service to tap and type; that is a deliberate settings trip, never a silent grant. (Play Store reviews accessibility use strictly.) Stop is on Home and in the ongoing notification.",
   render(st) {
     if (st === "active") return homePhone({ rec: "Control", req: `<div class="req4">${glyph(icon("touch"), "accent")}<div class="req4__t"><b>${LAP} is controlling this phone</b><span class="num">01:05</span></div>${btn("Stop", { size: "sm", kind: "danger-fill" })}</div>` });
+    if (st === "stopped") return homePhone({ over: toast(`Stopped. ${LAP} can't tap or type here`) });
+    if (st === "a11yoff") return homePhone({ req: `<div class="banner banner--danger" style="margin-bottom:16px">${icon("warn")}<div><b>Control stopped</b>Carrova's accessibility service was turned off, so ${LAP} can't tap or type here.</div><span class="banner__act">${btn("Turn on", { size: "sm" })}</span></div>` });
     return homePhone({ over: pdlg(st === "ask"
-      ? `<span class="dialog__icon dialog__icon--warn">${icon("touch", "icon--lg")}</span><h2 class="h2" id="ovH">${LAP} wants to control this phone</h2><p class="sec" style="margin-top:6px">Taps and typing from the laptop act as you until you stop it.</p><div class="dialog__foot">${btn("Decline")}${btn("Allow", { kind: "primary", go: "control:a11y" })}</div>`
+      ? `<span class="dialog__icon dialog__icon--warn">${icon("touch", "icon--lg")}</span><h2 class="h2" id="ovH">${LAP} wants to control this phone</h2><p class="sec" style="margin-top:6px">Taps and typing from the laptop act as you until you stop it.</p><p class="small muted" style="margin-top:8px">Control always asks. There's no Always allow.</p><div class="dialog__foot">${btn("Decline")}${btn("Allow", { kind: "primary", go: "control:a11y" })}</div>`
       : `<span class="dialog__icon">${icon("settings", "icon--lg")}</span><h2 class="h2" id="ovH">One step in Android settings</h2><p class="sec" style="margin-top:6px">Android needs Carrova's accessibility service before another device can tap and type here. Carrova uses it for nothing else.</p><div class="dialog__foot">${btn("Not now")}${btn("Open settings", { kind: "primary" })}</div>`) });
   } });
 
 /* ═══ Remote input ══════════════════════════════════════════════════ */
-add({ id: "touchpad", group: "Remote input", title: "Touchpad and keyboard", states: [["waiting", "Waiting"], ["pad", "Touchpad"], ["keys", "Keyboard"], ["declined", "Declined"]],
-  note: "The phone as a touchpad and keyboard for the laptop. Needs an Allow on the laptop each time. Modifier keys sit above the keyboard because the phone's own keyboard has none.",
+add({ id: "touchpad", group: "Remote input", title: "Touchpad and keyboard", states: [["waiting", "Waiting"], ["pad", "Touchpad"], ["keys", "Keyboard"], ["declined", "Declined"], ["away", "Laptop went away"]],
+  note: "The phone as a touchpad and keyboard for the laptop. Needs an Allow on the laptop each time. Modifier keys sit above the keyboard because the phone's own keyboard has none. If the laptop sleeps or leaves the Wi-Fi, the pad stops and offers Wake.",
   render(st) {
     const keys = st === "keys";
-    const padTxt = st === "waiting" ? `<span class="btn--loading" style="display:inline-flex;margin-bottom:8px"></span><br>Waiting for ${LAP} to allow…` : st === "declined" ? `${LAP} declined.<br>${btn("Ask again", { size: "sm" })}` : "One finger moves · two scroll · tap to click";
+    const padTxt = st === "waiting" ? `<span class="btn--loading" style="display:inline-flex;margin-bottom:8px"></span><br>Waiting for ${LAP} to allow…` : st === "declined" ? `${LAP} declined.<br>${btn("Ask again", { size: "sm" })}`
+      : st === "away" ? `${LAP} went to sleep or left the Wi-Fi.<br>${btn("Wake", { size: "sm" })}` : "One finger moves · two scroll · tap to click";
     const kb = `<div class="mods">${["Esc", "Tab", "Ctrl", "Alt", "Super", "←", "↑", "↓", "→"].map(k => `<kbd>${k}</kbd>`).join("")}</div><div class="kb">${["qwertyuiop", "asdfghjkl", "zxcvbnm"].map((r, i) => `<div>${i === 2 ? '<span class="w">⇧</span>' : ""}${[...r].map(c => `<span>${c}</span>`).join("")}${i === 2 ? '<span class="w">⌫</span>' : ""}</div>`).join("")}<div><span class="w">?123</span><span class="sp"></span><span class="w">⏎</span></div></div>`;
     return phone({ back: "device:on", title: LAP, nav: false, actions: btn("", { kind: keys ? "" : "quiet", icon: "kb", label: "Keyboard", cls: "btn--icon", go: keys ? "touchpad:pad" : "touchpad:keys" }),
       body: `<div class="pad" style="${keys ? "block-size:190px" : ""}">${st === "pad" || keys ? '<span class="pad__dot"></span>' : ""}<span>${padTxt}</span></div><div class="pad__btns"><span></span><span></span></div>${keys ? `<div style="margin-top:12px">${kb}</div>` : ""}` });
@@ -1577,12 +1600,12 @@ add({ id: "activity", group: "Activity", title: "Activity", states: [["list", "T
   } });
 
 /* ═══ Settings ══════════════════════════════════════════════════════ */
-add({ id: "settings", group: "Settings", title: "Settings", states: [["main", "Settings"], ["visibility", "Visibility"], ["battery", "Battery"], ["alerts", "Alerts"]],
-  note: "Visibility mirrors the computer app's pill (No one / Known devices / Everyone for 10 minutes) and binds the same value. Alerts choose Pop-up or Quiet per kind; names stay off the lock screen unless you opt in.",
+add({ id: "settings", group: "Settings", title: "Settings", states: [["main", "Settings"], ["visibility", "Visibility"], ["battery", "Battery"], ["alerts", "Alerts"], ["screen", "Screen and input"]],
+  note: "Screen and input sets the defaults for new computers: ask every time to see, never control; the sharing indicator is always on. Visibility mirrors the computer app's pill (No one / Known devices / Everyone for 10 minutes) and binds the same value. Alerts choose Pop-up or Quiet per kind; names stay off the lock screen unless you opt in.",
   render(st) {
+    if (st === "screen") return phone({ back: "settings:main", title: "Screen and input", body: `<p class="sec" style="margin-bottom:18px">Defaults for computers you link from now on. Each computer's page can differ.</p>${screenPrefs("The indicator can't be turned off while a computer sees or controls this phone.")}` });
     if (st === "visibility") {
-      const opt = (t, d, on) => `<button type="button" class="pick4${on ? " is-sel" : ""}"><span class="pick4__t"><b>${t}</b><span>${d}</span></span><span class="pick4__radio"></span></button>`;
-      return phone({ back: "settings:main", title: "Visibility", body: `<div class="pick4s">${opt("No one", "Linked computers can't see this phone", 0)}${opt("Known devices", "Only computers you've linked", 1)}${opt("Everyone for 10 minutes", "So a new computer can find it; then back to Known", 0)}</div>` });
+      return phone({ back: "settings:main", title: "Visibility", body: `<div class="pick4s" role="radiogroup" aria-label="Visibility">${opt("vis", "No one", "Linked computers can't see this phone", 0)}${opt("vis", "Known devices", "Only computers you've linked", 1)}${opt("vis", "Everyone for 10 minutes", "So a new computer can find it; then back to Known", 0)}</div>` });
     }
     if (st === "battery") return phone({ back: "settings:main", title: "Battery", body: `<div class="banner banner--ok" style="margin-bottom:18px">${icon("check")}<div><b>Unrestricted</b>Android won't stop Carrova in the background.</div></div>
       ${ig("", [srow("batt", "Pause below 15% battery", "", toggle(1)), srow("moon", "Pause overnight", "23:00 – 07:00", toggle(0))])}` });
@@ -1591,22 +1614,68 @@ add({ id: "settings", group: "Settings", title: "Settings", states: [["main", "S
         srow("clip", "Clipboard received", "", seg(["Pop-up", "Quiet"], "Quiet")),
         srow("check", "Finished transfers", "", seg(["Pop-up", "Quiet"], "Quiet")),
       ])}${ig("", [srow("lock", "Names on lock screen", "Off shows “A linked computer…”", toggle(0))])}` });
+    return settingsMain();
+  } });
+function settingsMain(ready) {
     return phone({ title: "Settings", nav: "settings", body: `
       ${ig("This phone", [srow("phone", "Name", THIS, chev), srow("radar", "Visibility", "Known devices", chev, { go: "settings:visibility" })])}
       ${ig("Computers", [devRow(LAPD, { go: "device:on" }), devRow(PCD), srow("plus", "Add a computer", "", chev, { go: "scan:aim" })])}
+      ${ig("Screen and input", [srow("monitor", "Screen and control", "Ask to see · never control", chev, { go: "settings:screen" })])}
       ${ig("Background", [srow("power", "Stay connected", "One quiet notification keeps the link", toggle(1)), srow("batt", "Battery", "Unrestricted", chev, { go: "settings:battery" }), srow("bell", "Alerts", "", chev, { go: "settings:alerts" })])}
-      ${ig("About", [srow("info", "Carrova 0.3.0", "Open source · Apache-2.0", ""), srow("warn", "Error reports", "Ask before sending", toggle(0))])}` });
+      ${ig("Updates", [
+        ...(ready ? [srow("arrowD", "Carrova 0.4.0 is ready", "52.1 MB", chev, { go: "update:details", tone: "accent" })] : []),
+        srow("info", "Carrova 0.3.0", "Open source · Apache-2.0", ""),
+        srow("refresh", "Check for updates", "Last checked today, 9:12", btn("Check now", { size: "sm" })),
+        srow("wifi", "Download on mobile data", "Off: updates wait for Wi-Fi", toggle(0)),
+      ], "Updates come from Carrova's GitHub releases. Android asks before anything installs.")}
+      ${ig("About", [srow("warn", "Error reports", "Ask before sending", toggle(0))])}` });
+}
+
+/* ═══ App update (sideloaded APK from GitHub releases) ═══════════════ */
+const UPV = "0.4.0", UPSZ = "52.1 MB";
+const upHead = `<div class="devhead">${glyph(MARK, "accent")}<div style="flex:1"><b>Carrova ${UPV}</b><div class="small sec" style="margin-top:2px">${UPSZ} · you have 0.3.0</div></div></div>`;
+const upProg = (pct, got, line, broken) => `<div class="live"><div class="pct"><b>${pct}%</b><span>${got} of ${UPSZ}</span></div><div class="track${broken ? " track--broken" : ""}" style="margin-top:12px"><span class="track__fill" style="inline-size:${pct}%"></span></div><p class="small muted" style="margin-top:8px">${line}</p></div>`;
+const upPage = (body, over) => phone({ back: "settings:main", title: "Update", nav: false, body: upHead + body, over });
+add({ id: "update", group: "Updates", title: "Update Carrova", states: [["available", "Ready (Home)"], ["settings", "Ready (Settings)"], ["details", "What's new"], ["mobile", "On mobile data"], ["queued", "Queued for Wi-Fi"], ["downloading", "Downloading"], ["paused", "Paused"], ["waiting", "Waiting for Wi-Fi"], ["verifying", "Checking signature"], ["permission", "Install permission"], ["installer", "Android installer"], ["failed", "Failed"], ["done", "Updated"]],
+  note: "No Play Store: Carrova downloads Carrova_<v>_android-arm64.apk from GitHub releases, checks it against the release key, then hands it to Android's package installer. It never downloads on mobile data unless you allow it, and never installs without Android's own prompt. Linked computers reconnect by themselves after the update.",
+  render(st) {
+    if (st === "available") return homePhone({ req: `<div class="req4">${glyph(icon("arrowD"), "accent")}<div class="req4__t"><b>Carrova ${UPV} is ready</b><span>${UPSZ} · see what's new</span></div>${btn("View", { kind: "primary", size: "sm", go: "update:details" })}</div>` });
+    if (st === "settings") return settingsMain(true);
+    if (st === "details" || st === "mobile") {
+      const mobile = st === "mobile";
+      return upPage(`<div class="card card--pad" style="margin:18px 0 22px"><b>What's new</b><ul class="small sec" style="margin-top:8px;display:grid;gap:6px;list-style:disc;padding-inline-start:18px"><li>See a computer's screen and control it from this phone</li><li>Use this phone as a touchpad and keyboard</li><li>Faster file transfers on busy Wi-Fi</li></ul><p style="margin-top:12px"><a class="link small" href="#">Full notes</a></p></div>
+        ${mobile ? `<div class="ig"><h3 id="optData">You're on mobile data</h3><div class="pick4s" role="radiogroup" aria-labelledby="optData">${opt("data", "Wait for Wi-Fi", "Downloads by itself when you're back on Wi-Fi", 1)}${opt("data", "Use mobile data", `${UPSZ} from your data plan`, 0)}</div></div>` : ""}
+        <div class="row" style="justify-content:flex-end;gap:8px">${btn("Later", { kind: "quiet", go: "home:linked" })}${btn(mobile ? "Download on Wi-Fi" : "Download", { kind: "primary", cls: "upgo", go: mobile ? "update:queued" : "update:downloading" })}</div>
+        <p class="xs muted" style="margin-top:14px">Checked against Carrova's release key. Android asks before installing.</p>`);
+    }
+    if (st === "downloading") return upPage(`<div style="margin-top:18px">${upProg(35, "18.4", `<span class="num">3.2 MB/s</span> · About 11 s left`)}</div><div class="row" style="margin-top:16px;justify-content:flex-end;gap:8px">${btn("Cancel", { kind: "quiet" })}${btn("Pause", { icon: "pause", go: "update:paused" })}</div>`);
+    if (st === "paused") return upPage(`<div style="margin-top:18px">${upProg(35, "18.4", "Paused · picks up from here when you resume", 1)}</div><div class="row" style="margin-top:16px;justify-content:flex-end;gap:8px">${btn("Cancel", { kind: "quiet" })}${btn("Resume", { kind: "primary", icon: "play", go: "update:downloading" })}</div>`);
+    if (st === "queued") return upPage(`<div style="margin-top:18px">${upProg(0, "0", "Waiting for Wi-Fi to start")}</div><div class="banner" style="margin-top:14px">${icon("wifi")}<div><b>Starts on Wi-Fi</b>Nothing is downloaded yet. The download starts by itself when you're on Wi-Fi.</div></div><div class="row" style="margin-top:16px;justify-content:flex-end;gap:8px">${btn("Cancel", { kind: "quiet", go: "update:details" })}${btn("Use mobile data", { kind: "primary", go: "update:downloading" })}</div>`);
+    if (st === "waiting") return upPage(`<div style="margin-top:18px">${upProg(35, "18.4", "Waiting for Wi-Fi", 1)}</div><div class="banner banner--warn" style="margin-top:14px">${icon("wifi")}<div><b>Wi-Fi dropped</b>The download picks up where it stopped when you're back on Wi-Fi.</div></div><div class="row" style="margin-top:16px;justify-content:flex-end;gap:8px">${btn("Cancel", { kind: "quiet" })}${btn("Use mobile data", { kind: "primary", go: "update:downloading" })}</div>`);
+    if (st === "verifying") return upPage(`<div style="margin-top:18px">${upProg(100, "52.1", `<span class="btn--loading" style="display:inline-flex;vertical-align:middle;margin-inline-end:6px"></span>Checking the signature`)}</div>`);
+    if (st === "permission") return phone({ back: "update:details", title: "Allow updates", nav: false, body: `<div class="banner banner--warn" style="margin-bottom:18px">${icon("lock")}<div><b>Android needs your OK first</b>Carrova isn't allowed to install apps yet, so the update is waiting. It's downloaded and checked.</div></div>
+      <ol class="steps-v"><li><span class="dot dot--accent">1</span><div><b>Open Install unknown apps</b><span>Tap the button below. It opens on Carrova.</span></div></li><li><span class="dot dot--muted">2</span><div><b>Turn on Allow from this source</b></div></li><li><span class="dot dot--muted">3</span><div><b>Come back here</b><span>Android then asks before it installs.</span></div></li></ol>
+      <div style="margin-top:14px">${btn("Open Android settings", { kind: "primary", size: "lg", cls: "wide", go: "update:installer" })}</div><p class="small muted" style="text-align:center;margin-top:12px">Only Carrova's own updates use this. You can turn it off after.</p>` });
+    if (st === "installer") return upPage(`<div style="margin-top:18px">${upProg(100, "52.1", "Checked · waiting for Android")}</div>`, sysdlg(`<span class="sysdlg__ic">${MARK}</span><h3>Carrova</h3><p>Do you want to install this update to this existing app? Your existing data will not be lost.</p><div class="sysdlg__row"><span>Cancel</span><button type="button" class="p" data-go="update:done">Update</button></div>`));
+    if (st === "failed") return upPage(`<div class="banner banner--danger" style="margin-top:18px">${icon("warn")}<div><b>Update didn't install</b>The download didn't match Carrova's release signature, so it was deleted. Nothing changed: you're still on 0.3.0.</div></div><div class="row" style="margin-top:16px;justify-content:flex-end">${btn("Download again", { kind: "primary", go: "update:downloading" })}</div>`);
+    return homePhone({ over: toast(`Updated to ${UPV}`, "What's new") });
   } });
 
 /* ═══ System surfaces (Android's own UI) ═══════════════════════════ */
 const ongoing = `<div class="sn sn--ongoing"><div class="sn__top"><span class="appi">${MARK.replace('class="mark"', 'class="icon"')}</span>Carrova</div><b>Linked to ${LAP}</b><p>Clipboard, notifications and messages are on</p><div class="sn__acts"><span>Send clipboard</span><span>Pause</span></div></div>`;
-add({ id: "sys", group: "System surfaces", title: "Android surfaces", states: [["shade", "Notification shade"], ["heads", "Heads-up ask"], ["lock", "Lock screen"], ["tile", "Quick-settings tile"]],
-  note: "Android's own UI, drawn in system colours like v4's desktop surfaces. The Linked notification is required to keep the link alive and doubles as the clipboard button. Asks arrive as heads-up notifications; the lock screen hides names by default.",
+add({ id: "sys", group: "System surfaces", title: "Android surfaces", states: [["shade", "Notification shade"], ["heads", "Heads-up ask"], ["lock", "Lock screen"], ["tile", "Quick-settings tile"], ["sharing", "Sharing notification"], ["controlled", "Control notification"], ["update", "Update download"]],
+  note: "Android's own UI, drawn in system colours like v4's desktop surfaces. The Linked notification is required to keep the link alive and doubles as the clipboard button. Asks arrive as heads-up notifications; the lock screen hides names by default. While a computer sees or controls the phone, a red status-bar chip and an ongoing notification with Stop are always shown; neither can be turned off.",
   render(st) {
     const top = `<div class="sys__clock"><span>Sat, 15 Nov</span></div>`;
     if (st === "lock") return phone({ full: `<div class="sysbg"></div><div class="sys"><div class="sys__lock"><b>9:41</b><span>Saturday, 15 November</span></div><div class="sn"><div class="sn__top"><span class="appi">${MARK.replace('class="mark"', 'class="icon"')}</span>Carrova · now</div><b>A linked computer wants to send you files</b><p>Unlock to review</p></div></div>` });
     if (st === "heads") return phone({ themed: 1, full: appbg + `<div class="sys" style="padding-top:44px"><div class="sn" style="box-shadow:0 18px 40px #0009"><div class="sn__top"><span class="appi">${MARK.replace('class="mark"', 'class="icon"')}</span>Carrova · now</div><b>${LAP} wants to see this screen</b><p>View only</p><div class="sn__acts"><span>Decline</span><span class="p">Allow</span></div></div></div>` });
     const tiles = `<div class="qs"><span class="qs__t on">${icon("wifi")}<span>Wi-Fi<small>Home</small></span></span><span class="qs__t on">${icon("bt")}<span>Bluetooth<small>${LAP}</small></span></span><span class="qs__t${st === "tile" ? " is-edit" : " on"}">${icon("clip")}<span>Send clipboard<small>Carrova</small></span></span><span class="qs__t">${icon("moon")}<span>Do not disturb<small>Off</small></span></span></div>`;
+    if (st === "sharing" || st === "controlled") {
+      const ctl = st === "controlled";
+      const live = `<div class="sn sn--ongoing"><div class="sn__top"><span class="appi">${MARK.replace('class="mark"', 'class="icon"')}</span>Carrova · ${ctl ? "01:05" : "00:42"}</div><b>${LAP} is ${ctl ? "controlling" : "viewing"} this ${ctl ? "phone" : "screen"}</b><p>${ctl ? "Taps and typing from the laptop act as you" : "View only"}</p><div class="sn__acts"><span class="p">Stop</span></div></div>`;
+      return phone({ rec: ctl ? "Control" : "Sharing", full: `<div class="sysbg sysbg--dim"></div><div class="sys">${top}${tiles}${live}${ongoing}</div>` });
+    }
+    if (st === "update") return phone({ full: `<div class="sysbg sysbg--dim"></div><div class="sys">${top}${tiles}<div class="sn sn--ongoing"><div class="sn__top"><span class="appi">${MARK.replace('class="mark"', 'class="icon"')}</span>Carrova · now</div><b>Downloading Carrova 0.4.0</b><p>18.4 of 52.1 MB · 3.2 MB/s · About 11 s left</p><div class="sn__bar"><i style="inline-size:35%"></i></div><div class="sn__acts"><span>Pause</span><span>Cancel</span></div></div>${ongoing}</div>` });
     if (st === "tile") return phone({ full: `<div class="sysbg sysbg--dim"></div><div class="sys">${top}${tiles}<p style="text-align:center;color:#a8aab1;font-size:12.5px;margin-top:6px">Hold and drag to add tiles</p></div>` });
     return phone({ full: `<div class="sysbg sysbg--dim"></div><div class="sys">${top}${tiles}${ongoing}<div class="sn"><div class="sn__top"><span class="appi">${MARK.replace('class="mark"', 'class="icon"')}</span>Carrova · 2 min</div><b>2 files from ${LAP}</b><p>thesis.pdf and 1 more</p><div class="sn__acts"><span>Open</span><span>Show in Downloads</span></div></div><div class="sn"><div class="sn__top"><span class="appi">${MARK.replace('class="mark"', 'class="icon"')}</span>Carrova · 5 min</div><b>Sending to ${LAP}</b><p>3 photos · 64%</p><div class="sn__bar"><i style="inline-size:64%"></i></div></div></div>` });
   } });
@@ -1649,6 +1718,13 @@ document.addEventListener("click", e => {
   if (sb) { sb.parentElement.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b === sb)); return; }
   if (e.target.closest(".scrim") || e.target.closest(".bsheet__foot .btn:not(.btn--primary), .pdlg .dialog__foot .btn:not(.btn--primary)")) go(first());
   if (e.target.closest("a[href='#']")) e.preventDefault();
+});
+// The data-plan choice drives the download button: Wait for Wi-Fi queues, Use mobile data downloads now.
+document.addEventListener("change", e => {
+  if (e.target.name !== "data") return;
+  const now = [...document.querySelectorAll('input[name="data"]')].indexOf(e.target) === 1, g = $(".upgo");
+  g.textContent = now ? "Download" : "Download on Wi-Fi";
+  g.dataset.go = now ? "update:downloading" : "update:queued";
 });
 const setDark = k => { document.documentElement.dataset.dark = k; document.querySelectorAll("button[data-dark]").forEach(b => b.setAttribute("aria-pressed", b.dataset.dark === k)); };
 const setTheme = th => { document.documentElement.dataset.theme = th; $("#tTheme").setAttribute("aria-pressed", th === "dark"); };
