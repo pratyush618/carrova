@@ -198,7 +198,7 @@ real-hardware check; the Phase 3 exit gate is the sum.
 | # | Delivers | Needs | Exit check (user, real hardware) |
 |---|---|---|---|
 | **3a View** | `Screen` + `Video` lanes, asks, indicator, pause on lock, end summary, codec negotiation, adaptive quality. Computer ↔ computer (Wayland portal, X11 fallback), phone → computer mirror, computer → phone viewer. Desktop `screen`, `viewer` (all but control states), tray `sharing`; Android `share-screen`, `viewer` (view states), `sys:sharing` | S1–S4 | View the second computer for 10 min on GNOME Wayland; mirror the phone; view the laptop from the phone; lock each sharer and see it pause |
-| **3b Control** | `Input` lane, control ask, take back, revoke; computer ↔ computer (RemoteDesktop portal/libei, XTest), phone drives laptop, laptop drives phone (accessibility). Desktop `viewer:asking|control|revoked`, `screen:control`, tray `controlled`; Android `control`, `viewer:control`, `sys:controlled` | 3a, S5 | Control the second computer: open an app, type a sentence; control the phone: open an app, type; take back control on each |
+| **3b Control** | `Input` lane, control ask, take back, revoke; computer ↔ computer (RemoteDesktop portal/libei, XTest), phone drives laptop, laptop drives phone (accessibility). Desktop `viewer:asking\|control\|revoked`, `screen:control`, tray `controlled`; Android `control`, `viewer:control`, `sys:controlled` | 3a, S5 | Control the second computer: open an app, type a sentence; control the phone: open an app, type; take back control on each |
 | **3c Touchpad** | Phone as touchpad and keyboard (no video; reuses 3b's input lane and computer injection). Android `touchpad`, desktop `kvm:touchpad` | 3b | Move, click, scroll, type with modifiers from the phone; laptop sleeps → "went away" |
 | **3d Keyboard and mouse** | Arrangement, edge crossing, return hotkey, pin, secure-input block, clipboard along, peer gone. Desktop `kvm` (all states), settings rows | 3b, S6 | Arrange two computers, cross both ways, type on both, pin, password box blocks crossing, unplug the other's network → pointer home |
 
@@ -275,17 +275,24 @@ encode from `[h264 (OS encoder only), vp8]`.
 - Opener → target: `Request { kind: View | Control | Kvm | Touchpad,
   push: bool, codecs, max_size }`. `push` = the opener is the sharer
   (Share screen dialog, "With Desktop PC"); otherwise the opener wants to
-  see or drive the target.
-- Target → opener: `Answer::{ Accept { session, codec }, Decline, Expired,
-  Busy, Unsupported, NeedsSetup }` (`NeedsSetup`: desktop permission,
-  accessibility service or portal missing; mockup `kvm:portal`,
-  `control:a11y`).
+  see or drive the target. `codecs` and `max_size` are the viewer's
+  decode capabilities, so a push `Request` sends them empty.
+- Target → opener: `Answer::{ Accept { session, codec, codecs, max_size },
+  Decline, Expired, Busy, Unsupported, NeedsSetup }` (`NeedsSetup`:
+  desktop permission, accessibility service or portal missing; mockup
+  `kvm:portal`, `control:a11y`). Not push: the target is the sharer and
+  sets `codec` (its pick from the `Request`'s `codecs`); `codecs` and
+  `max_size` stay empty. Push: the target is the viewer, leaves `codec`
+  unset and sends its own decode `codecs` and `max_size`; the sharer then
+  picks the first it can encode (as below) before sending `Config`, or
+  sends `Stop { Unsupported }` if none matches.
 - Either way while live: `Paused { Locked | Protected }`, `Resumed`,
   `ControlAsk`, `ControlGranted`, `ControlTaken` (target took back
   control; mockup "Take back control", `viewer:revoked`), `Stop { reason
   }`, `Keyframe` (viewer asks, ≤ 1/s), `Feedback { rtt_ms, decode_ms,
   dropped }` (viewer, every 1 s), `Leave { pos }` (keyboard-and-mouse,
-  target → source).
+  target → source), `Heartbeat` (each side, whenever it has sent nothing
+  else on this lane for 500 ms).
 
 ### `Input` events
 
@@ -295,7 +302,9 @@ encode from `[h264 (OS encoder only), vp8]`.
 physical key, the target's layout maps it), `Text { s }` (≤ 256 bytes;
 phone keyboards produce text, not key codes), `Gesture { points }` (phone
 target: a path of ≤ 64 `(x, y, t_ms)`), `System { Back | Home | Recents }`
-(phone target), `ReleaseAll`. Coordinates outside the range are clamped;
+(phone target), `ReleaseAll`. The target answers each batch with
+`InputAck { seq }` on the same lane once it has injected or dropped it.
+Coordinates outside the range are clamped;
 anything else malformed ends the session.
 
 ## Policy (pinned)
@@ -338,7 +347,8 @@ anything else malformed ends the session.
   lock are not settings (mockup: "Always on", "Always").
 - Approvals: one per session, 60 s expiry, never remembered (Phase 1).
   Keyboard-and-mouse approval lasts "until you stop it or log out" on the
-  target (mockup `kvm:request`); across reconnects see Q4 (grants).
+  target (mockup `kvm:request`) while the connection lasts; a reconnect
+  needs a new yes (Q4).
 
 ## Sessions
 
@@ -364,8 +374,13 @@ idle → requested → (target asks | auto-allowed by screen=on) → OS prompt
   every 1 s during a session; `Unknown` counts as locked, failing closed as
   Phase 2 does). Sharer sends `Paused { Locked }`, stops frames, drops
   input and releases held keys; resumes on unlock without a new ask.
+  Input does not wait for the poll: before injecting each batch the
+  target reads the lock state (cached from `screen_lock`, refreshed on
+  the platform's lock-change signal where there is one, else read per
+  batch) and drops the batch and releases held keys unless it is
+  `Unlocked`; `Unknown` drops it.
 - **Ends** on Stop (either side, tray, notification, `carrova screen
-  stop`), link loss (a grant may auto-approve a new session on the next connection, Q4),
+  stop`), link loss (the next connection needs a new yes, Q4),
   forget, policy change to Off/Never, "Who can ask: No one", logout, app
   quit, MediaProjection stopped by Android, portal session closed by the
   desktop, accessibility service turned off (`control:a11yoff`). The end
@@ -434,9 +449,12 @@ idle → requested → (target asks | auto-allowed by screen=on) → OS prompt
   (always, per ADR 0005 §4; the mockup toggle "Only when the other
   computer is unlocked", `gui-ecosystem-desktop.html:1727`, is open
   question 3, recommended dropped); the target refused or is gone.
-- **Peer gone** (link lost, lane dropped, no `Input` ack for 2 s): the
-  source releases capture and shows `kvm:gone`; the target releases all
-  keys and buttons.
+- **Peer gone**: link lost, lane dropped, a sent `Input` batch without
+  its `InputAck` for 2 s (only unanswered batches count, so an idle
+  source waits on nothing), or no message at all on the `Screen` lane for
+  2 s (the 500 ms `Heartbeat` keeps an idle session up). Then the source
+  releases capture and shows `kvm:gone`; the target releases all keys and
+  buttons.
 - **Clipboard along** (`kvm:clipboard`): reuses Phase 1 clipboard sync
   unchanged (the desktop already sends on change while `clipboard` is on
   for both). On a crossing Carrova only shows the toast if the last copy
@@ -587,7 +605,10 @@ escape hatch). Nothing else: viewing is a UI job.
 - **Two supervisors in one process** with the fake platform: ask → allow /
   decline / expire; "Always allow viewing" skips the ask but still emits
   the indicator event; control ask and take back; lock pauses frames and
-  drops input; link drop ends control; forget, Off, "No one" end sessions;
+  drops input; `lock_during_input_injects_nothing` (lock between two
+  batches: the next batch is not injected); link drop ends control;
+  `idle_session_survives_on_heartbeat`, `lost_peer_detected_without_input`;
+  `push_share_uses_viewer_codecs`; forget, Off, "No one" end sessions;
   `Video`/`Input` lanes without a live session refused; input after Stop
   dropped; full keyboard-and-mouse round trip; push share asks the viewer;
   the initiator's own `screen`/`input` = Never does not block it starting
@@ -674,16 +695,16 @@ Questions 1–5 came from the builder check (2026-11-20) and block ADR
    unlocked-only (you cannot type the other computer's password through
    Carrova; unlock it at its own keyboard).*
 4. **Reconnect.** Old Q9/Q10 let approvals survive a reconnect, but ADR
-   0005 §1/§3 say a session never outlives its connection. *Recommend: a
-   session always ends with its connection; the target keeps an
-   in-memory per-device **grant** (kinds View and Keyboard-and-mouse only,
-   never Control or Touchpad) that auto-approves a **new** session, with a
-   new id, on the next connection. View grants lapse 30 s after the link
-   drops; keyboard-and-mouse grants last until cancelled. Cancelled by
-   Stop, forget, the setting going to off/Never, the global switches, app
-   quit and logout. Logout needs no detection: the grant is memory-only
-   and the app exits with the session. The indicator shows again for the
-   new session.*
+   0005 §1/§3 say a session never outlives its connection, and the
+   anti-goals require a fresh yes for every session that drives a device
+   (and for every view unless "Always allow viewing" is on). *Recommend: a
+   session always ends with its connection and nothing is carried over:
+   every keyboard-and-mouse, control and touchpad session after a
+   reconnect needs a fresh yes on the target. View-only resumes without
+   an ask only where "Always allow viewing" already skips it (indicator
+   shows again); a 30 s view-only grace without that setting would
+   conflict with the first anti-goal, so it is not recommended unless you
+   amend that anti-goal.*
 5. **Transport scope of sign-off.** `Stream` is one `&mut` for send and
    receive with no split (`crates/carrova-transport/src/stream.rs:23-88`),
    and the 4 MiB per-stream window (`tuning.rs:28`) holds about 8 s of
