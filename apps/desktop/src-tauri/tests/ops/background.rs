@@ -98,26 +98,43 @@ fn refresh_points_autostart_at_this_launcher() {
 fn closing_follows_keep_running_and_the_tray() {
     let machine = Machine::new();
     let (state, platform) = with_fake(&machine);
-    assert_eq!(background::close_action(&state), CloseAction::CloseToTray);
+    assert_eq!(
+        background::close_action(&state, false),
+        CloseAction::CloseToTray
+    );
 
     // A session opening (or running a call) keeps its screen alive.
     let id = carrova_core::SessionId("20261112-101500-a1b2c3".into());
     state
         .sessions
         .opening(id.clone(), carrova_core::Cancel::default());
-    assert_eq!(background::close_action(&state), CloseAction::HideToTray);
+    assert_eq!(
+        background::close_action(&state, false),
+        CloseAction::HideToTray
+    );
     state.sessions.abandon(&id);
-    assert_eq!(background::close_action(&state), CloseAction::CloseToTray);
+    assert_eq!(
+        background::close_action(&state, false),
+        CloseAction::CloseToTray
+    );
+    // So does an app update install (its Cancel and Install anyway).
+    assert_eq!(
+        background::close_action(&state, true),
+        CloseAction::HideToTray
+    );
 
     platform.set_status_tray(false);
-    assert_eq!(background::close_action(&state), CloseAction::Minimise);
+    assert_eq!(
+        background::close_action(&state, false),
+        CloseAction::Minimise
+    );
 
     let off = BackgroundSettings {
         keep_running: false,
         ..BackgroundSettings::default()
     };
     block_on(background::set_background(&state, whole(off))).unwrap();
-    assert_eq!(background::close_action(&state), CloseAction::Exit);
+    assert_eq!(background::close_action(&state, false), CloseAction::Exit);
 }
 
 #[test]
@@ -174,7 +191,10 @@ fn closing_keeps_the_window_when_lean_is_off() {
         ..BackgroundSettings::default()
     };
     block_on(background::set_background(&state, whole(kept))).unwrap();
-    assert_eq!(background::close_action(&state), CloseAction::HideToTray);
+    assert_eq!(
+        background::close_action(&state, false),
+        CloseAction::HideToTray
+    );
 }
 
 #[test]

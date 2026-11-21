@@ -31,6 +31,11 @@ impl InFlight {
         }
         Ok(Running(&self.0))
     }
+
+    /// Whether a run is in progress.
+    pub fn running(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
 }
 
 impl Drop for Running<'_> {

@@ -118,6 +118,11 @@ impl UpdateControl {
         self.0.send_replace(Signal::Go);
         Ok(running)
     }
+
+    /// Whether an install runs now.
+    pub fn installing(&self) -> bool {
+        self.1.running()
+    }
 }
 
 /// `CarrovaPort.checkUpdate`: asks the release feed whether a newer
