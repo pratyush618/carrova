@@ -45,6 +45,15 @@ describe('Send your setup to…', () => {
     expect(on.onUseCode).toHaveBeenCalledOnce();
   });
 
+  it('keeps a code at hand for a computer not listed', async () => {
+    const user = userEvent.setup();
+    const on = intents();
+    const onlyTrusted = { ...sendToChoose.targets, away: [], fresh: [] };
+    renderScreen(<SendToSheet model={{ ...sendToChoose, targets: onlyTrusted }} on={on} />);
+    await user.click(screen.getByRole('button', { name: 'Send with a code' }));
+    expect(on.onUseCode).toHaveBeenCalledOnce();
+  });
+
   it('offers a code when no computer is trusted yet', async () => {
     const user = userEvent.setup();
     const on = intents();

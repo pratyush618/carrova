@@ -10,7 +10,8 @@ import type { SendToIntents, SendToModel } from './model';
 
 /**
  * After picking what moves: trusted computers first, each sent to without a
- * code; away ones greyed; new ones need a code once. Phones never show.
+ * code; away ones greyed; new ones need a code once, as does any computer
+ * not listed. Phones never show.
  */
 export function SendToSheet({
   model,
@@ -61,7 +62,13 @@ export function SendToSheet({
       title={t('request.to.title')}
       {...(model.summary !== null && { sub: countsText(model.summary, t, format) })}
       onClose={on.onCancel}
-      foot={<Button onClick={on.onCancel}>{t('action.cancel')}</Button>}
+      foot={
+        <>
+          <Button onClick={on.onCancel}>{t('action.cancel')}</Button>
+          {/* A computer not listed here (not found, or never paired) still takes a code. */}
+          {!nobody && <Button onClick={on.onUseCode}>{t('request.to.withCode')}</Button>}
+        </>
+      }
     >
       {nobody ? (
         <Empty
