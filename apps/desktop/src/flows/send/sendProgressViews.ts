@@ -40,7 +40,8 @@ export function sendStep(state: SendFlowState, progress: SessionProgress): FlowS
       return 'done';
     case 'pairing':
       // A request waits (or ends) over the selection; it never shows a code.
-      if (state.request !== null) return progress.link === 'none' ? 'found' : 'live';
+      if (state.request !== null)
+        return state.run.status === 'failed' || progress.link === 'none' ? 'found' : 'live';
       return state.run.status !== 'failed' && progress.link !== 'none' ? 'live' : 'code';
   }
 }

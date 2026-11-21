@@ -50,6 +50,11 @@ describe('a requested send', () => {
     }
   });
 
+  it('goes back over the selection when it ends after the receiver connected', () => {
+    expect(sendWaitModel(failed('request_declined'), connected)?.state).toBe('declined');
+    expect(sendStep(failed('request_declined'), connected)).toBe('found');
+  });
+
   it('closes when cancelled, sent back, or paired with a code instead', () => {
     expect(sendWaitModel(failed('cancelled'), idle)).toBeNull();
     expect(sendWaitModel(sendFlowReducer(asked, { type: 'back' }), idle)).toBeNull();
