@@ -292,6 +292,56 @@ describe('the fake port, nearby', () => {
   });
 });
 
+describe('the fake port, trusted computers', () => {
+  it('says code-less sends work only in the known-send scenarios', async () => {
+    expect((await (await fake('happy')).port.about()).known_send).toBe(false);
+    expect((await (await fake('known-send')).port.about()).known_send).toBe(true);
+  });
+
+  it('moves once the computer asked reviews, without a code', async () => {
+    const { port, events } = await fake('known-send');
+    const { session } = await port.scan();
+    const report = await port.requestSend(session, 'd2');
+    expect(report.outcome).toBe('applied');
+    expect(events.some((e) => e.kind === 'pairing_code')).toBe(false);
+    expect(engineEvents(events)).toContain('peer_connected');
+  });
+
+  it("rejects when Ana's laptop declines, and nothing moves", async () => {
+    const { port, events } = await fake('known-send');
+    const { session } = await port.scan();
+    expect(await rejection(port.requestSend(session, 'a1'))).toMatchObject({
+      code: 'request_declined',
+    });
+    expect(engineEvents(events)).not.toContain('peer_connected');
+  });
+
+  it('remembers a computer’s Send requests choice', async () => {
+    const { port } = await fake('known-send');
+    await port.setSendRequests('d2', false);
+    const known = await port.knownDevices();
+    expect(known.find((d) => d.id === 'd2')?.send_requests).toBe(false);
+  });
+
+  it('brings Desk PC’s request with a bell notice; Review opens the import session once', async () => {
+    const { port, events } = await fake('move-request');
+    await vi.waitFor(() => {
+      expect(events.some((e) => e.kind === 'move_request_arrived')).toBe(true);
+    });
+    expect((await port.notices())[0]).toMatchObject({ kind: 'send_request', peer: 'Desk PC' });
+    expect(await port.answerRequest(1, 'review')).toHaveProperty('session');
+    expect(await rejection(port.answerRequest(1, 'decline'))).toMatchObject({ code: 'session' });
+  });
+
+  it('ends a declined request with nothing opened', async () => {
+    const { port, events } = await fake('move-request');
+    await vi.waitFor(() => {
+      expect(events.some((e) => e.kind === 'move_request_arrived')).toBe(true);
+    });
+    expect(await port.answerRequest(1, 'decline')).toBeNull();
+  });
+});
+
 describe('the fake port, a linked phone', () => {
   it('times an active call and offers the keypad only with audio here', async () => {
     const { port } = await fake();

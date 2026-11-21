@@ -8,7 +8,7 @@ import { ROW_TITLE } from './sections';
 
 /** Who can find this computer (the Nearby pill's value), and the devices it remembers. */
 export function NearbyGroup({
-  model: { nearby, visibility, knownDevices, devicesFailed },
+  model: { nearby, visibility, knownDevices, devicesFailed, knownSend },
   on,
 }: {
   readonly model: SettingsModel;
@@ -27,7 +27,10 @@ export function NearbyGroup({
   ) => <Toggle on={value} label={title} disabled={disabled} onChange={onChange} />;
   return (
     <>
-      <Group title={t('settings.nearby.group')}>
+      <Group
+        title={t('settings.nearby.group')}
+        {...(knownSend && { sub: t('request.visibleFoot') })}
+      >
         <Row
           title={t(ROW_TITLE.visibility)}
           sub={t('settings.nearby.visibilitySub')}

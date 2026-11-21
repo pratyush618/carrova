@@ -197,6 +197,21 @@ describe('the Tauri port', () => {
     ]);
   });
 
+  it('refuses code-less sends without calling the bridge (not available yet)', async () => {
+    const calls: string[] = [];
+    mockIPC((command) => {
+      calls.push(command);
+      return null;
+    });
+    const port = createTauriPort();
+    await expect(port.requestSend(session, 'd2')).rejects.toMatchObject({ code: 'unsupported' });
+    await expect(port.answerRequest(1, 'review')).rejects.toMatchObject({ code: 'unsupported' });
+    await expect(port.setSendRequests('d2', false)).rejects.toMatchObject({
+      code: 'unsupported',
+    });
+    expect(calls).toEqual([]);
+  });
+
   it('rejects with the bridge error the command failed with', async () => {
     const error: BridgeError = { code: 'blocked', message: 'plan is blocked', hint: 'Close it.' };
     mockIPC(() => raise(error));

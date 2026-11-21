@@ -5,7 +5,7 @@ import { noops } from '../noops';
 import { states, type GalleryScreen } from '../types';
 
 const HOME_VIEW = { kind: 'hub', page: 'home' } as const;
-const homeOn = noops(
+export const homeOn = noops(
   'onSend',
   'onReceive',
   'onUseFile',

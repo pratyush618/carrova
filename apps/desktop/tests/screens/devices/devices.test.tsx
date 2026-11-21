@@ -6,7 +6,7 @@ import { AddDeviceDialog } from '@/screens/devices/AddDeviceDialog';
 import { DevicePage } from '@/screens/devices/DevicePage';
 import { LinkComputerDialog } from '@/screens/devices/LinkComputerDialog';
 import { PhoneAppsSheet } from '@/screens/devices/PhoneAppsSheet';
-import { pixel, pixelInvite, pixelPeer } from '@/screens/devices/fixtures';
+import { deskPc, pixel, pixelInvite, pixelPeer } from '@/screens/devices/fixtures';
 import type { DeviceIntents } from '@/screens/devices/model';
 import type { LinkedDeviceView } from '@/engine/types';
 import { revealDuration } from '@/ui/CodeDisplay/flaps';
@@ -82,6 +82,47 @@ describe('Device page', () => {
     renderScreen(<DevicePage device={{ ...pixel, state: 'away' }} on={deviceOn()} />);
     expect(screen.getByText(/Pixel 8 is away/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Ring' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Moving with a trusted computer', () => {
+  const move = (sendRequests: boolean) => ({
+    sendRequests,
+    onSendSetup: vi.fn(),
+    onSendRequests: vi.fn(),
+  });
+
+  it('sends setup without a code and lets the user turn its requests off', async () => {
+    const user = userEvent.setup();
+    const moves = move(true);
+    renderScreen(<DevicePage device={deskPc} move={moves} on={deviceOn()} />);
+    expect(
+      screen.getByText(
+        'Desk PC can send you a move without a code. You still review it, and keys still ask.',
+      ),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Send setup' }));
+    expect(moves.onSendSetup).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole('switch', { name: 'Send requests' }));
+    expect(moves.onSendRequests).toHaveBeenCalledWith(false);
+  });
+
+  it('says a computer with requests off needs a code', () => {
+    renderScreen(<DevicePage device={deskPc} move={move(false)} on={deviceOn()} />);
+    expect(screen.getByRole('switch', { name: 'Send requests' })).not.toBeChecked();
+    expect(screen.getByText('Off: Desk PC needs a code to send you a move.')).toBeInTheDocument();
+  });
+
+  it('holds Send setup while the computer is away', () => {
+    renderScreen(
+      <DevicePage device={{ ...deskPc, state: 'away' }} move={move(true)} on={deviceOn()} />,
+    );
+    expect(screen.getByRole('button', { name: 'Send setup' })).toBeDisabled();
+  });
+
+  it('has no move group without code-less sends', () => {
+    renderScreen(<DevicePage device={deskPc} on={deviceOn()} />);
+    expect(screen.queryByText('Move your setup')).not.toBeInTheDocument();
   });
 });
 

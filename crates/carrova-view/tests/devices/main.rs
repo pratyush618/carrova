@@ -94,6 +94,7 @@ fn a_known_device_shows_its_history_and_only_whether_it_has_a_wake_hint() {
             last_move: Some(20),
             moves: 3,
             has_wake_hint: true,
+            send_requests: true,
         }]
     );
 }

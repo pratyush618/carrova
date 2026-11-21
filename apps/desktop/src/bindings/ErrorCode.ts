@@ -3,4 +3,4 @@
 /**
  * Failure classes the UI branches on.
  */
-export type ErrorCode = "cancelled" | "peer_cancelled" | "wrong_passphrase" | "bad_code" | "pairing_failed" | "cannot_connect" | "invalid_selection" | "blocked" | "no_space" | "network" | "rolled_back" | "rollback_failed" | "session" | "recipes" | "known_device" | "device_key" | "unsupported" | "permission_denied" | "bad_update" | "internal";
+export type ErrorCode = "cancelled" | "peer_cancelled" | "wrong_passphrase" | "bad_code" | "pairing_failed" | "cannot_connect" | "invalid_selection" | "blocked" | "no_space" | "network" | "rolled_back" | "rollback_failed" | "session" | "recipes" | "known_device" | "device_key" | "unsupported" | "permission_denied" | "request_declined" | "request_expired" | "request_refused" | "bad_update" | "internal";

@@ -87,6 +87,8 @@ export interface SettingsModel {
   readonly knownDevices: number;
   /** The last change to the devices the engine refused. */
   readonly devicesFailed: DeviceChange | null;
+  /** Trusted computers send moves without a code (`about().known_send`). */
+  readonly knownSend: boolean;
 }
 
 /** One remembered device, as Settings → Known devices lists it. */

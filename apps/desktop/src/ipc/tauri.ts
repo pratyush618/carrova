@@ -9,7 +9,7 @@ import { listen } from '@tauri-apps/api/event';
 
 import { isBridgeEvent, toBridgeError } from './guards';
 import type { CarrovaPort } from './port';
-import { raise } from './reject';
+import { bridgeError, raise } from './reject';
 
 /** The bridge's event channel (`carrova_view::ipc::EVENT_CHANNEL`). */
 export const EVENT_CHANNEL = 'carrova://event';
@@ -25,6 +25,15 @@ async function call<T>(command: string, args?: InvokeArgs): Promise<T> {
     raise(toBridgeError(reason));
   }
 }
+
+/**
+ * Code-less sends wait for ADR 0004's sign-off: the bridge has no such
+ * commands yet, and `about().known_send` is false so the UI never calls these.
+ */
+const notYet = (): Promise<never> =>
+  Promise.resolve().then(() =>
+    raise(bridgeError('unsupported', 'Sending without a code is not available yet.')),
+  );
 
 /** The port backed by the running Tauri app. */
 export function createTauriPort(): CarrovaPort {
@@ -51,6 +60,9 @@ export function createTauriPort(): CarrovaPort {
       call('export_archive', { session, path, passphrase, strength }),
     runSend: (session) => call('run_send', { session }),
     answerPairing: (session, offerNewCode) => call('answer_pairing', { session, offerNewCode }),
+    requestSend: notYet,
+    answerRequest: notYet,
+    setSendRequests: notYet,
 
     openArchive: (path, passphrase) => call('open_archive', { path, passphrase }),
     connect: (code) => call('connect', { code }),

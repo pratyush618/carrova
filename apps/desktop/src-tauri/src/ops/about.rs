@@ -15,5 +15,7 @@ pub fn about(state: &AppState) -> About {
         device_name: device_name(state.platform.as_ref()),
         os: state.platform.os(),
         status_tray: state.platform.has_status_tray(),
+        // Code-less sends wait for ADR 0004's sign-off: the UI keeps them hidden.
+        known_send: false,
     }
 }

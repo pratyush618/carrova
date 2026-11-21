@@ -12,6 +12,7 @@ import {
   pairingModel,
   sendMove,
 } from '../../../flows/send/sendProgressViews';
+import { sendWaitModel } from '../../../flows/send/sendWait';
 import { pickSecret } from '../../../flows/send/sendViews';
 import type { ItemKey } from '../../../engine/types';
 import { SaveDoneScreen } from '../../../screens/file/SaveDoneScreen';
@@ -23,10 +24,12 @@ import { KeyConfirmDialog } from '../../../screens/send/KeyConfirmDialog';
 import { SendFoundScreen } from '../../../screens/send/SendFoundScreen';
 import { SendLinkedScreen } from '../../../screens/send/SendLinkedScreen';
 import { SendLiveScreen } from '../../../screens/send/SendLiveScreen';
+import { SendWaitDialog } from '../../../screens/send/SendWaitDialog';
+import type { SendWaitModel } from '../../../screens/send/model';
 import type { FoundFilter, FoundIntents, FoundPurpose } from '../../../screens/send/model';
 import { FailedScreen } from '../../../screens/shared/StatusScreens';
 import type { RouteEnd } from '../../../ui';
-import { useControllers } from '../../controllers/Controllers';
+import { useControllers, useKnownSend } from '../../controllers/Controllers';
 import type { FlowStep } from '../../nav/flows';
 import { useSession } from '../../state/EngineState';
 import { peerLabel } from '../../state/session';
@@ -42,9 +45,11 @@ function useHere(): RouteEnd | null {
 /** "Here's what we found", shared by sending and saving; only Continue differs. */
 function FoundRoute({
   purpose,
+  chooses = false,
   onContinue,
 }: {
   readonly purpose: FoundPurpose;
+  readonly chooses?: boolean;
   readonly onContinue: () => void;
 }) {
   const { send, save } = useControllers();
@@ -124,6 +129,7 @@ function FoundRoute({
         purpose={purpose}
         here={here}
         mode={modeSwitch(send.state)}
+        chooses={chooses}
         on={on}
       />
       {confirming !== null && secret && (
@@ -158,20 +164,73 @@ function FoundRoute({
   );
 }
 
-/** The send flow: found → code → linked, then live → done. */
+/**
+ * A requested send's dialog. Asking happens over the selection: an ending
+ * goes back to it. Once the receiver reviews, Close leaves the move running
+ * behind it.
+ */
+function SendWait({
+  model,
+  onHome,
+}: {
+  readonly model: SendWaitModel;
+  readonly onHome: () => void;
+}) {
+  const { send } = useControllers();
+  const [closed, setClosed] = useState(false);
+  const { request } = send.state;
+  if (closed || request === null) return null;
+  const reviewing = model.state === 'reviewing';
+  return (
+    <SendWaitDialog
+      model={model}
+      on={{
+        onCancel: reviewing ? onHome : send.back,
+        onClose: reviewing
+          ? () => {
+              setClosed(true);
+            }
+          : send.back,
+        onRetry: () => {
+          send.sendTo(request);
+        },
+        onUseCode: send.send,
+      }}
+    />
+  );
+}
+
+/** The send flow: found → code → linked, then live → done (a trusted computer skips the code). */
 export function SendRoute({ step }: { readonly step: FlowStep<'send'> }) {
   const { t } = useTranslation();
   const { send } = useControllers();
   const nav = useNav();
   const here = useHere();
+  const knownSend = useKnownSend();
   const progress = useSession(send.state.session);
+  const wait = sendWaitModel(send.state, progress);
   const home = () => {
     nav.go({ type: 'closeFlow' });
   };
   const peer = t('history.anotherComputer');
   switch (step) {
     case 'found':
-      return <FoundRoute purpose="send" onContinue={send.send} />;
+      return (
+        <>
+          <FoundRoute
+            purpose="send"
+            chooses={knownSend}
+            onContinue={
+              knownSend
+                ? () => {
+                    nav.open({ kind: 'send-to' });
+                  }
+                : send.send
+            }
+          />
+          {wait && <SendWait model={wait} onHome={home} />}
+        </>
+      );
     case 'code':
       return (
         <SendCodeScreen
@@ -183,10 +242,13 @@ export function SendRoute({ step }: { readonly step: FlowStep<'send'> }) {
     case 'live': {
       const live = liveModel(send.state, progress, t('send.live.here'), peer);
       return live.status === 'reviewing' ? (
-        <SendLinkedScreen
-          model={linkedModel(send.state, progress, here, peer)}
-          on={{ onCancel: home }}
-        />
+        <>
+          <SendLinkedScreen
+            model={linkedModel(send.state, progress, here, peer)}
+            on={{ onCancel: home }}
+          />
+          {wait?.state === 'reviewing' && <SendWait model={wait} onHome={home} />}
+        </>
       ) : (
         <SendLiveScreen model={live} on={{ onCancel: home }} />
       );

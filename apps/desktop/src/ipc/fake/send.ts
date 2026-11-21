@@ -1,5 +1,6 @@
 /** The sending side of the fake port: scan, selection, export, LAN send. */
 import type { ArchiveSummary } from '../../bindings/ArchiveSummary';
+import type { BridgeError } from '../../bindings/BridgeError';
 import type { PassphraseStrength } from '../../bindings/PassphraseStrength';
 import type { Picked } from '../../bindings/Picked';
 import type { Preset } from '../../bindings/Preset';
@@ -21,6 +22,14 @@ function suggested(scenario: Scenario): Selection {
 }
 
 const ROOTS = fx.scan.report.platform.roots;
+
+/** Pacing steps before a computer asked to take a move answers. */
+const ANSWER_STEPS = 6;
+
+/** Computers that refuse a move request, by device id; any other one opens Review. */
+const REFUSALS: Readonly<Partial<Record<string, BridgeError>>> = {
+  a1: bridgeError('request_declined', "Ana's laptop declined the move"),
+};
 
 /** The recorded scan with `selection` in place of its suggestion. */
 function scanWith(selection: Selection): ScanResult {
@@ -162,25 +171,41 @@ export class FakeSender {
     return this.runtime.task(session, async () => {
       this.ensureUsable();
       await this.pair(session);
-      const rt = this.runtime;
-      rt.engine(session, { event: 'peer_connected', peer: fx.peerAddress });
-      await rt.step(session);
-      rt.engine(session, { event: 'inventory_received', ...fx.inventory });
-      await rt.step(session, 2);
-      rt.engine(session, { event: 'plan_summary_received', ...fx.planSummary });
-      const total = fx.archiveSummary.bytes;
-      for (let done = 0; done <= total; done += Math.ceil(total / 4)) {
-        await rt.step(session);
-        rt.engine(session, { event: 'progress', phase: 'send', done, total });
-        if (this.scenario === 'reconnect' && done === 0) {
-          rt.engine(session, { event: 'peer_lost', retrying: true });
-          await rt.step(session, 3);
-          rt.engine(session, { event: 'peer_connected', peer: fx.peerAddress });
-        }
-      }
-      rt.engine(session, { event: 'finished', checklist: fx.checklist });
-      return { checklist: fx.checklist, chunks: 9, bytes: total, outcome: 'applied' };
+      return this.move(session);
     });
+  }
+
+  /** Ask device `to`: it answers after a few steps (see {@link REFUSALS}), then the move runs. */
+  requestSend(session: SessionId, to: string): Promise<SendReport> {
+    return this.runtime.task(session, async () => {
+      this.ensureUsable();
+      await this.runtime.step(session, ANSWER_STEPS);
+      const refusal = REFUSALS[to];
+      if (refusal !== undefined) raise(refusal);
+      return this.move(session);
+    });
+  }
+
+  /** The receiver connects, reviews and takes the move. */
+  private async move(session: SessionId): Promise<SendReport> {
+    const rt = this.runtime;
+    rt.engine(session, { event: 'peer_connected', peer: fx.peerAddress });
+    await rt.step(session);
+    rt.engine(session, { event: 'inventory_received', ...fx.inventory });
+    await rt.step(session, 2);
+    rt.engine(session, { event: 'plan_summary_received', ...fx.planSummary });
+    const total = fx.archiveSummary.bytes;
+    for (let done = 0; done <= total; done += Math.ceil(total / 4)) {
+      await rt.step(session);
+      rt.engine(session, { event: 'progress', phase: 'send', done, total });
+      if (this.scenario === 'reconnect' && done === 0) {
+        rt.engine(session, { event: 'peer_lost', retrying: true });
+        await rt.step(session, 3);
+        rt.engine(session, { event: 'peer_connected', peer: fx.peerAddress });
+      }
+    }
+    rt.engine(session, { event: 'finished', checklist: fx.checklist });
+    return { checklist: fx.checklist, chunks: 9, bytes: total, outcome: 'applied' };
   }
 
   /** Show the code; in `wrong-code`, a failed attempt first asks for a new one. */

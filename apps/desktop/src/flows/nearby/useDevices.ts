@@ -26,6 +26,8 @@ export interface DevicesController {
   readonly resetIdentity: () => void;
   /** Wake a sleeping known device; rejects with the bridge error. */
   readonly wake: (device: string) => Promise<void>;
+  /** Let known computer `device` send move requests, or not. */
+  readonly setSendRequests: (device: string, on: boolean) => void;
 }
 
 /**
@@ -132,6 +134,12 @@ export function useDevices(port: CarrovaPort): DevicesController {
   }, [port, change]);
   const browse = useCallback(() => port.nearby(), [port]);
   const wake = useCallback((device: string) => port.wakeDevice(device), [port]);
+  const setSendRequests = useCallback(
+    (device: string, on: boolean) => {
+      void change('requests', () => port.setSendRequests(device, on));
+    },
+    [port, change],
+  );
 
   return useMemo(
     () => ({
@@ -144,7 +152,19 @@ export function useDevices(port: CarrovaPort): DevicesController {
       forget,
       resetIdentity,
       wake,
+      setSendRequests,
     }),
-    [visibility, known, failed, browse, setVisibility, rename, forget, resetIdentity, wake],
+    [
+      visibility,
+      known,
+      failed,
+      browse,
+      setVisibility,
+      rename,
+      forget,
+      resetIdentity,
+      wake,
+      setSendRequests,
+    ],
   );
 }

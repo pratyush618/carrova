@@ -107,6 +107,10 @@ describe('the call window', () => {
   it('keeps ringing through a reconnect: no close, no second ringtone', async () => {
     const { emit, closeWindow } = renderCallWindow(ringing);
     await screen.findByRole('button', { name: 'Answer' });
+    // The ringtone starts after the render; let it before timers freeze.
+    await waitFor(() => {
+      expect(play).toHaveBeenCalledTimes(1);
+    });
     vi.useFakeTimers();
     emit({ kind: 'left', device: 'p8' });
     act(() => {

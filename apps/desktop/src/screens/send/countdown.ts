@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 
+/** How long a move request waits for an answer (`carrova_view::request::REQUEST_SECS`). */
+export const REQUEST_SECS = 120;
+
 /** Whole seconds from `now` until `deadline` (both ms since epoch); never below 0. */
 export const secondsLeft = (deadline: number, now: number): number =>
   Math.max(0, Math.ceil((deadline - now) / 1000));
