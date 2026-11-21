@@ -216,7 +216,15 @@ export function PhoneApp() {
       case 'home':
         if (!loaded) return null;
         return linked.devices.length === 0 ? (
-          <Welcome onAdd={pair} />
+          <Welcome
+            update={offered}
+            onAdd={pair}
+            onUpdate={() => {
+              // Nothing on offer yet: the update page shows this check.
+              if (offered === null) update.runCheck();
+              openUpdate();
+            }}
+          />
         ) : (
           <PhoneHome
             devices={linked.devices}

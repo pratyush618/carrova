@@ -6,6 +6,8 @@ export const mobile = {
     body: 'Clipboard, files and links between this phone and your computers, over your own Wi-Fi.',
     add: 'Add a computer',
     hint: 'Open Carrova on the computer first: Nearby → Add a device.',
+    update: 'Check for app updates',
+    updateReady: 'Carrova {{version}} is ready',
   },
   add: {
     title: 'Add a computer',
