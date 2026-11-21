@@ -221,7 +221,9 @@ function Step({
       );
     case 'installed':
       return <Status>{t('settings.update.installed')}</Status>;
+    // Android's installer is opening: a second tap would start another update.
     case 'installing':
+      return <Status>{t('settings.update.handed')}</Status>;
     case 'handed':
       return (
         <>

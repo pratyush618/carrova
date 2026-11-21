@@ -93,6 +93,12 @@ describe('the phone update page', () => {
     expect(on.onDownload).toHaveBeenCalledOnce();
   });
 
+  it('only waits while the installer opens, so the update starts once', () => {
+    show({ status: 'installing', version: '0.4.0' });
+    expect(screen.getByText('Checked · waiting for Android')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open the installer' })).not.toBeInTheDocument();
+  });
+
   it('says a rejected download changed nothing, and offers it again', async () => {
     const on = show({
       status: 'failed',
