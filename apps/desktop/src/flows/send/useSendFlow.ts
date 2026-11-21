@@ -302,15 +302,16 @@ export function useSendFlow(
     [port, track],
   );
 
-  /** Once the engine holds the selection (and nothing restarted meanwhile), run `task` on the session. */
+  /** Once the engine holds the selection (and nothing restarted or switched meanwhile), run `task` on the session. */
   const whenConfirmed = useCallback(
     (task: (id: SessionId) => void) => {
       void (async () => {
         const id = session.current;
         const mine = generation.current;
+        const on = mode.current;
         if (id === null || !(await confirmSelection())) return;
-        // The user may have started over while the selection was handed over.
-        if (id === session.current && mine === generation.current) task(id);
+        // The user may have started over, or switched modes, while the selection was handed over.
+        if (id === session.current && mine === generation.current && on === mode.current) task(id);
       })();
     },
     [confirmSelection],
