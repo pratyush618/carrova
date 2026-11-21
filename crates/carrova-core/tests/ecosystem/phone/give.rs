@@ -664,9 +664,11 @@ fn a_laptop_far_behind_is_resynced() {
     wait_until("the resync", || laptop.got().last() == Some(&resync));
     // What was queued before it fell behind is dropped, not sent late
     // (one note may have been on its way already); the resync also says
-    // access is held.
+    // access is held. Notes posted after the resync are sent: it may come
+    // before the stall ends, once the dropped updates left the queue.
     let got = laptop.got();
-    assert!(got.len() <= 4, "{} updates", got.len());
+    let at = got.iter().position(|g| *g == resync).unwrap();
+    assert!(at <= 3, "{at} updates before the resync");
     assert_eq!(got[0], first[0]);
 }
 
