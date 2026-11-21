@@ -35,16 +35,17 @@ impl carrova_bundle::app_update::Get for Releases {
 }
 
 fn run(dir: &Path, phone: &FakePhone, log: &Log) -> Result<(), AppUpdateError> {
+    run_with(dir, phone, log, &Control::default())
+}
+
+fn run_with(
+    dir: &Path,
+    phone: &FakePhone,
+    log: &Log,
+    control: &Control,
+) -> Result<(), AppUpdateError> {
     let server = Releases(Server::new(content(SIZE, 0)));
-    install(
-        &server,
-        phone,
-        log,
-        &Control::default(),
-        &release(),
-        dir,
-        false,
-    )
+    install(&server, phone, log, control, &release(), dir, false)
 }
 
 fn apk(dir: &Path) -> PathBuf {
@@ -121,6 +122,17 @@ fn a_downloaded_apk_is_not_fetched_again() {
     let log = Log::default();
     run(dir.path(), &FakePhone::new(true), &log).unwrap();
     assert_eq!(log.names(), ["verifying", "installing"]);
+}
+
+#[test]
+fn a_cancel_during_the_check_of_a_downloaded_apk_installs_nothing() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(apk(dir.path()), b"apk").unwrap();
+    let (phone, control) = (FakePhone::new(true), Control::default());
+    control.update(|wish| wish.cancelled = true);
+    let err = run_with(dir.path(), &phone, &Log::default(), &control).unwrap_err();
+    assert!(matches!(err, AppUpdateError::Cancelled));
+    assert!(phone.installed_apks.lock().unwrap().is_empty());
 }
 
 #[test]

@@ -59,7 +59,8 @@ pub trait Progress {
 /// # Errors
 ///
 /// [`AppUpdateError::Rejected`] if the APK is not a trusted, newer Carrova
-/// (any failure to check it deletes it), the download's errors, or the OS
+/// (any failure to check it deletes it), [`AppUpdateError::Cancelled`] if
+/// the user cancels before the hand-over, the download's errors, or the OS
 /// installer's.
 pub fn install(
     get: &impl Get,
@@ -89,6 +90,7 @@ pub fn install(
     await_permission(phone, progress, control)?;
     // The wait can be long: the installed app may have changed meanwhile.
     verify(phone, &apk)?;
+    wished(phone, control)?;
     progress.step(Step::Installing);
     Ok(phone.install(&apk)?)
 }
@@ -111,15 +113,17 @@ fn await_permission(
     control: &Control,
 ) -> Result<(), AppUpdateError> {
     let mut asked = false;
-    while !phone.can_install()? {
+    loop {
         wished(phone, control)?;
+        if phone.can_install()? {
+            return Ok(());
+        }
         if !asked {
             progress.step(Step::NeedsPermission);
             asked = true;
         }
         control.wait(PERMISSION_RECHECK);
     }
-    Ok(())
 }
 
 /// Delete other versions' downloads from `dir` (files only; this
