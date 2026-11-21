@@ -210,6 +210,12 @@ fn on_bridge_event(app: &AppHandle) {
     }
 }
 
+/// Decide anew, on the main thread, whether a window hidden while work ran
+/// closes now: for work that ends without a bridge event (an update install).
+pub fn settle(app: &AppHandle) {
+    on_main(app, on_bridge_event);
+}
+
 /// What closing the main window does now, an update install included.
 fn close_action(app: &AppHandle, state: &AppState) -> CloseAction {
     let updating = app

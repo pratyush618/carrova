@@ -166,14 +166,20 @@ pub async fn install_update(
             format!("version {version} is not on offer; check for updates again"),
         )
     })?;
-    let _running = control.begin()?;
-    let blocker = || {
-        let on_call = app
-            .try_state::<LastCall>()
-            .is_some_and(|call| call.running().is_some());
-        update_blocker(state.sessions.busy(), on_call)
+    let installed = {
+        let _running = control.begin()?;
+        let blocker = || {
+            let on_call = app
+                .try_state::<LastCall>()
+                .is_some_and(|call| call.running().is_some());
+            update_blocker(state.sessions.busy(), on_call)
+        };
+        install::install(&update, &app, blocker, control.0.subscribe()).await
     };
-    install::install(&update, &app, blocker, control.0.subscribe()).await?;
+    // Installed or not, no bridge event follows: a window hidden meanwhile
+    // may close now that the install no longer counts as busy.
+    crate::tray::settle(&app);
+    installed?;
     pending.installed(&version);
     Ok(UpdateStatus::Installed { version })
 }
