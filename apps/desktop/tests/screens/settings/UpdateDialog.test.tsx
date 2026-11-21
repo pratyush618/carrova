@@ -40,6 +40,7 @@ describe('UpdateDialog', () => {
     });
     expect(screen.getByText('1 kB downloaded')).toBeInTheDocument();
     expect(screen.getByText('No estimate')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).not.toHaveAttribute('aria-valuenow');
   });
 
   it('checks the signature without a made-up percent', () => {

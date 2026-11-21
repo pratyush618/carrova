@@ -60,7 +60,7 @@ function DownloadBar({ progress }: { readonly progress: DownloadView | null }) {
       : t('transfer.rate', { size: format.bytes(progress.bytes_per_sec) });
   return (
     <Progress
-      value={progress.percent === null ? 0 : progress.percent / 100}
+      value={progress.percent === null ? null : progress.percent / 100}
       label={t('settings.update.bar')}
       meta={[
         speed === null ? size : `${size} · ${speed}`,

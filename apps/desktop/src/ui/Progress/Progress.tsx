@@ -3,8 +3,8 @@ import { cx } from '../cx';
 import './Progress.css';
 
 export interface ProgressProps {
-  /** 0–1. Clamped. */
-  readonly value: number;
+  /** 0–1, clamped; `null` while the total is unknown (no value claimed). */
+  readonly value: number | null;
   readonly label: string;
   /** Interrupted: the fill turns amber and stops shimmering. */
   readonly paused?: boolean;
@@ -14,9 +14,9 @@ export interface ProgressProps {
   readonly meta?: readonly [ReactNode, ReactNode];
 }
 
-/** A real progress bar: never faked, never indeterminate. */
+/** A real progress bar: never faked; indeterminate (empty) only while the total is unknown. */
 export function Progress({ value, label, paused = false, size = 'md', meta }: ProgressProps) {
-  const p = Math.min(1, Math.max(0, value));
+  const p = value === null ? 0 : Math.min(1, Math.max(0, value));
   return (
     <div>
       <div
@@ -29,7 +29,7 @@ export function Progress({ value, label, paused = false, size = 'md', meta }: Pr
         aria-label={label}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={Math.round(p * 100)}
+        aria-valuenow={value === null ? undefined : Math.round(p * 100)}
       >
         <div className="p-progress__fill" style={{ '--p': String(p) }} />
       </div>
