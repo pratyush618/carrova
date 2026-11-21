@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useControllers } from '../app/controllers/Controllers';
+import { errorText } from '../engine/errors';
 import { usePort } from '../engine/port';
 import type { VisibilityChoice } from '../engine/types';
 import { useClipSettings } from '../flows/ecosystem/useClipSettings';
@@ -93,7 +94,7 @@ export function PhoneSettings({
   );
 }
 
-/** Updates: the one on offer, this version, Check now, and whether mobile data may download. */
+/** Updates: the one on offer, this version, Check now (with why it failed), and whether mobile data may download. */
 function UpdatesGroup({ onUpdate }: { readonly onUpdate: () => void }) {
   const { t } = useTranslation();
   const format = useFormat();
@@ -123,11 +124,13 @@ function UpdatesGroup({ onUpdate }: { readonly onUpdate: () => void }) {
       <Row
         title={t('mobile.settings.check')}
         sub={
-          checked === null
-            ? t('mobile.settings.neverChecked')
-            : t('mobile.settings.lastChecked', {
-                when: `${format.day(new Date(checked), new Date(), false)}, ${format.time(new Date(checked))}`,
-              })
+          update.check.status === 'failed'
+            ? errorText(update.check.error, t).body
+            : checked === null
+              ? t('mobile.settings.neverChecked')
+              : t('mobile.settings.lastChecked', {
+                  when: `${format.day(new Date(checked), new Date(), false)}, ${format.time(new Date(checked))}`,
+                })
         }
         trail={
           <Button

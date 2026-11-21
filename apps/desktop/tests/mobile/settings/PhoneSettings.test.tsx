@@ -24,6 +24,21 @@ describe('the phone Settings', () => {
     expect(save).toHaveBeenCalledWith({ app_update: { mobile_data: true } });
   });
 
+  it('says why a check failed beside Check now, and lets the user try again', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderPhone({ scenario: 'linked' });
+    const check = vi
+      .spyOn(port, 'checkUpdate')
+      .mockRejectedValue({ code: 'network', message: "couldn't reach GitHub", hint: null });
+    await user.click(await screen.findByRole('button', { name: 'Settings' }));
+
+    await user.click(await screen.findByRole('button', { name: 'Check now' }));
+    expect(await screen.findByText("couldn't reach GitHub")).toBeInTheDocument();
+    const tries = check.mock.calls.length;
+    await user.click(screen.getByRole('button', { name: 'Check now' }));
+    expect(check).toHaveBeenCalledTimes(tries + 1);
+  });
+
   it('offers a newer Carrova on Home and opens its page', async () => {
     const user = userEvent.setup();
     const port = createFakePort({ stepMs: 0, os: 'android', scenario: 'linked' });
