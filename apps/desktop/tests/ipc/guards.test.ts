@@ -45,6 +45,25 @@ describe('the IPC guards', () => {
     );
     expect(isBridgeEvent({ kind: 'move_request_ended', id: 1, why: 'expired' })).toBe(true);
     expect(isBridgeEvent({ kind: 'move_request_ended', why: 'expired' })).toBe(false);
+    expect(
+      isBridgeEvent({ kind: 'move_request_arrived', request: { ...request, device: undefined } }),
+    ).toBe(false);
+    expect(
+      isBridgeEvent({
+        kind: 'move_request_arrived',
+        request: { ...request, summary: { apps: 1 } },
+      }),
+    ).toBe(false);
+    expect(
+      isBridgeEvent({
+        kind: 'move_request_arrived',
+        request: { ...request, summary: { ...request.summary, has_sensitive: 'no' } },
+      }),
+    ).toBe(false);
+    for (const why of ['cancelled', 'expired', 'superseded', 'lost']) {
+      expect(isBridgeEvent({ kind: 'move_request_ended', id: 1, why }), why).toBe(true);
+    }
+    expect(isBridgeEvent({ kind: 'move_request_ended', id: 1, why: 'mystery' })).toBe(false);
   });
 
   it('turn an unknown code into an internal error', () => {
