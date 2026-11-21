@@ -212,6 +212,11 @@ describe('Settings', () => {
     expect(on.onCheckRecipes).not.toHaveBeenCalled();
   });
 
+  it('names the running version until a newer Carrova is found', () => {
+    renderScreen(inSection('updates', settingsOn(), { update: null }));
+    expect(screen.getByText('Version 0.1.0 · check for a newer one')).toBeInTheDocument();
+  });
+
   it('explains a rolled-back recipe list and still offers "Check now"', () => {
     const recipes = settingsModel.recipes;
     if (recipes === null) throw new Error('fixture');

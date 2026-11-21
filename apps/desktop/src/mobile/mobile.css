@@ -58,6 +58,12 @@
   inline-size: 100%;
 }
 
+.m-update-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
 .m-note {
   font-size: var(--t-sm);
   color: var(--text-muted);

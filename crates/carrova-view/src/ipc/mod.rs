@@ -22,7 +22,7 @@ mod recipes;
 mod reply;
 mod settings;
 
-pub use about::{About, UpdateInfo, UpdateStatus};
+pub use about::{About, UpdateInfo, UpdateStatus, UpdateStep};
 pub use defaults::EngineDefaults;
 pub use phone::{CallAction, CallOutcome, NoteAction, NoteOutcome};
 pub use recipes::{
@@ -30,8 +30,8 @@ pub use recipes::{
 };
 pub use reply::{PickedReply, PlanReply, ScanReply};
 pub use settings::{
-    AlertChannel, AlertSettings, BackgroundSettings, MoveDefaults, NearbySettings, SETTINGS_FILE,
-    Settings, SettingsError, Theme,
+    AlertChannel, AlertSettings, AppUpdateSettings, BackgroundSettings, MoveDefaults,
+    NearbySettings, SETTINGS_FILE, Settings, SettingsError, Theme,
 };
 
 /// Name of the one event channel the bridge emits on.
@@ -100,6 +100,11 @@ pub enum BridgeEvent {
         /// The new, unread notice.
         notice: Notice,
     },
+    /// An app update install moved on (progress, signature check, waiting).
+    Update {
+        /// Where it is now.
+        step: UpdateStep,
+    },
 }
 
 /// Why a command failed: a stable `code` for UI logic plus a message and an
@@ -159,6 +164,9 @@ pub enum ErrorCode {
     Unsupported,
     /// A phone permission it needs is not granted.
     PermissionDenied,
+    /// A downloaded app update is not a trusted, newer Carrova; it was
+    /// deleted and nothing changed.
+    BadUpdate,
     /// Anything else.
     Internal,
 }

@@ -94,7 +94,9 @@ export function UpdatesGroup({ model, on }: Props) {
         sub={
           model.update
             ? t('settings.more.updateReady', { version: model.update.version })
-            : t('settings.more.checkApp')
+            : model.appVersion === null
+              ? t('settings.more.checkApp')
+              : t('settings.more.version', { version: model.appVersion })
         }
         trail={<Icon name="chev" />}
         onClick={on.onUpdates}

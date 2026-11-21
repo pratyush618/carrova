@@ -74,13 +74,14 @@ pub fn refresh_autostart(state: &AppState) {
     }
 }
 
-/// What closing the main window does now.
-pub fn close_action(state: &AppState) -> CloseAction {
+/// What closing the main window does now; `updating` (an app update
+/// installs) keeps its screen alive like a move.
+pub fn close_action(state: &AppState, updating: bool) -> CloseAction {
     let background = settings_or_default(state).background;
     tray::close_action(
         background.keep_running,
         state.platform.has_status_tray(),
-        state.sessions.busy(),
+        state.sessions.busy() || updating,
         background.lean,
     )
 }

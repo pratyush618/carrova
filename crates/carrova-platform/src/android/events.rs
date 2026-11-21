@@ -117,7 +117,10 @@ pub(super) fn list<T: DeserializeOwned>(
 
 /// `json` as `T`; the error names the position only, never the content
 /// (serde's messages quote the offending value).
-fn from_json<T: DeserializeOwned>(call: &'static str, json: &str) -> Result<T, PlatformError> {
+pub(super) fn from_json<T: DeserializeOwned>(
+    call: &'static str,
+    json: &str,
+) -> Result<T, PlatformError> {
     serde_json::from_str(json).map_err(|e| PlatformError::Android {
         call,
         cause: format!("bad JSON ({:?}) at column {}", e.classify(), e.column()),

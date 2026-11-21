@@ -10,6 +10,7 @@
 use std::error::Error;
 use std::fmt;
 
+use carrova_bundle::app_update::AppUpdateError;
 use carrova_bundle::{BundleError, FetchError};
 use carrova_core::{CoreError, ErrorClass, Hint};
 use carrova_platform::PlatformError;
@@ -79,7 +80,7 @@ impl CommandError {
     }
 
     /// `error` with its cause chain as the message.
-    fn chained(code: ErrorCode, error: &(dyn Error + 'static)) -> Self {
+    pub(crate) fn chained(code: ErrorCode, error: &(dyn Error + 'static)) -> Self {
         Self::new(code, message_chain(error))
     }
 
@@ -194,6 +195,24 @@ impl From<PlatformError> for CommandError {
             _ => ErrorCode::Internal,
         };
         Self::chained(code, &error)
+    }
+}
+
+impl From<AppUpdateError> for CommandError {
+    /// A phone's app update failure by class; nothing was installed.
+    fn from(error: AppUpdateError) -> Self {
+        match error {
+            AppUpdateError::Cancelled => Self::new(ErrorCode::Cancelled, error.to_string()),
+            AppUpdateError::Busy => Self::new(ErrorCode::Session, error.to_string()),
+            AppUpdateError::Rejected(_) => Self::chained(ErrorCode::BadUpdate, &error)
+                .with_hint("It was deleted; nothing changed."),
+            AppUpdateError::Network(_) | AppUpdateError::Feed(_) | AppUpdateError::TooLarge => {
+                Self::chained(ErrorCode::Network, &error)
+                    .with_hint("Check your network connection and try again.")
+            }
+            AppUpdateError::Disk(_) => Self::chained(ErrorCode::Internal, &error),
+            AppUpdateError::Platform(error) => error.into(),
+        }
     }
 }
 

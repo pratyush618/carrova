@@ -12,10 +12,11 @@ use crate::phone::{
     PhoneEvent, PhonePerm, PhoneWatch, SendOutcome, Sim, SmsMessage, SmsThread,
 };
 use crate::{
-    Allocation, ClipContent, ClipboardWatch, DirEntry, DirWatch, DiskInfo, DownloadSink, FileLock,
-    FileManagerStatus, FileMeta, FsId, LanInterface, LinkNotice, LocalListener, LocalStream,
-    MulticastGuard, OsKind, PermissionModel, PlatformError, ProcessInfo, ScreenLock, SemanticRoot,
-    SnapshotCapability, SocketBuffers,
+    Allocation, AppPackage, ClipContent, ClipboardWatch, DirEntry, DirWatch, DiskInfo,
+    DownloadSink, FileLock, FileManagerStatus, FileMeta, FsId, LanInterface, LinkNotice,
+    LocalListener, LocalStream, MulticastGuard, OsKind, PermissionModel, PlatformError,
+    ProcessInfo, ScreenLock, SemanticRoot, SnapshotCapability, SocketBuffers, UpdateNotice,
+    UpdateTap,
 };
 
 /// OS abstraction used by every service crate.
@@ -547,6 +548,71 @@ pub trait Platform: Send + Sync + std::fmt::Debug {
     /// is; `None` if the user cancelled.
     fn scan_qr(&self) -> Result<Option<String>, PlatformError> {
         Err(PlatformError::Unsupported("scan_qr"))
+    }
+
+    // ---- App update of a sideloaded app (Android) ------------------------
+    // Default bodies return `Unsupported`: desktops update through Tauri's
+    // updater.
+
+    /// The package facts of the app file at `apk` (signers, build number).
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where apps are not sideloaded; an
+    /// OS failure if `apk` is not a readable package.
+    fn inspect_package(&self, apk: &Path) -> Result<AppPackage, PlatformError> {
+        let _ = apk;
+        Err(PlatformError::Unsupported("inspect_package"))
+    }
+
+    /// The package facts of this app as installed.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where apps are not sideloaded.
+    fn installed_package(&self) -> Result<AppPackage, PlatformError> {
+        Err(PlatformError::Unsupported("installed_package"))
+    }
+
+    /// Whether the user lets this app install packages (Android's
+    /// "Install unknown apps").
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where apps are not sideloaded.
+    fn can_install_packages(&self) -> Result<bool, PlatformError> {
+        Err(PlatformError::Unsupported("can_install_packages"))
+    }
+
+    /// Open the OS page where the user lets this app install packages.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where apps are not sideloaded.
+    fn open_install_permission(&self) -> Result<(), PlatformError> {
+        Err(PlatformError::Unsupported("open_install_permission"))
+    }
+
+    /// Hand the app file at `apk` to the OS installer, which asks the
+    /// user before it installs anything.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where apps are not sideloaded.
+    fn install_package(&self, apk: &Path) -> Result<(), PlatformError> {
+        let _ = apk;
+        Err(PlatformError::Unsupported("install_package"))
+    }
+
+    /// Show the app update download as an ongoing notification, or with
+    /// `None` remove it.
+    ///
+    /// # Errors
+    /// [`PlatformError::Unsupported`] where there is no such notification.
+    fn show_update(&self, notice: Option<&UpdateNotice>) -> Result<(), PlatformError> {
+        let _ = notice;
+        Err(PlatformError::Unsupported("show_update"))
+    }
+
+    /// The user's last tap on the update notification's actions, taken
+    /// once. Never where there is no such notification.
+    fn take_update_tap(&self) -> Option<UpdateTap> {
+        None
     }
 
     // ---- Ecosystem Phase 2: phone notifications, SMS, calls, call audio ----

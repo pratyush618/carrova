@@ -199,3 +199,19 @@ fn security_exception_is_permission_denied() {
         PlatformError::Android { .. }
     ));
 }
+
+#[test]
+fn package_facts_read_from_glue_json() {
+    let digest: Vec<String> = (0..32).map(|i| i.to_string()).collect();
+    let json = format!(
+        r#"{{"package":"org.byteveda.Carrova","version_code":3000,"signers":[[{}]]}}"#,
+        digest.join(",")
+    );
+    let package: crate::AppPackage = from_json("Updates.inspect", &json).unwrap();
+    assert_eq!(package.package, "org.byteveda.Carrova");
+    assert_eq!(package.version_code, 3000);
+    assert_eq!(
+        package.signers,
+        vec![std::array::from_fn::<u8, 32, _>(|i| i as u8)]
+    );
+}

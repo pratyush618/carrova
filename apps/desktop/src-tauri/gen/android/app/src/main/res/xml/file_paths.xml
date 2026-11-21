@@ -5,4 +5,6 @@
   <!-- Never the files dir root: state/ holds the device identity key. -->
   <files-path name="data" path="data/" />
   <files-path name="config" path="config/" />
+  <!-- App update APKs, handed to Android's installer. -->
+  <files-path name="updates" path="cache/updates/" />
 </paths>

@@ -1,19 +1,22 @@
 import { useTranslation } from 'react-i18next';
 import { useControllers } from '../app/controllers/Controllers';
+import { errorText } from '../engine/errors';
 import { usePort } from '../engine/port';
 import type { VisibilityChoice } from '../engine/types';
 import { useClipSettings } from '../flows/ecosystem/useClipSettings';
+import { current } from '../flows/remote';
+import { useFormat } from '../i18n/useFormat';
 import { VISIBILITY_CHOICES, VISIBILITY_KEY } from '../screens/nearby/model';
 import { deviceIcon } from '../screens/devices/model';
 import { ClipboardGroup } from '../screens/settings/EcosystemGroups';
 import { Group } from '../screens/settings/Group';
-import { AppGlyph, Icon, LinkRow, Row, Segmented, Toggle } from '../ui';
+import { AppGlyph, Button, Icon, LinkRow, Row, Segmented, Toggle } from '../ui';
 import { PhonePage } from './PhonePage';
 import '../screens/settings/settings.css';
 
 /**
- * The phone's Settings: this phone, its computers, the clipboard and About.
- * No app updates here: a phone updates through a new APK.
+ * The phone's Settings: this phone, its computers, the clipboard, app
+ * updates (from GitHub releases) and About.
  */
 export function PhoneSettings({
   on,
@@ -22,6 +25,8 @@ export function PhoneSettings({
     readonly onOpen: (id: string) => void;
     readonly onAdd: () => void;
     readonly onActivity: () => void;
+    /** Open the update on offer. */
+    readonly onUpdate: () => void;
   };
 }) {
   const { t } = useTranslation();
@@ -71,13 +76,8 @@ export function PhoneSettings({
         clipFailed={failed}
         on={{ onClip: setClip, onClipHistory: on.onActivity }}
       />
+      <UpdatesGroup onUpdate={on.onUpdate} />
       <Group title={t('mobile.settings.about')}>
-        {about !== null && (
-          <Row
-            title={t('mobile.settings.version', { version: about.app_version })}
-            sub={t('mobile.settings.license')}
-          />
-        )}
         <Row
           title={t('mobile.settings.reports')}
           sub={t('mobile.settings.reportsSub')}
@@ -91,5 +91,71 @@ export function PhoneSettings({
         />
       </Group>
     </PhonePage>
+  );
+}
+
+/** Updates: the one on offer, this version, Check now (with why it failed), and whether mobile data may download. */
+function UpdatesGroup({ onUpdate }: { readonly onUpdate: () => void }) {
+  const { t } = useTranslation();
+  const format = useFormat();
+  const { settings, update } = useControllers();
+  const offer = current(update.check);
+  const saved = settings.settings?.app_update;
+  const checked =
+    update.checkedAt ?? (saved?.last_checked == null ? null : saved.last_checked * 1000);
+  const mobileData = saved?.mobile_data ?? false;
+  return (
+    <Group title={t('mobile.settings.updates')} sub={t('mobile.settings.updatesFoot')}>
+      {offer?.status === 'available' && (
+        <LinkRow
+          lead={<AppGlyph glyph={{ icon: 'receive' }} size="sm" />}
+          title={t('mobile.settings.ready', { version: offer.version })}
+          sub={t('mobile.settings.readySub')}
+          trail={<Icon name="chev" />}
+          onClick={onUpdate}
+        />
+      )}
+      {settings.about !== null && (
+        <Row
+          title={t('mobile.settings.version', { version: settings.about.app_version })}
+          sub={t('mobile.settings.license')}
+        />
+      )}
+      <Row
+        title={t('mobile.settings.check')}
+        sub={
+          update.check.status === 'failed'
+            ? errorText(update.check.error, t).body
+            : checked === null
+              ? t('mobile.settings.neverChecked')
+              : t('mobile.settings.lastChecked', {
+                  when: `${format.day(new Date(checked), new Date(), false)}, ${format.time(new Date(checked))}`,
+                })
+        }
+        trail={
+          <Button
+            size="sm"
+            busy={update.check.status === 'loading'}
+            disabled={update.check.status === 'loading'}
+            onClick={update.runCheck}
+          >
+            {t('mobile.settings.checkNow')}
+          </Button>
+        }
+      />
+      <Row
+        title={t('mobile.settings.mobileData')}
+        sub={t(mobileData ? 'mobile.settings.mobileDataOn' : 'mobile.settings.mobileDataOff')}
+        trail={
+          <Toggle
+            on={mobileData}
+            label={t('mobile.settings.mobileData')}
+            onChange={(on) => {
+              settings.save({ app_update: { mobile_data: on } });
+            }}
+          />
+        }
+      />
+    </Group>
   );
 }

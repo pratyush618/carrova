@@ -11,16 +11,16 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use super::files::{self, MediaStoreSink};
-use super::{clipboard, net, phone, ring, scan, service};
+use super::{clipboard, net, phone, ring, scan, service, update};
 use crate::phone::{
     CallRecord, CallState, Contact, Cursor, Note, PermState, PhoneEvent, PhonePerm, PhoneWatch,
     SendOutcome, Sim, SmsMessage, SmsThread,
 };
 use crate::sys;
 use crate::{
-    Allocation, ClipContent, DirEntry, DiskInfo, DownloadSink, FileLock, FileMeta, FsId,
-    LanInterface, LinkNotice, MulticastGuard, OsKind, Platform, PlatformError, ProcessInfo,
-    SemanticRoot, SnapshotCapability, SocketBuffers,
+    Allocation, AppPackage, ClipContent, DirEntry, DiskInfo, DownloadSink, FileLock, FileMeta,
+    FsId, LanInterface, LinkNotice, MulticastGuard, OsKind, Platform, PlatformError, ProcessInfo,
+    SemanticRoot, SnapshotCapability, SocketBuffers, UpdateNotice, UpdateTap,
 };
 
 /// Keepalive of a link: a phone radio sleeps longer between packets.
@@ -268,6 +268,34 @@ impl Platform for AndroidPlatform {
 
     fn links_paused(&self) -> bool {
         service::links_paused()
+    }
+
+    fn inspect_package(&self, apk: &Path) -> Result<AppPackage, PlatformError> {
+        update::inspect(apk)
+    }
+
+    fn installed_package(&self) -> Result<AppPackage, PlatformError> {
+        update::installed()
+    }
+
+    fn can_install_packages(&self) -> Result<bool, PlatformError> {
+        update::can_install()
+    }
+
+    fn open_install_permission(&self) -> Result<(), PlatformError> {
+        update::open_install_settings()
+    }
+
+    fn install_package(&self, apk: &Path) -> Result<(), PlatformError> {
+        update::install(apk)
+    }
+
+    fn show_update(&self, notice: Option<&UpdateNotice>) -> Result<(), PlatformError> {
+        update::show(notice)
+    }
+
+    fn take_update_tap(&self) -> Option<UpdateTap> {
+        update::take_tap()
     }
 
     fn scan_qr(&self) -> Result<Option<String>, PlatformError> {

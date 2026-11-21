@@ -26,6 +26,8 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <!-- "Stay connected when closed": Android's battery-optimisation request. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- App updates: hand a downloaded, checked APK to Android's installer (it still asks). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Installs on phones without telephony too (the phone features stay off). -->
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
@@ -78,6 +80,11 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!-- Pause, Resume and Cancel on the app update notification. -->
+        <receiver
+            android:name="org.byteveda.carrova.platform.UpdateActions"
+            android:exported="false" />
 
         <!-- Notification access: phone notifications on linked computers. -->
         <service

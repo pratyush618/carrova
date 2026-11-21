@@ -3,17 +3,26 @@
 //!
 //! Nothing installs on its own: the UI calls `check_update`, shows the
 //! version and notes, and only on the user's go-ahead calls
-//! `install_update` for that exact version, then offers
-//! `restart_app`.
+//! `install_update` for that exact version (progress arrives as
+//! [`BridgeEvent::Update`](carrova_view::ipc::BridgeEvent::Update); see
+//! `install`), then offers `restart_app`.
+
+mod install;
 
 use std::sync::Mutex;
 use std::time::Duration;
 
 use carrova_view::ipc::{ErrorCode, UpdateInfo, UpdateStatus};
-use tauri::{AppHandle, State};
+use carrova_view::update::update_blocker;
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_updater::{Update, UpdaterExt};
+use tokio::sync::watch;
 
+use crate::call_window::LastCall;
 use crate::command_error::CommandError;
+use crate::in_flight::{InFlight, Running};
+use crate::state::AppState;
+use install::Signal;
 
 /// Longest wait for the release feed before the check reports a network error.
 const CHECK_TIMEOUT: Duration = Duration::from_secs(10);
@@ -34,31 +43,85 @@ fn update_info(update: &Update) -> UpdateInfo {
     }
 }
 
-/// The update the user last saw, so the install matches what they approved.
-#[derive(Default)]
-pub struct PendingUpdate(Mutex<Option<Update>>);
+/// What [`PendingUpdate`] needs of an update: its version.
+pub trait Offer: Clone {
+    /// The version on offer.
+    fn version(&self) -> &str;
+}
 
-impl std::fmt::Debug for PendingUpdate {
+impl Offer for Update {
+    fn version(&self) -> &str {
+        &self.version
+    }
+}
+
+/// The update the user last saw, so the install matches what they approved.
+pub struct PendingUpdate<U = Update>(Mutex<Option<U>>);
+
+impl<U> Default for PendingUpdate<U> {
+    fn default() -> Self {
+        Self(Mutex::default())
+    }
+}
+
+impl<U> std::fmt::Debug for PendingUpdate<U> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("PendingUpdate")
     }
 }
 
-impl PendingUpdate {
-    fn replace(&self, update: Option<Update>) {
-        *self
-            .0
+impl<U: Offer> PendingUpdate<U> {
+    fn slot(&self) -> std::sync::MutexGuard<'_, Option<U>> {
+        self.0
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = update;
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    /// Takes the pending update if it is `version`.
-    fn take_if(&self, version: &str) -> Option<Update> {
-        let mut pending = self
-            .0
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        pending.take_if(|update| update.version == version)
+    fn replace(&self, update: Option<U>) {
+        *self.slot() = update;
+    }
+
+    /// The pending update, if it is `version`. It stays pending until
+    /// installed, so a failed or cancelled install can run again.
+    fn offered(&self, version: &str) -> Option<U> {
+        self.slot()
+            .clone()
+            .filter(|update| update.version() == version)
+    }
+
+    /// `version` is installed: no longer on offer. A newer one a check
+    /// found meanwhile stays.
+    fn installed(&self, version: &str) {
+        self.slot().take_if(|update| update.version() == version);
+    }
+}
+
+/// Carries the user's Cancel and Install anyway to the install in
+/// progress, of which there is at most one.
+#[derive(Debug)]
+pub struct UpdateControl(watch::Sender<Signal>, InFlight);
+
+impl Default for UpdateControl {
+    fn default() -> Self {
+        Self(watch::Sender::new(Signal::Go), InFlight::default())
+    }
+}
+
+impl UpdateControl {
+    /// Start an install with a fresh [`Signal::Go`].
+    ///
+    /// # Errors
+    ///
+    /// [`ErrorCode::Session`] while another install runs (its signal stays).
+    fn begin(&self) -> Result<Running<'_>, CommandError> {
+        let running = self.1.start("an update install")?;
+        self.0.send_replace(Signal::Go);
+        Ok(running)
+    }
+
+    /// Whether an install runs now.
+    pub fn installing(&self) -> bool {
+        self.1.running()
     }
 }
 
@@ -88,20 +151,53 @@ pub async fn check_update(
 
 /// `CarrovaPort.installUpdate`: downloads, verifies (minisign) and
 /// installs `version`, which must be the one the last `check_update`
-/// offered.
+/// offered. A verified package waits while a move or call runs.
 #[tauri::command]
 pub async fn install_update(
+    app: AppHandle,
+    state: State<'_, AppState>,
     pending: State<'_, PendingUpdate>,
+    control: State<'_, UpdateControl>,
     version: String,
 ) -> Result<UpdateStatus, CommandError> {
-    let update = pending.take_if(&version).ok_or_else(|| {
+    let update = pending.offered(&version).ok_or_else(|| {
         CommandError::new(
             ErrorCode::Session,
             format!("version {version} is not on offer; check for updates again"),
         )
     })?;
-    update.download_and_install(|_, _| {}, || {}).await?;
+    let installed = {
+        let _running = control.begin()?;
+        let blocker = || {
+            let on_call = app
+                .try_state::<LastCall>()
+                .is_some_and(|call| call.running().is_some());
+            update_blocker(state.sessions.busy(), on_call)
+        };
+        install::install(&update, &app, blocker, control.0.subscribe()).await
+    };
+    // Installed or not, no bridge event follows: a window hidden meanwhile
+    // may close now that the install no longer counts as busy.
+    crate::tray::settle(&app);
+    installed?;
+    pending.installed(&version);
     Ok(UpdateStatus::Installed { version })
+}
+
+/// `CarrovaPort.cancelUpdate`: stops the install in progress before it
+/// installs anything.
+#[tauri::command]
+pub async fn cancel_update(control: State<'_, UpdateControl>) -> Result<(), CommandError> {
+    control.0.send_replace(Signal::Cancel);
+    Ok(())
+}
+
+/// `CarrovaPort.installUpdateAnyway`: installs the waiting update now,
+/// while a move or call runs.
+#[tauri::command]
+pub async fn install_update_anyway(control: State<'_, UpdateControl>) -> Result<(), CommandError> {
+    control.0.send_replace(Signal::Anyway);
+    Ok(())
 }
 
 /// `CarrovaPort.restartApp`: restarts Carrova gracefully (after an

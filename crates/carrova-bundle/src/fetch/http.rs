@@ -12,7 +12,7 @@ use crate::{Asset, BundleError, BundleVersion, FetchError};
 ///
 /// **Placeholder**: replace `pratyush618/carrova` with the real GitHub repository
 /// before the first release (user action).
-pub const DEFAULT_BASE_URL: &str = "https://github.com/pratyush618/carrova/releases/download/";
+pub const DEFAULT_BASE_URL: &str = super::releases_url!("download/");
 
 /// Settings for [`HttpFetcher`].
 #[derive(Debug, Clone, PartialEq, Eq)]

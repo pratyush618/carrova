@@ -8,4 +8,8 @@ export type UpdateStatus = { "status": "up_to_date" } | { "status": "available" 
 /**
  * Installed version.
  */
+version: string, } | { "status": "handed", 
+/**
+ * Version handed over.
+ */
 version: string, };
