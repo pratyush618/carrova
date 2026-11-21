@@ -3,7 +3,8 @@ import type { SimChoice } from '../../../bindings/SimChoice';
 import type { ThreadRow } from '../../../bindings/ThreadRow';
 import type { ThreadView } from '../../../bindings/ThreadView';
 import type { SmsSend } from '../../../flows/phone/useSmsSends';
-import { Banner, Button, Empty, HubLayout } from '../../../ui';
+import type { Unreachable } from '../../../mobile/model';
+import { Banner, Button, Empty, HubLayout, Status } from '../../../ui';
 import { NewMessage } from './NewMessage';
 import { ThreadList } from './ThreadList';
 import { ThreadPane } from './ThreadPane';
@@ -12,8 +13,8 @@ import './messages.css';
 export interface MessagesModel {
   /** The phone's name. */
   readonly phone: string;
-  /** The phone is not linked now: what was loaded stays readable, sending waits. */
-  readonly away: boolean;
+  /** Why texts can't reach the phone now (`null`: they can): what was loaded stays readable, sending waits. */
+  readonly unreachable: Unreachable | null;
   /** The last load did not reach the phone. */
   readonly failed: boolean;
   /** Newest first; `null` until the first page answered. */
@@ -50,11 +51,53 @@ export function MessagesScreen({
   readonly on: MessagesIntents;
 }) {
   const { t } = useTranslation();
-  const { phone, away, threads, selected } = model;
-  const problem = model.failed && (
-    <Banner tone="warning" title={t('ecosystem.messages.loadFailed', { name: phone })} />
+  const { phone, threads, selected } = model;
+  const away = model.unreachable !== null;
+  const off = model.unreachable === 'offThere';
+  // Off on the phone outranks an older failed load; away says so in the panes.
+  const problem = off ? (
+    <Banner
+      tone="warning"
+      title={t('ecosystem.messages.offTitle', { name: phone })}
+      body={t('ecosystem.messages.offBody', { name: phone })}
+    />
+  ) : (
+    model.failed &&
+    !away && <Banner tone="warning" title={t('ecosystem.messages.loadFailed', { name: phone })} />
   );
-  if (threads === null) return <HubLayout>{problem}</HubLayout>;
+  if (threads === null) {
+    if (off)
+      return (
+        <HubLayout variant="center">
+          <Empty
+            art="msg"
+            title={t('ecosystem.messages.offTitle', { name: phone })}
+            body={t('ecosystem.messages.offBody', { name: phone })}
+          />
+        </HubLayout>
+      );
+    if (model.unreachable === 'away')
+      return (
+        <HubLayout variant="center">
+          <Empty
+            art="msg"
+            title={t('ecosystem.device.awayTitle', { name: phone })}
+            body={t('ecosystem.messages.awayEmpty')}
+          />
+        </HubLayout>
+      );
+    return (
+      <HubLayout>
+        {problem || (
+          <Status>
+            {model.unreachable === 'connecting'
+              ? t('ecosystem.messages.connecting', { name: phone })
+              : t('ecosystem.messages.loading', { name: phone })}
+          </Status>
+        )}
+      </HubLayout>
+    );
+  }
   if (threads.length === 0 && !model.composing)
     return (
       <HubLayout variant="center">

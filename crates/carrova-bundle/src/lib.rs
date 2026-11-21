@@ -63,6 +63,7 @@
 //!   [`ResolvedRecipes::catalog`], [`ResolvedRecipes::effective_tier`],
 //!   [`update`]).
 
+pub mod app_update;
 mod build;
 mod catalog;
 mod clock;

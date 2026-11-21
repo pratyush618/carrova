@@ -43,10 +43,10 @@ use carrova_view::ecosystem::{
     PairInviteView, PairPeerView, TransferState, TransferView,
 };
 use carrova_view::ipc::{
-    About, AlertChannel, AlertSettings, BackgroundSettings, BridgeError, BridgeEvent, CallAction,
-    CallOutcome, CatalogEntry, EngineDefaults, NearbySettings, NoteAction, NoteOutcome, Picked,
-    PlanReview, RecipesCheck, RecipesStatus, RecipesUpdate, ScanResult, SessionOpened, Settings,
-    UpdateStatus,
+    About, AlertChannel, AlertSettings, AppUpdateSettings, BackgroundSettings, BridgeError,
+    BridgeEvent, CallAction, CallOutcome, CatalogEntry, EngineDefaults, NearbySettings, NoteAction,
+    NoteOutcome, Picked, PlanReview, RecipesCheck, RecipesStatus, RecipesUpdate, ScanResult,
+    SessionOpened, Settings, UpdateStatus,
 };
 use carrova_view::lan::{CodeView, InventoryView, NearbyPeer, PauseView, SummaryView};
 use carrova_view::offer::OfferedItem;
@@ -197,6 +197,7 @@ fn export_typescript_bindings() {
         BackgroundSettings::export_all,
         AlertSettings::export_all,
         NearbySettings::export_all,
+        AppUpdateSettings::export_all,
         AlertChannel::export_all,
         ScanResult::<'static>::export_all,
         PlanReview::<'static>::export_all,

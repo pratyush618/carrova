@@ -4,10 +4,11 @@
 //!
 //! Closing the window to the tray destroys it (its webview's memory goes
 //! with it); opening recreates it under the same label from the app
-//! config, and the UI loads its state afresh. While a move runs the window
-//! is only hidden (its screen cannot be rebuilt), and closed for real once
-//! the bridge goes idle. The tray icon exists only while the window is
-//! closed or hidden, and keeps the app from exiting.
+//! config, and the UI loads its state afresh. While a move or an app
+//! update install runs the window is only hidden (its screen cannot be
+//! rebuilt), and closed for real once the bridge goes idle. The tray icon
+//! exists only while the window is closed or hidden, and keeps the app
+//! from exiting.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -38,6 +39,7 @@ use crate::call_window::LastCall;
 use crate::ops::{background, devices, ecosystem, phone};
 use crate::send_request;
 use crate::state::AppState;
+use crate::updater::UpdateControl;
 
 /// Launch flag of start at sign-in: start in the background, no window.
 pub const BACKGROUND_FLAG: &str = "--background";
@@ -86,7 +88,7 @@ pub fn start(app: &AppHandle, state: &AppState, in_background: bool) {
         on_main(&handle, on_bridge_event);
     });
     let action = if in_background {
-        background::close_action(state)
+        background::close_action(state, false)
     } else {
         CloseAction::Exit
     };
@@ -160,7 +162,7 @@ pub fn on_window_event(window: &Window, event: &WindowEvent) {
     let Some(state) = app.try_state::<AppState>() else {
         return;
     };
-    let action = background::close_action(&state);
+    let action = close_action(app, &state);
     let tray = matches!(action, CloseAction::CloseToTray | CloseAction::HideToTray)
         && show_tray(app, &state).is_ok();
     if tray {
@@ -198,7 +200,7 @@ fn on_bridge_event(app: &AppHandle) {
         let _ = show_tray(app, &state);
     }
     // Not while busy, nor when "lean" is off and the window is kept.
-    if background::close_action(&state) != CloseAction::CloseToTray {
+    if close_action(app, &state) != CloseAction::CloseToTray {
         return;
     }
     if let Some(window) = app.get_webview_window(MAIN_WINDOW)
@@ -206,6 +208,20 @@ fn on_bridge_event(app: &AppHandle) {
     {
         tracing::warn!(%error, "could not close the hidden window");
     }
+}
+
+/// Decide anew, on the main thread, whether a window hidden while work ran
+/// closes now: for work that ends without a bridge event (an update install).
+pub fn settle(app: &AppHandle) {
+    on_main(app, on_bridge_event);
+}
+
+/// What closing the main window does now, an update install included.
+fn close_action(app: &AppHandle, state: &AppState) -> CloseAction {
+    let updating = app
+        .try_state::<UpdateControl>()
+        .is_some_and(|control| control.installing());
+    background::close_action(state, updating)
 }
 
 /// Whether the bridge event `payload` is a link going up or down (the

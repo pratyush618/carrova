@@ -41,7 +41,8 @@ function routeOf(model: TransferModel): MoveRoute {
   return model.side === 'send' ? { from: here, to: peer } : { from: peer, to: here };
 }
 
-function useTimeLeft(): (seconds: number) => string {
+/** "about 12 seconds left" under a minute, "About 3 minutes left" above. */
+export function useTimeLeft(): (seconds: number) => string {
   const { t } = useTranslation();
   return (seconds) =>
     seconds < 60

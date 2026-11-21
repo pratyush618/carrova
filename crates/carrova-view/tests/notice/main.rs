@@ -144,3 +144,25 @@ fn a_cancelled_move_is_not_news_any_other_outcome_is() {
     );
     assert_eq!(move_news(Some(ErrorCode::Cancelled)), None);
 }
+
+#[test]
+fn an_ask_is_a_send_request_that_names_no_content() {
+    use carrova_core::ecosystem::AskKind;
+    use carrova_view::notice::ask_news;
+    let file = AskKind::File {
+        name: "secret-plans.pdf".into(),
+        size: 1,
+    };
+    let handoff = AskKind::Handoff {
+        url_host: Some("example.com".into()),
+        file: None,
+    };
+    assert_eq!(
+        ask_news(&file),
+        (NoticeKind::SendRequest, "wants to send you a file.")
+    );
+    assert_eq!(
+        ask_news(&handoff),
+        (NoticeKind::SendRequest, "wants to continue something here.")
+    );
+}

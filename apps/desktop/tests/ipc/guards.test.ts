@@ -66,6 +66,24 @@ describe('the IPC guards', () => {
     expect(isBridgeEvent({ kind: 'move_request_ended', id: 1, why: 'mystery' })).toBe(false);
   });
 
+  it('accept an update step, which names no session, only with its step', () => {
+    expect(isBridgeEvent({ kind: 'update', step: { step: 'verifying' } })).toBe(true);
+    expect(isBridgeEvent({ kind: 'update' })).toBe(false);
+  });
+
+  it('reject an update step of an unknown name or missing its fields', () => {
+    const download = { done: 1, total: null, percent: null, bytes_per_sec: null, secs_left: null };
+    const update = (step: unknown) => isBridgeEvent({ kind: 'update', step });
+    expect(update({ step: 'downloading', ...download })).toBe(true);
+    expect(update({ step: 'waiting', blocker: 'call' })).toBe(true);
+    expect(update({ step: 'installing' })).toBe(true);
+    expect(update({ step: 'complete' })).toBe(false);
+    expect(update({ step: 'waiting' })).toBe(false);
+    expect(update({ step: 'waiting', blocker: 'lunch' })).toBe(false);
+    expect(update({ step: 'downloading' })).toBe(false);
+    expect(update({ step: 'downloading', ...download, percent: '5' })).toBe(false);
+  });
+
   it('turn an unknown code into an internal error', () => {
     expect(toBridgeError({ code: 'mystery', message: 'm', hint: null }).code).toBe('internal');
   });

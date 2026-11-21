@@ -306,6 +306,8 @@ jobs:
           apk=apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk # arm64-only despite the name
           apksigner="$(printf '%s\n' "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
           "$apksigner" verify --print-certs "$apk"
+          # Phones only install updates signed with the key the app pins.
+          .github/scripts/check-apk-signer.sh "$apk" "$apksigner"
           echo "path=$apk" >> "$GITHUB_OUTPUT"
       - name: Upload to the draft release
         env:

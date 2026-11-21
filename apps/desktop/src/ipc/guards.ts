@@ -8,6 +8,8 @@ import type { BridgeError } from '../bindings/BridgeError';
 import type { BridgeEvent } from '../bindings/BridgeEvent';
 import type { ErrorCode } from '../bindings/ErrorCode';
 import type { RequestEnd } from '../bindings/RequestEnd';
+import type { UpdateBlocker } from '../bindings/UpdateBlocker';
+import type { UpdateStep } from '../bindings/UpdateStep';
 
 /** Every `ErrorCode`: a record, so the compiler insists on each new code. */
 const ERROR_CODES: Readonly<Record<ErrorCode, true>> = {
@@ -32,6 +34,7 @@ const ERROR_CODES: Readonly<Record<ErrorCode, true>> = {
   request_declined: true,
   request_expired: true,
   request_refused: true,
+  bad_update: true,
   internal: true,
 };
 
@@ -42,6 +45,16 @@ const REQUEST_ENDS: Readonly<Record<RequestEnd, true>> = {
   superseded: true,
   lost: true,
 };
+
+/** Every `UpdateBlocker`, a record for the same reason. */
+const UPDATE_BLOCKERS: Readonly<Record<UpdateBlocker, true>> = {
+  move: true,
+  call: true,
+  wifi: true,
+};
+
+/** `DownloadView`'s fields that are a number or `null`. */
+const DOWNLOAD_OPTIONALS = ['total', 'percent', 'bytes_per_sec', 'secs_left'] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -59,6 +72,28 @@ export function isBridgeError(value: unknown): value is BridgeError {
     typeof value['message'] === 'string' &&
     (value['hint'] === null || typeof value['hint'] === 'string')
   );
+}
+
+function isUpdateStep(value: unknown): value is UpdateStep {
+  if (!isRecord(value)) {
+    return false;
+  }
+  switch (value['step']) {
+    case 'verifying':
+    case 'installing':
+      return true;
+    case 'waiting':
+      return (
+        typeof value['blocker'] === 'string' && Object.hasOwn(UPDATE_BLOCKERS, value['blocker'])
+      );
+    case 'downloading':
+      return (
+        typeof value['done'] === 'number' &&
+        DOWNLOAD_OPTIONALS.every((key) => value[key] === null || typeof value[key] === 'number')
+      );
+    default:
+      return false;
+  }
 }
 
 /** Whether `value` is a `BridgeEvent` of a known `kind`. */
@@ -111,6 +146,9 @@ export function isBridgeEvent(value: unknown): value is BridgeEvent {
   }
   if (value['kind'] === 'notice') {
     return isRecord(value['notice']) && typeof value['notice']['summary'] === 'string';
+  }
+  if (value['kind'] === 'update') {
+    return isUpdateStep(value['step']);
   }
   if (typeof value['session'] !== 'string') {
     return false;

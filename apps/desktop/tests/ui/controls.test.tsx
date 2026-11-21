@@ -142,6 +142,13 @@ describe('Progress', () => {
       '100',
     );
   });
+
+  it('claims no value while the total is unknown', () => {
+    render(<Progress value={null} label="Download" />);
+    expect(screen.getByRole('progressbar', { name: 'Download' })).not.toHaveAttribute(
+      'aria-valuenow',
+    );
+  });
 });
 
 describe('Field', () => {

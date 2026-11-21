@@ -49,6 +49,8 @@ zeroize = { workspace = true }
 # Desktop only: phones update through a new APK, not the updater.
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = { workspace = true }
+# Cancel and wait in the update install (already in the tree via Tauri).
+tokio = { workspace = true }
 
 [dev-dependencies]
 carrova-platform = { workspace = true, features = ["fake"] }

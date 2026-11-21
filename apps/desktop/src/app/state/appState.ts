@@ -59,10 +59,13 @@ export type AppAction =
 
 export const initialAppState: AppState = { sessions: {}, link: emptyLink, requests: noRequests };
 
-/** Bridge events about a session or a move request (everything but `send_requested`, `show_nearby`, `notice` and pairing's). */
+/** Bridge events about a session or a move request (everything but `send_requested`, `show_nearby`, `notice`, `update` and pairing's). */
 export type SessionBridgeEvent = Exclude<
   BridgeEvent,
-  { kind: 'send_requested' | 'show_nearby' | 'notice' | 'pair_invite' | 'pair_peer_found' }
+  {
+    kind:
+      'send_requested' | 'show_nearby' | 'notice' | 'update' | 'pair_invite' | 'pair_peer_found';
+  }
 >;
 
 /** The app action for one session bridge event, received at `now` (ms since epoch). */

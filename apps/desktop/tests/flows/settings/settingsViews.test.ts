@@ -30,6 +30,7 @@ const SETTINGS: Settings = {
     updates: 'bell_only',
   },
   nearby: { remember: true, accept_known: true, wol_hints: false },
+  app_update: { mobile_data: false, last_checked: null, last_run: null },
 };
 
 /** Visibility not loaded, nothing remembered. */
@@ -219,20 +220,112 @@ describe('settings views', () => {
         date: null,
       },
     } as const;
-    expect(updateModel(offer, idle, null)).toEqual({
+    const loading = { status: 'loading', last: null } as const;
+    expect(updateModel(offer, idle, null, null)).toEqual({
       status: 'available',
       version: '0.3.0',
       notes: 'New',
     });
-    expect(updateModel(offer, { status: 'loading', last: null }, '0.3.0').status).toBe(
-      'installing',
-    );
-    expect(updateModel(offer, { status: 'ready', value: undefined }, '0.3.0').status).toBe(
-      'installed',
-    );
-    expect(updateModel({ status: 'failed', error, last: null }, idle, null)).toEqual({
+    expect(updateModel(offer, loading, '0.3.0', null)).toEqual({
+      status: 'downloading',
+      version: '0.3.0',
+      progress: null,
+    });
+    const done = (status: 'installed' | 'handed') =>
+      ({ status: 'ready', value: { status, version: '0.3.0' } }) as const;
+    expect(updateModel(offer, done('installed'), '0.3.0', null).status).toBe('installed');
+    expect(updateModel({ status: 'failed', error, last: null }, idle, null, null)).toEqual({
       status: 'failed',
       error,
+      version: null,
     });
+  });
+
+  it('follows the install step by step while it runs', () => {
+    const offer = {
+      status: 'ready',
+      value: {
+        status: 'available',
+        version: '0.3.0',
+        current_version: '0.2.0',
+        notes: null,
+        date: null,
+      },
+    } as const;
+    const loading = { status: 'loading', last: null } as const;
+    const progress = {
+      done: 40,
+      total: 100,
+      percent: 40,
+      bytes_per_sec: 10,
+      secs_left: 6,
+    };
+    expect(
+      updateModel(offer, loading, '0.3.0', { step: 'downloading', ...progress }),
+    ).toMatchObject({ status: 'downloading', progress });
+    expect(updateModel(offer, loading, '0.3.0', { step: 'verifying' }).status).toBe('verifying');
+    expect(updateModel(offer, loading, '0.3.0', { step: 'waiting', blocker: 'call' })).toEqual({
+      status: 'waiting',
+      version: '0.3.0',
+      blocker: 'call',
+    });
+    expect(updateModel(offer, loading, '0.3.0', { step: 'installing' }).status).toBe('installing');
+  });
+
+  it("follows a phone's download through pause, Wi-Fi and the install permission", () => {
+    const offer = {
+      status: 'ready',
+      value: {
+        status: 'available',
+        version: '0.3.0',
+        current_version: '0.2.0',
+        notes: null,
+        date: null,
+      },
+    } as const;
+    const loading = { status: 'loading', last: null } as const;
+    const still = { done: 40, total: 100, percent: 40, bytes_per_sec: null, secs_left: null };
+    expect(updateModel(offer, loading, '0.3.0', { step: 'paused', ...still })).toMatchObject({
+      status: 'paused',
+      version: '0.3.0',
+      progress: still,
+    });
+    expect(updateModel(offer, loading, '0.3.0', { step: 'waiting', blocker: 'wifi' })).toEqual({
+      status: 'waiting',
+      version: '0.3.0',
+      blocker: 'wifi',
+    });
+    expect(updateModel(offer, loading, '0.3.0', { step: 'needs_permission' })).toEqual({
+      status: 'permission',
+      version: '0.3.0',
+    });
+    // Handed to Android's installer is not installed: Android still asks.
+    const handed = { status: 'ready', value: { status: 'handed', version: '0.3.0' } } as const;
+    expect(updateModel(offer, handed, '0.3.0', null)).toEqual({
+      status: 'handed',
+      version: '0.3.0',
+    });
+  });
+
+  it('offers a failed install again, and goes back to the offer when cancelled', () => {
+    const offer = {
+      status: 'ready',
+      value: {
+        status: 'available',
+        version: '0.3.0',
+        current_version: '0.2.0',
+        notes: null,
+        date: null,
+      },
+    } as const;
+    const failed = (code: 'network' | 'cancelled') =>
+      ({ status: 'failed', error: { ...error, code }, last: null }) as const;
+    expect(updateModel(offer, failed('network'), '0.3.0', null)).toMatchObject({
+      status: 'failed',
+      version: '0.3.0',
+    });
+    expect(updateModel(offer, failed('cancelled'), '0.3.0', { step: 'verifying' }).status).toBe(
+      'available',
+    );
   });
 });

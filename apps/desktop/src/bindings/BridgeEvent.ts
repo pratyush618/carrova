@@ -8,6 +8,7 @@ import type { PairInviteView } from "./PairInviteView";
 import type { PairPeerView } from "./PairPeerView";
 import type { RequestEnd } from "./RequestEnd";
 import type { SessionId } from "./SessionId";
+import type { UpdateStep } from "./UpdateStep";
 
 /**
  * Everything the bridge pushes to the front-end.
@@ -72,4 +73,8 @@ id: number,
 /**
  * Why it ended.
  */
-why: RequestEnd, };
+why: RequestEnd, } | { "kind": "update", 
+/**
+ * Where it is now.
+ */
+step: UpdateStep, };

@@ -21,5 +21,6 @@ export const errors = {
   request_declined: 'The other computer said no',
   request_expired: 'Nobody answered in time',
   request_refused: 'The other computer needs a code now',
+  bad_update: "The update didn't install",
   internal: 'Something went wrong',
 } as const;

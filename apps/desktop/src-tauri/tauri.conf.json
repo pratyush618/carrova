@@ -80,7 +80,7 @@
         "desktopTemplate": "../../../packaging/linux/carrova.desktop"
       },
       "appimage": {
-        "bundleMediaFramework": false
+        "bundleMediaFramework": true
       }
     }
   },

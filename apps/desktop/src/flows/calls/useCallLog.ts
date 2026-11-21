@@ -43,7 +43,9 @@ export function useCallLog(
     at.current = clock();
     port.callHistory(id, null, at.current).then(
       (page) => {
-        if (live) setLog(page);
+        if (!live) return;
+        setLog(page);
+        setFailed(false);
       },
       () => {
         if (live) setFailed(true);

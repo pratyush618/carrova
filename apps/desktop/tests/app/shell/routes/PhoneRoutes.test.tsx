@@ -55,6 +55,35 @@ async function sendNew(user: UserEvent) {
 }
 
 describe('Messages route', () => {
+  it('asks nothing while Messages is off on the phone, and loads once it is on', async () => {
+    const user = userEvent.setup();
+    const { port } = await phonePort();
+    const real = port.linkedDevices.bind(port);
+    const devices = vi.spyOn(port, 'linkedDevices').mockImplementation(async () =>
+      (await real()).map((d) => ({
+        ...d,
+        features: d.features.map((f) =>
+          f.feature === 'messages'
+            ? { ...f, remote: 'off' as const, effective: 'off' as const }
+            : f,
+        ),
+      })),
+    );
+    const threads = vi.spyOn(port, 'phoneThreads');
+    await renderApp({ port, returning: true });
+    await screen.findByRole('heading', { level: 1, name: 'Good to see you again.' });
+    await user.click(await screen.findByRole('button', { name: 'Messages' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Messages are off on Pixel 8' }),
+    ).toBeInTheDocument();
+    expect(threads).not.toHaveBeenCalled();
+
+    // The phone turns it on: its policy arrives with the next change.
+    devices.mockRestore();
+    await port.setFeature('p8', 'messages', 'on');
+    expect(await screen.findByText('Hi from Sam')).toBeInTheDocument();
+  });
+
   it('shows no other conversation’s texts after a new message went', async () => {
     const user = userEvent.setup();
     const { port, thread } = await phonePort();

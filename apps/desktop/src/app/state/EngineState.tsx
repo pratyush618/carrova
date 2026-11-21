@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { usePort } from '../../engine/port';
-import type { PairInviteView, PairPeerView, SessionId } from '../../engine/types';
+import type { PairInviteView, PairPeerView, SessionId, UpdateStep } from '../../engine/types';
 import {
   appReducer,
   bridgeAction,
@@ -39,6 +39,8 @@ interface EngineStateApi {
   readonly found: Found | null;
   /** Drop the invite and the device found (their dialog closed, or the code ran out): the code leaves memory. */
   readonly clearInvite: () => void;
+  /** The last step of an app update install (`null` until one arrives). */
+  readonly updateStep: UpdateStep | null;
 }
 
 /** A pairing invite as it arrived. */
@@ -71,6 +73,7 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
   const [nearbyRequests, setNearbyRequests] = useState(0);
   const [invite, setInvite] = useState<Invite | null>(null);
   const [found, setFound] = useState<Found | null>(null);
+  const [updateStep, setUpdateStep] = useState<UpdateStep | null>(null);
   const clearInvite = useCallback(() => {
     setInvite(null);
     setFound(null);
@@ -84,6 +87,7 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
         if (event.kind === 'send_requested') setSendRequests((n) => n + 1);
         else if (event.kind === 'notice') setNoticeEvents((n) => n + 1);
         else if (event.kind === 'show_nearby') setNearbyRequests((n) => n + 1);
+        else if (event.kind === 'update') setUpdateStep(event.step);
         // A pairing invite belongs to its dialog, not to a session.
         else if (event.kind === 'pair_invite')
           setInvite({ view: event.invite, receivedAt: Date.now() });
@@ -117,8 +121,19 @@ export function EngineStateProvider({ children }: { readonly children: ReactNode
       invite,
       found,
       clearInvite,
+      updateStep,
     }),
-    [state, sendRequests, noticeEvents, remembered, nearbyRequests, invite, found, clearInvite],
+    [
+      state,
+      sendRequests,
+      noticeEvents,
+      remembered,
+      nearbyRequests,
+      invite,
+      found,
+      clearInvite,
+      updateStep,
+    ],
   );
   return <EngineStateContext value={api}>{children}</EngineStateContext>;
 }
@@ -163,6 +178,11 @@ export function useNearbyRequests(): number {
 /** Move requests waiting here, and the last one that expired. */
 export function useRequests(): RequestsState {
   return useEngineState().state.requests;
+}
+
+/** The last step of an app update install; `null` until one arrives. */
+export function useUpdateStep(): UpdateStep | null {
+  return useEngineState().updateStep;
 }
 
 /** What linked devices did (asks, transfers, skipped clips, change counters). */

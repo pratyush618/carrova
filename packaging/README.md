@@ -35,6 +35,9 @@ bundle to `dist/recipes`, mapped to `recipes/` inside the app) and then
 `just tauri build --config src-tauri/tauri.release.conf.json`. Output:
 `target/release/bundle/{deb,appimage}/`. AppImage bundling downloads
 `linuxdeploy` on first use (network).
+The AppImage also bundles GStreamer (`bundleMediaFramework`), taken from the
+build host (`just setup-ubuntu` installs its plugins): its own WebKitGTK plays
+the call ringtone with it, and without it the call window's page fails.
 
 Because `bundle.createUpdaterArtifacts` is on, every `tauri build` needs the
 updater private key in the environment (`just package` reads the local release key by

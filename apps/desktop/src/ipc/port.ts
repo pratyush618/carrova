@@ -402,8 +402,21 @@ export interface CarrovaPort {
 
   // --- App updates (never installed without the user's click) -------------
   checkUpdate(): Promise<UpdateStatus>;
-  /** Install exactly the version that `checkUpdate` offered. */
-  installUpdate(version: string): Promise<void>;
+  /**
+   * Install exactly the version that `checkUpdate` offered; its steps arrive as `update` events.
+   * A phone downloads on mobile data only if Settings or `mobileData` allow it.
+   */
+  installUpdate(version: string, mobileData?: boolean): Promise<UpdateStatus>;
+  /** Stop the install in progress (it then fails with `cancelled`); nothing is installed. */
+  cancelUpdate(): Promise<void>;
+  /** Go on now: install while a move or call runs, or (a phone) download on mobile data. */
+  installUpdateAnyway(): Promise<void>;
+  /** Hold (`true`) or carry on with a phone's update download. */
+  pauseUpdate(paused: boolean): Promise<void>;
+  /** Open Android's "Install unknown apps" page for Carrova. */
+  openInstallPermission(): Promise<void>;
+  /** The version a phone was updated to since it last ran, once; `null` otherwise. */
+  takeUpdated(): Promise<string | null>;
   restartApp(): Promise<void>;
 
   // --- Error reports (opt-in; nothing leaves the machine by itself) -------

@@ -55,6 +55,23 @@ pub struct Settings {
     /// Known devices and moves between them.
     #[serde(default)]
     pub nearby: NearbySettings,
+    /// A phone's own app updates.
+    #[serde(default)]
+    pub app_update: AppUpdateSettings,
+}
+
+/// A sideloaded phone's own app updates. Missing fields read as the
+/// defaults.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(default)]
+pub struct AppUpdateSettings {
+    /// Download updates on mobile data too; off, they wait for Wi-Fi.
+    pub mobile_data: bool,
+    /// When the app last asked the release feed (Unix seconds).
+    pub last_checked: Option<u64>,
+    /// The version that ran last, so an update is announced once.
+    pub last_run: Option<String>,
 }
 
 /// Known-device behaviour. Missing fields read as the defaults.
@@ -274,6 +291,7 @@ impl Default for Settings {
             background: BackgroundSettings::default(),
             alerts: AlertSettings::default(),
             nearby: NearbySettings::default(),
+            app_update: AppUpdateSettings::default(),
         }
     }
 }

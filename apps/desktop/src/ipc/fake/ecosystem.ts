@@ -60,7 +60,7 @@ const row = (
   effective: gate(local, remote),
 });
 
-/** A newly linked phone: the Phase 2 defaults on both sides. */
+/** A newly linked phone: the Phase 2 defaults, with texts and calls already shared from the phone. */
 const phone = (handoffOnPhone: FeatureState = 'ask'): LinkedDeviceView => ({
   id: 'p8',
   name: 'Pixel 8',
@@ -73,8 +73,8 @@ const phone = (handoffOnPhone: FeatureState = 'ask'): LinkedDeviceView => ({
     row('files', 'ask'),
     row('handoff', 'ask', handoffOnPhone),
     row('notifications', 'on'),
-    row('messages', 'off'),
-    row('calls', 'off'),
+    row('messages', 'off', 'on'),
+    row('calls', 'off', 'on'),
   ],
   missing: [],
 });
