@@ -149,10 +149,18 @@ pub async fn open_install_permission(state: State<'_, AppState>) -> Result<(), C
 }
 
 /// `CarrovaPort.takeUpdated`: the version the app was updated to since it
-/// last ran, once (then the downloads are cleared); `None` otherwise.
+/// last ran, once (then the downloads are cleared, unless an update is
+/// running); `None` otherwise.
 #[tauri::command]
-pub async fn take_updated(state: State<'_, AppState>) -> Result<Option<String>, CommandError> {
-    let (platform, store) = (Arc::clone(&state.platform), state.settings.clone());
+pub async fn take_updated(
+    state: State<'_, AppState>,
+    update: State<'_, ApkUpdate>,
+) -> Result<Option<String>, CommandError> {
+    let (platform, store, control) = (
+        Arc::clone(&state.platform),
+        state.settings.clone(),
+        Arc::clone(&update.control),
+    );
     blocking(move || {
         let last = store.load()?.app_update.last_run;
         if last.as_deref() == Some(RUNNING) {
@@ -162,7 +170,9 @@ pub async fn take_updated(state: State<'_, AppState>) -> Result<Option<String>, 
         if !just_updated(last.as_deref(), RUNNING) {
             return Ok(None);
         }
-        if let Ok(dir) = updates_dir(platform.as_ref())
+        // A running update owns the folder: its downloads stay.
+        if let Ok(_running) = control.begin(false)
+            && let Ok(dir) = updates_dir(platform.as_ref())
             && let Err(error) = std::fs::remove_dir_all(dir)
         {
             tracing::debug!(%error, "no update downloads cleared");
