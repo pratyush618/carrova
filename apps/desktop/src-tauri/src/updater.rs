@@ -43,32 +43,56 @@ fn update_info(update: &Update) -> UpdateInfo {
     }
 }
 
-/// The update the user last saw, so the install matches what they approved.
-#[derive(Default)]
-pub struct PendingUpdate(Mutex<Option<Update>>);
+/// What [`PendingUpdate`] needs of an update: its version.
+pub trait Offer: Clone {
+    /// The version on offer.
+    fn version(&self) -> &str;
+}
 
-impl std::fmt::Debug for PendingUpdate {
+impl Offer for Update {
+    fn version(&self) -> &str {
+        &self.version
+    }
+}
+
+/// The update the user last saw, so the install matches what they approved.
+pub struct PendingUpdate<U = Update>(Mutex<Option<U>>);
+
+impl<U> Default for PendingUpdate<U> {
+    fn default() -> Self {
+        Self(Mutex::default())
+    }
+}
+
+impl<U> std::fmt::Debug for PendingUpdate<U> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("PendingUpdate")
     }
 }
 
-impl PendingUpdate {
-    fn replace(&self, update: Option<Update>) {
-        *self
-            .0
+impl<U: Offer> PendingUpdate<U> {
+    fn slot(&self) -> std::sync::MutexGuard<'_, Option<U>> {
+        self.0
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = update;
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn replace(&self, update: Option<U>) {
+        *self.slot() = update;
     }
 
     /// The pending update, if it is `version`. It stays pending until
     /// installed, so a failed or cancelled install can run again.
-    fn offered(&self, version: &str) -> Option<Update> {
-        self.0
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    fn offered(&self, version: &str) -> Option<U> {
+        self.slot()
             .clone()
-            .filter(|update| update.version == version)
+            .filter(|update| update.version() == version)
+    }
+
+    /// `version` is installed: no longer on offer. A newer one a check
+    /// found meanwhile stays.
+    fn installed(&self, version: &str) {
+        self.slot().take_if(|update| update.version() == version);
     }
 }
 
@@ -145,7 +169,7 @@ pub async fn install_update(
         update_blocker(state.sessions.busy(), on_call)
     };
     install::install(&update, &app, blocker, control.0.subscribe()).await?;
-    pending.replace(None);
+    pending.installed(&version);
     Ok(UpdateStatus::Installed { version })
 }
 

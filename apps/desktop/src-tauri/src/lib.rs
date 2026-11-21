@@ -103,7 +103,7 @@ pub fn run() -> tauri::Result<()> {
         .on_window_event(tray::on_window_event)
         // Phones update through their store or a new APK, not the updater.
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .manage(updater::PendingUpdate::default())
+        .manage(<updater::PendingUpdate>::default())
         .manage(updater::UpdateControl::default());
     builder
         .plugin(tauri_plugin_dialog::init())
