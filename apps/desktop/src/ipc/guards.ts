@@ -35,7 +35,11 @@ const ERROR_CODES: Readonly<Record<ErrorCode, true>> = {
 };
 
 /** Every `UpdateBlocker`, a record for the same reason. */
-const UPDATE_BLOCKERS: Readonly<Record<UpdateBlocker, true>> = { move: true, call: true };
+const UPDATE_BLOCKERS: Readonly<Record<UpdateBlocker, true>> = {
+  move: true,
+  call: true,
+  wifi: true,
+};
 
 /** `DownloadView`'s fields that are a number or `null`. */
 const DOWNLOAD_OPTIONALS = ['total', 'percent', 'bytes_per_sec', 'secs_left'] as const;
