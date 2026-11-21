@@ -19,6 +19,7 @@ import {
   type AppState,
   type LinkState,
 } from './appState';
+import type { RequestsState } from './requests';
 import type { SessionProgress } from './session';
 
 interface EngineStateApi {
@@ -172,6 +173,11 @@ export function useRemembered(): Remembered | null {
 /** Changes on each `show_nearby` event (the tray's "Nearby"). */
 export function useNearbyRequests(): number {
   return useEngineState().nearbyRequests;
+}
+
+/** Move requests waiting here, and the last one that expired. */
+export function useRequests(): RequestsState {
+  return useEngineState().state.requests;
 }
 
 /** The last step of an app update install; `null` until one arrives. */

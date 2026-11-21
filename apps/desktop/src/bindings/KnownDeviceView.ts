@@ -36,4 +36,9 @@ moves: number,
 /**
  * A Wake-on-LAN hint is kept (the hint itself never leaves the engine).
  */
-has_wake_hint: boolean, };
+has_wake_hint: boolean, 
+/**
+ * It may send this computer move requests without a code (computers
+ * only; on by default).
+ */
+send_requests: boolean, };

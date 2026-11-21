@@ -16,6 +16,20 @@ export const pixel: LinkedDeviceView = {
   missing: [],
 };
 
+/** Desk PC, a linked computer: everything starts off. */
+export const deskPc: LinkedDeviceView = {
+  id: 'd2',
+  name: 'Desk PC',
+  os: 'windows',
+  fingerprint: 'B04E·88D1',
+  state: 'linked',
+  features: [
+    { feature: 'clipboard', group: 'quiet', local: 'on', remote: 'on', effective: 'on' },
+    { feature: 'files', group: 'ask', local: 'ask', remote: 'ask', effective: 'ask' },
+  ],
+  missing: [],
+};
+
 export const pixelInvite: PairInviteView = {
   uri: 'carrova://pair?v=1&t=4-maple-orbit@192.168.1.20:47100&k=EXAMPLE',
   qr_svg:

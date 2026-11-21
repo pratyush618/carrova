@@ -18,9 +18,10 @@ import { Glance } from '../../../screens/home/Glance';
 import { HomeScreen } from '../../../screens/start/HomeScreen';
 import { usePort } from '../../../engine/port';
 import { HubLayout } from '../../../ui';
-import { useControllers } from '../../controllers/Controllers';
+import { useControllers, useKnownSend } from '../../controllers/Controllers';
 import { useNav } from '../nav';
 import { HomeCallBar } from './CallRoutes';
+import { HomeMoveRequests } from './RequestRoutes';
 import { useStartFlows } from './useStartFlows';
 
 /** A list the page can't render until it has answered once (a failure counts: render empty). */
@@ -45,6 +46,7 @@ export function HomeRoute() {
       glance={
         <>
           <HomeCallBar />
+          <HomeMoveRequests />
           {linked.devices.length > 0 && (
             <Glance
               devices={linked.devices}
@@ -125,6 +127,7 @@ export function NearbyRoute() {
   const [selected, setSelected] = useState<string | null>(null);
   const [wake, setWake] = useState<WakeNote | null>(null);
   const found = useNearby(devices.browse, true);
+  const knownSend = useKnownSend();
   return (
     <NearbyScreen
       model={{
@@ -145,6 +148,7 @@ export function NearbyRoute() {
           nav.go({ type: 'openHub', page: 'settings', section: 'nearby' });
         },
         onSendWithCode: start.send,
+        ...(knownSend && { onSendSetup: start.send }),
         onWake: ({ id, name }) => {
           if (id === null) return;
           void devices.wake(id).then(

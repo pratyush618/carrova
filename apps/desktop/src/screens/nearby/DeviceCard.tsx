@@ -8,6 +8,7 @@ import { deviceActions, type DeviceAction, type DeviceEntry, type NearbyIntents 
 /** How each action looks: Send leads, Wake is the way back for an away device, Forget stays quiet. */
 const LOOK: Readonly<Record<DeviceAction, 'primary' | 'secondary' | 'quiet'>> = {
   open: 'secondary',
+  sendSetup: 'primary',
   sendWithCode: 'secondary',
   wake: 'secondary',
   forget: 'quiet',
@@ -22,10 +23,12 @@ export function DeviceActions({
   readonly on: NearbyIntents;
 }) {
   const { t } = useTranslation();
+  const { onSendSetup } = on;
   const run: Readonly<Record<DeviceAction, () => void>> = {
     open: () => {
       on.onOpen(device);
     },
+    sendSetup: onSendSetup ?? on.onSendWithCode,
     sendWithCode: on.onSendWithCode,
     wake: () => {
       on.onWake(device);
@@ -36,7 +39,7 @@ export function DeviceActions({
   };
   return (
     <>
-      {deviceActions(device).map((action) => {
+      {deviceActions(device, onSendSetup !== undefined).map((action) => {
         const label = t(`nearby.actions.${action}`);
         return (
           <Button

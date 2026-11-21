@@ -243,6 +243,28 @@ describe('useSendFlow: stale replies and failures', () => {
     expect(runSend).not.toHaveBeenCalled();
   });
 
+  it('send does not run when the mode switched while the selection was handed over', async () => {
+    const { port, flow } = setup();
+    await bothOpen(flow);
+    const late = gate();
+    const select = port.select.bind(port);
+    vi.spyOn(port, 'select').mockImplementationOnce((...args) =>
+      late.opened.then(() => select(...args)),
+    );
+    const runSend = vi.spyOn(port, 'runSend');
+    act(() => {
+      flow.result.current.send();
+    });
+    act(() => {
+      flow.result.current.switchMode('auto');
+    });
+    await act(async () => {
+      late.open();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(runSend).not.toHaveBeenCalled();
+  });
+
   it('opens Manual again after its first selection failed', async () => {
     const { port, flow } = setup();
     await started(flow);

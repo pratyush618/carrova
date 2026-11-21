@@ -76,6 +76,14 @@ export class FakeReceiver {
     return { session: fx.importSession };
   }
 
+  /** Review of a move request: the asking computer connects with its one-time code. */
+  async openRequested(): Promise<SessionOpened> {
+    this.runtime.open(fx.importSession);
+    await this.runtime.step(fx.importSession);
+    this.runtime.engine(fx.importSession, { event: 'peer_connected', peer: fx.peerAddress });
+    return { session: fx.importSession };
+  }
+
   async connect(code: string): Promise<SessionOpened> {
     if (!TICKET.test(code.trim())) {
       raise(bridgeError('bad_code', 'that is not a pairing code'));

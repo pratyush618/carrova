@@ -13,7 +13,13 @@ import {
   type Request,
   type SelectionQueue,
 } from './selectionQueue';
-import { initialSendFlow, sendFlowReducer, type SendFlowState, type SendMode } from './sendFlow';
+import {
+  initialSendFlow,
+  sendFlowReducer,
+  type Requested,
+  type SendFlowState,
+  type SendMode,
+} from './sendFlow';
 
 /** Commands of the sending side; screens call these, never the port. */
 export interface SendController {
@@ -37,7 +43,10 @@ export interface SendController {
   readonly resetToSuggested: () => void;
   /** Waits until the engine holds the visible mode's latest selection; `true` if it can be used. */
   readonly confirmSelection: () => Promise<boolean>;
+  /** Pair with a code. */
   readonly send: () => void;
+  /** Ask trusted computer `to` to take the move without a code (again, after an ending). */
+  readonly sendTo: (to: Omit<Requested, 'at'>) => void;
   /** Stop the current code and start pairing again with a new one. */
   readonly newCode: () => void;
   readonly answerPrompt: (offerNewCode: boolean) => void;
@@ -293,15 +302,37 @@ export function useSendFlow(
     [port, track],
   );
 
+  /** Once the engine holds the selection (and nothing restarted or switched meanwhile), run `task` on the session. */
+  const whenConfirmed = useCallback(
+    (task: (id: SessionId) => void) => {
+      void (async () => {
+        const id = session.current;
+        const mine = generation.current;
+        const on = mode.current;
+        if (id === null || !(await confirmSelection())) return;
+        // The user may have started over, or switched modes, while the selection was handed over.
+        if (id === session.current && mine === generation.current && on === mode.current) task(id);
+      })();
+    },
+    [confirmSelection],
+  );
+
   const send = useCallback(() => {
-    void (async () => {
-      const id = session.current;
-      const mine = generation.current;
-      if (id === null || !(await confirmSelection())) return;
-      // The user may have started over while the selection was handed over.
-      if (id === session.current && mine === generation.current) runSend(id);
-    })();
-  }, [confirmSelection, runSend]);
+    whenConfirmed((id) => {
+      dispatch({ type: 'request', to: null });
+      runSend(id);
+    });
+  }, [whenConfirmed, runSend]);
+
+  const sendTo = useCallback(
+    (to: Omit<Requested, 'at'>) => {
+      whenConfirmed((id) => {
+        dispatch({ type: 'request', to: { ...to, at: Date.now() } });
+        track(port.requestSend(id, to.id));
+      });
+    },
+    [whenConfirmed, port, track],
+  );
 
   const newCode = useCallback(() => {
     const id = session.current;
@@ -362,6 +393,7 @@ export function useSendFlow(
       resetToSuggested,
       confirmSelection,
       send,
+      sendTo,
       newCode,
       answerPrompt,
       back,
@@ -381,6 +413,7 @@ export function useSendFlow(
       resetToSuggested,
       confirmSelection,
       send,
+      sendTo,
       newCode,
       answerPrompt,
       back,

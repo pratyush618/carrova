@@ -12,6 +12,15 @@ import { idle, remoteReducer, type Remote, type RemoteAction } from '../remote';
 /** Auto: the apps the scan found. Manual: only the files and folders the user picks. */
 export type SendMode = 'auto' | 'manual';
 
+/** A trusted computer asked to take the move without a code. */
+export interface Requested {
+  /** Its device id. */
+  readonly id: string;
+  readonly name: string;
+  /** When it was asked (ms since epoch): the request runs out 2 minutes later. */
+  readonly at: number;
+}
+
 /** Each mode's latest engine reply; `null` until that mode was first shown. */
 export type ByMode = Readonly<Record<SendMode, ScanResult | null>>;
 
@@ -42,6 +51,8 @@ export interface SendFlowState {
   readonly selectErrors: Readonly<Record<SendMode, BridgeError | null>>;
   readonly step: 'found' | 'pairing' | 'done';
   readonly run: Remote<SendReport>;
+  /** The computer the running (or last) send asked to take it; `null`: it pairs with a code. */
+  readonly request: Requested | null;
 }
 
 /** `mode` (absent: the visible one) is the mode a reply belongs to. */
@@ -64,6 +75,8 @@ export type SendFlowAction =
   | { readonly type: 'selectFailed'; readonly mode?: SendMode; readonly error: BridgeError }
   | { readonly type: 'resumed'; readonly session: SessionId }
   | { readonly type: 'run'; readonly action: RemoteAction<SendReport> }
+  /** The next run asks `to` (`null`: it pairs with a code). */
+  | { readonly type: 'request'; readonly to: Requested | null }
   | { readonly type: 'back' }
   | { readonly type: 'reset'; readonly mode?: SendMode };
 
@@ -80,6 +93,7 @@ export const initialSendFlow: SendFlowState = {
   selectErrors: { auto: null, manual: null },
   step: 'found',
   run: idle,
+  request: null,
 };
 
 /** `state` holding the engine's reply `result`. */
@@ -148,8 +162,10 @@ export function sendFlowReducer(state: SendFlowState, action: SendFlowAction): S
       const step = type === 'start' ? 'pairing' : type === 'ok' ? 'done' : state.step;
       return { ...state, run, step };
     }
+    case 'request':
+      return { ...state, request: action.to };
     case 'back':
-      return { ...state, step: 'found', run: idle };
+      return { ...state, step: 'found', run: idle, request: null };
     case 'reset':
       return { ...initialSendFlow, mode: action.mode ?? 'auto' };
   }

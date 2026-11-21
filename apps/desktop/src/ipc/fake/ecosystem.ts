@@ -2,8 +2,8 @@
  * The fake's linked devices: a pairing invite that a "Pixel 8" answers a
  * few steps later (linked once its key check is confirmed), per-device
  * features with the engine's two-sided gate, and the clipboard history.
- * Only the `linked` scenario starts with a device; every other one starts
- * with none.
+ * Only `linked` and the known-send scenarios start with devices; every
+ * other one starts with none.
  */
 import type { FeatureRowView } from '../../bindings/FeatureRowView';
 import type { FeatureState } from '../../bindings/FeatureState';
@@ -17,7 +17,7 @@ import type { ClipSettings } from '../../bindings/ClipSettings';
 import type { CarrovaPort } from '../port';
 import { bridgeError, raise } from '../reject';
 import { CANCELLED, later, type Runtime } from './runtime';
-import type { Scenario } from './scenario';
+import { knownSend, type Scenario } from './scenario';
 
 /** The bridge's session for linked-device events (`carrova_view::ipc::LINK_SESSION`). */
 const LINK = 'link';
@@ -136,7 +136,7 @@ export interface FakeEcosystem extends EcosystemPort {
  * device running `os`: a phone links only computers, with the phone's defaults.
  */
 export function fakeEcosystem(runtime: Runtime, scenario: Scenario, os: OsKind): FakeEcosystem {
-  const seeded = scenario === 'linked';
+  const seeded = scenario === 'linked' || knownSend(scenario);
   const onPhone = os === 'android';
   const linkedComputer = onPhone ? computerFromPhone : computer;
   const seed = onPhone ? [linkedComputer()] : [phone('off'), computer()];

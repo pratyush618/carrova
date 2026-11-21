@@ -16,6 +16,7 @@ const record = (id: string, name: string, hint = false): KnownDeviceView => ({
   last_move: 2_000,
   moves: 4,
   has_wake_hint: hint,
+  send_requests: true,
 });
 
 const answer = (over: Partial<NearbyDeviceView>): NearbyDeviceView => ({

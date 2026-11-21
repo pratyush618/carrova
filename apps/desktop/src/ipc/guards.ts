@@ -7,6 +7,7 @@
 import type { BridgeError } from '../bindings/BridgeError';
 import type { BridgeEvent } from '../bindings/BridgeEvent';
 import type { ErrorCode } from '../bindings/ErrorCode';
+import type { RequestEnd } from '../bindings/RequestEnd';
 import type { UpdateBlocker } from '../bindings/UpdateBlocker';
 import type { UpdateStep } from '../bindings/UpdateStep';
 
@@ -30,8 +31,19 @@ const ERROR_CODES: Readonly<Record<ErrorCode, true>> = {
   device_key: true,
   unsupported: true,
   permission_denied: true,
+  request_declined: true,
+  request_expired: true,
+  request_refused: true,
   bad_update: true,
   internal: true,
+};
+
+/** Every `RequestEnd`, likewise. */
+const REQUEST_ENDS: Readonly<Record<RequestEnd, true>> = {
+  cancelled: true,
+  expired: true,
+  superseded: true,
+  lost: true,
 };
 
 /** Every `UpdateBlocker`, a record for the same reason. */
@@ -109,6 +121,27 @@ export function isBridgeEvent(value: unknown): value is BridgeEvent {
       typeof peer['name'] === 'string' &&
       typeof peer['os'] === 'string' &&
       typeof peer['fingerprint'] === 'string'
+    );
+  }
+  if (value['kind'] === 'move_request_arrived') {
+    const request = value['request'];
+    const summary = isRecord(request) ? request['summary'] : undefined;
+    return (
+      isRecord(request) &&
+      typeof request['id'] === 'number' &&
+      typeof request['device'] === 'string' &&
+      typeof request['name'] === 'string' &&
+      typeof request['expires_at'] === 'number' &&
+      isRecord(summary) &&
+      typeof summary['apps'] === 'number' &&
+      typeof summary['bytes'] === 'number' &&
+      typeof summary['has_sensitive'] === 'boolean'
+    );
+  }
+  if (value['kind'] === 'move_request_ended') {
+    const why = value['why'];
+    return (
+      typeof value['id'] === 'number' && typeof why === 'string' && Object.hasOwn(REQUEST_ENDS, why)
     );
   }
   if (value['kind'] === 'notice') {

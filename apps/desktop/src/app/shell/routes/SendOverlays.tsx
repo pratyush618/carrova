@@ -1,8 +1,14 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { current } from '../../../flows/remote';
+import { nearbyEntries } from '../../../flows/nearby/nearbyViews';
+import { useNearby } from '../../../flows/nearby/useNearby';
+import { sendMove } from '../../../flows/send/sendProgressViews';
+import { sendTargets } from '../../../flows/send/sendTargets';
+import { requestSummary } from '../../../flows/send/sendWait';
 import { customizeModel, rawFolders, type CustomizeUi } from '../../../flows/send/sendViews';
 import { CustomizeSheet } from '../../../screens/send/CustomizeSheet';
+import { SendToSheet } from '../../../screens/send/SendToSheet';
 import { UnrecognisedSheet } from '../../../screens/send/UnrecognisedSheet';
 import type { MinSize } from '../../../screens/send/model';
 import { useControllers } from '../../controllers/Controllers';
@@ -77,6 +83,37 @@ export function UnrecognisedOverlay() {
           send.edit({ kind: 'item', key, included });
         },
         onDone: nav.close,
+      }}
+    />
+  );
+}
+
+/** "Send your setup to…": the trusted computers nearby, looked for again while it is open. */
+export function SendToOverlay() {
+  const { send, devices, linked } = useControllers();
+  const nav = useNav();
+  const found = useNearby(devices.browse, true);
+  return (
+    <SendToSheet
+      model={{
+        targets: sendTargets(nearbyEntries(found, devices.known, linked.devices)),
+        summary: requestSummary(sendMove(send.state, null).facts),
+        now: new Date(),
+      }}
+      on={{
+        onSend: ({ id, name }) => {
+          nav.close();
+          if (id !== null) send.sendTo({ id, name });
+        },
+        onWake: ({ id }) => {
+          // A wake is a hint: the computer shows up here once it answers, or it doesn't.
+          if (id !== null) devices.wake(id).catch(() => undefined);
+        },
+        onUseCode: () => {
+          nav.close();
+          send.send();
+        },
+        onCancel: nav.close,
       }}
     />
   );

@@ -1,7 +1,7 @@
 import type { OsKind, Ring, VisibilityChoice } from '../../engine/types';
 
 /** A change to visibility or the known devices that the engine can refuse. */
-export type DeviceChange = 'visibility' | 'rename' | 'forget' | 'reset';
+export type DeviceChange = 'visibility' | 'rename' | 'forget' | 'reset' | 'requests';
 
 /** How the page shows the devices. */
 export type NearbyView = 'map' | 'list';
@@ -29,9 +29,9 @@ export interface DeviceEntry {
 }
 
 /** What each kind of device offers (Wake only where a hint is saved). */
-export type DeviceAction = 'open' | 'sendWithCode' | 'wake' | 'forget';
+export type DeviceAction = 'open' | 'sendSetup' | 'sendWithCode' | 'wake' | 'forget';
 
-// Phase 3 gives known devices a code-less "Send"; until then every device here pairs with a code.
+/** Without code-less sends, every device here pairs with a code. */
 export const DEVICE_ACTIONS: Readonly<Record<DeviceKind, readonly DeviceAction[]>> = {
   known: ['sendWithCode'],
   new: ['sendWithCode'],
@@ -39,9 +39,19 @@ export const DEVICE_ACTIONS: Readonly<Record<DeviceKind, readonly DeviceAction[]
   linked: ['open'],
 };
 
-/** The actions `device` offers now. */
-export const deviceActions = (device: DeviceEntry): readonly DeviceAction[] =>
-  DEVICE_ACTIONS[device.kind].filter((action) => action !== 'wake' || device.canWake);
+/** A computer here that trusts this one: it takes a move without a code. */
+const trustedComputer = (device: DeviceEntry): boolean =>
+  (device.kind === 'known' || device.kind === 'linked') && device.os !== 'android';
+
+/** The actions `device` offers now; with `knownSend`, a trusted computer leads with Send setup. */
+export function deviceActions(device: DeviceEntry, knownSend = false): readonly DeviceAction[] {
+  const actions = DEVICE_ACTIONS[device.kind].filter(
+    (action) => action !== 'wake' || device.canWake,
+  );
+  return knownSend && trustedComputer(device)
+    ? ['sendSetup', ...actions.filter((action) => action !== 'sendWithCode')]
+    : actions;
+}
 
 /** The visibility choices, in the order they are offered. */
 export const VISIBILITY_CHOICES: readonly VisibilityChoice[] = ['no_one', 'known', 'everyone'];
@@ -92,6 +102,8 @@ export interface NearbyIntents {
   readonly onSettings: () => void;
   /** Start a send that pairs with a code. */
   readonly onSendWithCode: () => void;
+  /** Start a send a trusted computer takes without a code; absent while that is off. */
+  readonly onSendSetup?: () => void;
   readonly onWake: (device: DeviceEntry) => void;
   readonly onForget: (device: DeviceEntry) => void;
   readonly onDismissWake: () => void;

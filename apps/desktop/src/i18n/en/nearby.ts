@@ -24,6 +24,7 @@ export const nearby = {
   actions: {
     open: 'Open',
     sendWithCode: 'Send with code',
+    sendSetup: 'Send setup',
     wake: 'Wake',
     forget: 'Forget',
   },
@@ -62,6 +63,7 @@ export const nearby = {
     rename: "Couldn't rename the device. Try again.",
     forget: "Couldn't forget the device. Try again.",
     reset: "Couldn't reset this computer's identity. Nothing changed. Try again.",
+    requests: "Couldn't change who may send you moves. Try again.",
   },
   remembered: 'Remembered {{name}} ({{fingerprint}})',
 } as const;

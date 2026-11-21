@@ -151,6 +151,7 @@ export function settingsModel(s: SettingsSources, now: Date): SettingsModel {
     visibility: s.devices.visibility?.choice ?? null,
     knownDevices: s.devices.known.length,
     devicesFailed: s.devices.failed,
+    knownSend: s.about?.known_send === true,
   };
 }
 

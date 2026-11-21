@@ -2,6 +2,7 @@ import { Kit } from '../Kit';
 import type { GalleryScreen } from '../types';
 import { fileScreens } from './file';
 import { hubScreens } from './hub';
+import { knownSendScreens } from './knownSend';
 import { overrideScreens } from './override';
 import { receiveScreens } from './receive';
 import { sendScreens } from './send';
@@ -24,6 +25,7 @@ export const SCREENS: readonly GalleryScreen[] = [
   ...receiveScreens,
   ...fileScreens,
   ...hubScreens,
+  ...knownSendScreens,
   ...overrideScreens,
   kitScreen,
 ];

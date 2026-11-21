@@ -17,7 +17,7 @@ pub const PAUSE_SECS: u64 = 60 * 60;
 /// What the tray shows.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrayModel {
-    /// A send request waiting for an answer.
+    /// A move request waiting for an answer.
     pub request: Option<TrayRequest>,
     /// Pop-ups are held back now ([`alerts_paused`]).
     pub paused: bool,
@@ -39,7 +39,7 @@ pub struct TrayCall {
     pub muted: bool,
 }
 
-/// A computer asking to send you files.
+/// A trusted computer asking to send you a move.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrayRequest {
     /// The asking computer's name, as it gave it (escape before rendering).
@@ -49,9 +49,9 @@ pub struct TrayRequest {
 /// One tray menu item.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrayItem {
-    /// Stable id the front-end dispatches on: `call` (a status line),
-    /// `call_mute`, `call_end`, `moving` (a status line),
-    /// `review`, `decline`, `open`, `send`, `nearby`, `pause`,
+    /// Stable id the front-end dispatches on: `request` (a status line),
+    /// `review`, `decline`, `call` (a status line), `call_mute`,
+    /// `call_end`, `moving` (a status line), `open`, `send`, `nearby`, `pause`,
     /// `visibility` (a submenu of the [`VISIBILITY_ITEMS`] ids), `quit`.
     pub id: &'static str,
     /// What the item says.
@@ -94,8 +94,8 @@ pub fn tray_visibility(id: &str) -> Option<VisibilityChoice> {
         .map(|(choice, _)| *choice)
 }
 
-/// The tray menu: a running call, a running move's status line, the
-/// waiting request, then the everyday items.
+/// The tray menu: the waiting move request (it lasts two minutes), a
+/// running call, a running move's status line, then the everyday items.
 #[must_use]
 pub fn tray_menu(model: &TrayModel) -> Vec<TrayItem> {
     let item = |id, label: &str, separated| TrayItem {
@@ -107,12 +107,26 @@ pub fn tray_menu(model: &TrayModel) -> Vec<TrayItem> {
         children: Vec::new(),
     };
     let mut menu = Vec::new();
+    if let Some(request) = &model.request {
+        menu.extend([
+            TrayItem {
+                enabled: false,
+                ..item(
+                    "request",
+                    &format!("{} wants to send you its setup", request.peer),
+                    false,
+                )
+            },
+            item("review", "Review", false),
+            item("decline", "Decline", false),
+        ]);
+    }
     if let Some(call) = model.call {
         let mute = if call.muted { "Unmute" } else { "Mute" };
         menu.extend([
             TrayItem {
                 enabled: false,
-                ..item("call", "On a call", false)
+                ..item("call", "On a call", !menu.is_empty())
             },
             item("call_mute", mute, false),
             item("call_end", "End", false),
@@ -123,14 +137,6 @@ pub fn tray_menu(model: &TrayModel) -> Vec<TrayItem> {
             enabled: false,
             ..item("moving", "Moving files…", !menu.is_empty())
         });
-    }
-    if let Some(request) = &model.request {
-        menu.push(item(
-            "review",
-            &format!("Review files from {}", request.peer),
-            !menu.is_empty(),
-        ));
-        menu.push(item("decline", "Decline", false));
     }
     let pause = if model.paused {
         "Resume alerts"

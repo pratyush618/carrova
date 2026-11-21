@@ -9,6 +9,7 @@ import { mobile } from './mobile';
 import { nearby } from './nearby';
 import { override } from './override';
 import { receive } from './receive';
+import { request } from './request';
 import { send } from './send';
 import { settings } from './settings';
 import { start } from './start';
@@ -33,4 +34,5 @@ export const en = {
   ecosystem,
   mobile,
   calls,
+  request,
 } as const;

@@ -18,19 +18,21 @@ fn ids(model: &TrayModel) -> Vec<&'static str> {
     tray_menu(model).iter().map(|item| item.id).collect()
 }
 
-#[test]
-fn tray_menu_puts_request_first() {
-    let model = TrayModel {
+fn requesting() -> TrayModel {
+    TrayModel {
         request: Some(TrayRequest {
             peer: "Ana's laptop".into(),
         }),
-        paused: false,
-        moving: false,
         ..idle()
-    };
+    }
+}
+
+#[test]
+fn tray_menu_puts_request_first() {
     assert_eq!(
-        ids(&model),
+        ids(&requesting()),
         [
+            "request",
             "review",
             "decline",
             "open",
@@ -41,10 +43,34 @@ fn tray_menu_puts_request_first() {
             "quit"
         ]
     );
-    let menu = tray_menu(&model);
-    assert!(menu[0].label.contains("Ana's laptop"), "{:?}", menu[0]);
+    let menu = tray_menu(&requesting());
+    assert_eq!(menu[0].label, "Ana's laptop wants to send you its setup");
+    assert!(!menu[0].enabled, "a status line, not an action");
     // The request stands apart from the everyday items.
-    assert!(menu[2].separated);
+    assert!(menu[3].separated);
+}
+
+/// A request lasts two minutes and the call has its own window: the
+/// request goes above even a running call.
+#[test]
+fn tray_request_goes_above_a_call_and_a_move() {
+    let model = TrayModel {
+        moving: true,
+        call: Some(TrayCall { muted: false }),
+        ..requesting()
+    };
+    assert_eq!(
+        ids(&model)[..6],
+        [
+            "request",
+            "review",
+            "decline",
+            "call",
+            "call_mute",
+            "call_end"
+        ]
+    );
+    assert!(item(&model, "call").separated);
 }
 
 #[test]

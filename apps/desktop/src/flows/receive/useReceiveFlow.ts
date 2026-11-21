@@ -61,6 +61,8 @@ export interface ReceiveController {
   readonly abandon: () => void;
   /** Continue an interrupted import from History. */
   readonly resume: (session: SessionId, origin: 'lan' | 'file') => void;
+  /** Review the import session a trusted computer's move request opened. */
+  readonly reviewRequested: (session: SessionId) => void;
 }
 
 /** `defaults`: the user's suggested defaults (Settings); every new move starts from them. */
@@ -318,6 +320,10 @@ export function useReceiveFlow(
       resume: (id: SessionId, origin: 'lan' | 'file') => {
         start(origin);
         resumed(id);
+      },
+      reviewRequested: (id: SessionId) => {
+        start('lan');
+        dispatch({ type: 'opened', session: id });
       },
     }),
     [
