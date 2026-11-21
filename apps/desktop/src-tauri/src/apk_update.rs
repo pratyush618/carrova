@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Instant;
 
 use carrova_bundle::app_update::{
-    self as update, AppVersion, Control, Https, Progress, Release, Step, just_updated,
+    self as update, Control, Https, Progress, Release, Step, just_updated,
 };
 use carrova_core::time::now_unix;
 use carrova_platform::{Platform, SemanticRoot};
@@ -51,10 +51,8 @@ pub async fn check_update(
         Ok(release)
     })
     .await?;
-    let running: AppVersion = RUNNING
-        .parse()
+    let newer = update::newer(release, RUNNING)
         .map_err(|e| CommandError::chained(ErrorCode::Internal, &e))?;
-    let newer = (release.version > running).then_some(release);
     let status = newer.as_ref().map_or(UpdateStatus::UpToDate, |release| {
         UpdateStatus::Available(UpdateInfo {
             version: release.version.to_string(),

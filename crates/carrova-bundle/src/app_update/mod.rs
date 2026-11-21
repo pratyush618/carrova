@@ -22,6 +22,7 @@ pub use install::{Progress, Step, install};
 pub use phone::Phone;
 pub use release::{
     ApkRejected, AppVersion, BadVersion, FeedError, Release, check_apk, just_updated, may_download,
+    newer,
 };
 
 /// SHA-256 of the certificate every release APK is signed with

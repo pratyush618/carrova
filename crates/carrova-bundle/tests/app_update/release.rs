@@ -2,7 +2,7 @@
 
 use carrova_bundle::app_update::{
     ApkRejected, AppVersion, FEED_URL, RELEASE_CERT_SHA256, Release, check_apk, just_updated,
-    may_download, trusted_url,
+    may_download, newer, trusted_url,
 };
 use carrova_platform::AppPackage;
 
@@ -154,4 +154,13 @@ fn an_update_is_announced_once_and_never_on_a_first_run() {
     assert!(just_updated(Some("0.3.0"), "0.4.0"));
     assert!(!just_updated(Some("0.4.0"), "0.4.0"));
     assert!(!just_updated(None, "0.4.0"));
+}
+
+#[test]
+fn only_a_newer_release_is_offered() {
+    let release = Release::parse(br#"{"version":"0.4.0"}"#).unwrap();
+    assert_eq!(newer(release.clone(), "0.3.9"), Ok(Some(release.clone())));
+    assert_eq!(newer(release.clone(), "0.4.0"), Ok(None));
+    assert_eq!(newer(release.clone(), "0.10.0"), Ok(None));
+    assert!(newer(release, "dev").is_err());
 }

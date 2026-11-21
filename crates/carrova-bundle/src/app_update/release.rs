@@ -154,6 +154,15 @@ pub fn check_apk(apk: &AppPackage, installed: &AppPackage) -> Result<(), ApkReje
     Ok(())
 }
 
+/// `release` if it is newer than the `running` version, else `None`.
+///
+/// # Errors
+///
+/// [`BadVersion`] if `running` is not a release version.
+pub fn newer(release: Release, running: &str) -> Result<Option<Release>, BadVersion> {
+    Ok((release.version > running.parse()?).then_some(release))
+}
+
 /// Whether the app was updated since it last ran: an earlier run recorded
 /// another version (a first run announces nothing).
 #[must_use]
