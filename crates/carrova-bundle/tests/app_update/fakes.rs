@@ -34,6 +34,9 @@ pub struct Server {
     pub wrong_start: bool,
     /// Send no `Content-Length`.
     pub no_length: bool,
+    /// Answer a range with only this many bytes, the file's size unsaid
+    /// (`Content-Range: bytes 4-7/*`).
+    pub short_range: Option<usize>,
     /// Break the next body after this many bytes.
     pub breaks_after: Mutex<Option<usize>>,
     /// Wi-Fi drops as the body breaks.
@@ -50,6 +53,7 @@ impl Server {
             redirect: ASSET.to_owned(),
             wrong_start: false,
             no_length: false,
+            short_range: None,
             breaks_after: Mutex::new(None),
             drops: None,
             asked: Mutex::default(),
@@ -123,6 +127,10 @@ impl Get for Server {
             None => (200, 0),
         };
         let mut rest = file[start as usize..].to_vec();
+        let short = self.short_range.filter(|_| status == 206);
+        if let Some(n) = short {
+            rest.truncate(n);
+        }
         let length = rest.len() as u64;
         let body: Box<dyn Read + Send> = match self.breaks_after.lock().unwrap().take() {
             Some(n) => {
@@ -135,7 +143,10 @@ impl Get for Server {
             status,
             location: None,
             etag: Some(etag),
-            content_range: (status == 206).then(|| format!("bytes {start}-{}/{size}", size - 1)),
+            content_range: (status == 206).then(|| match short {
+                Some(_) => format!("bytes {start}-{}/*", start + length - 1),
+                None => format!("bytes {start}-{}/{size}", size - 1),
+            }),
             content_length: (!self.no_length).then_some(length),
             body,
         })

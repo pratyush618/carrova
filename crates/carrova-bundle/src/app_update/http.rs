@@ -1,8 +1,8 @@
 //! Release downloads over HTTPS: redirects followed by hand, only to the
 //! hosts releases come from, and resumes that are proven to continue the
 //! same file (`If-Range` on its `ETag`, `Content-Range` from the offset
-//! asked) or start over. [`Get`] is the one network seam; [`Https`] is
-//! the real one (`ureq`, rustls, blocking).
+//! asked, with the file's size) or start over. [`Get`] is the one
+//! network seam; [`Https`] is the real one (`ureq`, rustls, blocking).
 
 use std::io::{self, Read};
 use std::time::Duration;
@@ -119,13 +119,15 @@ pub(super) fn open(get: &impl Get, url: &str, resume: Option<&Resume>) -> Result
     let reply = follow(get, url, resume)?;
     match (reply.status, resume) {
         (206, Some(resume)) => match content_range(reply.content_range.as_deref()) {
-            Some((start, total)) if start == resume.offset => Ok(Body {
+            Some((start, Some(total))) if start == resume.offset => Ok(Body {
                 reader: reply.body,
                 start,
-                total: total.or(reply.content_length.map(|len| start + len)),
+                total: Some(total),
                 etag: reply.etag.or_else(|| Some(resume.etag.clone())),
             }),
-            // Not the bytes asked for: the partial file cannot be trusted.
+            // Not the bytes asked for, or no size to tell when the file
+            // ends (the range may stop short): the partial file cannot be
+            // trusted.
             _ => open(get, url, None),
         },
         (200, _) => Ok(Body {

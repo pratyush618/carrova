@@ -109,6 +109,19 @@ fn a_range_from_the_wrong_offset_starts_over() {
 }
 
 #[test]
+fn a_range_of_unknown_end_starts_over() {
+    let run = Run::new();
+    run.left(&content(SIZE, 0)[..1000], "\"v1\"");
+    let server = Server {
+        short_range: Some(4),
+        ..Server::new(content(SIZE, 0))
+    };
+    run.go(&server, &FakePhone::new(true), false).unwrap();
+    assert_eq!(server.offsets(), [Some(1000), None]);
+    assert_eq!(std::fs::read(run.part()).unwrap(), content(SIZE, 0));
+}
+
+#[test]
 fn a_partial_file_without_its_etag_starts_over() {
     let run = Run::new();
     std::fs::write(run.part(), b"stale").unwrap();
