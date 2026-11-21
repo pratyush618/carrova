@@ -5,6 +5,8 @@ use std::io::{self, Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 use carrova_bundle::app_update::{
     Get, NetFailure, Phone, Progress, RELEASE_CERT_SHA256, Reply, Resume, Step,
@@ -249,5 +251,16 @@ impl Log {
             .collect();
         names.dedup();
         names
+    }
+
+    /// Returns once step `name` is logged, or after ten seconds, so a run
+    /// that never gets there fails its asserts instead of hanging.
+    pub fn wait_for(&self, name: &str) {
+        for _ in 0..1000 {
+            if self.names().contains(&name) {
+                return;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
     }
 }

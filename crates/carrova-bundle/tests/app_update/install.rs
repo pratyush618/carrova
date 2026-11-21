@@ -4,7 +4,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::thread;
-use std::time::Duration;
 
 use carrova_bundle::app_update::{ApkRejected, AppUpdateError, Control, Release, install};
 use tempfile::TempDir;
@@ -99,14 +98,7 @@ fn it_waits_for_the_permission_then_checks_again_before_installing() {
     phone.may_install.store(false, Ordering::SeqCst);
     let err = thread::scope(|s| {
         s.spawn(|| {
-            // Answer only once the install waits (bounded, so a run that
-            // never asks fails the asserts below instead of hanging).
-            for _ in 0..1000 {
-                if log.names().contains(&"permission") {
-                    break;
-                }
-                thread::sleep(Duration::from_millis(10));
-            }
+            log.wait_for("permission");
             // Meanwhile the same build got installed another way.
             phone.installed_code.store(4000, Ordering::SeqCst);
             phone.may_install.store(true, Ordering::SeqCst);

@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::thread;
-use std::time::Duration;
 
 use carrova_bundle::app_update::{
     AppUpdateError, Control, Job, NetFailure, download, fetch_release,
@@ -205,18 +204,18 @@ fn the_size_cap_holds_without_a_content_length() {
 #[test]
 fn off_wifi_it_waits_until_mobile_data_is_allowed() {
     let run = Run::new();
-    let control = Arc::clone(&run.control);
-    let allow = thread::spawn(move || {
-        thread::sleep(Duration::from_millis(100));
-        control.update(|wish| wish.mobile_data = true);
+    thread::scope(|s| {
+        s.spawn(|| {
+            run.log.wait_for("waiting");
+            run.control.update(|wish| wish.mobile_data = true);
+        });
+        run.go(
+            &Server::new(content(SIZE, 0)),
+            &FakePhone::new(false),
+            false,
+        )
+        .unwrap();
     });
-    run.go(
-        &Server::new(content(SIZE, 0)),
-        &FakePhone::new(false),
-        false,
-    )
-    .unwrap();
-    allow.join().unwrap();
     assert_eq!(run.log.names(), ["waiting", "fetching", "received"]);
 }
 
@@ -237,16 +236,13 @@ fn wifi_dropping_mid_download_waits_then_resumes_where_it_stopped() {
         ..Server::new(content(SIZE, 0))
     };
     *server.breaks_after.lock().unwrap() = Some(1000);
-    let wifi = Arc::clone(&phone.wifi);
-    let back = thread::spawn(move || {
-        while wifi.load(Ordering::SeqCst) {
-            thread::yield_now();
-        }
-        thread::sleep(Duration::from_millis(100));
-        wifi.store(true, Ordering::SeqCst);
+    thread::scope(|s| {
+        s.spawn(|| {
+            run.log.wait_for("waiting");
+            phone.wifi.store(true, Ordering::SeqCst);
+        });
+        run.go(&server, &phone, false).unwrap();
     });
-    run.go(&server, &phone, false).unwrap();
-    back.join().unwrap();
     assert_eq!(
         run.log.names(),
         ["fetching", "received", "waiting", "fetching", "received"]
