@@ -108,4 +108,15 @@ describe('a move request arriving', () => {
       await screen.findByText('Off: Desk PC needs a code to send you a move.'),
     ).toBeInTheDocument();
   });
+
+  it('says so when the Send requests change is refused', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ scenario: 'known-send', returning: true });
+    vi.spyOn(port, 'setSendRequests').mockRejectedValue({ code: 'io', message: 'no' });
+    await home();
+    await user.click(await screen.findByRole('button', { name: /^Desk PC/ }));
+    await user.click(await screen.findByRole('switch', { name: 'Send requests' }));
+
+    expect(await screen.findByText("Couldn't change that. Try again.")).toBeInTheDocument();
+  });
 });

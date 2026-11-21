@@ -56,7 +56,7 @@ export function DeviceRoute({ id }: { readonly id: string }) {
     <>
       <DevicePage
         device={device}
-        failed={linked.failed}
+        failed={linked.failed || devices.failed === 'requests'}
         ringing={linked.ringing.has(id)}
         {...(knownSend &&
           device.os !== 'android' && {
