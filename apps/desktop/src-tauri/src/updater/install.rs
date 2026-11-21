@@ -74,6 +74,10 @@ pub async fn install(
         Ok(_) = signal.wait_for(|s| *s == Signal::Cancel) => return Err(cancelled()),
     };
     wait_until_free(out, blocker, &mut signal).await?;
+    // A Cancel the download raced past, unseen when nothing blocked.
+    if *signal.borrow() == Signal::Cancel {
+        return Err(cancelled());
+    }
     step(out, UpdateStep::Installing);
     package.install(&bytes)
 }

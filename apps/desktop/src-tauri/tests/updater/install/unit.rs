@@ -10,12 +10,14 @@ use crate::testing::Recorder;
 
 const MB: usize = 1_000_000;
 
-/// A package of `chunks` that downloads at once (or never, when `stuck`).
+/// A package of `chunks` that downloads at once (or never, when `stuck`);
+/// `cancels` is the user's Cancel arriving as the download ends.
 #[derive(Default)]
 struct FakePackage {
     chunks: Vec<usize>,
     stuck: bool,
     broken: bool,
+    cancels: Option<watch::Sender<Signal>>,
     installed: AtomicBool,
 }
 
@@ -42,6 +44,9 @@ impl Package for FakePackage {
             on_chunk(chunk, Some(total));
         }
         on_downloaded();
+        if let Some(cancel) = &self.cancels {
+            cancel.send_replace(Signal::Cancel);
+        }
         if self.broken {
             return Err(CommandError::new(ErrorCode::Network, "bad signature"));
         }
@@ -167,6 +172,20 @@ fn cancel_while_waiting_installs_nothing() {
         Some(UpdateBlocker::Move)
     };
     let error = run(&package, &out, blocker, rx).unwrap_err();
+
+    assert_eq!(error.bridge().code, ErrorCode::Cancelled);
+    assert!(!package.installed.load(Ordering::SeqCst));
+}
+
+#[test]
+fn cancel_as_the_download_ends_installs_nothing() {
+    let (tx, rx) = watch::channel(Signal::Go);
+    let package = FakePackage {
+        cancels: Some(tx),
+        ..FakePackage::of(&[MB])
+    };
+    let out = Recorder::default();
+    let error = run(&package, &out, || None, rx).unwrap_err();
 
     assert_eq!(error.bridge().code, ErrorCode::Cancelled);
     assert!(!package.installed.load(Ordering::SeqCst));
