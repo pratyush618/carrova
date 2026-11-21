@@ -13,7 +13,11 @@ const request = (id: number): MoveRequestView => ({
 
 const controllers = {
   inbox: { notices: [], markRead: vi.fn() },
-  receive: { start: vi.fn(), reviewRequested: vi.fn() },
+  receive: {
+    state: { session: null as string | null },
+    start: vi.fn(),
+    reviewRequested: vi.fn(),
+  },
   requests: {
     pending: [] as MoveRequestView[],
     review: vi.fn<(id: number) => Promise<string | null>>(() => Promise.resolve('import-1')),
@@ -24,6 +28,7 @@ vi.mock('@/app/controllers/Controllers', () => ({ useControllers: () => controll
 
 beforeEach(() => {
   controllers.requests.pending = [];
+  controllers.receive.state.session = null;
   vi.clearAllMocks();
 });
 
@@ -61,5 +66,16 @@ describe('useBell', () => {
     });
     expect(controllers.receive.reviewRequested).toHaveBeenCalledWith('import-1');
     expect(controllers.receive.start).not.toHaveBeenCalled();
+  });
+
+  it('leaves a running receive alone: the waiting request stays unanswered', () => {
+    controllers.requests.pending = [request(1)];
+    controllers.receive.state.session = 'import-0';
+    const go = vi.fn();
+    const { result } = renderHook(() => useBell(go));
+    result.current.onReview(3);
+    expect(controllers.requests.review).not.toHaveBeenCalled();
+    expect(controllers.receive.start).not.toHaveBeenCalled();
+    expect(go).not.toHaveBeenCalled();
   });
 });
