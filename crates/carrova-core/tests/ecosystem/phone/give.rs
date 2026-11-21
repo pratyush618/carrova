@@ -678,14 +678,15 @@ fn a_laptop_far_behind_is_resynced_once_notes_read_again() {
     let showing = note("k0", "org.example.chat");
     phone.platform.phone().notes = vec![showing.clone()];
     let stalled = laptop.hold.lock().unwrap();
+    // The resync's read of the notes fails: it is tried again, not dropped.
+    // Failing from the start: the resync needs no unstalled laptop (a slow
+    // sender skips the dropped updates unsent), so it may come at any time.
+    phone.platform.phone().notes_fail = true;
     for i in 1..=200 {
         let posted = note(&format!("k{i}"), "org.example.chat");
         phone.platform.script_event(PhoneEvent::NotePosted(posted));
     }
     wait_taken(&phone, "active_notes");
-
-    // The resync's read of the notes fails: it is tried again, not dropped.
-    phone.platform.phone().notes_fail = true;
     let reads = asked(&phone, "active_notes");
     drop(stalled);
     wait_until("the failed resync read", || {
