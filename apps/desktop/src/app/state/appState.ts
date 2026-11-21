@@ -123,7 +123,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'request_arrived':
     case 'request_ended':
     case 'request_answered':
-    case 'expired_dismissed':
+    case 'review_missed':
+    case 'ended_dismissed':
       return { ...state, requests: applyRequests(state.requests, action) };
     case 'dismissed': {
       const rest = Object.entries(state.sessions).filter(([id]) => id !== action.session);

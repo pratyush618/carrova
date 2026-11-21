@@ -2,7 +2,7 @@ import type { View } from '../../app/nav/navMachine';
 import { DevicePage } from '../../screens/devices/DevicePage';
 import { deskPc } from '../../screens/devices/fixtures';
 import { deskPcRequest } from '../../screens/home/fixtures';
-import { ExpiredRequestNote, MoveRequestCard } from '../../screens/home/MoveRequestCard';
+import { EndedRequestNote, MoveRequestCard } from '../../screens/home/MoveRequestCard';
 import { nearbyMap } from '../../screens/nearby/fixtures';
 import { NearbyScreen } from '../../screens/nearby/NearbyScreen';
 import * as fx from '../../screens/send/fixtures';
@@ -104,7 +104,10 @@ export const knownSendScreens: readonly GalleryScreen[] = [
           on={homeOn}
           glance={
             s === 'expired' ? (
-              <ExpiredRequestNote name="Desk PC" onDismiss={() => undefined} />
+              <EndedRequestNote
+                ended={{ name: 'Desk PC', why: 'expired' }}
+                onDismiss={() => undefined}
+              />
             ) : (
               <MoveRequestCard
                 request={deskPcRequest()}

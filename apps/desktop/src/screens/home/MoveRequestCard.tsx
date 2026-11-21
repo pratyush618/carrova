@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import type { EndedRequest } from '../../app/state/requests';
 import type { MoveRequestView } from '../../engine/types';
 import { useFormat } from '../../i18n/useFormat';
 import { Banner, Button } from '../../ui';
@@ -46,12 +47,15 @@ export function MoveRequestCard({
   );
 }
 
-/** A request ran out unanswered (`sendreq:expired`): nothing changed here. */
-export function ExpiredRequestNote({
-  name,
+/**
+ * A request ended unanswered (`sendreq:expired`): it ran out, or ended before
+ * its Review could open. Nothing changed here.
+ */
+export function EndedRequestNote({
+  ended: { name, why },
   onDismiss,
 }: {
-  readonly name: string;
+  readonly ended: EndedRequest;
   readonly onDismiss: () => void;
 }) {
   const { t } = useTranslation();
@@ -59,8 +63,8 @@ export function ExpiredRequestNote({
     <Banner
       tone="accent"
       icon="clock"
-      title={t('request.expired.title', { name })}
-      body={t('request.expired.body')}
+      title={t(`request.${why}.title`, { name })}
+      body={t(`request.${why}.body`)}
       action={
         <Button size="sm" onClick={onDismiss}>
           {t('request.expired.dismiss')}

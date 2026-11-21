@@ -25,11 +25,11 @@ describe('move requests waiting here', () => {
   it('says only that a request expired; other endings leave silently', () => {
     const arrived = run({ type: 'request_arrived', request: request(1) });
     const expired = applyRequests(arrived, { type: 'request_ended', id: 1, why: 'expired' });
-    expect(expired).toEqual({ pending: [], expired: 'Desk PC' });
+    expect(expired).toEqual({ pending: [], ended: { name: 'Desk PC', why: 'expired' } });
     for (const why of ['cancelled', 'superseded', 'lost'] as const) {
       expect(applyRequests(arrived, { type: 'request_ended', id: 1, why })).toEqual(noRequests);
     }
-    expect(applyRequests(expired, { type: 'expired_dismissed' }).expired).toBeNull();
+    expect(applyRequests(expired, { type: 'ended_dismissed' }).ended).toBeNull();
   });
 
   it('drops an answered request at once', () => {

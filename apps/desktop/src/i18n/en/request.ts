@@ -64,6 +64,10 @@ export const request = {
     body: "Requests last 2 minutes. Nothing changed here. Ask them to send again when you're at this computer.",
     dismiss: 'Dismiss',
   },
+  missed: {
+    title: 'The move request from {{name}} ended before Review could open',
+    body: 'Nothing changed here. Ask them to send again if they still want to.',
+  },
   device: {
     group: 'Move your setup',
     what: 'Apps, settings and keys',

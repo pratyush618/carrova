@@ -82,6 +82,19 @@ describe('a move request arriving', () => {
     expect(await screen.findByRole('button', { name: 'Approve and move' })).toBeInTheDocument();
   });
 
+  it('says so when the request ended before Review could open', async () => {
+    const user = userEvent.setup();
+    const { port } = await renderApp({ scenario: 'move-request', returning: true });
+    vi.spyOn(port, 'answerRequest').mockResolvedValue(null);
+    await home();
+    await user.click(await screen.findByRole('button', { name: 'Review' }));
+
+    expect(
+      await screen.findByText('The move request from Desk PC ended before Review could open'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Good to see you again.' })).toBeVisible();
+  });
+
   it('leaves at once when declined', async () => {
     const user = userEvent.setup();
     const { port } = await renderApp({ scenario: 'move-request', returning: true });

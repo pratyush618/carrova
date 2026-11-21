@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { ExpiredRequestNote, MoveRequestCard } from '../../../screens/home/MoveRequestCard';
+import { EndedRequestNote, MoveRequestCard } from '../../../screens/home/MoveRequestCard';
 import { useControllers } from '../../controllers/Controllers';
 import type { NavEvent } from '../../nav/navMachine';
 import { useNav } from '../nav';
@@ -22,7 +22,7 @@ export function useReviewRequest(go: (event: NavEvent) => void): (id: number) =>
   );
 }
 
-/** Home's move requests: each waiting one, and the last that expired. */
+/** Home's move requests: each waiting one, and the last that ended unanswered. */
 export function HomeMoveRequests() {
   const { requests, receive } = useControllers();
   const review = useReviewRequest(useNav().go);
@@ -45,8 +45,8 @@ export function HomeMoveRequests() {
           }}
         />
       ))}
-      {requests.expired !== null && (
-        <ExpiredRequestNote name={requests.expired} onDismiss={requests.dismissExpired} />
+      {requests.ended !== null && (
+        <EndedRequestNote ended={requests.ended} onDismiss={requests.dismissEnded} />
       )}
     </>
   );
