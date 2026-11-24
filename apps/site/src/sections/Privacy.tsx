@@ -1,5 +1,7 @@
 import type { IconName } from '../../../desktop/src/ui/Icon/icons';
 import { Icon } from '../Icon';
+import { LiveFrame } from '../LiveFrame';
+import { Shot } from '../Shot';
 
 const FACTS: readonly { icon: IconName; lead: string; body: string }[] = [
   {
@@ -32,6 +34,21 @@ export function Privacy() {
         <br />
         <span className="dim">Not by promise.</span>
       </h2>
+      <div className="window privacy-live">
+        <LiveFrame
+          scene="linked"
+          title="Two computers linked, with encrypted traffic crossing between them"
+          decorative
+          playOnView
+        />
+      </div>
+      <div className="window privacy-shot">
+        <Shot
+          name="linked"
+          sizes="(min-width: 1360px) 1200px, calc(100vw - 32px)"
+          alt="Linked. Only ezio-thinkpad-new can read this. Both computers proved they know the code without sending it, and everything from here on is encrypted end to end."
+        />
+      </div>
       <ul className="facts">
         {FACTS.map((f) => (
           <li key={f.lead}>

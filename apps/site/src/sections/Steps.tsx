@@ -1,37 +1,46 @@
 import { useEffect, useRef, useState } from 'react';
-import { doneShot, reviewShot, sendShot } from '../shots';
+import { LiveFrame } from '../LiveFrame';
+import { Shot, type ShotName } from '../Shot';
 
-const STEPS = [
+const STEPS: readonly { title: string; body: string; shot: ShotName; alt: string }[] = [
   {
     title: 'Pick what moves.',
-    body: 'On your old computer, Carrova finds your apps and suggests what to bring. Change any of it. Then it shows a short pairing code.',
-    shot: sendShot,
-    alt: 'Send screen: a list of found apps, each with a checkbox and its size.',
+    body: 'On your old computer, Carrova finds your apps and suggests what to bring. Keys and saved logins start off until you include them.',
+    shot: 'send',
+    alt: 'Here’s what we found: 5 apps on this computer, with SSH keys, GnuPG keys and Git credentials off until you include them.',
   },
   {
-    title: 'See the plan first.',
-    body: 'Type the code on your new computer. Before anything is written, you see what will be added, what will be replaced and backed up, and the space it needs.',
-    shot: reviewShot,
-    alt: 'Review screen: new files, replaced files with backups, and space needed, with an Approve button.',
+    title: 'Type three words.',
+    body: 'Your old computer shows a short code. Type it on the new one and the two pair privately. The code itself never crosses the network.',
+    shot: 'code',
+    alt: 'Type this on the other computer: the code 7-zebra-lemon, waiting for the other computer.',
   },
   {
     title: 'Arrive.',
     body: 'Your settings land in place. Carrova lists the apps to install, and they open already set up the way you left them.',
-    shot: doneShot,
-    alt: 'Done screen: the move is complete, with the apps to install listed.',
+    shot: 'done',
+    alt: 'Everything arrived: 6 apps in place, with VS Code and tmux left to install.',
   },
-] as const;
+];
+
+/** The step whose stage is the live pairing, not a screenshot. */
+const PAIR = 1;
 
 /** Text scrolls by while the screenshot stays put and follows the step in view. */
 export function Steps() {
   const [active, setActive] = useState(0);
+  // Each time the pairing step comes into view, the live code plays again.
+  const [pairPlays, setPairPlays] = useState(0);
   const refs = useRef<(HTMLElement | null)[]>([]);
 
   useEffect(() => {
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          if (e.isIntersecting) setActive(Number((e.target as HTMLElement).dataset['step']));
+          if (!e.isIntersecting) continue;
+          const step = Number((e.target as HTMLElement).dataset['step']);
+          setActive(step);
+          if (step === PAIR) setPairPlays((n) => n + 1);
         }
       },
       { rootMargin: '-45% 0px -45% 0px' },
@@ -61,7 +70,7 @@ export function Steps() {
               <h3>{s.title}</h3>
               <p>{s.body}</p>
               <div className="window steps-inline">
-                <img src={s.shot} width="2200" height="1440" loading="lazy" alt={s.alt} />
+                <Shot name={s.shot} sizes="calc(100vw - 32px)" alt={s.alt} />
               </div>
             </li>
           ))}
@@ -69,15 +78,18 @@ export function Steps() {
         <div className="steps-stage" aria-hidden="true">
           <div className="window">
             {STEPS.map((s, i) => (
-              <img
-                key={s.title}
-                src={s.shot}
-                width="2200"
-                height="1440"
-                loading="lazy"
-                alt=""
-                className={i === active ? 'is-active' : undefined}
-              />
+              <div key={s.title} className={i === active ? 'stage-layer is-active' : 'stage-layer'}>
+                {i === PAIR ? (
+                  <LiveFrame
+                    scene="pair"
+                    title="Carrova pairing, live"
+                    play={pairPlays}
+                    decorative
+                  />
+                ) : (
+                  <Shot name={s.shot} sizes="(min-width: 1360px) 760px, 58vw" alt="" />
+                )}
+              </div>
             ))}
           </div>
         </div>

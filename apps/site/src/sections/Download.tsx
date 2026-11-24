@@ -14,7 +14,7 @@ export function Download({ release }: { readonly release: Release | undefined })
         Get Carrova.
       </h2>
       <p className="section-sub">
-        Free, on both computers. {release && <span className="mono">{release.version}</span>}
+        Free, on both computers. {release && `Version ${release.version.replace(/^v/, '')}.`}
       </p>
       <ul className="platforms">
         {ordered.map((p) => (
