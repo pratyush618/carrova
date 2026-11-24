@@ -54,7 +54,7 @@ jni = "0.21.1"
 jsonschema = { version = "0.61", default-features = false }
 # Windows Known Folder API (semantic roots), safe wrapper (carrova-platform only).
 known-folders = "1.4.2"
-mdns-sd = { version = "0.21.7", default-features = false }
+mdns-sd = { version = "0.22.0", default-features = false }
 # Android JavaVM + app context, set by tao's activity or by `android/jni.rs`.
 ndk-context = "0.1.1"
 # Directory watch on macOS (FSEvents) and Windows (ReadDirectoryChangesW); carrova-platform only.
