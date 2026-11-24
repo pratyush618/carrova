@@ -8,7 +8,11 @@ on:
       - apps/site/**
       - apps/desktop/src/ui/Icon/icons.ts
       - docs/screenshots/**
+      - package.json
       - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - justfile
+      - .github/actions/setup/**
       - .github/workflows/pages.yml
   workflow_dispatch:
 
