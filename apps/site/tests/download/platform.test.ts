@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { detectOs, fileUrl, PLATFORMS, RELEASES_URL } from '../../src/download/platform';
+import {
+  detectArch,
+  detectOs,
+  fileUrl,
+  PLATFORMS,
+  primaryFile,
+  RELEASES_URL,
+} from '../../src/download/platform';
 
 describe('detectOs', () => {
   it.each([
@@ -32,5 +39,30 @@ describe('fileUrl', () => {
 
   it('falls back to the releases page for unknown assets', () => {
     expect(fileUrl([], { label: '.dmg', suffix: '_universal.dmg' })).toBe(RELEASES_URL);
+  });
+});
+
+describe('primaryFile', () => {
+  const linux = PLATFORMS.find((p) => p.os === 'linux');
+  const mac = PLATFORMS.find((p) => p.os === 'mac');
+
+  it('picks the arm64 AppImage for Linux aarch64 visitors', () => {
+    const arch = detectArch('Mozilla/5.0 (X11; Linux aarch64) AppleWebKit/537.36 Chrome/131');
+    expect(linux && primaryFile(linux, arch)?.suffix).toBe('_aarch64.AppImage');
+  });
+
+  it('keeps the amd64 AppImage for Linux x86_64 visitors', () => {
+    const arch = detectArch('Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Firefox/140.0');
+    expect(linux && primaryFile(linux, arch)?.suffix).toBe('_amd64.AppImage');
+  });
+
+  it('offers no single Linux file when the architecture is unknown', () => {
+    expect(linux && primaryFile(linux, detectArch('Mozilla/5.0 (X11; Linux) Firefox/140.0'))).toBe(
+      undefined,
+    );
+  });
+
+  it('ignores architecture on platforms with one build', () => {
+    expect(mac && primaryFile(mac, undefined)?.suffix).toBe('_universal.dmg');
   });
 });

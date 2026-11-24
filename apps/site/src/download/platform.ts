@@ -1,4 +1,5 @@
 export type Os = 'linux' | 'windows' | 'mac' | 'android';
+export type Arch = 'x64' | 'arm64';
 
 export interface ReleaseAsset {
   readonly name: string;
@@ -74,6 +75,26 @@ export function detectOs(userAgent: string, platform = ''): Os | undefined {
   if (s.includes('mac')) return 'mac';
   if (/linux|x11|cros/.test(s)) return 'linux';
   return undefined;
+}
+
+/**
+ * CPU architecture from the user agent, when it says.
+ * shortcut: Chrome's reduced UA reports "Linux x86_64" on every Linux; read
+ * `userAgentData.getHighEntropyValues(['architecture'])` if ARM Chrome users get the wrong file.
+ */
+export function detectArch(userAgent: string, platform = ''): Arch | undefined {
+  const s = `${platform} ${userAgent}`.toLowerCase();
+  if (/aarch64|arm64|armv8/.test(s)) return 'arm64';
+  if (/x86_64|amd64|x64|win64|wow64/.test(s)) return 'x64';
+  return undefined;
+}
+
+/** The one file to offer first. Linux ships per architecture, so unknown arch means let the visitor pick. */
+export function primaryFile(platform: Platform, arch: Arch | undefined): DownloadFile | undefined {
+  if (platform.os !== 'linux') return platform.files[0];
+  if (arch === undefined) return undefined;
+  const suffix = arch === 'arm64' ? '_aarch64.AppImage' : '_amd64.AppImage';
+  return platform.files.find((f) => f.suffix === suffix);
 }
 
 /** Direct download URL for a file, or the releases page when the asset isn't known. */
