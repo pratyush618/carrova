@@ -168,6 +168,10 @@ site-dev:
 site-build:
     pnpm --filter site build
 
+# Recapture the site's product shots from the desktop gallery (light + dark WebP)
+site-shots:
+    pnpm --filter site shots
+
 # Tauri CLI passthrough (CI's tauri-action calls `just tauri build`)
 tauri *args:
     pnpm --filter desktop tauri {{args}}
