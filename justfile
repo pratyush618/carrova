@@ -152,10 +152,21 @@ ui-lint:
     pnpm --filter desktop exec prettier --check .
     pnpm --filter desktop exec tsc -b
     pnpm --filter desktop-e2e-app typecheck
+    pnpm --filter site exec eslint . --max-warnings 0
+    pnpm --filter site exec prettier --check .
+    pnpm --filter site exec tsc -b
 
 # Front-end unit tests (Vitest, jsdom)
 ui-test:
     pnpm --filter desktop exec vitest run
+    pnpm --filter site exec vitest run
+
+# Website (apps/site): live dev server, and the static build GitHub Pages serves
+site-dev:
+    pnpm --filter site dev
+
+site-build:
+    pnpm --filter site build
 
 # Tauri CLI passthrough (CI's tauri-action calls `just tauri build`)
 tauri *args:

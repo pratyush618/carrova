@@ -1,3 +1,4 @@
 packages:
   - apps/desktop
   - apps/desktop/e2e-app
+  - apps/site
