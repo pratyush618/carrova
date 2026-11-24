@@ -77,15 +77,18 @@ export function detectOs(userAgent: string, platform = ''): Os | undefined {
   return undefined;
 }
 
-/**
- * CPU architecture from the user agent, when it says.
- * shortcut: Chrome's reduced UA reports "Linux x86_64" on every Linux; read
- * `userAgentData.getHighEntropyValues(['architecture'])` if ARM Chrome users get the wrong file.
- */
+/** CPU architecture from the user agent string. Not trusted on Chromium: see `useVisitorArch`. */
 export function detectArch(userAgent: string, platform = ''): Arch | undefined {
   const s = `${platform} ${userAgent}`.toLowerCase();
   if (/aarch64|arm64|armv8/.test(s)) return 'arm64';
   if (/x86_64|amd64|x64|win64|wow64/.test(s)) return 'x64';
+  return undefined;
+}
+
+/** Architecture from User-Agent Client Hints (`"arm"` or `"x86"`). */
+export function archFromHints(architecture: string): Arch | undefined {
+  if (architecture === 'arm') return 'arm64';
+  if (architecture === 'x86') return 'x64';
   return undefined;
 }
 

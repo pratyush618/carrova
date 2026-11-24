@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  archFromHints,
   detectArch,
   detectOs,
   fileUrl,
@@ -64,5 +65,15 @@ describe('primaryFile', () => {
 
   it('ignores architecture on platforms with one build', () => {
     expect(mac && primaryFile(mac, undefined)?.suffix).toBe('_universal.dmg');
+  });
+});
+
+describe('archFromHints', () => {
+  it.each([
+    ['arm', 'arm64'],
+    ['x86', 'x64'],
+    ['', undefined],
+  ])('%s → %s', (hint, arch) => {
+    expect(archFromHints(hint)).toBe(arch);
   });
 });
