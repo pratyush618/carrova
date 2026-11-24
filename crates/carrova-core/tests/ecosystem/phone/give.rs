@@ -664,9 +664,11 @@ fn a_laptop_far_behind_is_resynced() {
     wait_until("the resync", || laptop.got().last() == Some(&resync));
     // What was queued before it fell behind is dropped, not sent late
     // (one note may have been on its way already); the resync also says
-    // access is held.
+    // access is held. Notes posted after the resync are sent: it may come
+    // before the stall ends, once the dropped updates left the queue.
     let got = laptop.got();
-    assert!(got.len() <= 4, "{} updates", got.len());
+    let at = got.iter().position(|g| *g == resync).unwrap();
+    assert!(at <= 3, "{at} updates before the resync");
     assert_eq!(got[0], first[0]);
 }
 
@@ -678,14 +680,15 @@ fn a_laptop_far_behind_is_resynced_once_notes_read_again() {
     let showing = note("k0", "org.example.chat");
     phone.platform.phone().notes = vec![showing.clone()];
     let stalled = laptop.hold.lock().unwrap();
+    // The resync's read of the notes fails: it is tried again, not dropped.
+    // Failing from the start: the resync needs no unstalled laptop (a slow
+    // sender skips the dropped updates unsent), so it may come at any time.
+    phone.platform.phone().notes_fail = true;
     for i in 1..=200 {
         let posted = note(&format!("k{i}"), "org.example.chat");
         phone.platform.script_event(PhoneEvent::NotePosted(posted));
     }
     wait_taken(&phone, "active_notes");
-
-    // The resync's read of the notes fails: it is tried again, not dropped.
-    phone.platform.phone().notes_fail = true;
     let reads = asked(&phone, "active_notes");
     drop(stalled);
     wait_until("the failed resync read", || {
