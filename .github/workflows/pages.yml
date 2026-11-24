@@ -6,7 +6,7 @@ on:
     branches: [main]
     paths:
       - apps/site/**
-      - apps/desktop/src/ui/Icon/icons.ts
+      - apps/desktop/src/**
       - docs/screenshots/**
       - package.json
       - pnpm-lock.yaml
