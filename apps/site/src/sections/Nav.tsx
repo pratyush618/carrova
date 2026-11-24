@@ -1,3 +1,5 @@
+import { ThemeSwitch } from '../ThemeSwitch';
+
 export function Nav() {
   return (
     <header className="nav">
@@ -12,6 +14,7 @@ export function Nav() {
           <a href="#phone">Phone</a>
           <a href="https://github.com/pratyush618/carrova">GitHub</a>
         </nav>
+        <ThemeSwitch />
         <a className="btn btn-sm" href="#download">
           Download
         </a>

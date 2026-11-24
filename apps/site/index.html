@@ -3,8 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#0D0E11" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FFFFFF" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0D0E11" />
+    <script>
+      // Before first paint, so a saved theme never flashes the other one (see src/theme.ts).
+      try {
+        var p = localStorage.getItem('carrova-theme');
+      } catch (e) {}
+      document.documentElement.dataset.theme =
+        p === 'light' || p === 'dark'
+          ? p
+          : matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light';
+    </script>
     <title>Carrova: your setup, on your new computer</title>
     <meta
       name="description"
