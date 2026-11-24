@@ -1,0 +1,660 @@
+/* The live demo page: app tokens only (virtual:carrova-tokens.css). Each scene
+   is drawn at 1100×720 and scaled by the site page that frames it. */
+html,
+body,
+#root {
+  inline-size: 1100px;
+  block-size: 720px;
+  overflow: hidden;
+}
+
+body {
+  background: transparent;
+}
+
+.live-window {
+  inline-size: 1100px;
+  block-size: 720px;
+}
+
+/* ---------- Phone scene ---------- */
+
+.scene-phone {
+  --px: 0;
+  --py: 0;
+  position: relative;
+  block-size: 100%;
+}
+
+/* Three planes: the computer's desktop behind, Carrova's pop-ups floating
+   out over its edge, the phone in front. Each follows the pointer by its depth. */
+.desk,
+.layer-float,
+.phone {
+  position: absolute;
+  transform: translate3d(
+    calc(var(--px) * var(--depth) * 16px),
+    calc(var(--py) * var(--depth) * 10px),
+    0
+  );
+  transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The computer's desktop: Carrova's small windows land here. */
+.desk {
+  --depth: -0.5;
+  inset-inline-start: 24px;
+  inset-block-start: 56px;
+  inline-size: 760px;
+  block-size: 590px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 90% at 30% 0%, var(--accent-soft), transparent 60%), var(--surface-1);
+  box-shadow:
+    0 0 0 1px var(--border),
+    var(--e-2);
+}
+
+.layer-float {
+  --depth: 0.6;
+  z-index: 2;
+  inset-inline-start: 300px;
+  inset-block-start: 18px;
+}
+
+.phone {
+  --depth: 1.2;
+  z-index: 3;
+  inset-inline-end: 64px;
+  inset-block-start: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desk,
+  .layer-float,
+  .phone {
+    transition: none;
+  }
+}
+
+.desk__screen {
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.desk__screen img {
+  display: block;
+  inline-size: 100%;
+}
+
+:root:not([data-theme='dark']) .desk__screen [data-scheme='dark'],
+:root[data-theme='dark'] .desk__screen [data-scheme='light'] {
+  display: none;
+}
+
+.desk__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+
+.desk__popups {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.popup {
+  inline-size: 380px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--surface-3);
+  box-shadow:
+    0 0 0 1px var(--border-strong),
+    0 24px 48px -16px rgb(0 0 0 / 0.45),
+    var(--e-3);
+}
+
+.popup--in {
+  animation: popup-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.97);
+  }
+}
+
+.desk__try {
+  align-self: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* A phone: 9:19.5 glass slab, thin bezel, punch-hole camera. */
+.phone {
+  inline-size: 320px;
+  block-size: 660px;
+  padding: 10px;
+  border-radius: 48px;
+  background: #16181d;
+  box-shadow:
+    inset 0 0 0 1.5px #3a3e47,
+    inset 0 0 0 4px #0b0c0f,
+    0 20px 32px -16px rgb(0 0 0 / 0.5),
+    0 8px 16px -8px rgb(0 0 0 / 0.35);
+}
+
+.phone::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 22px;
+  inset-inline-start: 50%;
+  inline-size: 12px;
+  block-size: 12px;
+  border-radius: 50%;
+  background: #050506;
+  box-shadow: inset 0 0 0 2px #1d2026;
+  transform: translateX(-50%);
+}
+
+.phone__screen {
+  position: relative;
+  display: grid;
+  grid-template-rows: 36px 1fr;
+  block-size: 100%;
+  overflow: hidden;
+  border-radius: 38px;
+  background: var(--surface-1);
+}
+
+.phone-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 26px 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.phone-status__icons {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.phone-status svg {
+  block-size: 11px;
+  inline-size: auto;
+  fill: currentColor;
+}
+
+.phone__app {
+  min-block-size: 0;
+}
+
+.phone__app .m-app {
+  block-size: 100%;
+}
+
+/* Android's own heads-up notification, over whatever the phone shows. */
+.heads-up {
+  position: absolute;
+  inset-block-start: 40px;
+  inset-inline: 10px;
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 20px;
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  font-size: 13px;
+  box-shadow:
+    0 0 0 1px var(--border),
+    var(--e-3);
+  animation: drop-in 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.heads-up__app {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.heads-up__title {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+@keyframes drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-120%);
+  }
+}
+
+.phone-pill {
+  position: absolute;
+  inset-block-start: 40px;
+  inset-inline-start: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--success);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.phone-pill .p-icon,
+.phone-pill svg {
+  inline-size: 14px;
+  block-size: 14px;
+}
+
+/* Android's full-screen incoming call and Carrova's Ring, drawn simply. */
+.phone-call,
+.phone-ring {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 96px 24px 56px;
+  background: linear-gradient(180deg, #1b2050, #0d0e11 70%);
+  color: #b6bac3;
+  font-size: 14px;
+  text-align: center;
+  animation: fade-up 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.phone-call__who {
+  color: #edeef1;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.phone-call__avatar {
+  display: grid;
+  place-items: center;
+  inline-size: 112px;
+  block-size: 112px;
+  margin-block: 40px auto;
+  border-radius: 50%;
+  background: #5361f0;
+  color: #fff;
+  font-size: 36px;
+  font-weight: 700;
+  animation: halo 1.6s ease-out infinite;
+}
+
+.phone-call__actions {
+  display: flex;
+  gap: 96px;
+}
+
+.round {
+  display: grid;
+  place-items: center;
+  inline-size: 64px;
+  block-size: 64px;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+}
+
+.round svg {
+  inline-size: 26px;
+  block-size: 26px;
+}
+
+.round--yes {
+  background: #1f9d6a;
+}
+
+.round--no {
+  background: #d9483b;
+}
+
+.round:focus-visible,
+.phone-ring__stop:focus-visible {
+  outline: 2px solid #a3adff;
+  outline-offset: 3px;
+}
+
+.phone-ring__bell {
+  display: grid;
+  place-items: center;
+  inline-size: 120px;
+  block-size: 120px;
+  margin-block: 24px 32px;
+  border-radius: 50%;
+  background: #f2b84b;
+  color: #2f230c;
+  animation:
+    halo-warm 1.2s ease-out infinite,
+    shake 0.5s ease-in-out infinite;
+}
+
+.phone-ring__bell svg {
+  inline-size: 52px;
+  block-size: 52px;
+}
+
+.phone-ring__stop {
+  margin-block-start: auto;
+  padding: 14px 40px;
+  border: 0;
+  border-radius: 999px;
+  background: #edeef1;
+  color: #15181d;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+@keyframes halo {
+  from {
+    box-shadow: 0 0 0 0 rgb(83 97 240 / 0.55);
+  }
+  to {
+    box-shadow: 0 0 0 32px rgb(83 97 240 / 0);
+  }
+}
+
+@keyframes halo-warm {
+  from {
+    box-shadow: 0 0 0 0 rgb(242 184 75 / 0.6);
+  }
+  to {
+    box-shadow: 0 0 0 36px rgb(242 184 75 / 0);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-9deg);
+  }
+  75% {
+    transform: rotate(9deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup--in,
+  .heads-up,
+  .phone-call,
+  .phone-ring,
+  .phone-call__avatar,
+  .phone-ring__bell {
+    animation: none;
+  }
+}
+
+/* ---------- Nearby scene: the map, alive ---------- */
+/* Demo-only layers over the app's real map: waves keep leaving this computer,
+   devices arrive one by one, and away ones drift on the edge of reach. */
+
+.live-nearby .s-near__me-disc {
+  position: relative;
+}
+
+.live-nearby .s-near__me-disc::before,
+.live-nearby .s-near__me-disc::after,
+.live-nearby .s-near__me::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 32px;
+  inset-inline-start: 50%;
+  z-index: -1;
+  inline-size: 64px;
+  block-size: 64px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  translate: -50% -50%;
+  pointer-events: none;
+  animation: wave 4.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+
+.live-nearby .s-near__me-disc::before,
+.live-nearby .s-near__me-disc::after {
+  inset-block-start: 50%;
+}
+
+.live-nearby .s-near__me-disc::after {
+  animation-delay: 1.4s;
+}
+
+.live-nearby .s-near__me::before {
+  animation-delay: 2.8s;
+}
+
+@keyframes wave {
+  0% {
+    opacity: 0.55;
+    inline-size: 64px;
+    block-size: 64px;
+  }
+  100% {
+    opacity: 0;
+    inline-size: 760px;
+    block-size: 760px;
+  }
+}
+
+/* A slow sweep of light around the field, like a radar finding things. */
+.live-nearby .s-near__field::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-start: var(--cy);
+  inline-size: 1300px;
+  block-size: 1300px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    color-mix(in oklab, var(--accent) 14%, transparent) 40deg,
+    transparent 62deg
+  );
+  translate: -50% -50%;
+  pointer-events: none;
+  animation: sweep 7s linear infinite;
+}
+
+@keyframes sweep {
+  to {
+    rotate: 1turn;
+  }
+}
+
+/* Each device is found in turn. */
+.live-nearby .s-near__devs .s-near__spot {
+  animation: found 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.live-nearby .s-near__devs .s-near__spot:nth-child(1) {
+  animation-delay: 0.5s;
+}
+.live-nearby .s-near__devs .s-near__spot:nth-child(2) {
+  animation-delay: 1.1s;
+}
+.live-nearby .s-near__devs .s-near__spot:nth-child(3) {
+  animation-delay: 1.7s;
+}
+.live-nearby .s-near__devs .s-near__spot:nth-child(4) {
+  animation-delay: 2.3s;
+}
+.live-nearby .s-near__devs .s-near__spot:nth-child(5) {
+  animation-delay: 2.9s;
+}
+.live-nearby .s-near__devs .s-near__spot:nth-child(6) {
+  animation-delay: 3.5s;
+}
+
+@keyframes found {
+  from {
+    opacity: 0;
+    scale: 0.6;
+    filter: blur(4px);
+  }
+}
+
+/* Away: at the edge of reach, fading in and out. */
+.live-nearby .s-near__dev--away {
+  animation: drift 3.6s ease-in-out 4s infinite;
+}
+
+@keyframes drift {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-nearby .s-near__me-disc::before,
+  .live-nearby .s-near__me-disc::after,
+  .live-nearby .s-near__me::before,
+  .live-nearby .s-near__field::after,
+  .live-nearby .s-near__devs .s-near__spot,
+  .live-nearby .s-near__dev--away {
+    animation: none;
+  }
+
+  .live-nearby .s-near__me-disc::before,
+  .live-nearby .s-near__me-disc::after,
+  .live-nearby .s-near__me::before,
+  .live-nearby .s-near__field::after {
+    display: none;
+  }
+}
+
+/* ---------- Linked scene: traffic on the wire ---------- */
+/* After the app's own handshake (wire draws, lock clicks at ~1.4s), encrypted
+   packets keep crossing both ways and the lock glows as each one passes. */
+
+.live-linked .p-handshake__wire::before,
+.live-linked .p-handshake__wire::after {
+  content: '';
+  position: absolute;
+  inset-block-start: calc(50% - 3px);
+  inline-size: 22px;
+  block-size: 6px;
+  border-radius: 3px;
+  background: var(--success);
+  box-shadow: 0 0 12px 2px color-mix(in oklab, var(--success) 60%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  animation: packet-right 1.8s cubic-bezier(0.45, 0, 0.55, 1) 1.8s infinite;
+}
+
+.live-linked .p-handshake__wire::after {
+  animation-name: packet-left;
+  animation-delay: 2.7s;
+}
+
+@keyframes packet-right {
+  0% {
+    inset-inline-start: 0;
+    opacity: 0;
+  }
+  12%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    inset-inline-start: calc(100% - 22px);
+    opacity: 0;
+  }
+}
+
+@keyframes packet-left {
+  0% {
+    inset-inline-start: calc(100% - 22px);
+    opacity: 0;
+  }
+  12%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    inset-inline-start: 0;
+    opacity: 0;
+  }
+}
+
+.live-linked .p-handshake--linked .p-handshake__lock {
+  animation:
+    p-hs-pop var(--dur-3) var(--ease-spring) 0.9s both,
+    lock-glow 0.9s ease-out 2.25s infinite;
+}
+
+@keyframes lock-glow {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--success) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 14px color-mix(in oklab, var(--success) 0%, transparent);
+  }
+}
+
+/* Each computer's screen lights up as a packet lands on it. */
+.live-linked .p-handshake__screen {
+  animation: landed 1.8s ease-out 1.8s infinite;
+}
+
+.live-linked .p-handshake__device:first-child .p-handshake__screen {
+  animation-delay: 2.7s;
+}
+
+@keyframes landed {
+  0%,
+  85% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  95% {
+    box-shadow: 0 0 18px 2px color-mix(in oklab, var(--success) 40%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-linked .p-handshake__wire::before,
+  .live-linked .p-handshake__wire::after {
+    display: none;
+  }
+
+  .live-linked .p-handshake__screen,
+  .live-linked .p-handshake--linked .p-handshake__lock {
+    animation: none;
+  }
+}
