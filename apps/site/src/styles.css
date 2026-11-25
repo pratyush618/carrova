@@ -1342,7 +1342,7 @@ span.try-still {
 }
 
 /* Too small to use: the still shots stand in. */
-@media (min-width: 761px) {
+@media (width > 760px) {
   .try-still,
   .nearby-shot,
   .privacy-shot,
