@@ -82,16 +82,16 @@ export function movingAt(share: number, skipped: readonly string[] = []): Receiv
   };
 }
 
-/** The receipt for a move without `skipped` apps. */
+/** The receipt for a move without `skipped` apps: the same apps the transfer carried. */
 export function arrivedWithout(skipped: readonly string[]): ArrivedModel {
-  const kept = (name: string) => !skipped.includes(name);
-  const bytes = APP_ORDER.filter((a) => kept(a.name)).reduce((sum, a) => sum + a.bytes, 0);
+  const carried = APP_ORDER.filter((a) => !skipped.includes(a.name));
+  const names = carried.map((a) => a.name);
   return {
     ...fx.arrivedAll,
-    moved: fx.arrivedAll.moved.filter(kept),
-    appsTotal: fx.arrivedAll.appsTotal - skipped.length,
-    toInstall: fx.arrivedAll.toInstall.filter(kept),
-    bytes,
+    moved: names,
+    appsTotal: names.length,
+    toInstall: fx.arrivedAll.toInstall.filter((name) => names.includes(name)),
+    bytes: carried.reduce((sum, a) => sum + a.bytes, 0),
   };
 }
 

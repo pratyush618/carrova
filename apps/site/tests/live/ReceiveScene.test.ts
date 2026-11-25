@@ -73,3 +73,17 @@ describe('a skipped app', () => {
     expect(arrivedWithout([]).moved).toContain('VS Code');
   });
 });
+
+describe('the receipt', () => {
+  for (const skipped of [[], ['VS Code']]) {
+    it(`lists exactly the apps the move carried (skipped: ${skipped.join(', ') || 'none'})`, () => {
+      const m = movingAt(0.5, skipped);
+      if (m.status !== 'transfer') throw new Error('expected a transfer');
+      const carried = m.transfer.apps.map((a) => a.name);
+      const receipt = arrivedWithout(skipped);
+      expect(receipt.moved).toEqual(carried);
+      expect(receipt.appsTotal).toBe(carried.length);
+      expect(receipt.toInstall.every((name) => carried.includes(name))).toBe(true);
+    });
+  }
+});
