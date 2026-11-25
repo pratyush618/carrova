@@ -549,11 +549,12 @@ main > .hero {
   --y: 0.274;
 }
 
+/* Whole stamp: it spans y 0.125–0.303 of the shot. */
 .crop-done {
-  aspect-ratio: 632 / 128;
+  aspect-ratio: 632 / 162;
   --zoom: 1.74;
   --x: 0.025;
-  --y: 0.108;
+  --y: 0.1;
 }
 
 /* The close-ups land one after another once the page is up. */
