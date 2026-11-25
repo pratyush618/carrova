@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { movingAt, reviewWith } from '../../src/live/ReceiveScene';
+import { arrivedWithout, movingAt, reviewWith, skippedApps } from '../../src/live/ReceiveScene';
 import { reviewDecide } from '../../../desktop/src/screens/receive/fixtures';
 import type { DecisionModel } from '../../../desktop/src/screens/receive/model';
 
@@ -47,5 +47,29 @@ describe('movingAt', () => {
 
   it('moves into putting things in place once everything has arrived', () => {
     expect(apps(1).phase).toBe('applying');
+  });
+});
+
+describe('a skipped app', () => {
+  const skip = answered({ 'ssh/keys': 'bring', 'gpg/secret-keys': 'leave', vscode: 'skip' });
+  const close = answered({ 'ssh/keys': 'bring', 'gpg/secret-keys': 'leave', vscode: 'closed' });
+
+  it('is skipped only when the visitor says skip', () => {
+    expect(skippedApps(skip)).toEqual(['VS Code']);
+    expect(skippedApps(close)).toEqual([]);
+  });
+
+  it('never moves, and is left off the receipt', () => {
+    const names = (share: number) => {
+      const m = movingAt(share, ['VS Code']);
+      if (m.status !== 'transfer') throw new Error('expected a transfer');
+      return m.transfer.apps.map((a) => a.name);
+    };
+    expect(names(0.5)).not.toContain('VS Code');
+    expect(names(1)).not.toContain('VS Code');
+    const receipt = arrivedWithout(['VS Code']);
+    expect(receipt.moved).not.toContain('VS Code');
+    expect(receipt.toInstall).not.toContain('VS Code');
+    expect(arrivedWithout([]).moved).toContain('VS Code');
   });
 });

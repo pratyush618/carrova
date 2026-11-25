@@ -4,11 +4,12 @@ import { RecvProgressScreen } from '../../../desktop/src/screens/receive/RecvPro
 import { RecvReviewScreen } from '../../../desktop/src/screens/receive/RecvReviewScreen';
 import * as fx from '../../../desktop/src/screens/receive/fixtures';
 import type {
+  ArrivedModel,
   DecisionModel,
   ReceiveProgressModel,
   ReviewModel,
 } from '../../../desktop/src/screens/receive/model';
-import { APP_ORDER, MB, TOTAL_BYTES } from '../../../desktop/src/screens/shared/fixtures';
+import { APP_ORDER, MB } from '../../../desktop/src/screens/shared/fixtures';
 import type { TransferApp } from '../../../desktop/src/screens/shared/transfer';
 import { transferAt } from '../../../desktop/src/screens/shared/transferFixtures';
 import { AppWindow, flowAt } from './AppWindow';
@@ -39,32 +40,58 @@ export function reviewWith(decisions: readonly DecisionModel[]): ReviewModel {
   };
 }
 
-/** The transfer `share` (0–1) of the way through: apps arrive in order, by size. */
-export function movingAt(share: number): ReceiveProgressModel {
-  const total = APP_ORDER.reduce((sum, a) => sum + a.bytes, 0);
+/** Apps the visitor chose to skip ("Skip VS Code"), by name. */
+export function skippedApps(decisions: readonly DecisionModel[]): string[] {
+  return decisions.flatMap((d) => (d.kind === 'app-running' && d.answer === 'skip' ? [d.app] : []));
+}
+
+/** The transfer `share` (0–1) of the way through, without `skipped` apps: they arrive in order, by size. */
+export function movingAt(share: number, skipped: readonly string[] = []): ReceiveProgressModel {
+  const order = APP_ORDER.filter((a) => !skipped.includes(a.name));
+  const total = order.reduce((sum, a) => sum + a.bytes, 0);
   const arrived = share * total;
   let before = 0;
-  const apps: TransferApp[] = APP_ORDER.map((app) => {
+  const apps: TransferApp[] = order.map((app) => {
     const start = before;
     before += app.bytes;
     if (arrived >= before) return { ...app, state: 'done', bytesDone: 0 };
     if (arrived > start) return { ...app, state: 'moving', bytesDone: arrived - start };
     return { ...app, state: 'waiting', bytesDone: 0 };
   });
-  const applying = share >= 1;
+  const applying = transferAt('applying', 'receive');
   return {
     status: 'transfer',
-    transfer: applying
-      ? transferAt('applying', 'receive')
-      : {
-          ...transferAt('moving', 'receive'),
-          done: share * TOTAL_BYTES,
-          secondsLeft: Math.max(1, Math.round((1 - share) * PRETEND_SECONDS)),
-          bytesPerSecond: 10 * MB,
-          apps,
-        },
+    transfer:
+      share >= 1
+        ? {
+            ...applying,
+            done: total,
+            total,
+            apps: applying.apps.filter((a) => !skipped.includes(a.name)),
+          }
+        : {
+            ...transferAt('moving', 'receive'),
+            done: arrived,
+            total,
+            secondsLeft: Math.max(1, Math.round((1 - share) * PRETEND_SECONDS)),
+            bytesPerSecond: 10 * MB,
+            apps,
+          },
     resuming: false,
     resumeError: null,
+  };
+}
+
+/** The receipt for a move without `skipped` apps. */
+export function arrivedWithout(skipped: readonly string[]): ArrivedModel {
+  const kept = (name: string) => !skipped.includes(name);
+  const bytes = APP_ORDER.filter((a) => kept(a.name)).reduce((sum, a) => sum + a.bytes, 0);
+  return {
+    ...fx.arrivedAll,
+    moved: fx.arrivedAll.moved.filter(kept),
+    appsTotal: fx.arrivedAll.appsTotal - skipped.length,
+    toInstall: fx.arrivedAll.toInstall.filter(kept),
+    bytes,
   };
 }
 
@@ -109,7 +136,10 @@ export function ReceiveScene() {
   if (stage.at === 'done') {
     return (
       <AppWindow view={flowAt('receive', 'done')}>
-        <RecvDoneScreen model={fx.arrivedAll} on={{ onDone: reset, onUndo: reset }} />
+        <RecvDoneScreen
+          model={arrivedWithout(skippedApps(decisions))}
+          on={{ onDone: reset, onUndo: reset }}
+        />
       </AppWindow>
     );
   }
@@ -117,7 +147,7 @@ export function ReceiveScene() {
     return (
       <AppWindow view={flowAt('receive', 'progress')}>
         <RecvProgressScreen
-          model={movingAt(Math.min(1, elapsed / MOVE_MS))}
+          model={movingAt(Math.min(1, elapsed / MOVE_MS), skippedApps(decisions))}
           on={{ onCancel: reset, onSeeWhat: ignore, onHome: reset }}
         />
       </AppWindow>
