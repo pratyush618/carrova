@@ -549,11 +549,12 @@ main > .hero {
   --y: 0.274;
 }
 
+/* Whole stamp: it spans y 0.125–0.303 of the shot. */
 .crop-done {
-  aspect-ratio: 632 / 128;
+  aspect-ratio: 632 / 162;
   --zoom: 1.74;
   --x: 0.025;
-  --y: 0.108;
+  --y: 0.1;
 }
 
 /* The close-ups land one after another once the page is up. */
@@ -653,18 +654,28 @@ main > .hero {
 
 /* ---------- Steps (sticky stage) ---------- */
 
+/* Closer to the statement, so the title and first step share a screen. */
+.steps {
+  padding-block-start: calc(var(--section-gap) * 0.6);
+}
+
 .steps-grid {
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
   gap: clamp(40px, 6vw, 96px);
-  margin-block-start: 48px;
+  margin-block-start: 32px;
+}
+
+/* The first step sits up against the title, level with the stage, so both open in one view. */
+.steps-text li:first-child {
+  justify-content: start;
 }
 
 .steps-text li {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-block-size: 64vh;
+  min-block-size: 56vh;
   color: var(--text-3);
   transition: color 400ms var(--ease-out);
 }
@@ -700,7 +711,7 @@ main > .hero {
   position: sticky;
   top: calc(50vh - min(21vw, 260px));
   align-self: start;
-  margin-block: 18vh;
+  margin-block: 0 18vh;
 }
 
 .steps-stage .window {
@@ -778,7 +789,9 @@ main > .hero {
     inset 0 1px 0 var(--highlight);
 }
 
+/* Takes up any spare height, so both screenshots keep the same box and line up. */
 .tile-copy {
+  flex: 1;
   padding: clamp(32px, 4vw, 56px) clamp(28px, 4vw, 56px) 0;
 }
 
@@ -809,8 +822,7 @@ main > .hero {
 /* Screenshot bleeds off the tile's bottom-right corner. */
 .tile-shot {
   margin: clamp(32px, 4vw, 48px) 0 0 clamp(28px, 4vw, 56px);
-  flex: 1;
-  min-block-size: 260px;
+  aspect-ratio: 10 / 9;
   overflow: hidden;
   border-top-left-radius: 14px;
   box-shadow:
@@ -834,22 +846,18 @@ main > .hero {
   transform: translate(calc(var(--x) * -100%), calc(var(--y) * -100%));
 }
 
-/* The "Needs your answer" rows: anchored to the bottom, so the box is filled at any height. */
+/* The review's main column, top to bottom. */
 .crop-decide {
-  --zoom: 1.5;
-  --x: 0.075;
+  --zoom: 1.4;
+  --x: 0.022;
+  --y: 0;
 }
 
-.crop-decide img {
-  inset-block: auto 0;
-  transform: translateX(calc(var(--x) * -100%));
-}
-
-/* The Undo dialog. */
+/* The whole Undo dialog (x 0.29–0.71, y 0.16–0.84 of the shot), with a little air round it. */
 .crop-undo {
-  --zoom: 2.4;
-  --x: 0.292;
-  --y: 0.16;
+  --zoom: 1.85;
+  --x: 0.27;
+  --y: 0.13;
 }
 
 @media (max-width: 900px) {
@@ -1229,69 +1237,32 @@ main > .hero {
 }
 
 .theme-switch {
-  display: flex;
-  margin: 0;
-  padding: 2px;
+  display: grid;
+  place-items: center;
+  inline-size: 36px;
+  block-size: 36px;
+  padding: 0;
   border: 0;
   border-radius: 999px;
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--hair);
-}
-
-.theme-switch label {
-  position: relative;
-}
-
-.theme-switch input {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  opacity: 0;
+  color: var(--text-2);
   cursor: pointer;
+  transition: color 200ms var(--ease-out);
 }
 
-.theme-switch span {
-  display: block;
-  padding: 4px 10px;
-  border-radius: 999px;
-  color: var(--text-3);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  transition:
-    background-color 200ms var(--ease-out),
-    color 200ms var(--ease-out);
-}
-
-.theme-switch label:hover span {
+.theme-switch:hover {
   color: var(--text);
 }
 
-.theme-switch input:checked + span {
-  background: var(--bg);
-  color: var(--text);
-  box-shadow:
-    0 0 0 1px var(--hair),
-    0 1px 3px var(--shadow-near);
-}
-
-/* High-contrast modes drop backgrounds and shadows: mark the choice in system colours. */
-@media (forced-colors: active) {
-  .theme-switch input:checked + span {
-    background: Highlight;
-    color: HighlightText;
-    forced-color-adjust: none;
-  }
-}
-
-.theme-switch input:focus-visible + span {
+.theme-switch:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
-@media (max-width: 420px) {
-  .theme-switch span {
-    padding-inline: 7px;
-  }
+.theme-switch .icon {
+  inline-size: 18px;
+  block-size: 18px;
 }
 
 /* At the narrowest, the logo alone names the site so Download still fits. */

@@ -1,32 +1,28 @@
-import { setThemePref, useThemePref, type ThemePref } from './theme';
+import { setThemePref, useScheme } from './theme';
 
-const OPTIONS: readonly { value: ThemePref; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-];
+// Sun and moon line glyphs, drawn like the app's icons (24-unit grid, stroked).
+const SUN =
+  'M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4';
+const MOON = 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z';
 
-/** System / Light / Dark, the same three choices as the app's Appearance setting. */
+/** One button flips light and dark; until it's pressed, the page follows the OS. */
 export function ThemeSwitch() {
-  const pref = useThemePref();
+  const scheme = useScheme();
+  const next = scheme === 'dark' ? 'light' : 'dark';
   return (
-    <fieldset className="theme-switch">
-      <legend className="sr-only">Theme</legend>
-      {OPTIONS.map((o) => (
-        <label key={o.value}>
-          <input
-            type="radio"
-            name="theme"
-            value={o.value}
-            checked={pref === o.value}
-            onChange={(event) => {
-              const r = event.currentTarget.getBoundingClientRect();
-              setThemePref(o.value, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
-            }}
-          />
-          <span>{o.label}</span>
-        </label>
-      ))}
-    </fieldset>
+    <button
+      type="button"
+      className="theme-switch"
+      aria-label={`Switch to ${next} theme`}
+      title={`Switch to ${next} theme`}
+      onClick={(event) => {
+        const r = event.currentTarget.getBoundingClientRect();
+        setThemePref(next, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      }}
+    >
+      <svg className="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d={scheme === 'dark' ? SUN : MOON} />
+      </svg>
+    </button>
   );
 }
