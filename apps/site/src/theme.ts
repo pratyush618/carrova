@@ -27,8 +27,12 @@ function readPref(): ThemePref {
 let pref = readPref();
 let scheme = resolveScheme(pref, media.matches);
 
+/** Page background per scheme, for the browser's toolbar (index.html uses the same values). */
+const TOOLBAR: Record<Scheme, string> = { light: '#FFFFFF', dark: '#0D0E11' };
+
 function paint() {
   document.documentElement.dataset['theme'] = scheme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', TOOLBAR[scheme]);
 }
 
 // The OS may have switched since the pre-paint script ran.
