@@ -18,11 +18,12 @@ export function usePointerDepth(ref: RefObject<HTMLElement | null>) {
       });
     };
     const move = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') return;
       const r = el.getBoundingClientRect();
       set(((e.clientX - r.left) / r.width) * 2 - 1, ((e.clientY - r.top) / r.height) * 2 - 1);
     };
-    const leave = () => {
-      set(0, 0);
+    const leave = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') set(0, 0);
     };
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerleave', leave);
