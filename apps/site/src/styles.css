@@ -1268,6 +1268,15 @@ main > .hero {
     0 1px 3px var(--shadow-near);
 }
 
+/* High-contrast modes drop backgrounds and shadows: mark the choice in system colours. */
+@media (forced-colors: active) {
+  .theme-switch input:checked + span {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+}
+
 .theme-switch input:focus-visible + span {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
