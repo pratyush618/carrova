@@ -789,7 +789,9 @@ main > .hero {
     inset 0 1px 0 var(--highlight);
 }
 
+/* Takes up any spare height, so both screenshots keep the same box and line up. */
 .tile-copy {
+  flex: 1;
   padding: clamp(32px, 4vw, 56px) clamp(28px, 4vw, 56px) 0;
 }
 
@@ -820,8 +822,7 @@ main > .hero {
 /* Screenshot bleeds off the tile's bottom-right corner. */
 .tile-shot {
   margin: clamp(32px, 4vw, 48px) 0 0 clamp(28px, 4vw, 56px);
-  flex: 1;
-  min-block-size: 260px;
+  aspect-ratio: 10 / 9;
   overflow: hidden;
   border-top-left-radius: 14px;
   box-shadow:
@@ -845,22 +846,18 @@ main > .hero {
   transform: translate(calc(var(--x) * -100%), calc(var(--y) * -100%));
 }
 
-/* The "Needs your answer" rows: anchored to the bottom, so the box is filled at any height. */
+/* The review's main column, top to bottom. */
 .crop-decide {
-  --zoom: 1.5;
-  --x: 0.075;
+  --zoom: 1.4;
+  --x: 0.022;
+  --y: 0;
 }
 
-.crop-decide img {
-  inset-block: auto 0;
-  transform: translateX(calc(var(--x) * -100%));
-}
-
-/* The Undo dialog. */
+/* The whole Undo dialog (x 0.29–0.71, y 0.16–0.84 of the shot), with a little air round it. */
 .crop-undo {
-  --zoom: 2.4;
-  --x: 0.292;
-  --y: 0.16;
+  --zoom: 1.85;
+  --x: 0.27;
+  --y: 0.13;
 }
 
 @media (max-width: 900px) {
