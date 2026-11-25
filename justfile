@@ -117,7 +117,7 @@ lint:
     RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 
 # Everything CI would run
-ci: ci-portable bindings-check test-layout ui-lint ui-test
+ci: ci-portable bindings-check test-layout ui-lint ui-test site-check
 
 # The part of `ci` that runs on every OS (the macOS/Windows CI jobs)
 ci-portable: lint build test fixtures
@@ -152,16 +152,19 @@ ui-lint:
     pnpm --filter desktop exec prettier --check .
     pnpm --filter desktop exec tsc -b
     pnpm --filter desktop-e2e-app typecheck
-    pnpm --filter site exec eslint . --max-warnings 0
-    pnpm --filter site exec prettier --check .
-    pnpm --filter site exec tsc -b
 
 # Front-end unit tests (Vitest, jsdom)
 ui-test:
     pnpm --filter desktop exec vitest run
+
+# Website (apps/site): lint + type check + unit tests (its own CI: pages.yml)
+site-check:
+    pnpm --filter site exec eslint . --max-warnings 0
+    pnpm --filter site exec prettier --check .
+    pnpm --filter site exec tsc -b
     pnpm --filter site exec vitest run
 
-# Website (apps/site): live dev server, and the static build GitHub Pages serves
+# Website: live dev server, and the static build GitHub Pages serves
 site-dev:
     pnpm --filter site dev
 

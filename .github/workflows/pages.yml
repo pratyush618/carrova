@@ -1,4 +1,5 @@
-# Website: build apps/site on every PR that touches it; publish to GitHub Pages from main.
+# Website: check and build apps/site on every PR that touches it (instead of the
+# desktop's ui.yml); publish to GitHub Pages from main.
 name: pages
 
 on:
@@ -36,7 +37,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           node: "true"
-      - run: just site-build
+      - run: just site-check site-build
       # PRs stop at the build: only main publishes.
       - if: github.event_name != 'pull_request'
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
