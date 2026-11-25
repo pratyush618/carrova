@@ -461,6 +461,12 @@ main > .hero {
   transition: transform 600ms var(--ease-out);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .layer {
+    transition: none;
+  }
+}
+
 .layer-mid {
   position: relative;
   z-index: 2;
