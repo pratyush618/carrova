@@ -828,11 +828,15 @@ main > .hero {
   transform: translate(calc(var(--x) * -100%), calc(var(--y) * -100%));
 }
 
-/* The three "Needs your answer" rows. */
+/* The "Needs your answer" rows: anchored to the bottom, so the box is filled at any height. */
 .crop-decide {
   --zoom: 1.5;
   --x: 0.075;
-  --y: 0.54;
+}
+
+.crop-decide img {
+  inset-block: auto 0;
+  transform: translateX(calc(var(--x) * -100%));
 }
 
 /* The Undo dialog. */
