@@ -139,8 +139,11 @@ export function PhoneScene() {
 
   // Once the visitor has tried something, the opening text no longer arrives.
   const touched = useRef(false);
+  // The laptop pop-up that follows a text; cancelled if the visitor moves on first.
+  const pendingNote = useRef<number | undefined>(undefined);
   const clear = () => {
     touched.current = true;
+    window.clearTimeout(pendingNote.current);
     setHeadsUp(null);
     setNote(false);
     setCall(null);
@@ -151,10 +154,17 @@ export function PhoneScene() {
   const textArrives = () => {
     clear();
     setHeadsUp(TEXT_HEADS_UP);
-    window.setTimeout(() => {
+    pendingNote.current = window.setTimeout(() => {
       setNote(true);
     }, 700);
   };
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(pendingNote.current);
+    },
+    [],
+  );
 
   // A text arrives on its own the first time the scene shows.
   useEffect(() => {
