@@ -27,9 +27,16 @@ function readPref(): ThemePref {
 let pref = readPref();
 let scheme = resolveScheme(pref, media.matches);
 
+function paint() {
+  document.documentElement.dataset['theme'] = scheme;
+}
+
+// The OS may have switched since the pre-paint script ran.
+paint();
+
 function apply() {
   scheme = resolveScheme(pref, media.matches);
-  document.documentElement.dataset['theme'] = scheme;
+  paint();
   for (const l of listeners) l();
 }
 
