@@ -75,59 +75,67 @@ try {
   await waitForServer();
   await mkdir(OUT, { recursive: true });
   const browser = await chromium.launch({ channel: 'chrome' });
-  const encoder = await browser.newPage();
+  try {
+    const encoder = await browser.newPage();
 
-  for (const scheme of ['light', 'dark']) {
-    const page = await browser.newPage({
-      viewport: { width: 1200, height: 900 },
-      deviceScaleFactor: 2,
-    });
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
-    for (const [name, target] of Object.entries(GALLERY)) {
-      await page.goto(`${BASE}/#gallery/${target}`);
-      const frame = page.locator('[data-testid=gallery-frame]').first();
-      await frame.waitFor();
-      await page.waitForTimeout(500);
-      const png = await frame.screenshot({ animations: 'disabled' });
-      await saveWebp(encoder, png, `${name}.${scheme}`, [1200, 2200]);
+    for (const scheme of ['light', 'dark']) {
+      const page = await browser.newPage({
+        viewport: { width: 1200, height: 900 },
+        deviceScaleFactor: 2,
+      });
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
+      for (const [name, target] of Object.entries(GALLERY)) {
+        await page.goto(`${BASE}/#gallery/${target}`);
+        const frame = page.locator('[data-testid=gallery-frame]').first();
+        await frame.waitFor();
+        await page.waitForTimeout(500);
+        const png = await frame.screenshot({ animations: 'disabled' });
+        await saveWebp(encoder, png, `${name}.${scheme}`, [1200, 2200]);
+      }
+      await page.close();
+
+      // A linked Pixel 8 over the fake, as the laptop sees it.
+      const app = await browser.newPage({ viewport: WINDOW, deviceScaleFactor: 2 });
+      await app.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
+      await app.goto(`${BASE}/?fake=linked`);
+      const nav = app.getByRole('navigation', { name: 'Main' });
+      await nav.getByRole('button', { name: 'Nearby' }).click();
+      await app.getByRole('radio', { name: 'List' }).click();
+      await app.getByRole('button', { name: 'Open: Pixel 8' }).click();
+      await app.waitForTimeout(500);
+      // The sidebar is cropped off: the fake's dev recipe folder shows a warning there.
+      const main = { x: 212, y: 0, width: WINDOW.width - 212, height: WINDOW.height };
+      await saveWebp(
+        encoder,
+        await app.screenshot({ clip: main }),
+        `device.${scheme}`,
+        [900, 1776],
+      );
+      await app.getByRole('switch', { name: 'Messages' }).click();
+      await nav.getByRole('button', { name: 'Messages' }).click();
+      await app.getByRole('heading', { name: 'Sam Rivera' }).waitFor();
+      await saveWebp(
+        encoder,
+        await app.screenshot({ clip: main }),
+        `messages.${scheme}`,
+        [900, 1776],
+      );
+      await app.close();
+
+      // The notification pop-up window.
+      const note = await browser.newPage({
+        viewport: { width: 380, height: 200 },
+        deviceScaleFactor: 2,
+      });
+      await note.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
+      await note.goto(`${BASE}/?fake=linked&popup=note&device=p8&key=n1&name=Pixel+8`);
+      await note.getByText('Sam Rivera').waitFor();
+      await saveWebp(encoder, await note.screenshot(), `note.${scheme}`, [760]);
+      await note.close();
     }
-    await page.close();
-
-    // A linked Pixel 8 over the fake, as the laptop sees it.
-    const app = await browser.newPage({ viewport: WINDOW, deviceScaleFactor: 2 });
-    await app.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
-    await app.goto(`${BASE}/?fake=linked`);
-    const nav = app.getByRole('navigation', { name: 'Main' });
-    await nav.getByRole('button', { name: 'Nearby' }).click();
-    await app.getByRole('radio', { name: 'List' }).click();
-    await app.getByRole('button', { name: 'Open: Pixel 8' }).click();
-    await app.waitForTimeout(500);
-    // The sidebar is cropped off: the fake's dev recipe folder shows a warning there.
-    const main = { x: 212, y: 0, width: WINDOW.width - 212, height: WINDOW.height };
-    await saveWebp(encoder, await app.screenshot({ clip: main }), `device.${scheme}`, [900, 1776]);
-    await app.getByRole('switch', { name: 'Messages' }).click();
-    await nav.getByRole('button', { name: 'Messages' }).click();
-    await app.getByRole('heading', { name: 'Sam Rivera' }).waitFor();
-    await saveWebp(
-      encoder,
-      await app.screenshot({ clip: main }),
-      `messages.${scheme}`,
-      [900, 1776],
-    );
-    await app.close();
-
-    // The notification pop-up window.
-    const note = await browser.newPage({
-      viewport: { width: 380, height: 200 },
-      deviceScaleFactor: 2,
-    });
-    await note.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
-    await note.goto(`${BASE}/?fake=linked&popup=note&device=p8&key=n1&name=Pixel+8`);
-    await note.getByText('Sam Rivera').waitFor();
-    await saveWebp(encoder, await note.screenshot(), `note.${scheme}`, [760]);
-    await note.close();
+  } finally {
+    await browser.close();
   }
-  await browser.close();
 } finally {
   server.kill();
 }
