@@ -1,27 +1,30 @@
-# Website: build apps/site and publish it to GitHub Pages.
+# Website: check and build apps/site on every PR that touches it (instead of the
+# desktop's ui.yml); publish to GitHub Pages from main.
 name: pages
 
 on:
   push:
     branches: [main]
-    paths:
+    paths: &site-paths
       - apps/site/**
-      - apps/desktop/src/ui/Icon/icons.ts
-      - docs/screenshots/**
+      - apps/desktop/src/** # the site renders the app's own screens
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - justfile
       - .github/actions/setup/**
       - .github/workflows/pages.yml
+  pull_request:
+    paths: *site-paths
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# Deploys queue one after another; a PR's newer push replaces its older build.
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -34,13 +37,17 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           node: "true"
-      - run: just site-build
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+      - run: just site-check site-build
+      # PRs stop at the build: only main publishes.
+      - if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: apps/site/dist
 
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:

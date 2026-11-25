@@ -7,7 +7,6 @@ on:
     paths: &ui-paths
       - apps/desktop/**
       - "!apps/desktop/src-tauri/**" # Rust side is covered by engine.yml
-      - apps/site/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml

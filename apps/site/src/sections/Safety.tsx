@@ -1,5 +1,5 @@
 import { Icon } from '../Icon';
-import { doneShot, reviewShot } from '../shots';
+import { Shot } from '../Shot';
 
 export function Safety() {
   return (
@@ -8,17 +8,15 @@ export function Safety() {
         <div className="tile-copy">
           <h2>Nothing changes until you say so.</h2>
           <p>
-            Your new computer shows the whole plan first. Every file it would replace is backed up
-            before it's touched.
+            Your new computer shows the whole plan first, and asks about anything sensitive. Every
+            file it would replace is backed up before it's touched.
           </p>
         </div>
-        <div className="tile-shot">
-          <img
-            src={reviewShot}
-            width="2200"
-            height="1440"
-            loading="lazy"
-            alt="The plan: files to add, files to replace with backups, and space needed."
+        <div className="tile-shot crop crop-decide">
+          <Shot
+            name="decide"
+            sizes="(min-width: 1360px) 900px, 120vw"
+            alt="Needs your answer: bring your SSH keys or leave them behind, the same for GnuPG keys, and close VS Code or skip it."
           />
         </div>
       </article>
@@ -35,13 +33,11 @@ export function Safety() {
             <Icon name="undo" /> Every move, kept in History.
           </p>
         </div>
-        <div className="tile-shot">
-          <img
-            src={doneShot}
-            width="2200"
-            height="1440"
-            loading="lazy"
-            alt="A finished move with its summary."
+        <div className="tile-shot crop crop-undo">
+          <Shot
+            name="undo"
+            sizes="(min-width: 1360px) 1300px, 240vw"
+            alt="Undo this move? The computer goes back to how it was yesterday: 412 files removed, 3 put back, 1 file you changed since kept as a copy."
           />
         </div>
       </article>

@@ -1,4 +1,5 @@
-/* Colours mirror the desktop app's dark tokens (apps/desktop/src/theme/tokens.ts). */
+/* Colours mirror the desktop app's tokens (apps/desktop/src/theme/tokens.ts), dark by default.
+   index.html sets data-theme before first paint; src/theme.ts keeps it in sync. */
 :root {
   --bg: #0d0e11;
   --surface-1: #131418;
@@ -17,6 +18,15 @@
   --warning: #f2b84b;
   --success: #4fd1a0;
 
+  --hair: rgb(255 255 255 / 0.06);
+  --highlight: rgb(255 255 255 / 0.06);
+  --nav-bg: rgb(13 14 17 / 0.72);
+  --glow: rgb(83 97 240 / 0.28);
+  --shadow-far: rgb(0 0 0 / 0.85);
+  --shadow-near: rgb(0 0 0 / 0.6);
+  --tag-warning: rgb(242 184 75 / 0.4);
+  --tag-accent: rgb(163 173 255 / 0.4);
+
   --font:
     'Atkinson Hyperlegible Next Variable', system-ui, -apple-system, 'Segoe UI', Ubuntu, sans-serif;
   --mono: 'Atkinson Hyperlegible Mono Variable', ui-monospace, monospace;
@@ -26,6 +36,36 @@
   --section-gap: clamp(112px, 16vw, 200px);
 
   color-scheme: dark;
+}
+
+[data-theme='light'] {
+  --bg: #ffffff;
+  --surface-1: #f7f8fa;
+  --surface-2: #f0f2f5;
+  --surface-3: #e3e6eb;
+  --text: #15181d;
+  --text-2: #3e4552;
+  --text-3: #5e6672;
+  --border: #e3e6eb;
+  --border-strong: #cdd2da;
+  --accent: #3346d3;
+  --accent-hover: #2836b0;
+  --accent-fill: #3346d3;
+  --accent-fill-hover: #2836b0;
+  --accent-soft: #eef0fd;
+  --warning: #8a5a00;
+  --success: #1f7a4d;
+
+  --hair: rgb(21 24 29 / 0.08);
+  --highlight: rgb(255 255 255 / 0.9);
+  --nav-bg: rgb(255 255 255 / 0.76);
+  --glow: rgb(51 70 211 / 0.14);
+  --shadow-far: rgb(21 24 29 / 0.22);
+  --shadow-near: rgb(21 24 29 / 0.12);
+  --tag-warning: rgb(138 90 0 / 0.35);
+  --tag-accent: rgb(51 70 211 / 0.35);
+
+  color-scheme: light;
 }
 
 *,
@@ -155,7 +195,7 @@ a:hover {
   line-height: 1.2;
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.22),
-    0 8px 24px -8px rgb(83 97 240 / 0.6);
+    0 6px 16px -8px var(--shadow-near);
   transition:
     background-color 200ms var(--ease-out),
     transform 200ms var(--ease-out);
@@ -213,10 +253,10 @@ a:hover {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgb(13 14 17 / 0.72);
+  background: var(--nav-bg);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid rgb(255 255 255 / 0.06);
+  border-bottom: 1px solid var(--hair);
 }
 
 .nav-inner {
@@ -267,8 +307,12 @@ a:hover {
     display: none;
   }
 
-  .nav .btn-sm {
+  .nav .theme-switch {
     margin-inline-start: auto;
+  }
+
+  .nav-inner {
+    gap: 12px;
   }
 }
 
@@ -312,29 +356,35 @@ main > section {
   background: var(--surface-1);
   box-shadow:
     0 0 0 1px var(--border),
-    inset 0 1px 0 rgb(255 255 255 / 0.06),
-    0 40px 100px -30px rgb(0 0 0 / 0.85),
-    0 18px 40px -20px rgb(0 0 0 / 0.6);
+    inset 0 1px 0 var(--highlight),
+    0 40px 100px -30px var(--shadow-far),
+    0 18px 40px -20px var(--shadow-near);
+}
+
+/* Shots carry their 1x size as width/height; let them fill the frame. */
+.window > img {
+  inline-size: 100%;
 }
 
 /* ---------- Hero ---------- */
 
 main > .hero {
-  padding-block-start: clamp(88px, 12vw, 152px);
+  inline-size: min(1280px, 100% - 32px);
+  padding-block-start: clamp(40px, 5vw, 64px);
   text-align: center;
 }
 
 .hero h1 {
-  font-size: clamp(3rem, 8.4vw, 6rem);
+  font-size: clamp(2.75rem, 6vw, 4.75rem);
   font-weight: 700;
-  line-height: 0.98;
-  letter-spacing: -0.04em;
+  line-height: 1;
+  letter-spacing: -0.035em;
   text-wrap: balance;
 }
 
 .hero-sub {
-  max-inline-size: 36ch;
-  margin: 28px auto 0;
+  max-inline-size: 44ch;
+  margin: 24px auto 0;
   color: var(--text-2);
   font-size: clamp(1.1875rem, 1.8vw, 1.4375rem);
   line-height: 1.45;
@@ -347,16 +397,16 @@ main > .hero {
   justify-content: center;
   align-items: center;
   gap: 16px 32px;
-  margin-block-start: 40px;
+  margin-block-start: 32px;
 }
 
 .hero .fine {
-  margin-block-start: 20px;
+  margin-block-start: 16px;
 }
 
 .hero-shot {
   position: relative;
-  margin-block-start: clamp(64px, 8vw, 104px);
+  margin-block: clamp(64px, 7vw, 80px) clamp(48px, 7vw, 96px);
 }
 
 /* The page's one light source, sitting behind the product. */
@@ -365,13 +415,13 @@ main > .hero {
   position: absolute;
   inset: -12% -8% 30%;
   z-index: -1;
-  background: radial-gradient(50% 50% at 50% 50%, rgb(83 97 240 / 0.28), transparent 70%);
+  background: radial-gradient(50% 50% at 50% 50%, var(--glow), transparent 70%);
   filter: blur(20px);
 }
 
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
-    .hero-shot .window {
+    .hero-shot {
       animation: rise linear both;
       animation-timeline: view();
       animation-range: entry 0% cover 45%;
@@ -387,6 +437,198 @@ main > .hero {
   to {
     transform: none;
     opacity: 1;
+  }
+}
+
+/* ---------- Layered stack (hero, phone) ---------- */
+/* Planes at different depths: --depth sets how far a layer travels with the
+   pointer (--px/--py from usePointerDepth) and with scroll. Back is soft and
+   dim, front is sharp with the deepest shadow. */
+
+.stack {
+  --px: 0;
+  --py: 0;
+  isolation: isolate;
+}
+
+.layer {
+  --depth: 0;
+  transform: translate3d(
+    calc(var(--px) * var(--depth) * 18px),
+    calc(var(--py) * var(--depth) * 12px),
+    0
+  );
+  transition: transform 600ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer {
+    transition: none;
+  }
+}
+
+.layer-mid {
+  position: relative;
+  z-index: 2;
+  inline-size: 78%;
+  margin-inline: auto;
+}
+
+.layer-back {
+  --depth: -0.6;
+  position: absolute;
+  z-index: 1;
+  inline-size: 44%;
+  filter: blur(1.5px) saturate(0.85);
+  opacity: 0.55;
+}
+
+.layer-back .window > img {
+  inline-size: 100%;
+}
+
+.back-left {
+  inset-inline-start: 0;
+  inset-block-start: -7%;
+}
+
+.back-right {
+  inset-inline-end: 0;
+  inset-block-start: 14%;
+}
+
+.layer-front {
+  --depth: 1.4;
+  position: absolute;
+  z-index: 3;
+}
+
+.front-code {
+  inset-inline-start: -3%;
+  inset-block-start: 76%;
+  inline-size: 38%;
+}
+
+.front-link {
+  inset-inline-end: -5%;
+  inset-block-start: 40%;
+  inline-size: 38%;
+  --depth: 1.1;
+}
+
+.front-done {
+  inset-inline-end: 4%;
+  inset-block-end: -16%;
+  inline-size: 40%;
+  --depth: 1.7;
+}
+
+/* A real piece of the app, lifted out of its window. */
+.chip {
+  border-radius: 16px;
+  background: var(--surface-1);
+  box-shadow:
+    0 0 0 1px var(--border-strong),
+    inset 0 1px 0 var(--highlight),
+    0 30px 60px -18px var(--shadow-far),
+    0 12px 24px -12px var(--shadow-near);
+}
+
+/* Crop regions on the 1100×720 screens (see .crop). */
+.crop-code {
+  aspect-ratio: 555 / 162;
+  --zoom: 1.98;
+  --x: 0.115;
+  --y: 0.285;
+}
+
+.crop-link {
+  aspect-ratio: 748 / 187;
+  --zoom: 1.47;
+  --x: 0.025;
+  --y: 0.274;
+}
+
+.crop-done {
+  aspect-ratio: 632 / 128;
+  --zoom: 1.74;
+  --x: 0.025;
+  --y: 0.108;
+}
+
+/* The close-ups land one after another once the page is up. */
+@media (prefers-reduced-motion: no-preference) {
+  .layer-front .chip {
+    animation: chip-in 900ms var(--ease-out) both;
+  }
+
+  .front-code .chip {
+    animation-delay: 350ms;
+  }
+
+  .front-link .chip {
+    animation-delay: 600ms;
+  }
+
+  .front-done .chip {
+    animation-delay: 850ms;
+  }
+}
+
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    scale: 0.92;
+    translate: 0 24px;
+  }
+}
+
+/* Scrolling past: front planes drift up faster than back ones. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .layer-front,
+    .layer-back {
+      animation: depth-drift linear both;
+      animation-timeline: view();
+      animation-range: cover 30% exit 100%;
+    }
+  }
+}
+
+@keyframes depth-drift {
+  to {
+    translate: 0 calc(var(--depth) * -28px);
+  }
+}
+
+@media (max-width: 760px) {
+  .layer-mid {
+    inline-size: 100%;
+  }
+
+  /* Little room above and below on a phone: the planes stay put. */
+  .layer-front,
+  .layer-back {
+    animation: none;
+  }
+
+  .layer-back,
+  .front-link {
+    display: none;
+  }
+
+  .front-code {
+    inset-inline-start: -2%;
+    inset-block-start: auto;
+    inset-block-end: -14%;
+    inline-size: 58%;
+  }
+
+  .front-done {
+    inset-inline-end: -2%;
+    inset-block-end: auto;
+    inset-block-start: -9%;
+    inline-size: 62%;
   }
 }
 
@@ -413,7 +655,7 @@ main > .hero {
 
 .steps-grid {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
   gap: clamp(40px, 6vw, 96px);
   margin-block-start: 48px;
 }
@@ -422,7 +664,7 @@ main > .hero {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-block-size: 78vh;
+  min-block-size: 64vh;
   color: var(--text-3);
   transition: color 400ms var(--ease-out);
 }
@@ -456,17 +698,18 @@ main > .hero {
 
 .steps-stage {
   position: sticky;
-  top: calc(50vh - min(22vw, 270px));
+  top: calc(50vh - min(21vw, 260px));
   align-self: start;
-  margin-block: 26vh;
+  margin-block: 18vh;
 }
 
 .steps-stage .window {
   display: grid;
 }
 
-.steps-stage img {
+.steps-stage .stage-layer {
   grid-area: 1 / 1;
+  pointer-events: none;
   opacity: 0;
   transform: scale(1.015);
   transition:
@@ -474,13 +717,17 @@ main > .hero {
     transform 900ms var(--ease-out);
 }
 
-.steps-stage img.is-active {
+.steps-stage .stage-layer img {
+  inline-size: 100%;
+}
+
+.steps-stage .stage-layer.is-active {
   opacity: 1;
   transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .steps-stage img,
+  .steps-stage .stage-layer,
   .steps-text li,
   .steps-text p {
     transition: none;
@@ -527,8 +774,8 @@ main > .hero {
   border-radius: 28px;
   background: var(--surface-1);
   box-shadow:
-    0 0 0 1px rgb(255 255 255 / 0.05),
-    inset 0 1px 0 rgb(255 255 255 / 0.05);
+    0 0 0 1px var(--hair),
+    inset 0 1px 0 var(--highlight);
 }
 
 .tile-copy {
@@ -547,6 +794,7 @@ main > .hero {
   max-inline-size: 36ch;
   margin-block-start: 16px;
   color: var(--text-2);
+  text-wrap: pretty;
 }
 
 .tile .tile-note {
@@ -567,14 +815,41 @@ main > .hero {
   border-top-left-radius: 14px;
   box-shadow:
     -1px -1px 0 0 var(--border),
-    0 -20px 60px -20px rgb(0 0 0 / 0.7);
+    0 -20px 60px -20px var(--shadow-far);
 }
 
-.tile-shot img {
-  inline-size: 165%;
+/* A close-up: the screenshot is scaled up and shifted so one region fills the box.
+   --x/--y are the region's top-left, as a share of the whole screenshot. */
+.crop {
+  position: relative;
+  overflow: hidden;
+}
+
+.crop img {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: calc(var(--zoom) * 100%);
   max-inline-size: none;
-  object-fit: cover;
-  object-position: left top;
+  transform: translate(calc(var(--x) * -100%), calc(var(--y) * -100%));
+}
+
+/* The "Needs your answer" rows: anchored to the bottom, so the box is filled at any height. */
+.crop-decide {
+  --zoom: 1.5;
+  --x: 0.075;
+}
+
+.crop-decide img {
+  inset-block: auto 0;
+  transform: translateX(calc(var(--x) * -100%));
+}
+
+/* The Undo dialog. */
+.crop-undo {
+  --zoom: 2.4;
+  --x: 0.292;
+  --y: 0.16;
 }
 
 @media (max-width: 900px) {
@@ -597,6 +872,7 @@ main > .hero {
 .facts li {
   color: var(--text-3);
   font-size: 1.0625rem;
+  text-wrap: pretty;
 }
 
 .facts .icon {
@@ -626,32 +902,127 @@ main > .hero {
 
 /* ---------- Apps ---------- */
 
-.app-list {
+.apps-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  align-items: start;
+  gap: clamp(40px, 5vw, 72px);
+  margin-block: 56px 40px;
+}
+
+.app-groups {
+  display: grid;
+  gap: 32px;
+}
+
+.app-group h3 {
+  color: var(--text-3);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.app-group ul {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 32px;
-  margin-block: 48px 40px;
-  font-size: clamp(1.5rem, 3vw, 2.375rem);
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1.25;
+  gap: 8px;
+  margin-block-start: 12px;
 }
 
-.app-list li {
+.app-group li {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px 6px 6px;
+  border-radius: 12px;
+  background: var(--surface-1);
+  box-shadow: 0 0 0 1px var(--hair);
+  font-weight: 600;
+}
+
+/* Same monogram tile the app shows for a recipe. */
+.glyph {
+  display: grid;
+  place-items: center;
+  inline-size: 30px;
+  block-size: 30px;
+  border-radius: 8px;
+  background: var(--surface-3);
   color: var(--text-2);
-  transition: color 200ms var(--ease-out);
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
 }
 
-.app-list li:hover {
-  color: var(--accent);
+@media (max-width: 900px) {
+  .apps-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---------- Phone ---------- */
 
+/* Device page in front, its Messages behind, a phone notification on top. */
+.phone-stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  margin-block-start: 64px;
+}
+
+.window-free {
+  aspect-ratio: auto;
+}
+
+.phone-back {
+  grid-area: 1 / 6 / 2 / 13;
+  margin-block-start: 0;
+  opacity: 0.9;
+}
+
+.phone-front {
+  grid-area: 1 / 1 / 2 / 9;
+  margin-block-start: 12%;
+}
+
+.phone-note img {
+  aspect-ratio: 380 / 152;
+  object-fit: cover;
+  object-position: top;
+}
+
+.phone-note {
+  position: absolute;
+  inset-inline-end: 3%;
+  inset-block-end: -6%;
+  inline-size: min(380px, 42%);
+  border-radius: 14px;
+}
+
+@media (max-width: 760px) {
+  .phone-stage {
+    display: block;
+  }
+
+  .phone-back {
+    display: none;
+  }
+
+  .phone-front {
+    margin: 0;
+  }
+
+  .phone-note {
+    position: relative;
+    inset: auto;
+    inline-size: 88%;
+    margin: -18% 0 0 auto;
+  }
+}
+
 .features {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-block: 56px 32px;
+  margin-block: clamp(72px, 9vw, 112px) 0;
   border-top: 1px solid var(--border);
 }
 
@@ -691,14 +1062,14 @@ main > .hero {
   padding: 32px;
   border-radius: 24px;
   background: var(--surface-1);
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.05);
+  box-shadow: 0 0 0 1px var(--hair);
 }
 
 .platforms li.is-yours {
   background: var(--surface-2);
   box-shadow:
     0 0 0 1px var(--border-strong),
-    inset 0 1px 0 rgb(255 255 255 / 0.06);
+    inset 0 1px 0 var(--highlight);
 }
 
 .platform-head {
@@ -717,14 +1088,14 @@ main > .hero {
 .tag {
   padding: 3px 10px;
   border-radius: 999px;
-  border: 1px solid rgb(242 184 75 / 0.4);
+  border: 1px solid var(--tag-warning);
   color: var(--warning);
   font-size: 0.75rem;
   font-weight: 600;
 }
 
 .tag-you {
-  border-color: rgb(163 173 255 / 0.4);
+  border-color: var(--tag-accent);
   color: var(--accent);
 }
 
@@ -800,7 +1171,7 @@ main > .hero {
   font-size: 0.9375rem;
 }
 
-.footer .brand .mono {
+.footer .brand .dim {
   color: var(--text-3);
   font-weight: 400;
 }
@@ -819,4 +1190,312 @@ main > .hero {
 .footer .fine {
   inline-size: 100%;
   font-size: 0.8125rem;
+}
+
+/* ---------- Nearby ---------- */
+
+.nearby-copy {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.nearby .section-title,
+.nearby .section-sub {
+  margin-inline: auto;
+}
+
+.nearby-shot,
+.nearby-live {
+  margin-block-start: 56px;
+}
+
+/* ---------- Privacy shot ---------- */
+
+.privacy-shot,
+.privacy-live {
+  margin-block-start: 56px;
+}
+
+/* ---------- Theme switch ---------- */
+
+.sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.theme-switch {
+  display: flex;
+  margin: 0;
+  padding: 2px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--hair);
+}
+
+.theme-switch label {
+  position: relative;
+}
+
+.theme-switch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.theme-switch span {
+  display: block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--text-3);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition:
+    background-color 200ms var(--ease-out),
+    color 200ms var(--ease-out);
+}
+
+.theme-switch label:hover span {
+  color: var(--text);
+}
+
+.theme-switch input:checked + span {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow:
+    0 0 0 1px var(--hair),
+    0 1px 3px var(--shadow-near);
+}
+
+/* High-contrast modes drop backgrounds and shadows: mark the choice in system colours. */
+@media (forced-colors: active) {
+  .theme-switch input:checked + span {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+}
+
+.theme-switch input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@media (max-width: 420px) {
+  .theme-switch span {
+    padding-inline: 7px;
+  }
+}
+
+/* At the narrowest, the logo alone names the site so Download still fits. */
+@media (max-width: 400px) {
+  .nav .brand-name {
+    display: none;
+  }
+}
+
+/* ---------- Live demos ---------- */
+
+.live-frame {
+  position: relative;
+  overflow: hidden;
+}
+
+.live-frame iframe {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  border: 0;
+  transform-origin: 0 0;
+  color-scheme: normal;
+}
+
+.try-copy {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.try .section-title,
+.try .section-sub {
+  margin-inline: auto;
+}
+
+.try-live,
+.try-still {
+  margin-block-start: 56px;
+}
+
+.try-note {
+  margin-block-start: 20px;
+  text-align: center;
+}
+
+span.try-still {
+  margin: 0;
+}
+
+/* No frame: the demo's planes float on the page itself. */
+.phone-live {
+  margin-block-start: 40px;
+}
+
+/* Too small to use: the still shots stand in. */
+@media (width > 760px) {
+  .try-still,
+  .nearby-shot,
+  .privacy-shot,
+  .phone-stage {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .try-live,
+  .nearby-live,
+  .privacy-live,
+  .phone-live {
+    display: none;
+  }
+}
+
+/* ---------- Transitions ---------- */
+
+/* Theme change: the new theme spreads from the switch (src/theme.ts animates the circle). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Scroll reveals: content is fully there without them (no support, reduced motion);
+   each kind of thing arrives in its own way. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* Headlines rise out of a soft focus. */
+    .section-title,
+    .tile h2,
+    .steps-text h3 {
+      animation: focus-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 5% cover 28%;
+    }
+
+    .section-sub,
+    .tile-copy p {
+      animation: focus-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 15% cover 32%;
+    }
+
+    /* Product frames unfold toward you. */
+    .nearby-shot,
+    .privacy-shot,
+    .apps-shot,
+    .try-live,
+    .try-still,
+    .nearby-live,
+    .privacy-live,
+    .phone-live,
+    .phone-stage,
+    .tile-shot {
+      animation: unfold linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 38%;
+    }
+
+    /* The statement reads itself: each emphasised phrase brightens as it passes. */
+    .statement em {
+      animation: brighten linear both;
+      animation-timeline: view();
+      animation-range: cover 25% cover 50%;
+    }
+
+    /* Rows and chips fall in one after another. */
+    .facts li,
+    .features li,
+    .app-group,
+    .platforms li {
+      animation: settle linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 30%;
+    }
+
+    .facts li:nth-child(2),
+    .features li:nth-child(2),
+    .features li:nth-child(5),
+    .app-group:nth-child(2),
+    .platforms li:nth-child(2) {
+      animation-range: entry 8% cover 34%;
+    }
+
+    .facts li:nth-child(3),
+    .features li:nth-child(3),
+    .features li:nth-child(6),
+    .app-group:nth-child(3),
+    .platforms li:nth-child(3) {
+      animation-range: entry 16% cover 38%;
+    }
+
+    .facts li:nth-child(4),
+    .app-group:nth-child(4),
+    .platforms li:nth-child(4) {
+      animation-range: entry 24% cover 42%;
+    }
+
+    .tile:nth-child(2) .tile-shot {
+      animation-range: entry 12% cover 44%;
+    }
+  }
+}
+
+@keyframes focus-rise {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+}
+
+@keyframes unfold {
+  from {
+    opacity: 0.3;
+    transform: perspective(1400px) translateY(56px) rotateX(8deg) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes brighten {
+  from {
+    color: var(--text-3);
+  }
+  to {
+    color: var(--text);
+  }
+}
+
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

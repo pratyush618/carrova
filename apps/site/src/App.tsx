@@ -3,12 +3,14 @@ import { Apps } from './sections/Apps';
 import { Download } from './sections/Download';
 import { Footer } from './sections/Footer';
 import { Hero } from './sections/Hero';
+import { Nearby } from './sections/Nearby';
 import { Nav } from './sections/Nav';
 import { Phone } from './sections/Phone';
 import { Privacy } from './sections/Privacy';
 import { Safety } from './sections/Safety';
 import { Statement } from './sections/Statement';
 import { Steps } from './sections/Steps';
+import { TryIt } from './sections/TryIt';
 
 export function App() {
   const release = useRelease();
@@ -22,7 +24,9 @@ export function App() {
         <Hero release={release} />
         <Statement />
         <Steps />
+        <TryIt />
         <Safety />
+        <Nearby />
         <Privacy />
         <Apps />
         <Phone />

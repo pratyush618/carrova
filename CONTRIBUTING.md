@@ -30,7 +30,8 @@ recipes, so green locally means green in CI.
 | `just build` / `just test` | workspace build / unit + integration tests |
 | `just lint` | `fmt --check`, clippy `-D warnings`, rustdoc `-D warnings` |
 | `just fixtures [app]` | recipe fixture tests |
-| `just ui-lint` / `just ui-test` | eslint + prettier + tsc / Vitest |
+| `just ui-lint` / `just ui-test` | desktop front-end: eslint + prettier + tsc / Vitest |
+| `just site-check` / `just site-build` | website: lint + tsc + Vitest / static build |
 | `just e2e-ui` | Playwright flows against the production front-end build |
 | `just e2e` / `just e2e --lan` | archive and LAN migrations between Ubuntu containers |
 | `just ci` | everything CI runs: **run before opening a PR** |
