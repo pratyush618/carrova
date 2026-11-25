@@ -72,21 +72,25 @@ export function setThemePref(next: ThemePref, from?: { readonly x: number; reado
     Math.max(from.x, window.innerWidth - from.x),
     Math.max(from.y, window.innerHeight - from.y),
   );
-  void change.ready.then(() => {
-    document.documentElement.animate(
-      {
-        clipPath: [
-          `circle(0px at ${String(from.x)}px ${String(from.y)}px)`,
-          `circle(${String(radius)}px at ${String(from.x)}px ${String(from.y)}px)`,
-        ],
-      },
-      {
-        duration: 650,
-        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-        pseudoElement: '::view-transition-new(root)',
-      },
-    );
-  });
+  // A skipped transition rejects `ready`; the theme is already applied by then.
+  change.ready.then(
+    () => {
+      document.documentElement.animate(
+        {
+          clipPath: [
+            `circle(0px at ${String(from.x)}px ${String(from.y)}px)`,
+            `circle(${String(radius)}px at ${String(from.x)}px ${String(from.y)}px)`,
+          ],
+        },
+        {
+          duration: 650,
+          easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          pseudoElement: '::view-transition-new(root)',
+        },
+      );
+    },
+    () => undefined,
+  );
 }
 
 function subscribe(l: () => void) {
