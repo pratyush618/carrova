@@ -1275,6 +1275,13 @@ main > .hero {
   }
 }
 
+/* At the narrowest, the logo alone names the site so Download still fits. */
+@media (max-width: 400px) {
+  .nav .brand-name {
+    display: none;
+  }
+}
+
 /* ---------- Live demos ---------- */
 
 .live-frame {

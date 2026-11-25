@@ -6,7 +6,7 @@ export function Nav() {
       <div className="nav-inner">
         <a className="brand" href="#top" aria-label="Carrova, back to top">
           <img src="./icon.svg" alt="" width="22" height="22" />
-          Carrova
+          <span className="brand-name">Carrova</span>
         </a>
         <nav aria-label="Sections">
           <a href="#how">How it works</a>
