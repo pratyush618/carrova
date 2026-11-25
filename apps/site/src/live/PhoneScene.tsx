@@ -182,14 +182,14 @@ export function PhoneScene() {
 
   // A heads-up notification slides away by itself, as Android's do.
   useEffect(() => {
-    if (headsUp === null || note) return undefined;
+    if (headsUp === null) return undefined;
     const timer = window.setTimeout(() => {
       setHeadsUp(null);
     }, 3200);
     return () => {
       window.clearTimeout(timer);
     };
-  }, [headsUp, note]);
+  }, [headsUp]);
 
   useEffect(() => {
     if (!toast) return undefined;
