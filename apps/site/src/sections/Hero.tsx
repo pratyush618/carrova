@@ -42,7 +42,7 @@ export function Hero({ release }: { readonly release: Release | undefined }) {
             <Shot
               name="review"
               eager
-              sizes="(min-width: 1360px) 980px, calc(100vw - 32px)"
+              sizes="(max-width: 760px) calc(100vw - 32px), min(998px, calc((100vw - 32px) * 0.78))"
               alt="The new computer's plan before anything moves: 412 new files, 3 replaced and backed up first, 28 already the same, enough space, and an Approve and move button."
             />
           </div>
