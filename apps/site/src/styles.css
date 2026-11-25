@@ -654,18 +654,28 @@ main > .hero {
 
 /* ---------- Steps (sticky stage) ---------- */
 
+/* Closer to the statement, so the title and first step share a screen. */
+.steps {
+  padding-block-start: calc(var(--section-gap) * 0.6);
+}
+
 .steps-grid {
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
   gap: clamp(40px, 6vw, 96px);
-  margin-block-start: 48px;
+  margin-block-start: 32px;
+}
+
+/* The first step sits up against the title, level with the stage, so both open in one view. */
+.steps-text li:first-child {
+  justify-content: start;
 }
 
 .steps-text li {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-block-size: 64vh;
+  min-block-size: 56vh;
   color: var(--text-3);
   transition: color 400ms var(--ease-out);
 }
@@ -701,7 +711,7 @@ main > .hero {
   position: sticky;
   top: calc(50vh - min(21vw, 260px));
   align-self: start;
-  margin-block: 18vh;
+  margin-block: 0 18vh;
 }
 
 .steps-stage .window {
